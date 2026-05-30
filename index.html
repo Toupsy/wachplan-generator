@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DLRG Wachplangenerator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Spline+Sans+Mono:wght@400;500;600&family=Spline+Sans:wght@400;500;600;700&display=swap');
+  :root {
+    --navy:#0a1929;--navy-2:#0f2438;--deep:#061320;--sea:#0d7ca8;--sea-bright:#18a8d8;
+    --foam:#7fd4e8;--sand:#f2d9a8;--coral:#ff5a4d;--coral-deep:#d8392c;--warn:#ffb347;
+    --green:#3ec98a;--green-deep:#1d8a5a;--line:rgba(127,212,232,0.14);
+    --line-strong:rgba(127,212,232,0.28);--text:#e8f4f8;--text-dim:#8ba9b8;--paper:#11293d;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Spline Sans',sans-serif;background:radial-gradient(ellipse 80% 60% at 20% -10%,rgba(13,124,168,.22),transparent 60%),radial-gradient(ellipse 70% 50% at 90% 0%,rgba(255,90,77,.1),transparent 55%),linear-gradient(180deg,var(--deep) 0%,var(--navy) 40%,var(--deep) 100%);background-attachment:fixed;color:var(--text);min-height:100vh;line-height:1.5;-webkit-font-smoothing:antialiased}
+  body::before{content:'';position:fixed;inset:0;background-image:repeating-linear-gradient(0deg,transparent,transparent 38px,rgba(127,212,232,.018) 38px,rgba(127,212,232,.018) 39px);pointer-events:none;z-index:0}
+  .wrap{position:relative;z-index:1;max-width:1320px;margin:0 auto;padding:0 20px 80px}
+  header{padding:38px 0 28px;border-bottom:1px solid var(--line);margin-bottom:32px}
+  .badge{display:inline-flex;align-items:center;gap:8px;font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--foam);background:rgba(24,168,216,.08);border:1px solid var(--line-strong);padding:6px 13px;border-radius:100px;margin-bottom:18px}
+  .badge .dot{width:7px;height:7px;border-radius:50%;background:var(--coral);box-shadow:0 0 10px var(--coral)}
+  h1{font-family:'Archivo Black',sans-serif;font-size:clamp(2.1rem,5.5vw,3.6rem);line-height:.95;letter-spacing:-.02em;text-transform:uppercase}
+  h1 .accent{color:var(--sea-bright)}
+  .subtitle{color:var(--text-dim);margin-top:12px;font-size:.98rem;max-width:640px}
+  .layout{display:grid;grid-template-columns:380px 1fr;gap:28px;align-items:start}
+  @media(max-width:1040px){.layout{grid-template-columns:1fr}}
+  .panel{background:linear-gradient(165deg,var(--navy-2),var(--paper));border:1px solid var(--line);border-radius:16px;padding:24px;position:relative;overflow:hidden}
+  .panel::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--sea),var(--foam),transparent);opacity:.5}
+  .sidebar{position:sticky;top:20px;max-height:calc(100vh - 40px);overflow-y:auto}
+  .sidebar::-webkit-scrollbar{width:8px}.sidebar::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:4px}
+  .section-label{font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--foam);margin-bottom:16px;display:flex;align-items:center;gap:10px}
+  .section-label::before{content:'';width:18px;height:2px;background:var(--sea-bright)}
+  .person-edit{display:grid;grid-template-columns:22px 1fr 108px 28px;gap:7px;align-items:center;margin-bottom:7px}
+  .person-edit .pnr{font-family:'Spline Sans Mono',monospace;font-size:.72rem;color:var(--foam);text-align:center;background:rgba(127,212,232,.08);border-radius:5px;padding:6px 0;cursor:default}
+  .person-edit input[type=text]{background:var(--deep);border:1px solid var(--line-strong);border-radius:8px;padding:9px 11px;color:var(--text);font-family:'Spline Sans',sans-serif;font-size:.85rem;width:100%}
+  .person-edit input:focus{outline:none;border-color:var(--sea-bright);box-shadow:0 0 0 3px rgba(24,168,216,.15)}
+  .person-edit select{background:var(--deep);border:1px solid var(--line-strong);border-radius:8px;padding:9px 6px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.74rem;cursor:pointer}
+  .person-edit select:focus{outline:none;border-color:var(--sea-bright)}
+  .mini-btn{background:transparent;border:1px solid var(--line-strong);color:var(--text-dim);border-radius:6px;width:28px;height:36px;cursor:pointer;font-size:1.1rem;line-height:1;transition:all .15s}
+  .mini-btn:hover{border-color:var(--coral);color:var(--coral)}
+  .add-btn{width:100%;background:transparent;border:1px dashed var(--line-strong);color:var(--foam);border-radius:9px;padding:10px;cursor:pointer;font-family:'Spline Sans Mono',monospace;font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;transition:all .15s;margin-top:6px}
+  .add-btn:hover{background:rgba(24,168,216,.08);border-color:var(--sea-bright)}
+  .quick-add{display:flex;gap:6px;margin-top:8px}
+  .quick-add button{flex:1;font-family:'Spline Sans Mono',monospace;font-size:.66rem;letter-spacing:.05em;background:var(--deep);border:1px solid var(--line);color:var(--text-dim);border-radius:7px;padding:7px 4px;cursor:pointer;transition:all .15s;text-transform:uppercase}
+  .quick-add button:hover{border-color:var(--sea-bright);color:var(--foam)}
+  .legend{display:flex;flex-wrap:wrap;gap:12px;margin:14px 0 4px;font-size:.72rem;color:var(--text-dim)}
+  .legend span{display:flex;align-items:center;gap:5px}
+  .legend .role-dot{width:8px;height:8px;border-radius:50%}
+  .rd-f{background:var(--warn)}.rd-b{background:var(--sea-bright)}.rd-e{background:var(--green)}.rd-u{background:var(--text-dim)}
+  .tower-row{display:grid;grid-template-columns:1fr auto auto auto 28px;gap:7px;align-items:center;background:var(--deep);border:1px solid var(--line);border-radius:9px;padding:8px 9px;margin-bottom:7px;font-size:.85rem}
+  .boat-row{grid-template-columns:minmax(70px,1fr) auto minmax(120px,1.2fr) 28px !important;border-color:rgba(24,168,216,.3) !important;background:linear-gradient(180deg,var(--deep),rgba(24,168,216,.04)) !important}
+  .boat-row select{background:var(--navy-2);border:1px solid var(--line-strong);border-radius:7px;padding:6px 8px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.74rem;cursor:pointer;width:100%}
+  .boat-row select:focus{outline:none;border-color:var(--sea-bright)}
+  .tower-row input[type=text]{background:transparent;border:none;color:var(--text);font-family:'Spline Sans',sans-serif;font-size:.85rem;width:100%}
+  .tower-row input[type=text]:focus{outline:none}
+  .code-input{display:flex;align-items:center;gap:4px;background:rgba(255,179,71,.08);border:1px solid rgba(255,179,71,.3);border-radius:7px;padding:3px 6px}
+  .code-input label{font-family:'Spline Sans Mono',monospace;font-size:.58rem;color:var(--warn);letter-spacing:.06em}
+  .code-input input{width:42px;background:var(--deep);border:1px solid var(--line);border-radius:5px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.74rem;text-align:center;padding:4px 2px}
+  .code-input input:focus{outline:none;border-color:var(--warn)}
+  .prio-input{display:flex;align-items:center;gap:5px;background:rgba(127,212,232,.07);border:1px solid var(--line-strong);border-radius:7px;padding:3px 6px}
+  .prio-input label{font-family:'Spline Sans Mono',monospace;font-size:.6rem;color:var(--foam);letter-spacing:.06em}
+  .prio-input input{width:34px;background:var(--deep);border:1px solid var(--line);border-radius:5px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.78rem;text-align:center;padding:4px 2px}
+  .prio-input input:focus{outline:none;border-color:var(--sea-bright)}
+  .main-cfg{background:var(--deep);border:1px solid rgba(255,179,71,.3);border-radius:9px;padding:11px 13px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .main-cfg .mc-label{font-size:.84rem}
+  .main-cfg .mc-label .sub{display:block;font-size:.7rem;color:var(--text-dim);margin-top:2px}
+  .main-cfg input{width:52px;background:var(--navy-2);border:1px solid var(--line-strong);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.95rem;text-align:center;padding:8px 4px}
+  .main-cfg input:focus{outline:none;border-color:var(--warn)}
+  .start-date-cfg{background:var(--deep);border:1px solid rgba(127,212,232,.22);border-radius:9px;padding:11px 13px;margin-bottom:10px}
+  .start-date-cfg .sd-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .start-date-cfg .sd-label{font-size:.84rem}
+  .start-date-cfg .sd-label .sub{display:block;font-size:.7rem;color:var(--text-dim);margin-top:2px}
+  .start-date-cfg input[type=date]{background:var(--navy-2);border:1px solid var(--line-strong);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.82rem;padding:7px 9px;color-scheme:dark}
+  .gen-row{display:grid;grid-template-columns:1fr auto;gap:10px;margin-top:20px}
+  .seed-badge{font-family:'Spline Sans Mono',monospace;font-size:.65rem;color:rgba(160,120,255,.7);border:1px solid rgba(160,120,255,.25);border-radius:6px;padding:2px 8px;letter-spacing:.05em}
+  button.generate{width:100%;margin-top:20px;background:linear-gradient(135deg,var(--coral),var(--coral-deep));color:#fff;border:none;border-radius:11px;padding:15px;font-family:'Spline Sans',sans-serif;font-size:1rem;font-weight:700;letter-spacing:.02em;cursor:pointer;text-transform:uppercase;transition:transform .12s,box-shadow .2s;box-shadow:0 8px 24px rgba(216,57,44,.3)}
+  button.generate:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(216,57,44,.45)}
+  button.randomize{background:linear-gradient(135deg,#7b3fc4,#5a2d91);color:#fff;border:none;border-radius:11px;padding:15px 18px;font-size:1.4rem;cursor:pointer;transition:transform .12s,box-shadow .2s;box-shadow:0 8px 24px rgba(90,45,145,.35)}
+  button.randomize:hover{transform:translateY(-2px) rotate(20deg);box-shadow:0 12px 28px rgba(90,45,145,.5)}
+  button.randomize:active{transform:translateY(0) rotate(180deg)}
+  .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:rgba(30,40,60,.97);color:#e8eaf6;border:1px solid rgba(127,212,232,.3);border-radius:10px;padding:10px 20px;font-size:.85rem;z-index:9999;max-width:90vw;text-align:center;animation:toastIn .3s ease}
+  @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(12px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+  .info-box{background:rgba(24,168,216,.07);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:.78rem;color:var(--text-dim);margin-bottom:14px}
+  .info-box b{color:var(--foam)}
+  .empty-state{text-align:center;padding:80px 20px;color:var(--text-dim)}
+  .empty-state .big{font-family:'Archivo Black',sans-serif;font-size:3rem;color:var(--line-strong);margin-bottom:12px}
+  .out-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+  .day-tabs{display:flex;gap:6px;flex-wrap:wrap}
+  .day-tab{font-family:'Spline Sans Mono',monospace;font-size:.78rem;background:var(--navy-2);border:1px solid var(--line);color:var(--text-dim);padding:9px 14px;border-radius:9px;cursor:pointer;transition:all .15s;position:relative}
+  .day-tab:hover{color:var(--text);border-color:var(--line-strong)}
+  .day-tab.active{background:var(--sea);border-color:var(--sea);color:#fff;box-shadow:0 4px 14px rgba(13,124,168,.4)}
+  .day-tab .flag{position:absolute;top:-5px;right:-5px;font-size:.7rem}
+  .day-controls{background:var(--deep);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:18px}
+  .dc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+  .dc-title{font-weight:700;font-size:1.05rem}
+  .dc-sub{font-size:.74rem;color:var(--text-dim);font-family:'Spline Sans Mono',monospace}
+  .date-pick{display:flex;flex-direction:column;gap:4px;align-items:flex-end}
+  .date-pick label{font-family:'Spline Sans Mono',monospace;font-size:.64rem;color:var(--warn);letter-spacing:.06em}
+  .date-pick input{background:var(--navy-2);border:1px solid rgba(255,179,71,.35);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.82rem;padding:6px 9px;color-scheme:dark}
+  .dc-section{margin-top:12px}
+  .dc-section .lbl{font-size:.72rem;color:var(--foam);font-family:'Spline Sans Mono',monospace;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px}
+  .toggle-grid{display:flex;flex-wrap:wrap;gap:6px}
+  .toggle-chip{display:inline-flex;align-items:center;gap:6px;background:var(--navy-2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:.78rem;transition:all .15s;user-select:none}
+  .toggle-chip:hover{border-color:var(--line-strong)}
+  .toggle-chip .role-dot{width:8px;height:8px;border-radius:50%}
+  .toggle-chip.sick{background:rgba(216,57,44,.13);border-color:var(--coral-deep)}
+  .toggle-chip.sick .nm{text-decoration:line-through;color:var(--text-dim)}
+  .toggle-chip.closed-t{background:rgba(216,57,44,.13);border-color:var(--coral-deep)}
+  .toggle-chip .x{font-family:'Spline Sans Mono',monospace;font-size:.6rem;color:var(--coral)}
+  .towers-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+  .tower-card{background:linear-gradient(160deg,var(--navy-2),var(--paper));border:1px solid var(--line);border-radius:13px;padding:16px;position:relative;overflow:hidden}
+  .tower-card.boot{border-color:rgba(24,168,216,.4)}
+  .tower-card.boot::before{content:'';position:absolute;top:0;left:0;bottom:0;width:3px;background:linear-gradient(180deg,var(--sea-bright),var(--foam))}
+  .tower-card.main{border-color:rgba(255,179,71,.35)}
+  .tower-card.main::before{content:'';position:absolute;top:0;left:0;bottom:0;width:3px;background:linear-gradient(180deg,var(--warn),var(--coral))}
+  .tower-card.closed{opacity:.5;border-style:dashed}
+  .tc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .tc-name{font-weight:700;font-size:1.02rem;letter-spacing:-.01em}
+  .tc-type{font-family:'Spline Sans Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:6px}
+  .tc-type.boot{background:rgba(24,168,216,.15);color:var(--foam)}
+  .tc-type.normal{background:rgba(127,212,232,.08);color:var(--text-dim)}
+  .tc-type.main{background:rgba(255,179,71,.15);color:var(--warn)}
+  .tc-type.closed{background:rgba(216,57,44,.15);color:var(--coral)}
+  .occupant{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--line);font-size:.88rem}
+  .occupant:last-child{border-bottom:none}
+  .occupant .role-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+  .occupant .o-role{margin-left:auto;font-family:'Spline Sans Mono',monospace;font-size:.62rem;color:var(--text-dim);letter-spacing:.04em;text-transform:uppercase}
+  .warn-pair{color:var(--coral);font-size:.72rem;margin-top:8px;display:flex;align-items:center;gap:5px}
+  .hq-divider{font-family:'Spline Sans Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin:10px 0 2px;padding-top:8px;border-top:1px dashed var(--line-strong)}
+  .boat-link{font-family:'Spline Sans Mono',monospace;font-size:.66rem;letter-spacing:.05em;color:var(--foam);margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+  .stats-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:12px;margin-bottom:20px}
+  .stat{background:var(--deep);border:1px solid var(--line);border-radius:11px;padding:14px 16px}
+  .stat .num{font-family:'Archivo Black',sans-serif;font-size:1.6rem;line-height:1;color:var(--sea-bright)}
+  .stat .lbl{font-size:.72rem;color:var(--text-dim);margin-top:6px;letter-spacing:.03em}
+  .notice{border-radius:10px;padding:13px 16px;margin-bottom:14px;font-size:.85rem;display:flex;gap:10px;align-items:flex-start}
+  .notice.warn-n{background:rgba(255,179,71,.1);border:1px solid rgba(255,179,71,.3);color:var(--sand)}
+  .notice.bad{background:rgba(216,57,44,.12);border:1px solid rgba(216,57,44,.35);color:#ffb5ae}
+  .export-row{display:flex;gap:10px}
+  .ghost-btn{background:transparent;border:1px solid var(--line-strong);color:var(--foam);border-radius:9px;padding:9px 16px;cursor:pointer;font-size:.82rem;font-weight:500;transition:all .15s}
+  .ghost-btn:hover{background:rgba(24,168,216,.1);border-color:var(--sea-bright)}
+  .matrix-wrap{overflow-x:auto;margin-top:8px}
+  table.matrix{border-collapse:collapse;font-size:.7rem;font-family:'Spline Sans Mono',monospace}
+  table.matrix td,table.matrix th{padding:5px 7px;text-align:center;border:1px solid var(--line);white-space:nowrap}
+  table.matrix th{color:var(--foam);font-weight:500}
+  table.matrix th.rowh{text-align:right}
+  table.matrix td.zero{color:rgba(139,169,184,.3)}
+  table.matrix td.one{color:var(--green)}
+  table.matrix td.multi{color:var(--coral);font-weight:600}
+  table.matrix td.self{background:var(--deep)}
+  @media print{.sidebar,.export-row,.day-controls{display:none !important}.day-panel{display:block !important;page-break-after:always}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="badge"><span class="dot"></span> DLRG · Wasserrettungsdienst</div>
+    <h1>Wachplan<span class="accent">·</span>Generator</h1>
+    <p class="subtitle">Tagesweiser Aufbau über 6 Tage. Jeder Tag kennt die Historie der Vortage für faire Rotation – hat aber eigene Krank- und Turm-Status. Änderst du einen Tag, werden alle folgenden neu berechnet.</p>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="panel">
+        <div class="section-label">Wachgänger</div>
+        <div class="info-box">Namen eintippen, Rolle wählen. <b>F</b>ührung · <b>B</b>ootsführer · <b>E</b>rfahren · <b>U</b>nerfahren.</div>
+        <div class="legend">
+          <span><i class="role-dot rd-f"></i>Führung</span>
+          <span><i class="role-dot rd-b"></i>Bootsf.</span>
+          <span><i class="role-dot rd-e"></i>Erfahren</span>
+          <span><i class="role-dot rd-u"></i>Unerfahren</span>
+        </div>
+        <div id="people-edit" style="margin-top:14px;"></div>
+        <button class="add-btn" id="add-person">+ Wachgänger hinzufügen</button>
+        <div class="quick-add">
+          <button data-role="F">+ Führung</button>
+          <button data-role="B">+ Bootsf.</button>
+          <button data-role="E">+ Erfahren</button>
+          <button data-role="U">+ Unerf.</button>
+        </div>
+        <div class="section-label" style="margin-top:26px;">Türme &amp; Priorität</div>
+        <div class="info-box">Jeder Turm hat eine <b>Priorität</b> (Zahl frei wählbar). Bei Personalmangel schließen Türme mit der <b>niedrigsten</b> Priorität zuerst – unabhängig von der Listen-Reihenfolge. Einzelne Tage kannst du rechts manuell schließen.</div>
+        <div class="main-cfg">
+          <div class="mc-label">⛱ Hauptwache neben Führung
+            <span class="sub">zusätzliche Wachgänger (k) in der Rotation</span>
+          </div>
+          <input type="number" id="main-k" min="0" value="2">
+        </div>
+        <div id="tower-cfg"></div>
+        <button class="add-btn" id="add-tower">+ Turm hinzufügen</button>
+        <div class="section-label" style="margin-top:26px;">Boote</div>
+        <div class="info-box">Boote werden <b>einem Turm zugeordnet</b>. Jedes Boot wird mit <b>1 Bootsführer</b> besetzt; der Bootsführer ist <b>nicht</b> Teil der Turmbesatzung. Bei fehlendem Bootsführer bleibt das Boot zu, der Turm offen.</div>
+        <div id="boat-cfg"></div>
+        <button class="add-btn" id="add-boat">+ Boot hinzufügen</button>
+        <div class="section-label" style="margin-top:18px;">Datum</div>
+        <div class="start-date-cfg">
+          <div class="sd-row">
+            <div class="sd-label">📅 Startdatum (Tag 1)
+              <span class="sub">Folgetage werden automatisch berechnet</span>
+            </div>
+            <input type="date" id="start-date" value="">
+          </div>
+        </div>
+        <div class="gen-row">
+          <button class="generate" id="generate">⚓ Plan generieren</button>
+          <button class="randomize" id="randomize" title="Zufälligen Seed würfeln">🎲</button>
+        </div>
+        <div style="text-align:center;margin-top:5px;min-height:18px">
+          <span id="seed-display" class="seed-badge" style="display:none"></span>
+        </div>
+      </div>
+    </aside>
+    <main class="panel" id="output-panel">
+      <div class="empty-state">
+        <div class="big">⚓</div>
+        <p>Wachgänger benennen, Türme festlegen, dann <strong style="color:var(--foam)">Plan generieren</strong>.</p>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+const DAYS = 6;
+const DAYNAMES = ['Tag 1','Tag 2','Tag 3','Tag 4','Tag 5','Tag 6'];
+const ROLE = { F:'Führung', B:'Bootsführer', E:'Erfahren', U:'Unerfahren' };
+
+let uid = 0;
+let randomSeed = 0;
+function seededRand(seed,n){ let s=(seed*1664525+n*22695477+1013904223)&0x7fffffff; return (s%100000)/100000; }
+function updateSeedDisplay(){
+  const el=document.getElementById('seed-display');
+  if(!el) return;
+  el.style.display = randomSeed ? '' : 'none';
+  if(randomSeed) el.textContent='🎲 Seed '+randomSeed;
+}
+
+let people=[], towers=[], boats=[], mainK=2, dayState=[], lastResult=null, activeDay=0, startDate='';
+
+function freshDayState(){ return Array.from({length:DAYS},()=>({sick:new Set(),closed:new Set(),closedBoats:new Set()})); }
+
+function computeDayDates(){
+  const r=Array(DAYS).fill('');
+  if(!startDate) return r;
+  const b=new Date(startDate+'T00:00:00');
+  if(isNaN(b.getTime())) return r;
+  for(let d=0;d<DAYS;d++){ const dt=new Date(b.getTime()+d*86400000); r[d]=dt.toISOString().slice(0,10); }
+  return r;
+}
+function dayLabel(d){
+  const dates=computeDayDates();
+  if(!dates[d]) return DAYNAMES[d];
+  return new Date(dates[d]+'T00:00:00').toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit'});
+}
+
+function seed(){
+  const add=(name,role)=>people.push({id:++uid,name,role});
+  add('Anna','F'); add('Ben','F');
+  add('Clara','B'); add('David','B');
+  add('Emil','E'); add('Frieda','E'); add('Greta','E'); add('Hugo','E'); add('Ida','E'); add('Jonas','E');
+  add('Klara','U'); add('Lena','U'); add('Mara','U'); add('Nils','U'); add('Ole','U'); add('Pia','U');
+  const tN={id:++uid,name:'Turm Nord',prio:3,code:''};
+  const tS={id:++uid,name:'Turm Süd',prio:2,code:''};
+  const tW={id:++uid,name:'Turm West',prio:1,code:''};
+  towers.push(tN,tS,tW);
+  boats.push({id:++uid,name:'Boot 1',code:'',towerId:tN.id,prio:3});
+  dayState=freshDayState();
+  autoCodes();
+}
+
+const getP  = id => people.find(p=>p.id===id);
+const getT  = id => towers.find(t=>t.id===id);
+const getBoat = id => boats.find(b=>b.id===id);
+// Returns 1-based index; null if not found (avoids Excel writing "0")
+function personNr(id){ const i=people.findIndex(p=>p.id===id); return i<0?null:i+1; }
+
+function autoCodes(){
+  const tCodes=['9/12','9/13','9/14','9/15','9/16','9/17','9/18','9/1','9/2'];
+  const usedT=new Set(towers.map(t=>t.code).filter(Boolean));
+  towers.forEach(t=>{ if(!t.code){ for(const c of tCodes){ if(!usedT.has(c)){t.code=c;usedT.add(c);break;} } } });
+  const usedB=new Set(boats.map(b=>b.code).filter(Boolean));
+  boats.forEach(b=>{ if(!b.code){ for(let n=1;n<99;n++){ const c='78/'+n; if(!usedB.has(c)){b.code=c;usedB.add(c);break;} } } });
+}
+
+function renderPeople(){
+  const c=document.getElementById('people-edit'); c.innerHTML='';
+  people.forEach((p,i)=>{
+    const row=document.createElement('div'); row.className='person-edit';
+    row.innerHTML=`
+      <span class="pnr" title="Nummer in der Besetzungsliste">${i+1}</span>
+      <input type="text" value="${escapeHtml(p.name)}" data-id="${p.id}" class="pname" placeholder="Name">
+      <select data-id="${p.id}" class="prole">
+        <option value="F" ${p.role==='F'?'selected':''}>Führung</option>
+        <option value="B" ${p.role==='B'?'selected':''}>Bootsführer</option>
+        <option value="E" ${p.role==='E'?'selected':''}>Erfahren</option>
+        <option value="U" ${p.role==='U'?'selected':''}>Unerfahren</option>
+      </select>
+      <button class="mini-btn del-p" data-id="${p.id}">×</button>`;
+    c.appendChild(row);
+  });
+  c.querySelectorAll('.pname').forEach(i=>i.oninput=e=>{ getP(+e.target.dataset.id).name=e.target.value; });
+  c.querySelectorAll('.prole').forEach(s=>s.onchange=e=>{ getP(+e.target.dataset.id).role=e.target.value; renderPeople(); });
+  c.querySelectorAll('.del-p').forEach(b=>b.onclick=e=>{
+    const id=+e.target.dataset.id;
+    people=people.filter(p=>p.id!==id);
+    dayState.forEach(d=>d.sick.delete(id));
+    renderPeople();
+  });
+}
+
+function renderTowerCfg(){
+  autoCodes();
+  const c=document.getElementById('tower-cfg'); c.innerHTML='';
+  towers.forEach(t=>{
+    const row=document.createElement('div'); row.className='tower-row';
+    row.innerHTML=`
+      <input type="text" value="${escapeHtml(t.name)}" data-id="${t.id}" class="tname">
+      <span class="code-input" title="Stationscode"><label>CODE</label><input type="text" value="${escapeHtml(t.code||'')}" data-id="${t.id}" class="tcode" placeholder="9/xx"></span>
+      <span class="prio-input"><label>PRIO</label><input type="number" min="1" value="${t.prio}" data-id="${t.id}" class="tprio"></span>
+      <button class="mini-btn del-t" data-id="${t.id}">×</button>`;
+    c.appendChild(row);
+  });
+  c.querySelectorAll('.tname').forEach(i=>i.oninput=e=>{ getT(+e.target.dataset.id).name=e.target.value; renderBoatCfg(); });
+  c.querySelectorAll('.tcode').forEach(i=>i.oninput=e=>{ getT(+e.target.dataset.id).code=e.target.value.trim(); });
+  c.querySelectorAll('.tprio').forEach(i=>i.oninput=e=>{ getT(+e.target.dataset.id).prio=Math.max(1,+e.target.value||1); });
+  c.querySelectorAll('.del-t').forEach(b=>b.onclick=e=>{
+    const id=+e.target.dataset.id;
+    towers=towers.filter(t=>t.id!==id);
+    boats.forEach(bt=>{ if(bt.towerId===id) bt.towerId=null; });
+    dayState.forEach(d=>d.closed.delete(id));
+    renderTowerCfg(); renderBoatCfg();
+  });
+}
+
+function renderBoatCfg(){
+  autoCodes();
+  const c=document.getElementById('boat-cfg'); if(!c) return;
+  c.innerHTML='';
+  boats.forEach(b=>{
+    const row=document.createElement('div'); row.className='tower-row boat-row';
+    const towerOpts=['<option value="">— frei —</option>'].concat(
+      towers.map(t=>`<option value="${t.id}" ${b.towerId===t.id?'selected':''}>→ ${escapeHtml(t.name)} (${escapeHtml(t.code||'?')})</option>`)
+    ).join('');
+    row.innerHTML=`
+      <input type="text" value="${escapeHtml(b.name)}" data-id="${b.id}" class="bname">
+      <span class="code-input"><label>CODE</label><input type="text" value="${escapeHtml(b.code||'')}" data-id="${b.id}" class="bcode" placeholder="78/x"></span>
+      <select class="bassign" data-id="${b.id}">${towerOpts}</select>
+      <button class="mini-btn del-b" data-id="${b.id}">×</button>`;
+    c.appendChild(row);
+  });
+  c.querySelectorAll('.bname').forEach(i=>i.oninput=e=>{ getBoat(+e.target.dataset.id).name=e.target.value; });
+  c.querySelectorAll('.bcode').forEach(i=>i.oninput=e=>{ getBoat(+e.target.dataset.id).code=e.target.value.trim(); });
+  c.querySelectorAll('.bassign').forEach(s=>s.onchange=e=>{ getBoat(+e.target.dataset.id).towerId=+e.target.value||null; });
+  c.querySelectorAll('.del-b').forEach(b=>b.onclick=e=>{
+    const id=+e.target.dataset.id;
+    boats=boats.filter(x=>x.id!==id);
+    dayState.forEach(d=>d.closedBoats.delete(id));
+    renderBoatCfg();
+  });
+}
+
+const MAIN_ID = 0;
+
+function generate(){
+  autoCodes();
+  const pairCount={}, stats={};
+  const ensure=id=>{ if(!stats[id]) stats[id]={total:0,towerVisits:{},boatVisits:{}}; return stats[id]; };
+  const pairKey=(a,b)=>[a,b].sort((x,y)=>x-y).join('|');
+  const schedule=[];
+  const k=Math.max(0,mainK|0);
+
+  for(let d=0;d<DAYS;d++){
+    const ds=dayState[d];
+    const isSick=id=>ds.sick.has(id);
+    const availF=people.filter(p=>p.role==='F'&&!isSick(p.id));
+    const availB=people.filter(p=>p.role==='B'&&!isSick(p.id));
+    const availE=people.filter(p=>p.role==='E'&&!isSick(p.id));
+    const availU=people.filter(p=>p.role==='U'&&!isSick(p.id));
+    const sickToday=people.filter(p=>isSick(p.id));
+
+    // Pre-estimate BF split: approximate open towers using only E+U (no surplus BF yet)
+    // This breaks the circular dependency between surplusBF and openTowers.
+    const preCandTowers=towers.filter(t=>!ds.closed.has(t.id)).slice().sort((a,b)=>(b.prio-a.prio)||(a.id-b.id));
+    let usedGpre=k; const tempOpen=[];
+    for(const t of preCandTowers){ if(usedGpre+2<=availE.length+availU.length){tempOpen.push(t);usedGpre+=2;} }
+    const boatsPre=boats.filter(b=>!ds.closedBoats.has(b.id)&&b.towerId&&tempOpen.some(t=>t.id===b.towerId));
+    const neededBF=Math.min(boatsPre.length,availB.length);
+    const activeBF=availB.slice(0,neededBF);
+    const surplusBF=availB.slice(neededBF);
+
+    // Actual open/closed decision using full guard pool (E + U + surplus BF)
+    const candidateTowers=towers.filter(t=>!ds.closed.has(t.id)).slice().sort((a,b)=>(b.prio-a.prio)||(a.id-b.id));
+    let openTowers=[], usedG=k;
+    let poolE=[...availE], poolU=[...availU], poolSBF=[...surplusBF];
+    let poolB=[...activeBF];
+    const getGuardPool=()=>[...poolE,...poolU,...poolSBF];
+    const removeAll=p=>{ poolE=poolE.filter(x=>x.id!==p.id); poolU=poolU.filter(x=>x.id!==p.id); poolSBF=poolSBF.filter(x=>x.id!==p.id); };
+
+    for(const t of candidateTowers){
+      if(usedG+2<=getGuardPool().length){ openTowers.push(t); usedG+=2; }
+    }
+    const personnelClosed=candidateTowers.filter(t=>!openTowers.includes(t)).sort((a,b)=>(a.prio-b.prio)||(a.id-b.id));
+    const manualClosed=towers.filter(t=>ds.closed.has(t.id));
+    const dayAssign=[];
+
+    function bestPair(t,requireMix){
+      const cand=getGuardPool();
+      let best=null,bestScore=Infinity;
+      for(let i=0;i<cand.length;i++) for(let j=i+1;j<cand.length;j++){
+        const A=cand[i],B=cand[j],roles=A.role+B.role;
+        let score=0;
+        if(requireMix){ if(roles==='UU') score+=1000; else if(roles==='EE') score+=40; }
+        score+=(pairCount[pairKey(A.id,B.id)]||0)*120;
+        const vA=ensure(A.id).towerVisits[t.id]||0, vB=ensure(B.id).towerVisits[t.id]||0;
+        score+=vA>=2?300:vA*30;
+        score+=vB>=2?300:vB*30;
+        score+=(stats[A.id].total+stats[B.id].total)*5;
+        score+=d===0&&randomSeed!==0 ? seededRand(randomSeed,A.id*31+B.id*97+t.id*13)*30 : (i*7+j*13+d*17)%11;
+        if(score<bestScore){bestScore=score;best=[A,B];}
+      }
+      return best;
+    }
+    function commitPerson(p,t){ const s=ensure(p.id); s.total++; s.towerVisits[t.id]=(s.towerVisits[t.id]||0)+1; }
+
+    // 1) HAUPTWACHE
+    const mainPseudo={id:MAIN_ID};
+    const mainGuards=[];
+    while(mainGuards.length<k&&getGuardPool().length>0){
+      const remaining=k-mainGuards.length;
+      if(remaining>=2&&getGuardPool().length>=2){
+        const pair=bestPair(mainPseudo,false);
+        if(!pair) break;
+        const [A,B]=pair;
+        removeAll(A); removeAll(B);
+        pairCount[pairKey(A.id,B.id)]=(pairCount[pairKey(A.id,B.id)]||0)+1;
+        commitPerson(A,mainPseudo); commitPerson(B,mainPseudo);
+        mainGuards.push(A,B);
+      } else {
+        const cand=getGuardPool().sort((a,b)=>(ensure(a.id).total-ensure(b.id).total)||((ensure(a.id).towerVisits[MAIN_ID]||0)-(ensure(b.id).towerVisits[MAIN_ID]||0)));
+        const P=cand[0]; if(!P) break;
+        removeAll(P); commitPerson(P,mainPseudo); mainGuards.push(P);
+      }
+    }
+
+    // 2) TOWERS
+    const towerSlotByTowerId={};
+    for(const t of openTowers){
+      const slot={kind:'tower',towerId:t.id,tower:t.name,code:t.code,prio:t.prio,occupants:[],warn:null};
+      const best=bestPair(t,true);
+      if(best){
+        const [A,B]=best; slot.occupants=[A,B];
+        removeAll(A); removeAll(B);
+        pairCount[pairKey(A.id,B.id)]=(pairCount[pairKey(A.id,B.id)]||0)+1;
+        commitPerson(A,t); commitPerson(B,t);
+        if((A.role+B.role)==='UU') slot.warn='Zwei Unerfahrene – kein Erfahrener frei';
+      }
+      dayAssign.push(slot);
+      towerSlotByTowerId[t.id]=slot;
+    }
+
+    // 3) BOATS
+    const boatCandidates=boats.slice()
+      .filter(b=>!ds.closedBoats.has(b.id))
+      .filter(b=>b.towerId&&openTowers.some(t=>t.id===b.towerId))
+      .sort((a,b)=>(b.prio-a.prio)||(a.id-b.id));
+    const boatSlots=[], boatsNoBootsf=[], boatsClosedTower=[], boatsManualClosed=[];
+
+    boats.forEach(b=>{
+      if(ds.closedBoats.has(b.id)) boatsManualClosed.push(b);
+      else if(b.towerId&&!openTowers.some(t=>t.id===b.towerId)) boatsClosedTower.push(b);
+    });
+
+    for(const bo of boatCandidates){
+      const slot={kind:'boat',boatId:bo.id,name:bo.name,code:bo.code,prio:bo.prio,towerId:bo.towerId,towerName:towers.find(t=>t.id===bo.towerId)?.name||'',bootsf:null};
+      poolB.sort((a,b)=>{
+        const sa=ensure(a.id),sb=ensure(b.id);
+        return (sa.total-sb.total)||((sa.boatVisits[bo.id]||0)-(sb.boatVisits[bo.id]||0))||(a.id-b.id);
+      });
+      const bf=poolB.shift();
+      if(bf){
+        slot.bootsf=bf;
+        const s=ensure(bf.id); s.total++; s.boatVisits[bo.id]=(s.boatVisits[bo.id]||0)+1;
+        boatSlots.push(slot);
+        dayAssign.push(slot);
+      } else {
+        boatsNoBootsf.push(bo);
+      }
+    }
+
+    // 4) HAUPTWACHE finalize
+    const leftovers=[...poolE,...poolU,...poolSBF];
+    dayAssign.push({kind:'main',main:true,tower:'Hauptwache',fuehrung:availF,mainGuards,base:leftovers,bootsfLeft:poolB,sick:sickToday,k});
+
+    schedule.push({day:d,assign:dayAssign,openTowers,personnelClosed,manualClosed,
+      boatsNoBootsf,boatsClosedTower,boatsManualClosed,guardPool:getGuardPool(),availB,sickCount:sickToday.length});
+  }
+
+  lastResult={schedule,pairCount,stats,peopleGuards:people.filter(p=>p.role==='E'||p.role==='U')};
+  if(activeDay>=DAYS) activeDay=0;
+  renderOutput();
+}
+
+function renderOutput(){
+  const panel=document.getElementById('output-panel');
+  const {schedule}=lastResult;
+  const allPairs=Object.entries(lastResult.pairCount);
+  const distinctPairs=allPairs.filter(([,v])=>v>0).length;
+  const repeatedPairs=allPairs.filter(([,v])=>v>1).length;
+  let uuTotal=0, repeatTowers=0;
+  schedule.forEach(day=>day.assign.forEach(s=>{
+    if(s.occupants?.length===2&&(s.occupants[0].role+s.occupants[1].role)==='UU') uuTotal++;
+  }));
+  Object.values(lastResult.stats).forEach(s=>Object.values(s.towerVisits).forEach(v=>{ if(v>2)repeatTowers++; }));
+
+  let html=`
+    <div class="out-header">
+      <div>
+        <div class="section-label" style="margin-bottom:8px;">Wachplan · ${DAYS} Tage · sukzessiv</div>
+        <div class="day-tabs">
+          ${schedule.map((d,i)=>{
+            const flags=[];
+            if(d.sickCount>0) flags.push('🤒');
+            if(d.manualClosed.length>0) flags.push('⛔');
+            return `<button class="day-tab ${i===activeDay?'active':''}" data-day="${i}">${dayLabel(i)}${flags.length?`<span class="flag">${flags.join('')}</span>`:''}</button>`;
+          }).join('')}
+        </div>
+      </div>
+      <div class="export-row">
+        <button class="ghost-btn" id="btn-official" style="border-color:var(--warn);color:var(--warn)">📋 Offizielle XLSX (${dayLabel(activeDay)})</button>
+        <button class="ghost-btn" id="btn-csv">↓ CSV</button>
+        <button class="ghost-btn" id="btn-print">⎙ Drucken</button>
+      </div>
+    </div>
+    <div class="stats-bar">
+      <div class="stat"><div class="num">${distinctPairs}</div><div class="lbl">verschiedene Paare</div></div>
+      <div class="stat"><div class="num" style="color:${repeatedPairs?'var(--warn)':'var(--green)'}">${repeatedPairs}</div><div class="lbl">Paar-Wiederholungen</div></div>
+      <div class="stat"><div class="num" style="color:${uuTotal?'var(--coral)':'var(--green)'}">${uuTotal}</div><div class="lbl">U+U Besetzungen</div></div>
+      <div class="stat"><div class="num" style="color:${repeatTowers?'var(--coral)':'var(--green)'}">${repeatTowers}</div><div class="lbl">Turm &gt;2× gleich</div></div>
+    </div>`;
+
+  schedule.forEach((d,di)=>{
+    html+=`<div class="day-panel" style="display:${di===activeDay?'block':'none'}" data-panel="${di}">`;
+    html+=`<div class="day-controls">
+      <div class="dc-head">
+        <div><span class="dc-title">${dayLabel(di)}</span> <span class="dc-sub">— Status nur für diesen Tag</span></div>
+        <div class="date-pick"><label>📅 Datum</label>
+          <input type="date" value="${computeDayDates()[di]||''}" readonly title="Wird automatisch aus dem Startdatum berechnet"></div>
+      </div>
+      <div class="dc-section">
+        <div class="lbl">🤒 Krank melden (heute)</div>
+        <div class="toggle-grid">
+          ${people.map(p=>`<span class="toggle-chip ${dayState[di].sick.has(p.id)?'sick':''}" data-sick="${p.id}" data-day="${di}">
+            <i class="role-dot rd-${p.role.toLowerCase()}"></i><span class="nm">${escapeHtml(p.name)}</span>
+            ${dayState[di].sick.has(p.id)?'<span class="x">KRANK</span>':''}</span>`).join('')}
+        </div>
+      </div>
+      <div class="dc-section">
+        <div class="lbl">⛔ Turm schließen (heute)</div>
+        <div class="toggle-grid">
+          ${towers.map(t=>`<span class="toggle-chip ${dayState[di].closed.has(t.id)?'closed-t':''}" data-closet="${t.id}" data-day="${di}">
+            🗼 <span class="nm">${escapeHtml(t.name)}</span>
+            ${dayState[di].closed.has(t.id)?'<span class="x">ZU</span>':''}</span>`).join('')}
+        </div>
+      </div>
+      ${boats.length?`<div class="dc-section">
+        <div class="lbl">🚤 Boot heute außer Dienst</div>
+        <div class="toggle-grid">
+          ${boats.map(b=>`<span class="toggle-chip ${dayState[di].closedBoats.has(b.id)?'closed-t':''}" data-closeb="${b.id}" data-day="${di}">
+            🚤 <span class="nm">${escapeHtml(b.name)}</span>
+            ${dayState[di].closedBoats.has(b.id)?'<span class="x">ZU</span>':''}</span>`).join('')}
+        </div>
+      </div>`:''}
+    </div>`;
+
+    if(d.manualClosed.length)    html+=`<div class="notice bad">⛔ <div>Türme heute manuell geschlossen: <strong>${d.manualClosed.map(t=>escapeHtml(t.name)).join(', ')}</strong>. Personal verstärkt die Hauptwache.</div></div>`;
+    if(d.personnelClosed.length) html+=`<div class="notice bad">⚠️ <div>Zu wenig Personal. Türme geschlossen (niedrigste Priorität zuerst): <strong>${d.personnelClosed.map(t=>escapeHtml(t.name)).join(', ')}</strong>.</div></div>`;
+    if(d.boatsManualClosed.length) html+=`<div class="notice bad">🚤 <div>Boote außer Dienst: <strong>${d.boatsManualClosed.map(b=>escapeHtml(b.name)).join(', ')}</strong>.</div></div>`;
+    if(d.boatsClosedTower.length)  html+=`<div class="notice warn-n">🚤 <div>Boot(e) zu, weil Turm zu: <strong>${d.boatsClosedTower.map(b=>escapeHtml(b.name)).join(', ')}</strong>.</div></div>`;
+    if(d.boatsNoBootsf.length)     html+=`<div class="notice warn-n">🚤 <div>Boot(e) zu wegen fehlendem Bootsführer: <strong>${d.boatsNoBootsf.map(b=>escapeHtml(b.name)).join(', ')}</strong>.</div></div>`;
+    const uuToday=d.assign.filter(s=>s.kind==='tower'&&s.occupants.length===2&&(s.occupants[0].role+s.occupants[1].role)==='UU').length;
+    if(uuToday>0) html+=`<div class="notice warn-n">⚠️ <div>${uuToday}× zwei Unerfahrene auf einem Turm.</div></div>`;
+
+    html+=`<div class="towers-grid">`;
+    d.assign.forEach(slot=>{
+      if(slot.kind==='main'){
+        const occ=(p,lbl)=>`<div class="occupant"><i class="role-dot rd-${p.role.toLowerCase()}"></i>${escapeHtml(p.name)}<span class="o-role">${lbl||ROLE[p.role]}</span></div>`;
+        html+=`<div class="tower-card main" style="grid-column:span 2;">
+          <div class="tc-head"><span class="tc-name">⛱ ${slot.tower}</span><span class="tc-type main">Zentrale · k=${slot.k}</span></div>
+          ${slot.fuehrung.map(p=>occ(p,'Führung')).join('')}
+          ${slot.mainGuards.map(p=>occ(p,p.role==='E'?'Erfahren · Wache':'Unerf. · Wache')).join('')}
+          ${slot.base.length?'<div class="hq-divider">Zusätzlich (nicht verteilbar)</div>':''}
+          ${slot.base.map(p=>occ(p,p.role==='E'?'Erfahren · Reserve':'Unerf. · Reserve')).join('')}
+          ${slot.bootsfLeft.map(p=>occ(p,'Bootsf. · frei')).join('')}
+          ${slot.sick.map(p=>`<div class="occupant" style="opacity:.55"><i class="role-dot rd-${p.role.toLowerCase()}"></i><span style="text-decoration:line-through">${escapeHtml(p.name)}</span><span class="o-role" style="color:var(--coral)">krank</span></div>`).join('')}
+        </div>`;
+      } else if(slot.kind==='tower'){
+        html+=`<div class="tower-card">
+          <div class="tc-head"><span class="tc-name">🗼 ${escapeHtml(slot.tower)}</span><span class="tc-type normal">Turm · ${escapeHtml(slot.code||'?')} · P${slot.prio}</span></div>
+          ${slot.occupants.map(p=>`<div class="occupant"><i class="role-dot rd-${p.role.toLowerCase()}"></i>${escapeHtml(p.name)}<span class="o-role">${ROLE[p.role]}</span></div>`).join('')}
+          ${slot.warn?`<div class="warn-pair">⚠ ${slot.warn}</div>`:''}
+        </div>`;
+      } else if(slot.kind==='boat'){
+        html+=`<div class="tower-card boot">
+          <div class="tc-head"><span class="tc-name">🚤 ${escapeHtml(slot.name)}</span><span class="tc-type boot">Boot · ${escapeHtml(slot.code||'?')}</span></div>
+          <div class="boat-link">→ ${escapeHtml(slot.towerName)}</div>
+          ${slot.bootsf?`<div class="occupant"><i class="role-dot rd-b"></i>${escapeHtml(slot.bootsf.name)}<span class="o-role">Bootsführer</span></div>`:''}
+        </div>`;
+      }
+    });
+    [...d.manualClosed,...d.personnelClosed].forEach(t=>{
+      const reason=d.manualClosed.includes(t)?'manuell geschlossen':'Personalmangel';
+      html+=`<div class="tower-card closed"><div class="tc-head"><span class="tc-name">🗼 ${escapeHtml(t.name)}</span><span class="tc-type closed">zu</span></div><div style="color:var(--text-dim);font-size:.82rem;padding:8px 0">${reason}</div></div>`;
+    });
+    [...d.boatsManualClosed,...d.boatsClosedTower,...d.boatsNoBootsf].forEach(b=>{
+      const reason=d.boatsManualClosed.includes(b)?'manuell außer Dienst':d.boatsClosedTower.includes(b)?'Turm zu':'kein Bootsführer';
+      html+=`<div class="tower-card closed boot"><div class="tc-head"><span class="tc-name">🚤 ${escapeHtml(b.name)}</span><span class="tc-type closed">zu</span></div><div style="color:var(--text-dim);font-size:.82rem;padding:8px 0">${reason}</div></div>`;
+    });
+    html+=`</div></div>`;
+  });
+
+  html+=renderMatrix();
+  panel.innerHTML=html;
+
+  panel.querySelectorAll('.day-tab').forEach(t=>t.onclick=e=>{ activeDay=+e.currentTarget.dataset.day; renderOutput(); });
+  panel.querySelectorAll('[data-sick]').forEach(el=>el.onclick=e=>{
+    const id=+e.currentTarget.dataset.sick, day=+e.currentTarget.dataset.day;
+    const s=dayState[day].sick; s.has(id)?s.delete(id):s.add(id); generate();
+  });
+  panel.querySelectorAll('[data-closet]').forEach(el=>el.onclick=e=>{
+    const id=+e.currentTarget.dataset.closet, day=+e.currentTarget.dataset.day;
+    const s=dayState[day].closed; s.has(id)?s.delete(id):s.add(id); generate();
+  });
+  panel.querySelectorAll('[data-closeb]').forEach(el=>el.onclick=e=>{
+    const id=+e.currentTarget.dataset.closeb, day=+e.currentTarget.dataset.day;
+    const s=dayState[day].closedBoats; s.has(id)?s.delete(id):s.add(id); generate();
+  });
+  document.getElementById('btn-csv').onclick=exportCSV;
+  document.getElementById('btn-print').onclick=()=>window.print();
+  const bo=document.getElementById('btn-official'); if(bo) bo.onclick=()=>exportOfficial(activeDay);
+}
+
+function renderMatrix(){
+  const g=lastResult.peopleGuards;
+  if(g.length<2||g.length>18) return '';
+  let h=`<div class="section-label" style="margin-top:30px;">Paarungs-Matrix <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-dim);font-size:11px">(wie oft zwei Personen über alle Tage zusammen am Turm)</span></div><div class="matrix-wrap"><table class="matrix"><tr><th></th>`;
+  g.forEach(p=>h+=`<th>${escapeHtml(p.name.slice(0,6))}</th>`);
+  h+='</tr>';
+  g.forEach(a=>{
+    h+=`<tr><th class="rowh">${escapeHtml(a.name.slice(0,8))}</th>`;
+    g.forEach(b=>{
+      if(a.id===b.id){h+=`<td class="self">—</td>`;return;}
+      const v=lastResult.pairCount[[a.id,b.id].sort((x,y)=>x-y).join('|')]||0;
+      h+=`<td class="${v===0?'zero':v===1?'one':'multi'}">${v}</td>`;
+    });
+    h+='</tr>';
+  });
+  return h+'</table></div>';
+}
+
+// ===================== XLSX EXPORT =====================
+const SLOT_ROWS_X=[7,9,11,13,15,17,19];
+const SLOT_NAMECOL=[43,76,109,142];
+const HOUR_ROWS_X={'08:00':[23,24],'09:00':[25,26],'10:00':[27,28],'11:00':[29,30],'12:00':[31,32],'13:00':[33,34],'14:00':[35,36],'15:00':[37,38],'16:00':[39,40],'17:00':[41,42],'18:00':[43,44],'19:00':[45,46]};
+const STATION_COL_X={'78/1':21,'9/12':27,'9/13':33,'WF':39,'WF2':45,'HW':51,'HW2':57,'78/2':63,'9/14':69,'9/15':75,'9/16':81,'78/3':87,'9/17':93,'9/18':99,'9/1':117,'9/2':123};
+const FILL_HOURS=['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'];
+
+function colLetter(n){ let s=''; while(n>0){const r=(n-1)%26;s=String.fromCharCode(65+r)+s;n=Math.floor((n-1)/26);} return s; }
+function slotNameRef(nr){ const b=Math.floor((nr-1)/7),i=(nr-1)%7; return colLetter(SLOT_NAMECOL[b])+SLOT_ROWS_X[i]; }
+function excelSerial(iso){ const [y,m,d]=iso.split('-').map(Number),a=Date.UTC(y,m-1,d),b=Date.UTC(1899,11,30); return Math.round((a-b)/86400000); }
+function xmlEsc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function cellRegex(ref){ return new RegExp('<c r="'+ref+'"(?:\\s+s="(\\d+)")?(?:\\s+t="[^"]*")?\\s*(?:/>|>[\\s\\S]*?</c>)'); }
+function getStyle(xml,ref){ const m=xml.match(cellRegex(ref)); return {s:(m&&m[1])?m[1]:null,old:m?m[0]:null}; }
+function setNum(xml,ref,val){ const {s,old}=getStyle(xml,ref); const sa=s?' s="'+s+'"':''; const nu='<c r="'+ref+'"'+sa+'><v>'+val+'</v></c>'; return old?xml.replace(old,nu):xml; }
+function setStr(xml,ref,txt){ const {s,old}=getStyle(xml,ref); const sa=s?' s="'+s+'"':''; const nu='<c r="'+ref+'"'+sa+' t="inlineStr"><is><t xml:space="preserve">'+xmlEsc(txt)+'</t></is></c>'; return old?xml.replace(old,nu):xml; }
+function clearCell(xml,ref){ const {s,old}=getStyle(xml,ref); if(!old) return xml; const sa=s?' s="'+s+'"':''; return xml.replace(old,'<c r="'+ref+'"'+sa+'/>'); }
+
+function buildAssignments(dayIdx){
+  const d=lastResult.schedule[dayIdx];
+  const A={};
+  d.assign.forEach(slot=>{
+    if(slot.kind==='tower'&&slot.code)
+      A[slot.code]=slot.occupants.map(p=>personNr(p.id)).filter(n=>n!=null).slice(0,2);
+    else if(slot.kind==='boat'&&slot.code&&slot.bootsf){
+      const nr=personNr(slot.bootsf.id);
+      if(nr!=null) A[slot.code]=[nr];
+    }
+  });
+  const main=d.assign.find(s=>s.kind==='main');
+  if(main){
+    const f=main.fuehrung.map(p=>personNr(p.id)).filter(n=>n!=null);
+    if(f.length) A['WF']=f.slice(0,2);
+    if(f.length>2) A['WF2']=f.slice(2,4);
+    const g=main.mainGuards.map(p=>personNr(p.id)).filter(n=>n!=null);
+    if(g.length) A['HW']=g.slice(0,2);
+    if(g.length>2) A['HW2']=g.slice(2,4);
+  }
+  return A;
+}
+
+async function exportOfficial(dayIdx){
+  if(typeof JSZip==='undefined'){alert('JSZip lädt noch – bitte kurz warten.');return;}
+  if(!lastResult){alert('Bitte zuerst einen Plan generieren.');return;}
+  const bin=atob(TEMPLATE_B64);
+  const bytes=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+  const zip=await JSZip.loadAsync(bytes);
+  let xml=await zip.file('xl/worksheets/sheet1.xml').async('string');
+
+  const _dates=computeDayDates(); const iso=_dates[dayIdx];
+  if(iso) xml=setNum(xml,'EE3',excelSerial(iso));
+
+  for(let n=1;n<=28;n++){
+    const ref=slotNameRef(n); const p=people[n-1];
+    xml=p?setStr(xml,ref,p.name||('Nr '+n)):clearCell(xml,ref);
+  }
+  for(const hr in HOUR_ROWS_X){ const [rt,rb]=HOUR_ROWS_X[hr];
+    for(const code in STATION_COL_X){ const col=STATION_COL_X[code];
+      xml=clearCell(xml,colLetter(col)+rt); xml=clearCell(xml,colLetter(col)+rb);
+    }
+  }
+  const Ass=buildAssignments(dayIdx);
+  FILL_HOURS.forEach(hr=>{ const [rt,rb]=HOUR_ROWS_X[hr];
+    for(const code in Ass){ const col=STATION_COL_X[code]; if(!col) continue;
+      const nums=Ass[code];
+      if(nums[0]!=null) xml=setNum(xml,colLetter(col)+rt,nums[0]);
+      if(nums[1]!=null) xml=setNum(xml,colLetter(col)+rb,nums[1]);
+    }
+  });
+  zip.file('xl/worksheets/sheet1.xml',xml);
+  const blob=await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const fn=(iso||('Tag'+(dayIdx+1)))+'_Wachplan.xlsx';
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fn; a.click();
+}
+
+function exportCSV(){
+  const {schedule}=lastResult;
+  const rows=[['Tag','Standort','Code','Typ','Position','Person','Rolle']];
+  schedule.forEach(d=>{
+    const dn=dayLabel(d.day);
+    d.assign.forEach(slot=>{
+      if(slot.kind==='main'){
+        slot.fuehrung.forEach(p=>rows.push([dn,slot.tower,'','Zentrale','Führung',p.name,ROLE[p.role]]));
+        slot.mainGuards.forEach(p=>rows.push([dn,slot.tower,'','Zentrale','Wache',p.name,ROLE[p.role]]));
+        slot.base.forEach(p=>rows.push([dn,slot.tower,'','Zentrale','Reserve',p.name,ROLE[p.role]]));
+        slot.bootsfLeft.forEach(p=>rows.push([dn,slot.tower,'','Zentrale','Bootsf. frei',p.name,ROLE[p.role]]));
+        slot.sick.forEach(p=>rows.push([dn,slot.tower,'','Zentrale','KRANK',p.name,ROLE[p.role]]));
+      } else if(slot.kind==='tower'){
+        slot.occupants.forEach(p=>rows.push([dn,slot.tower,slot.code||'','Turm','Wachgänger',p.name,ROLE[p.role]]));
+      } else if(slot.kind==='boat'&&slot.bootsf){
+        rows.push([dn,slot.name,slot.code||'','Boot','Bootsführer',slot.bootsf.name,ROLE[slot.bootsf.role]]);
+      }
+    });
+    [...d.manualClosed,...d.personnelClosed].forEach(t=>rows.push([dn,t.name,t.code||'','Turm','GESCHLOSSEN','','']));
+    [...d.boatsManualClosed,...d.boatsClosedTower,...d.boatsNoBootsf].forEach(b=>rows.push([dn,b.name,b.code||'','Boot','GESCHLOSSEN','','']));
+  });
+  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='wachplan_6tage.csv'; a.click();
+}
+
+function showToast(msg){ const t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),3500); }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+// Event listeners
+document.getElementById('add-person').onclick=()=>{ people.push({id:++uid,name:'',role:'E'}); renderPeople(); };
+document.querySelectorAll('.quick-add button').forEach(b=>b.onclick=()=>{ people.push({id:++uid,name:'',role:b.dataset.role}); renderPeople(); });
+document.getElementById('add-tower').onclick=()=>{
+  const minP=towers.length?Math.min(...towers.map(t=>t.prio)):1;
+  towers.push({id:++uid,name:`Turm ${towers.length+1}`,prio:Math.max(1,minP),code:''});
+  renderTowerCfg(); renderBoatCfg();
+};
+document.getElementById('add-boat').onclick=()=>{
+  const minP=boats.length?Math.min(...boats.map(b=>b.prio)):(towers[0]?.prio||1);
+  boats.push({id:++uid,name:`Boot ${boats.length+1}`,code:'',towerId:towers[0]?.id||null,prio:minP});
+  renderBoatCfg();
+};
+document.getElementById('main-k').oninput=e=>{ mainK=Math.max(0,+e.target.value||0); };
+document.getElementById('generate').onclick=generate;
+document.getElementById('start-date').onchange=e=>{ startDate=e.target.value; };
+document.getElementById('randomize').onclick=()=>{
+  randomSeed=Math.floor(Math.random()*999998)+1;
+  updateSeedDisplay();
+  showToast('🎲 Neuer Seed: '+randomSeed+' – nächste Generierung verwendet ihn für Tag 1');
+};
+
+const TEMPLATE_B64="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 aD1bjwWo8WI0Hq/FgNR6sxoPVeLA OD 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";
+
+seed();
+document.getElementById('start-date').value=startDate;
+updateSeedDisplay();
+renderPeople();
+renderTowerCfg();
+renderBoatCfg();
+</script>
+</body>
+</html>
