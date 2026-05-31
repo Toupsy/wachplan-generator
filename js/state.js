@@ -29,6 +29,11 @@ let forcedPlacements = [];
 // Entsprechen den Zellen C11, C13, C15, C17, C19 im DLRG-Formular
 let positionDescriptions = { 3:'', 4:'', 5:'', 6:'', 7:'' };
 
+// XLSX-Stationsspalten: 16 Einträge, jeder ein Stations-Code (oder '') für die
+// Template-Spalten U, AA, AG, AM, AS, AY, BE, BK, BQ, BW, CC, CI, CO, CU, DM, DS
+// Leer ('') = Spalte bleibt im Export unbeschriftet
+let exportColumns = [];
+
 // Letztes Berechnungsergebnis
 let lastResult = null;
 let activeDay  = 0;

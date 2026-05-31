@@ -57,11 +57,8 @@ function renderTowerCfg(){
       <button class="mini-btn del-t" data-id="${t.id}">×</button>`;
     c.appendChild(row);
   });
-  c.querySelectorAll('.tname').forEach(i => {
-    // Modell sofort aktualisieren, aber Nachbar-Sections erst nach Eingabe neu rendern
-    i.oninput = e  => { getT(+e.target.dataset.id).name = e.target.value; };
-    i.onblur  = () => { renderBoatCfg(); renderPositionDescUI(); };
-  });
+  c.querySelectorAll('.tname').forEach(i =>
+    i.oninput = e => { getT(+e.target.dataset.id).name = e.target.value; });
   c.querySelectorAll('.tcode').forEach(i =>
     i.oninput = e => { getT(+e.target.dataset.id).code = e.target.value.trim(); });
   c.querySelectorAll('.tprio').forEach(i =>
@@ -137,6 +134,56 @@ function renderHWBoatSelector(){
   ).join('');
   c.innerHTML = opts;
   c.onchange = e => { hwBoatId = +e.target.value || null; };
+}
+
+/**
+ * Befüllt exportColumns automatisch aus der aktuellen Konfiguration:
+ * Boote → Türme (nach Prio absteigend) → WF → WF2 → HW → HW2
+ */
+function autoFillExportColumns(){
+  const cols = [];
+  boats.forEach(b => { if(b.code) cols.push(b.code); });
+  towers.slice().sort((a,b) => b.prio - a.prio).forEach(t => { if(t.code) cols.push(t.code); });
+  cols.push('WF');
+  if(people.filter(p => p.role==='F').length > 2) cols.push('WF2');
+  cols.push('HW', 'HW2');
+  while(cols.length < TEMPLATE_STATION_COLS.length) cols.push('');
+  exportColumns = cols.slice(0, TEMPLATE_STATION_COLS.length);
+  renderExportColumnUI();
+}
+
+/** XLSX-Stationsspalten-Konfiguration */
+function renderExportColumnUI(){
+  const c = document.getElementById('export-col-fields');
+  if(!c) return;
+  // Sicherstellen, dass exportColumns die richtige Länge hat
+  while(exportColumns.length < TEMPLATE_STATION_COLS.length) exportColumns.push('');
+
+  // Verfügbare Codes (für Vorschläge)
+  const knownCodes = [
+    ...boats.map(b => b.code).filter(Boolean),
+    ...towers.map(t => t.code).filter(Boolean),
+    'WF','WF2','HW','HW2',
+  ];
+
+  c.innerHTML = '';
+  TEMPLATE_STATION_COLS.forEach((col, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:grid;grid-template-columns:50px 1fr;gap:6px;align-items:center;margin-bottom:5px';
+    const colLabel = colLetter(col);
+    row.innerHTML = `
+      <span style="font-family:\'Spline Sans Mono\',monospace;font-size:.68rem;color:var(--text-dim);text-align:right;padding-right:4px">${colLabel}21</span>
+      <input type="text" list="excol-list-${i}" class="excol-input pos-desc-input"
+        data-idx="${i}" value="${escapeHtml(exportColumns[i]||'')}"
+        placeholder="leer lassen = unbenutzt"
+        style="padding:5px 8px;font-size:.78rem">
+      <datalist id="excol-list-${i}">
+        ${knownCodes.map(c => `<option value="${escapeHtml(c)}">`).join('')}
+      </datalist>`;
+    c.appendChild(row);
+  });
+  c.querySelectorAll('.excol-input').forEach(inp =>
+    inp.oninput = e => { exportColumns[+e.target.dataset.idx] = e.target.value.trim(); });
 }
 
 /** Feature 2: Positionsbeschriftungen für XLSX (C11,C13,C15,C17,C19) */

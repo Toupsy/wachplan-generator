@@ -20,6 +20,7 @@ function _buildStateObject(){
     hwBoatId,
     days:                 DAYS,
     positionDescriptions: { ...positionDescriptions },
+    exportColumns:        [...exportColumns],
     people:               people.map(p => ({ ...p })),
     towers:               towers.map(t => ({ ...t })),
     boats:                boats.map(b => ({ ...b })),
@@ -68,6 +69,7 @@ function importStateJSON(json, silent = false){
   DAYS              = s.days              ?? 6;
   positionDescriptions = Object.assign({ 3:'',4:'',5:'',6:'',7:'' },
                                        s.positionDescriptions || {});
+  exportColumns = Array.isArray(s.exportColumns) ? [...s.exportColumns] : [];
   // Tageanzahl-Input synchronisieren
   const daysInput = document.getElementById('num-days');
   if(daysInput) daysInput.value = DAYS;
@@ -103,6 +105,7 @@ function importStateJSON(json, silent = false){
   renderBoatCfg();
   renderHWBoatSelector();
   renderPositionDescUI();
+  renderExportColumnUI();
 
   // Plan neu berechnen falls Ergebnis vorhanden war
   if(lastResult) generate();

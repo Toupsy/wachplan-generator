@@ -8,7 +8,7 @@
 // CSV-Export und für buildAssignments verwendet.
 // ============================================================
 
-// ── Mapping-Konstanten (identisch zur Originalvorlage) ──────────
+// ── Mapping-Konstanten ───────────────────────────────────────────
 const SLOT_ROWS_X  = [7,9,11,13,15,17,19];
 const SLOT_NAMECOL = [43,76,109,142];
 const HOUR_ROWS_X  = {
@@ -16,12 +16,19 @@ const HOUR_ROWS_X  = {
   '12:00':[31,32],'13:00':[33,34],'14:00':[35,36],'15:00':[37,38],
   '16:00':[39,40],'17:00':[41,42],'18:00':[43,44],'19:00':[45,46],
 };
-const STATION_COL_X = {
-  '78/1':21,'9/12':27,'9/13':33,'WF':39,'WF2':45,'HW':51,'HW2':57,
-  '78/2':63,'9/14':69,'9/15':75,'9/16':81,'78/3':87,'9/17':93,
-  '9/18':99,'9/1':117,'9/2':123,
-};
+// Template-Stationsspalten (Spaltennummern der 16 Stationsblöcke in Zeile 21)
+const TEMPLATE_STATION_COLS = [21,27,33,39,45,51,57,63,69,75,81,87,93,99,117,123];
 const FILL_HOURS = ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'];
+
+/** Baut aus exportColumns eine Code→Spalte-Map. Wird zur Laufzeit aufgerufen. */
+function getStationColX(){
+  const map = {};
+  TEMPLATE_STATION_COLS.forEach((col, i) => {
+    const code = (exportColumns[i] || '').trim();
+    if(code) map[code] = col;
+  });
+  return map;
+}
 
 // ── Hilfsfunktionen ──────────────────────────────────────────────
 
@@ -234,21 +241,23 @@ function _patchSheetXml(xml, dayIdx){
   });
 
   // ── Stundenraster ────────────────────────────────────────────
-  const A = buildAssignments(dayIdx);
+  const A         = buildAssignments(dayIdx);
+  const colX      = getStationColX();  // dynamisch aus exportColumns
 
-  // HW-Überlauf: überzählige HW-Personen in freie Station-Spalten schreiben
+  // Stations-Labels in Zeile 21 schreiben (aus exportColumns-Konfiguration)
+  TEMPLATE_STATION_COLS.forEach((col, i) => {
+    const code = (exportColumns[i] || '').trim();
+    if(code) x = _patchCell(x, colLetter(col)+'21', 's', code);
+  });
+
+  // HW-Überlauf: überzählige HW-Personen in freie (leere) exportColumns-Slots
   const main = lastResult.schedule[dayIdx].assign.find(s => s.kind === 'main');
   const allHWNrs = main
     ? [...main.mainGuards, ...main.base, ...main.bootsfLeft]
         .map(p => personNr(p.id)).filter(n => n != null)
     : [];
   const overflowHW = allHWNrs.slice(4);
-
-  const coreHWCodes = new Set(['WF','WF2','HW','HW2']);
-  const usedCodes   = new Set(Object.keys(A));
-  const freeCols    = Object.entries(STATION_COL_X)
-    .filter(([code]) => !usedCodes.has(code) && !coreHWCodes.has(code))
-    .sort((a,b) => a[1]-b[1]).map(([,col]) => col);
+  const freeCols   = TEMPLATE_STATION_COLS.filter((_, i) => !(exportColumns[i]||'').trim());
 
   overflowHW.forEach((nr, i) => {
     const pairIdx = Math.floor(i/2);
@@ -262,11 +271,11 @@ function _patchSheetXml(xml, dayIdx){
     });
   });
 
-  // Standard-Stationsdaten
+  // Standard-Stationsdaten (aus buildAssignments, gemapt über colX)
   FILL_HOURS.forEach(hr => {
     const [rt, rb] = HOUR_ROWS_X[hr];
     for(const code in A){
-      const col  = STATION_COL_X[code]; if(!col) continue;
+      const col  = colX[code]; if(!col) continue;
       const nums = A[code];
       if(nums[0] != null) x = _patchCell(x, colLetter(col)+rt, 'n', nums[0]);
       if(nums[1] != null) x = _patchCell(x, colLetter(col)+rb, 'n', nums[1]);

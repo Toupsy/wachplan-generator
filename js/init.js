@@ -75,6 +75,12 @@ document.getElementById('template-file-input').onchange = async e => {
   }
 };
 
+// ── XLSX-Stationsspalten ──────────────────────────────────────────
+document.getElementById('btn-auto-export-cols').onclick = () => {
+  autoFillExportColumns();
+  showToast('✅ Stationsspalten automatisch befüllt');
+};
+
 // ── Import / Export Planstatus ────────────────────────────────────
 document.getElementById('btn-export-state').onclick = exportStateJSON;
 
@@ -107,6 +113,7 @@ if(!_restored){
   renderBoatCfg();
   renderHWBoatSelector();
   renderPositionDescUI();
+  autoFillExportColumns();   // Standardmäßig aus Türmen & Booten befüllen
 }
 _updateSaveIndicator();
 _updateTemplateStatus();
