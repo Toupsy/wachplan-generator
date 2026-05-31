@@ -191,7 +191,75 @@ function buildUebersichtSheet(dayIdx){
   return XLSX.utils.aoa_to_sheet(aoa);
 }
 
-// ── Offizieller XLSX-Export (Kopie von "Wachplan Template.xlsx") ──
+// ── Template-Lade-Logik ───────────────────────────────────────────
+// Reihenfolge: 1) fetch() (läuft Webserver), 2) localStorage-Cache,
+//              3) Datei-Picker (speichert automatisch im Cache)
+
+const TEMPLATE_LS_KEY = 'dlrg_wachplan_template_b64';
+
+/** Lädt das Template als Uint8Array – aus Server, Cache oder Datei-Picker. */
+async function _loadTemplate(){
+  // 1. Versuche fetch (funktioniert wenn via Webserver geöffnet)
+  try {
+    const r = await fetch('Wachplan Template.xlsx');
+    if(r.ok){
+      const arr = new Uint8Array(await r.arrayBuffer());
+      _cacheTemplate(arr);   // für Offline-Nutzung sichern
+      return arr;
+    }
+  } catch(_){}
+
+  // 2. Lokaler Cache (localStorage)
+  return _templateFromCache();
+}
+
+function _cacheTemplate(arr){
+  try {
+    // Chunk-Größe muss Vielfaches von 3 sein, damit kein ==-Padding
+    // in der Mitte entsteht (würde base64 beim Decode zerstören)
+    let b64 = '';
+    const chunk = 9000;   // 9000 = 3 × 3000 → kein Padding in Zwischen-Chunks
+    for(let i = 0; i < arr.length; i += chunk)
+      b64 += btoa(String.fromCharCode(...arr.subarray(i, i + chunk)));
+    localStorage.setItem(TEMPLATE_LS_KEY, b64);
+    _updateTemplateStatus();
+  } catch(_){}
+}
+
+function _templateFromCache(){
+  const b64 = localStorage.getItem(TEMPLATE_LS_KEY);
+  if(!b64) return null;
+  const s = atob(b64);
+  const arr = new Uint8Array(s.length);
+  for(let i = 0; i < s.length; i++) arr[i] = s.charCodeAt(i);
+  return arr;
+}
+
+function _updateTemplateStatus(){
+  const el = document.getElementById('template-status');
+  if(!el) return;
+  const cached = !!localStorage.getItem(TEMPLATE_LS_KEY);
+  el.textContent  = cached ? '✅ Template geladen' : '⚠️ Kein Template – bitte laden';
+  el.style.color  = cached ? 'var(--green)' : 'var(--warn)';
+}
+
+function _doExport(arr, dayIdx){
+  const wb = XLSX.read(arr, { type:'array', cellStyles:true });
+  while(wb.SheetNames.length > 1) wb.SheetNames.pop();
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  _fillTemplateSheet(ws, dayIdx);
+
+  const iso = computeDayDates()[dayIdx];
+  const fn  = (iso || ('Tag'+(dayIdx+1))) + '_Wachplan.xlsx';
+  const out = XLSX.write(wb, { bookType:'xlsx', type:'array', cellStyles:true });
+  const blob= new Blob([out], { type:'application/octet-stream' });
+  const a   = document.createElement('a');
+  a.href    = URL.createObjectURL(blob);
+  a.download= fn;
+  a.click();
+}
+
+// ── Offizieller XLSX-Export ───────────────────────────────────────
 
 async function exportOfficial(dayIdx){
   if(typeof XLSX === 'undefined'){
@@ -200,32 +268,19 @@ async function exportOfficial(dayIdx){
   }
   if(!lastResult){ alert('Bitte zuerst Plan generieren.'); return; }
 
-  // Template-Datei aus dem Projektordner laden
-  let templateBuffer;
-  try {
-    const resp = await fetch('Wachplan Template.xlsx');
-    if(!resp.ok) throw new Error('HTTP ' + resp.status);
-    templateBuffer = await resp.arrayBuffer();
-  } catch(e){
-    alert('Template-Datei "Wachplan Template.xlsx" konnte nicht geladen werden.\n' + e.message);
-    return;
+  const arr = await _loadTemplate();
+  if(arr){
+    _doExport(arr, dayIdx);
+  } else {
+    // Kein Cache, kein Server → Datei-Picker öffnen
+    showToast('⚠️ Template nicht gefunden – bitte "Wachplan Template.xlsx" auswählen');
+    document.getElementById('template-file-input').click();
+    // Wird nach Auswahl über den onchange-Handler in init.js fertig
+    _pendingExportDay = dayIdx;
   }
-
-  // Kopie des Templates einlesen, Dienstplan-Sheet befüllen
-  const wb = XLSX.read(new Uint8Array(templateBuffer), { type: 'array', cellStyles: true });
-  while(wb.SheetNames.length > 1) wb.SheetNames.pop();   // nur Dienstplan behalten
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  _fillTemplateSheet(ws, dayIdx);
-
-  const iso = computeDayDates()[dayIdx];
-  const fn  = (iso || ('Tag'+(dayIdx+1))) + '_Wachplan.xlsx';
-  const out = XLSX.write(wb, { bookType:'xlsx', type:'array', cellStyles: true });
-  const blob= new Blob([out], { type:'application/octet-stream' });
-  const a   = document.createElement('a');
-  a.href    = URL.createObjectURL(blob);
-  a.download= fn;
-  a.click();
 }
+
+let _pendingExportDay = null;   // Für Datei-Picker-Callback gesetzt
 
 /**
  * Schreibt einen Wert in eine Zelle und bewahrt dabei den bestehenden Style

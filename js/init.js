@@ -56,6 +56,25 @@ document.getElementById('move-modal').addEventListener('click', e => {
   if(e.target === e.currentTarget) closeMoveModal();  // Klick außerhalb schließt Modal
 });
 
+// ── XLSX-Template laden ───────────────────────────────────────────
+document.getElementById('btn-load-template').onclick = () => {
+  document.getElementById('template-file-input').click();
+};
+document.getElementById('template-file-input').onchange = async e => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const arr = new Uint8Array(await file.arrayBuffer());
+  _cacheTemplate(arr);
+  showToast('✅ Template gespeichert: ' + file.name);
+  e.target.value = '';
+  // Falls ein Export-Aufruf ausstehend war, jetzt ausführen
+  if(_pendingExportDay !== null){
+    const d = _pendingExportDay;
+    _pendingExportDay = null;
+    _doExport(arr, d);
+  }
+};
+
 // ── Import / Export Planstatus ────────────────────────────────────
 document.getElementById('btn-export-state').onclick = exportStateJSON;
 
@@ -90,3 +109,4 @@ if(!_restored){
   renderPositionDescUI();
 }
 _updateSaveIndicator();
+_updateTemplateStatus();
