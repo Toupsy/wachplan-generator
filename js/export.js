@@ -1,11 +1,11 @@
 // ============================================================
 // export.js – XLSX- und CSV-Export
 // ============================================================
-// Verwendet SheetJS (xlsx.full.min.js) statt des kaputten TEMPLATE_B64.
-// Erzeugt zwei Sheets:
-//   "Formular"  – schreibt in die exakt gleichen Zellreferenzen wie das
-//                 ursprüngliche DLRG-Vorlage (EE3, C11…C19, AQ7…, etc.)
-//   "Übersicht" – lesbare Tabelle für tägliche Nutzung
+// Export-Strategie: JSZip öffnet das Template als ZIP, patcht
+// nur die Datenzellen im sheet1.xml per Regex (alle s="-Attribute
+// und sonstiges Formatting bleiben 1:1 erhalten), und speichert
+// das Ergebnis als neue Datei. SheetJS wird NUR noch für den
+// CSV-Export und für buildAssignments verwendet.
 // ============================================================
 
 // ── Mapping-Konstanten (identisch zur Originalvorlage) ──────────
@@ -42,6 +42,12 @@ function excelSerial(iso){
   return Math.round((Date.UTC(y,m-1,d)-Date.UTC(1899,11,30))/86400000);
 }
 
+/** 1-basierte Nummer einer Person (für Zelleinträge im Stundenraster) */
+function personNr(id){
+  const i = people.findIndex(p => p.id === id);
+  return i < 0 ? null : i + 1;
+}
+
 /** Besetzungsdaten für einen Tag aufbereiten (code → [Nr, Nr]) */
 function buildAssignments(dayIdx){
   const d = lastResult.schedule[dayIdx];
@@ -59,166 +65,37 @@ function buildAssignments(dayIdx){
     const f=main.fuehrung.map(p=>personNr(p.id)).filter(n=>n!=null);
     if(f.length)    A['WF'] =f.slice(0,2);
     if(f.length>2)  A['WF2']=f.slice(2,4);
-    // Alle HW-Personen: Guards + Reserve (base) + überzählige BF
-    const g=[...main.mainGuards,...main.base,...main.bootsfLeft]
+    const allHW=[...main.mainGuards,...main.base,...main.bootsfLeft]
       .map(p=>personNr(p.id)).filter(n=>n!=null);
-    if(g.length)    A['HW'] =g.slice(0,2);
-    if(g.length>2)  A['HW2']=g.slice(2,4);
+    if(allHW.length)    A['HW'] =allHW.slice(0,2);
+    if(allHW.length>2)  A['HW2']=allHW.slice(2,4);
     if(main.hwBoatSlot?.bootsf){
       const boCode = getBoat(main.hwBoatSlot.boatId)?.code;
-      if(boCode){
-        const nr=personNr(main.hwBoatSlot.bootsf.id);
-        if(nr!=null) A[boCode]=[nr];
-      }
+      if(boCode){ const nr=personNr(main.hwBoatSlot.bootsf.id); if(nr!=null) A[boCode]=[nr]; }
     }
   }
   return A;
 }
 
-// ── Sheet 1: "Formular" (DLRG-kompatible Zellreferenzen) ─────────
-
-function buildFormularSheet(dayIdx){
-  if(typeof XLSX === 'undefined') return null;
-  const ws  = {};
-  const iso = computeDayDates()[dayIdx];
-
-  // Datum (EE3)
-  if(iso) ws['EE3'] = { v: excelSerial(iso), t:'n',
-    z:'DD.MM.YYYY' };
-
-  // Positionsbeschriftungen C11, C13, C15, C17, C19 (Feature 2)
-  [11,13,15,17,19].forEach((row,i) => {
-    const desc = positionDescriptions[i+3];
-    if(desc) ws['C'+row] = { v: desc, t:'s' };
-  });
-
-  // Besetzungsliste (28 Slots)
-  for(let n=1;n<=28;n++){
-    const ref = slotNameRef(n);
-    const p   = people[n-1];
-    ws[ref]   = p ? { v: p.name||('Nr '+n), t:'s' } : { v:'', t:'s' };
-  }
-
-  // Stundenraster füllen
-  const A = buildAssignments(dayIdx);
-  FILL_HOURS.forEach(hr => {
-    const [rt,rb] = HOUR_ROWS_X[hr];
-    for(const code in A){
-      const col  = STATION_COL_X[code]; if(!col) continue;
-      const nums = A[code];
-      if(nums[0]!=null) ws[colLetter(col)+rt]={ v:nums[0], t:'n' };
-      if(nums[1]!=null) ws[colLetter(col)+rb]={ v:nums[1], t:'n' };
-    }
-  });
-
-  // Sheet-Ausdehnung setzen
-  ws['!ref'] = `A1:${colLetter(145)}50`;
-  return ws;
-}
-
-// ── Sheet 2: "Übersicht" (lesbare Tabelle) ────────────────────────
-
-function buildUebersichtSheet(dayIdx){
-  if(typeof XLSX === 'undefined') return null;
-  const iso    = computeDayDates()[dayIdx];
-  const d      = lastResult.schedule[dayIdx];
-  const A      = buildAssignments(dayIdx);
-  const aoa    = [];
-
-  const add  = (...row) => aoa.push(row);
-  const gap  = ()       => aoa.push([]);
-
-  // Header
-  add(['DLRG · Wachplan', '', dayLabel(dayIdx), iso||'']);
-  gap();
-
-  // Besetzungsliste
-  add(['BESETZUNGSLISTE']);
-  add(['Nr','Name','Funktion','Rolle']);
-  people.forEach((p,i) => add(i+1, p.name, '', ROLE[p.role]));
-  gap();
-
-  // Positionsbeschriftungen
-  add(['POSITIONSBESCHRIFTUNGEN (XLSX-Formular)']);
-  add(['Pos.','Zelle','Bezeichnung']);
-  for(let pos=3;pos<=7;pos++){
-    add(pos, 'C'+(pos*2+5), positionDescriptions[pos]||'');
-  }
-  gap();
-
-  // Stationszuweisung
-  add(['STATIONSZUWEISUNG']);
-  add(['Art','Station','Code','Prio','Person 1 Nr','Person 1 Name','Person 2 Nr','Person 2 Name']);
-  d.assign.forEach(slot => {
-    if(slot.kind==='tower'){
-      const [n1,n2] = (A[slot.code]||[]);
-      add('Turm', slot.tower, slot.code||'', slot.prio,
-        n1||'', n1?people[n1-1]?.name||'':'',
-        n2||'', n2?people[n2-1]?.name||'':'');
-    } else if(slot.kind==='boat'){
-      const [n1]    = (A[slot.code]||[]);
-      add('Boot', slot.name, slot.code||'', slot.prio||'',
-        n1||'', n1?people[n1-1]?.name||'':'', '', '');
-    }
-  });
-  // Hauptwache
-  const main = d.assign.find(s=>s.kind==='main');
-  if(main){
-    main.fuehrung.forEach(p  => add('HW','Hauptwache','WF', '', personNr(p.id)||'',p.name,'',''));
-    [...main.mainGuards,...main.base,...main.bootsfLeft]
-      .forEach(p => add('HW','Hauptwache','HW', '', personNr(p.id)||'',p.name,'',''));
-    if(main.hwBoatSlot?.bootsf){
-      const bo=getBoat(main.hwBoatSlot.boatId);
-      add('HW-Boot', main.hwBoatSlot.name, bo?.code||'', '',
-        personNr(main.hwBoatSlot.bootsf.id)||'', main.hwBoatSlot.bootsf.name,'','');
-    }
-  }
-  gap();
-
-  // Zeiteinteilung 09-17
-  add(['ZEITEINTEILUNG 09:00–17:00']);
-  const stCodes = Object.keys(STATION_COL_X).filter(c => A[c]);
-  add(['Zeit', ...stCodes.map(c=>`${c} · ${people[(A[c][0]||1)-1]?.name||'?'}/${people[(A[c][1]||1)-1]?.name||'-'}`)]);
-  FILL_HOURS.forEach(hr => {
-    const row = [hr];
-    stCodes.forEach(c => {
-      const [n1,n2]=(A[c]||[]);
-      row.push([n1,n2].filter(Boolean).join(', ')||'—');
-    });
-    add(...row);
-  });
-
-  return XLSX.utils.aoa_to_sheet(aoa);
-}
-
 // ── Template-Lade-Logik ───────────────────────────────────────────
-// Reihenfolge: 1) fetch() (läuft Webserver), 2) localStorage-Cache,
-//              3) Datei-Picker (speichert automatisch im Cache)
-
 const TEMPLATE_LS_KEY = 'dlrg_wachplan_template_b64';
 
-/** Lädt das Template als Uint8Array – aus Server, Cache oder Datei-Picker. */
 async function _loadTemplate(){
-  // 1. Versuche fetch (funktioniert wenn via Webserver geöffnet)
   try {
     const r = await fetch('Wachplan Template.xlsx');
     if(r.ok){
       const arr = new Uint8Array(await r.arrayBuffer());
-      _cacheTemplate(arr);   // für Offline-Nutzung sichern
+      _cacheTemplate(arr);
       return arr;
     }
   } catch(_){}
-
-  // 2. Lokaler Cache (localStorage)
   return _templateFromCache();
 }
 
 function _cacheTemplate(arr){
   try {
-    // Chunk-Größe muss Vielfaches von 3 sein, damit kein ==-Padding
-    // in der Mitte entsteht (würde base64 beim Decode zerstören)
     let b64 = '';
-    const chunk = 9000;   // 9000 = 3 × 3000 → kein Padding in Zwischen-Chunks
+    const chunk = 9000;   // Vielfaches von 3 → kein ==-Padding in Zwischen-Chunks
     for(let i = 0; i < arr.length; i += chunk)
       b64 += btoa(String.fromCharCode(...arr.subarray(i, i + chunk)));
     localStorage.setItem(TEMPLATE_LS_KEY, b64);
@@ -239,126 +116,207 @@ function _updateTemplateStatus(){
   const el = document.getElementById('template-status');
   if(!el) return;
   const cached = !!localStorage.getItem(TEMPLATE_LS_KEY);
-  el.textContent  = cached ? '✅ Template geladen' : '⚠️ Kein Template – bitte laden';
+  el.textContent = cached ? '✅ Template geladen' : '⚠️ Kein Template – bitte laden';
   el.style.color  = cached ? 'var(--green)' : 'var(--warn)';
 }
 
-function _doExport(arr, dayIdx){
-  const wb = XLSX.read(arr, { type:'array', cellStyles:true });
-  while(wb.SheetNames.length > 1) wb.SheetNames.pop();
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  _fillTemplateSheet(ws, dayIdx);
+let _pendingExportDay = null;
 
-  const iso = computeDayDates()[dayIdx];
-  const fn  = (iso || ('Tag'+(dayIdx+1))) + '_Wachplan.xlsx';
-  const out = XLSX.write(wb, { bookType:'xlsx', type:'array', cellStyles:true });
-  const blob= new Blob([out], { type:'application/octet-stream' });
-  const a   = document.createElement('a');
-  a.href    = URL.createObjectURL(blob);
-  a.download= fn;
-  a.click();
+// ── XML-Patch-Logik ───────────────────────────────────────────────
+// Wir patchen ausschließlich die sheet1.xml im ZIP.
+// Alle anderen Dateien (styles.xml, drawings, sharedStrings …)
+// bleiben unverändert → Farben, Rahmen, Bilder, Schutz bleiben erhalten.
+
+function _escXml(s){
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-
-// ── Offizieller XLSX-Export ───────────────────────────────────────
-
-async function exportOfficial(dayIdx){
-  if(typeof XLSX === 'undefined'){
-    alert('SheetJS lädt noch – bitte kurz warten (Internetverbindung nötig).');
-    return;
-  }
-  if(!lastResult){ alert('Bitte zuerst Plan generieren.'); return; }
-
-  const arr = await _loadTemplate();
-  if(arr){
-    _doExport(arr, dayIdx);
-  } else {
-    // Kein Cache, kein Server → Datei-Picker öffnen
-    showToast('⚠️ Template nicht gefunden – bitte "Wachplan Template.xlsx" auswählen');
-    document.getElementById('template-file-input').click();
-    // Wird nach Auswahl über den onchange-Handler in init.js fertig
-    _pendingExportDay = dayIdx;
-  }
-}
-
-let _pendingExportDay = null;   // Für Datei-Picker-Callback gesetzt
 
 /**
- * Schreibt einen Wert in eine Zelle und bewahrt dabei den bestehenden Style
- * aus dem Template.
+ * Setzt den Wert einer Zelle im XML-String.
+ * Sucht <c r="REF" ...> (self-closing oder mit Inhalt) und ersetzt nur den Inhalt;
+ * alle anderen Attribute (s=, ...) bleiben unberührt.
+ *
+ * @param {string}  xml   – worksheet XML
+ * @param {string}  ref   – Zellreferenz, z.B. "AQ7"
+ * @param {'n'|'s'} type  – 'n' = Zahl, 's' = Inline-String
+ * @param {*}       value – zu schreibender Wert
  */
-function _setCell(ws, ref, value, type){
-  const existing = ws[ref] || {};
-  ws[ref] = { ...existing, v: value, t: type };
-  // z (format string) nur setzen wenn nicht schon vorhanden
-  if(type === 'n' && !existing.z) ws[ref].z = '0';
+function _patchCell(xml, ref, type, value){
+  const esc = ref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Findet self-closing: <c r="REF" .../> oder mit Inhalt: <c r="REF" ...>...</c>
+  const re = new RegExp(`(<c [^>]*?r="${esc}"[^>]*?)(?:\\/>|>(?:[\\s\\S]*?)<\\/c>)`);
+  if(!re.test(xml)){
+    // Zelle existiert nicht → in die passende Zeile einfügen
+    return _insertCell(xml, ref, type, value);
+  }
+  return xml.replace(re, (_, openAttrs) => {
+    // Vorhandenes t="-Attribut entfernen (wird ggf. neu gesetzt)
+    const attrs = openAttrs.replace(/\s+t="[^"]*"/, '');
+    if(type === 'n')
+      return `${attrs}><v>${value}</v></c>`;
+    else
+      return `${attrs} t="inlineStr"><is><t>${_escXml(value)}</t></is></c>`;
+  });
 }
 
-/** Schreibt Wachplan-Daten direkt in das geladene Template-Worksheet. */
-function _fillTemplateSheet(ws, dayIdx){
-  // ── Datum ─────────────────────────────────────────────────────
-  const iso = computeDayDates()[dayIdx];
-  if(iso){
-    const ex = ws['EE3'] || {};
-    ws['EE3'] = { ...ex, v: excelSerial(iso), t:'n', z:'DD.MM.YYYY' };
+/**
+ * Fügt eine Zelle in die passende Zeile ein, falls sie im Template fehlt.
+ * Hängt sie am Ende der Zeile ein (oder erstellt eine neue Zeile).
+ */
+function _insertCell(xml, ref, type, value){
+  const rowNum  = ref.match(/\d+/)[0];
+  const colStr  = ref.replace(/\d+/, '');
+  const colNum  = _colToNum(colStr);
+
+  const newCell = type === 'n'
+    ? `<c r="${ref}"><v>${value}</v></c>`
+    : `<c r="${ref}" t="inlineStr"><is><t>${_escXml(value)}</t></is></c>`;
+
+  // Versuche, in vorhandene Zeile einzufügen
+  const rowRe = new RegExp(`(<row [^>]*?r="${rowNum}"[^>]*>)([\\s\\S]*?)(</row>)`);
+  if(rowRe.test(xml)){
+    return xml.replace(rowRe, (_, open, content, close) => {
+      // Richtige Position innerhalb der Zeile finden (nach Spalte sortiert)
+      const insertRe = /<c r="([A-Z]+)\d+"[^>]*?(?:\/>|>[\s\S]*?<\/c>)/g;
+      let insertPos = content.length;
+      let m;
+      while((m = insertRe.exec(content)) !== null){
+        if(_colToNum(m[1]) > colNum){ insertPos = m.index; break; }
+      }
+      return open + content.slice(0, insertPos) + newCell + content.slice(insertPos) + close;
+    });
   }
 
-  // ── Positionsbeschriftungen ────────────────────────────────────
-  [11,13,15,17,19].forEach((row,i) => {
-    const desc = positionDescriptions[i+3];
-    if(desc) _setCell(ws, 'C'+row, desc, 's');
+  // Zeile fehlt komplett – vor der nächsten Zeile einfügen
+  const nextRowRe = new RegExp(`(<row [^>]*?r="(\\d+)"[^>]*>)`);
+  let inserted = false;
+  const result = xml.replace(/<row /g, (match, offset) => {
+    if(inserted) return match;
+    const rn = xml.slice(offset).match(/r="(\d+)"/);
+    if(rn && +rn[1] > +rowNum){
+      inserted = true;
+      return `<row r="${rowNum}"><c r="${ref}"${type==='n'?'':'  t="inlineStr"'}>${type==='n'?`<v>${value}</v>`:`<is><t>${_escXml(value)}</t></is>`}</c></row><row `;
+    }
+    return match;
   });
+  return result;
+}
 
-  // ── Besetzungsliste (28 Slots) ─────────────────────────────────
-  for(let n=1; n<=28; n++){
+function _colToNum(col){
+  let n = 0;
+  for(const ch of col.toUpperCase()) n = n*26 + (ch.charCodeAt(0)-64);
+  return n;
+}
+
+/**
+ * Hauptfunktion: Baut alle Patches und wendet sie auf das XML an.
+ */
+function _patchSheetXml(xml, dayIdx){
+  let x = xml;
+
+  // ── Datum ────────────────────────────────────────────────────
+  const iso = computeDayDates()[dayIdx];
+  if(iso) x = _patchCell(x, 'EE3', 'n', excelSerial(iso));
+
+  // ── Besetzungsliste (Namen 1–28) ─────────────────────────────
+  for(let n = 1; n <= 28; n++){
     const ref = slotNameRef(n);
     const p   = people[n-1];
-    _setCell(ws, ref, p ? (p.name || ('Nr '+n)) : '', 's');
+    x = _patchCell(x, ref, 's', p ? (p.name||'') : '');
   }
 
-  // ── Stunden-Raster ────────────────────────────────────────────
+  // ── Positionsbeschriftungen ──────────────────────────────────
+  [11,13,15,17,19].forEach((row, i) => {
+    const desc = positionDescriptions[i+3];
+    if(desc) x = _patchCell(x, 'C'+row, 's', desc);
+  });
+
+  // ── Stundenraster ────────────────────────────────────────────
   const A = buildAssignments(dayIdx);
 
-  // Alle HW-Personen (guards + base + bootsfLeft) für Überlauf
+  // HW-Überlauf: überzählige HW-Personen in freie Station-Spalten schreiben
   const main = lastResult.schedule[dayIdx].assign.find(s => s.kind === 'main');
   const allHWNrs = main
     ? [...main.mainGuards, ...main.base, ...main.bootsfLeft]
         .map(p => personNr(p.id)).filter(n => n != null)
     : [];
-  // HW / HW2 halten max. 4 Personen; Überlauf → freie Template-Stationen
   const overflowHW = allHWNrs.slice(4);
 
-  // Freie (unbelegte) Station-Spalten für HW-Überlauf verwenden
   const coreHWCodes = new Set(['WF','WF2','HW','HW2']);
   const usedCodes   = new Set(Object.keys(A));
   const freeCols    = Object.entries(STATION_COL_X)
     .filter(([code]) => !usedCodes.has(code) && !coreHWCodes.has(code))
-    .sort((a,b) => a[1] - b[1])    // aufsteigend nach Spalte
-    .map(([, col]) => col);
+    .sort((a,b) => a[1]-b[1]).map(([,col]) => col);
 
-  // Paarweise je 2 HW-Personen in eine freie Station-Spalte schreiben
   overflowHW.forEach((nr, i) => {
-    const pairIdx = Math.floor(i / 2);
+    const pairIdx = Math.floor(i/2);
     if(pairIdx >= freeCols.length) return;
-    const col    = freeCols[pairIdx];
-    const isTop  = (i % 2 === 0);
-    // Spalten-Beschriftung in Zeile 21 auf "HW" umbenennen
-    if(isTop) _setCell(ws, colLetter(col) + '21', 'HW', 's');
+    const col   = freeCols[pairIdx];
+    const isTop = (i % 2 === 0);
+    if(isTop) x = _patchCell(x, colLetter(col)+'21', 's', 'HW');
     FILL_HOURS.forEach(hr => {
       const [rt, rb] = HOUR_ROWS_X[hr];
-      _setCell(ws, colLetter(col) + (isTop ? rt : rb), nr, 'n');
+      x = _patchCell(x, colLetter(col) + (isTop ? rt : rb), 'n', nr);
     });
   });
 
-  // Standard-Stationsdaten schreiben
+  // Standard-Stationsdaten
   FILL_HOURS.forEach(hr => {
     const [rt, rb] = HOUR_ROWS_X[hr];
     for(const code in A){
       const col  = STATION_COL_X[code]; if(!col) continue;
       const nums = A[code];
-      if(nums[0] != null) _setCell(ws, colLetter(col) + rt, nums[0], 'n');
-      if(nums[1] != null) _setCell(ws, colLetter(col) + rb, nums[1], 'n');
+      if(nums[0] != null) x = _patchCell(x, colLetter(col)+rt, 'n', nums[0]);
+      if(nums[1] != null) x = _patchCell(x, colLetter(col)+rb, 'n', nums[1]);
     }
   });
+
+  return x;
+}
+
+// ── Offizieller XLSX-Export ───────────────────────────────────────
+
+async function exportOfficial(dayIdx){
+  if(!lastResult){ alert('Bitte zuerst Plan generieren.'); return; }
+
+  const arr = await _loadTemplate();
+  if(!arr){
+    showToast('⚠️ Template nicht gefunden – bitte "Wachplan Template.xlsx" auswählen');
+    document.getElementById('template-file-input').click();
+    _pendingExportDay = dayIdx;
+    return;
+  }
+  if(typeof JSZip === 'undefined'){
+    alert('JSZip lädt noch – bitte kurz warten.');
+    return;
+  }
+
+  try {
+    const zip  = await JSZip.loadAsync(arr);
+
+    // Sheet-Pfad ermitteln (i.d.R. sheet1.xml)
+    const sheetPath = Object.keys(zip.files)
+      .filter(f => f.match(/xl\/worksheets\/sheet\d+\.xml$/))
+      .sort()[0] || 'xl/worksheets/sheet1.xml';
+
+    const origXml    = await zip.file(sheetPath).async('string');
+    const patchedXml = _patchSheetXml(origXml, dayIdx);
+    zip.file(sheetPath, patchedXml);
+
+    const out  = await zip.generateAsync({ type:'uint8array', compression:'DEFLATE' });
+    const iso  = computeDayDates()[dayIdx];
+    const fn   = (iso || ('Tag'+(dayIdx+1))) + '_Wachplan.xlsx';
+    const blob = new Blob([out], { type:'application/octet-stream' });
+    const a    = document.createElement('a');
+    a.href     = URL.createObjectURL(blob);
+    a.download = fn;
+    a.click();
+  } catch(e){
+    alert('Export fehlgeschlagen: ' + e.message);
+    console.error('XLSX Export Error:', e);
+  }
 }
 
 // ── CSV-Export ───────────────────────────────────────────────────
@@ -371,9 +329,9 @@ function exportCSV(){
     d.assign.forEach(slot=>{
       if(slot.kind==='main'){
         slot.fuehrung.forEach(p   =>rows.push([dn,slot.tower,'','Zentrale','Führung',p.name,ROLE[p.role]]));
-        slot.mainGuards.forEach(p =>rows.push([dn,slot.tower,'','Zentrale','Wache',p.name,ROLE[p.role]]));
-        slot.base.forEach(p       =>rows.push([dn,slot.tower,'','Zentrale','Reserve',p.name,ROLE[p.role]]));
-        slot.bootsfLeft.forEach(p =>rows.push([dn,slot.tower,'','Zentrale','Bootsf. frei',p.name,ROLE[p.role]]));
+        slot.mainGuards.forEach(p =>rows.push([dn,slot.tower,'','Zentrale','HW-Wache',p.name,ROLE[p.role]]));
+        slot.base.forEach(p       =>rows.push([dn,slot.tower,'','Zentrale','HW',p.name,ROLE[p.role]]));
+        slot.bootsfLeft.forEach(p =>rows.push([dn,slot.tower,'','Zentrale','Bootsf. HW',p.name,ROLE[p.role]]));
         if(slot.hwBoatSlot?.bootsf)
           rows.push([dn,slot.hwBoatSlot.name,getBoat(slot.hwBoatSlot.boatId)?.code||'','HW-Boot','Bootsführer',slot.hwBoatSlot.bootsf.name,ROLE[slot.hwBoatSlot.bootsf.role]]);
         slot.sick.forEach(p       =>rows.push([dn,slot.tower,'','Zentrale','KRANK',p.name,ROLE[p.role]]));
@@ -388,5 +346,5 @@ function exportCSV(){
   });
   const csv =rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
-  const a   =document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='wachplan_6tage.csv'; a.click();
+  const a   =document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='wachplan.csv'; a.click();
 }
