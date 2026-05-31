@@ -4,16 +4,22 @@
 
 /**
  * Gibt ein Array mit DAYS ISO-Datumsstrings zurück ('YYYY-MM-DD').
- * Wenn kein Startdatum gesetzt ist, werden leere Strings geliefert.
+ *
+ * Bugfix: Frühere Version nutzte Date.toISOString() (UTC), was in
+ * Zeitzonen östlich von UTC zu einem Off-by-one-Fehler führte
+ * (z.B. UTC+2: Mitternacht lokal = 22:00 UTC → falscher Vortag).
+ * Jetzt wird ausschließlich lokale Datumsarithmetik verwendet.
  */
 function computeDayDates(){
   const r = Array(DAYS).fill('');
   if(!startDate) return r;
-  const base = new Date(startDate + 'T00:00:00');
-  if(isNaN(base.getTime())) return r;
-  for(let d = 0; d < DAYS; d++){
-    const dt = new Date(base.getTime() + d * 86400000);
-    r[d] = dt.toISOString().slice(0, 10);
+  const [y, m, d] = startDate.split('-').map(Number);
+  if(!y || !m || !d) return r;
+  for(let i = 0; i < DAYS; i++){
+    const dt = new Date(y, m - 1, d + i);   // lokale Zeit, kein UTC-Shift
+    r[i] = dt.getFullYear() + '-'
+      + String(dt.getMonth() + 1).padStart(2, '0') + '-'
+      + String(dt.getDate()).padStart(2, '0');
   }
   return r;
 }
@@ -25,6 +31,7 @@ function computeDayDates(){
 function dayLabel(d){
   const dates = computeDayDates();
   if(!dates[d]) return DAYNAMES[d];
-  return new Date(dates[d] + 'T00:00:00')
+  const [y, mo, day] = dates[d].split('-').map(Number);
+  return new Date(y, mo - 1, day)
     .toLocaleDateString('de-DE', { weekday:'short', day:'2-digit', month:'2-digit' });
 }
