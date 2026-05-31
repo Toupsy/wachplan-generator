@@ -143,13 +143,19 @@ function renderHWBoatSelector(){
 }
 
 /**
- * Befüllt exportColumns automatisch aus der aktuellen Konfiguration:
- * Boote → Türme (nach Prio absteigend) → WF → WF2 → HW → HW2
+ * Befüllt exportColumns automatisch:
+ * Pro Turm (Prio absteigend): zuerst zugeordnete Boote, dann der Turm selbst.
+ * Boote ohne Turm-Zuordnung danach. Abschluss: WF → WF2 → HW → HW2.
  */
 function autoFillExportColumns(){
   const cols = [];
-  boats.forEach(b => { if(b.code) cols.push(b.code); });
-  towers.slice().sort((a,b) => b.prio - a.prio).forEach(t => { if(t.code) cols.push(t.code); });
+  towers.slice().sort((a,b) => b.prio - a.prio).forEach(t => {
+    boats.filter(b => b.towerId === t.id && b.id !== hwBoatId)
+         .forEach(b => { if(b.code) cols.push(b.code); });
+    if(t.code) cols.push(t.code);
+  });
+  boats.filter(b => (!b.towerId || b.towerId === 'HW') && b.id !== hwBoatId)
+       .forEach(b => { if(b.code) cols.push(b.code); });
   cols.push('WF');
   if(people.filter(p => p.role==='F').length > 2) cols.push('WF2');
   cols.push('HW', 'HW2');
@@ -158,14 +164,12 @@ function autoFillExportColumns(){
   renderExportColumnUI();
 }
 
-/** XLSX-Stationsspalten-Konfiguration */
+/** XLSX-Stationsspalten-Konfiguration mit Drag & Drop zum Umsortieren */
 function renderExportColumnUI(){
   const c = document.getElementById('export-col-fields');
   if(!c) return;
-  // Sicherstellen, dass exportColumns die richtige Länge hat
   while(exportColumns.length < TEMPLATE_STATION_COLS.length) exportColumns.push('');
 
-  // Verfügbare Codes (für Vorschläge)
   const knownCodes = [
     ...boats.map(b => b.code).filter(Boolean),
     ...towers.map(t => t.code).filter(Boolean),
@@ -173,21 +177,54 @@ function renderExportColumnUI(){
   ];
 
   c.innerHTML = '';
+  let dragSrcIdx = null;
+
   TEMPLATE_STATION_COLS.forEach((col, i) => {
     const row = document.createElement('div');
-    row.style.cssText = 'display:grid;grid-template-columns:50px 1fr;gap:6px;align-items:center;margin-bottom:5px';
+    row.draggable = true;
+    row.dataset.idx = i;
+    row.style.cssText = 'display:grid;grid-template-columns:18px 46px 1fr;gap:5px;align-items:center;margin-bottom:5px;border-radius:6px;padding:1px 2px;transition:background .1s';
     const colLabel = colLetter(col);
     row.innerHTML = `
+      <span style="color:var(--text-dim);font-size:1rem;cursor:grab;user-select:none;text-align:center;line-height:1">⠿</span>
       <span style="font-family:\'Spline Sans Mono\',monospace;font-size:.68rem;color:var(--text-dim);text-align:right;padding-right:4px">${colLabel}21</span>
-      <input type="text" list="excol-list-${i}" class="excol-input pos-desc-input"
+      <input type="text" list="excol-list-${i}" class="excol-input pos-desc-input" draggable="false"
         data-idx="${i}" value="${escapeHtml(exportColumns[i]||'')}"
-        placeholder="leer lassen = unbenutzt"
+        placeholder="leer = unbenutzt"
         style="padding:5px 8px;font-size:.78rem">
       <datalist id="excol-list-${i}">
-        ${knownCodes.map(c => `<option value="${escapeHtml(c)}">`).join('')}
+        ${knownCodes.map(k => `<option value="${escapeHtml(k)}">`).join('')}
       </datalist>`;
+
+    row.addEventListener('dragstart', e => {
+      dragSrcIdx = i;
+      e.dataTransfer.effectAllowed = 'move';
+      setTimeout(() => { row.style.opacity = '0.35'; }, 0);
+    });
+    row.addEventListener('dragend', () => {
+      row.style.opacity = '';
+      c.querySelectorAll('[data-idx]').forEach(r => r.style.background = '');
+    });
+    row.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      row.style.background = 'rgba(24,168,216,.18)';
+    });
+    row.addEventListener('dragleave', () => { row.style.background = ''; });
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      row.style.background = '';
+      if(dragSrcIdx === null || dragSrcIdx === i) return;
+      const tmp = exportColumns[dragSrcIdx];
+      exportColumns[dragSrcIdx] = exportColumns[i];
+      exportColumns[i] = tmp;
+      dragSrcIdx = null;
+      renderExportColumnUI();
+    });
+
     c.appendChild(row);
   });
+
   c.querySelectorAll('.excol-input').forEach(inp =>
     inp.oninput = e => { exportColumns[+e.target.dataset.idx] = e.target.value.trim(); });
 }

@@ -55,17 +55,17 @@ function personNr(id){
   return i < 0 ? null : i + 1;
 }
 
+/** Besetzungsdaten für einen Tag aufbereiten (code → [Nr, Nr]) */
 /**
  * Besetzungsdaten für einen Tag aufbereiten.
- * Gibt code → [Nr, ...] zurück – Türme können mehr als 2 Einträge haben (Überlauf).
- * Kranke Personen werden der HW-Liste zugerechnet (erscheinen im Export bei HW).
+ * Türme: alle Besatzer (kein slice) – Überlauf >2 wird in _patchSheetXml direkt daneben platziert.
+ * Kranke: werden der HW-Liste zugerechnet und erscheinen im Export bei HW.
  */
 function buildAssignments(dayIdx){
   const d = lastResult.schedule[dayIdx];
   const A = {};
   d.assign.forEach(slot => {
     if(slot.kind==='tower' && slot.code)
-      // Alle Besatzer zurückgeben – kein slice(0,2); Überlauf wird in _patchSheetXml verarbeitet
       A[slot.code] = slot.occupants.map(p=>personNr(p.id)).filter(n=>n!=null);
     else if(slot.kind==='boat' && slot.code && slot.bootsf){
       const nr=personNr(slot.bootsf.id);
@@ -77,7 +77,6 @@ function buildAssignments(dayIdx){
     const f=main.fuehrung.map(p=>personNr(p.id)).filter(n=>n!=null);
     if(f.length)    A['WF'] =f.slice(0,2);
     if(f.length>2)  A['WF2']=f.slice(2,4);
-    // Kranke Personen (main.sick) erscheinen ebenfalls in der HW-Spalte
     const allHW=[...main.mainGuards,...main.base,...main.bootsfLeft,...(main.sick||[])]
       .map(p=>personNr(p.id)).filter(n=>n!=null);
     if(allHW.length)    A['HW'] =allHW.slice(0,2);
@@ -246,28 +245,50 @@ function _patchSheetXml(xml, dayIdx){
     if(desc) x = _patchCell(x, 'C'+row, 's', desc);
   });
 
-  // ── Stundenraster ────────────────────────────────────────────
-  const A         = buildAssignments(dayIdx);
-  const colX      = getStationColX();  // dynamisch aus exportColumns
+  // ── Effektives Spalten-Layout ────────────────────────────────────
+  // Iteriert exportColumns der Reihe nach; leere Slots werden übersprungen.
+  // Hat eine Station >2 Personen, belegt der Überlauf die nächste Template-Spalte
+  // direkt rechts – alle nachfolgenden Stationen rücken entsprechend nach rechts.
+  const A = buildAssignments(dayIdx);
+  const effectiveCols = [];   // { col:number, code:string, nums:[nr,...] }
+  let tplIdx = 0;
 
-  // Stations-Labels in Zeile 21 schreiben (aus exportColumns-Konfiguration)
-  TEMPLATE_STATION_COLS.forEach((col, i) => {
-    const code = (exportColumns[i] || '').trim();
-    if(code) x = _patchCell(x, colLetter(col)+'21', 's', code);
+  for(const rawCode of exportColumns){
+    const code = (rawCode || '').trim();
+    if(!code) continue;
+    if(tplIdx >= TEMPLATE_STATION_COLS.length) break;
+
+    const nums = A[code] || [];
+    effectiveCols.push({ col: TEMPLATE_STATION_COLS[tplIdx++], code, nums: nums.slice(0, 2) });
+
+    // Overflow-Spalten direkt nebeneinander (Person 3, 4, 5 … in Paaren)
+    for(let i = 2; i < nums.length; i += 2){
+      if(tplIdx >= TEMPLATE_STATION_COLS.length) break;
+      effectiveCols.push({ col: TEMPLATE_STATION_COLS[tplIdx++], code, nums: nums.slice(i, i + 2) });
+    }
+  }
+
+  // Stationscodes in Zeile 21 + Stundendaten schreiben
+  effectiveCols.forEach(({ col, code, nums }) => {
+    x = _patchCell(x, colLetter(col)+'21', 's', code);
+    FILL_HOURS.forEach(hr => {
+      const [rt, rb] = HOUR_ROWS_X[hr];
+      if(nums[0] != null) x = _patchCell(x, colLetter(col)+rt, 'n', nums[0]);
+      if(nums[1] != null) x = _patchCell(x, colLetter(col)+rb, 'n', nums[1]);
+    });
   });
 
-  // ── Overflow-Pool: freie Spalten (exportColumns-Eintrag leer) ────
-  // Reihenfolge: erst Turm/Boot-Überlauf (>2 Personen), dann HW-Überlauf (>4).
-  // Freie Spalten werden sequenziell vergeben – kein Überschreiben konfigurierter Spalten.
-  const freeCols = TEMPLATE_STATION_COLS.filter((_, i) => !(exportColumns[i]||'').trim());
-  let freeColPtr = 0;
-
-  function writeOverflowPairs(code, nrs){
-    for(let i = 0; i < nrs.length; i += 2){
-      if(freeColPtr >= freeCols.length) return;
-      const col = freeCols[freeColPtr++];
-      x = _patchCell(x, colLetter(col)+'21', 's', code);
-      const nr1 = nrs[i], nr2 = nrs[i+1];
+  // HW-Überlauf: Personen 5+ (inkl. Kranke) → verbleibende Template-Spalten
+  const main = lastResult.schedule[dayIdx].assign.find(s => s.kind === 'main');
+  if(main){
+    const allHWNrs = [...main.mainGuards, ...main.base, ...main.bootsfLeft, ...(main.sick||[])]
+      .map(p => personNr(p.id)).filter(n => n != null);
+    const overflowHW = allHWNrs.slice(4);
+    for(let i = 0; i < overflowHW.length; i += 2){
+      if(tplIdx >= TEMPLATE_STATION_COLS.length) break;
+      const col = TEMPLATE_STATION_COLS[tplIdx++];
+      x = _patchCell(x, colLetter(col)+'21', 's', 'HW');
+      const nr1 = overflowHW[i], nr2 = overflowHW[i+1];
       FILL_HOURS.forEach(hr => {
         const [rt, rb] = HOUR_ROWS_X[hr];
         if(nr1 != null) x = _patchCell(x, colLetter(col)+rt, 'n', nr1);
@@ -275,30 +296,6 @@ function _patchSheetXml(xml, dayIdx){
       });
     }
   }
-
-  // Turm/Boot-Überlauf: Stationen mit mehr als 2 Personen
-  for(const code in A){
-    if(A[code].length > 2) writeOverflowPairs(code, A[code].slice(2));
-  }
-
-  // HW-Überlauf: Personen 5+ (inkl. Kranke) der Hauptwache
-  const main = lastResult.schedule[dayIdx].assign.find(s => s.kind === 'main');
-  if(main){
-    const allHWNrs = [...main.mainGuards, ...main.base, ...main.bootsfLeft, ...(main.sick||[])]
-      .map(p => personNr(p.id)).filter(n => n != null);
-    writeOverflowPairs('HW', allHWNrs.slice(4));
-  }
-
-  // Standard-Stationsdaten: erste 2 Personen pro Station in die konfigurierten Spalten
-  FILL_HOURS.forEach(hr => {
-    const [rt, rb] = HOUR_ROWS_X[hr];
-    for(const code in A){
-      const col  = colX[code]; if(!col) continue;
-      const nums = A[code];
-      if(nums[0] != null) x = _patchCell(x, colLetter(col)+rt, 'n', nums[0]);
-      if(nums[1] != null) x = _patchCell(x, colLetter(col)+rb, 'n', nums[1]);
-    }
-  });
 
   return x;
 }
