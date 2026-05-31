@@ -34,28 +34,35 @@ function generate(){
     const isSick = id => ds.sick.has(id);
 
     // ── Zwangszuweisungen für diesen Tag vorbereiten ──────────────
-    const dayForced   = (forcedPlacements[d] || []).filter(f => {
+    const dayForced = (forcedPlacements[d] || []).filter(f => {
       const p = people.find(x => x.id === f.personId);
-      return p && !isSick(p.id);   // kranke Personen ignorieren
+      return p && !isSick(p.id);
     });
-    const forcedIds   = new Set(dayForced.map(f => f.personId));
 
-    const isForced      = p => forcedIds.has(p.id);
-    const isTransparent = p => !!dayForced.find(f => f.personId === p.id)?.transparent;
+    // transparent=true → Person bleibt im Pool; wird erst NACH dem Algorithmus
+    //   visuell in den Zielslot verschoben; Statistik läuft unverändert durch
+    //   → Folgetage sind identisch mit dem Originalplan
+    // transparent=false → Person wird aus dem Pool entfernt, vor dem
+    //   Algorithmus platziert, Statistik zählt mit
+    const effectiveDayForced   = dayForced.filter(f => !f.transparent);
+    const transparentDayForced = dayForced.filter(f =>  f.transparent);
+    const effectiveForcedIds   = new Set(effectiveDayForced.map(f => f.personId));
 
-    // Verfügbare Personen OHNE zwangsweise zugewiesene
+    const isForced = p => effectiveForcedIds.has(p.id);  // nur effektive aus Pool entfernen
+
+    // Verfügbare Personen OHNE effektiv-zwangsweise zugewiesene
     const availF    = people.filter(p => p.role==='F' && !isSick(p.id) && !isForced(p));
     const availB    = people.filter(p => p.role==='B' && !isSick(p.id) && !isForced(p));
     const availE    = people.filter(p => p.role==='E' && !isSick(p.id) && !isForced(p));
     const availU    = people.filter(p => p.role==='U' && !isSick(p.id) && !isForced(p));
     const sickToday = people.filter(p => isSick(p.id));
 
-    // Erzwungene Personen nach Ziel gruppieren
-    const forcedByTower = {};   // towerId -> [person, ...]  (max 2)
-    const forcedByBoat  = {};   // boatId  -> person         (1 BF)
-    const forcedForMain = [];   // für HW
+    // Effektive Zwangszuweisungen nach Ziel gruppieren
+    const forcedByTower = {};
+    const forcedByBoat  = {};
+    const forcedForMain = [];
 
-    dayForced.forEach(f => {
+    effectiveDayForced.forEach(f => {
       const p = people.find(x => x.id === f.personId);
       if(!p) return;
       if(f.kind === 'tower'){
@@ -181,7 +188,7 @@ function generate(){
 
     // Zwangsweise HW-Zuweisungen zuerst
     forcedForMain.forEach(p => {
-      if(!isTransparent(p)) commitPerson(p, mainPseudo);
+      commitPerson(p, mainPseudo);
       mainGuards.push(p);
     });
 
@@ -210,10 +217,7 @@ function generate(){
 
       // Zwangsbelegte Plätze bereits vorab eintragen
       const pre = (forcedByTower[t.id] || []);
-      pre.forEach(p => {
-        if(!isTransparent(p)) commitPerson(p, t);
-        slot.occupants.push(p);
-      });
+      pre.forEach(p => { commitPerson(p, t); slot.occupants.push(p); });
 
       // Algorithmus füllt verbleibende Plätze
       const need = 2 - slot.occupants.length;
@@ -278,10 +282,8 @@ function generate(){
       const forceForThisBoat = forcedByBoat[bo.id];
       if(forceForThisBoat){
         slot.bootsf = forceForThisBoat;
-        if(!isTransparent(forceForThisBoat)){
-          const s = ensure(forceForThisBoat.id);
-          s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id]||0)+1;
-        }
+        const s = ensure(forceForThisBoat.id);
+        s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id]||0)+1;
         dayAssign.push(slot);
         continue;
       }
@@ -311,10 +313,8 @@ function generate(){
         const forceHW = forcedByBoat[bo.id];
         if(forceHW){
           hwBoatSlot.bootsf = forceHW;
-          if(!isTransparent(forceHW)){
-            const s = ensure(forceHW.id);
-            s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id]||0)+1;
-          }
+          const s = ensure(forceHW.id);
+          s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id]||0)+1;
         } else {
           poolB.sort((a,b) => {
             const sa=ensure(a.id),sb=ensure(b.id);
@@ -337,6 +337,43 @@ function generate(){
       fuehrung:availF, mainGuards, base:leftovers,
       bootsfLeft:poolB, hwBoatSlot,
       sick:sickToday, k,
+    });
+
+    // ── 6) TRANSPARENTE Zuweisungen: visueller Tausch NACH dem Algorithmus ──
+    // Person bleibt im Pool → Statistik identisch zum Originalplan.
+    // Nur die Anzeige für diesen Tag wird überschrieben.
+    transparentDayForced.forEach(f => {
+      const person = people.find(x => x.id === f.personId);
+      if(!person) return;
+      // Aus natürlichem Slot entfernen
+      dayAssign.forEach(slot => {
+        if(slot.kind === 'tower')
+          slot.occupants = slot.occupants.filter(p => p.id !== f.personId);
+        else if(slot.kind === 'boat' && slot.bootsf?.id === f.personId)
+          slot.bootsf = null;
+        else if(slot.kind === 'main'){
+          slot.fuehrung   = slot.fuehrung.filter(p => p.id !== f.personId);
+          slot.mainGuards = slot.mainGuards.filter(p => p.id !== f.personId);
+          slot.base       = slot.base.filter(p => p.id !== f.personId);
+          slot.bootsfLeft = slot.bootsfLeft.filter(p => p.id !== f.personId);
+          if(slot.hwBoatSlot?.bootsf?.id === f.personId) slot.hwBoatSlot.bootsf = null;
+        }
+      });
+      // In Zielslot einfügen
+      if(f.kind === 'tower'){
+        const s = dayAssign.find(s => s.kind === 'tower' && s.towerId === f.slotId);
+        if(s) s.occupants.push(person);
+      } else if(f.kind === 'boat'){
+        const s = dayAssign.find(s => s.kind === 'boat' && s.boatId === f.slotId);
+        if(s) s.bootsf = person;
+        else {
+          const m = dayAssign.find(s => s.kind === 'main');
+          if(m?.hwBoatSlot?.boatId === f.slotId) m.hwBoatSlot.bootsf = person;
+        }
+      } else if(f.kind === 'main' || f.kind === 'hwboat'){
+        const m = dayAssign.find(s => s.kind === 'main');
+        if(m) m.mainGuards.push(person);
+      }
     });
 
     schedule.push({
