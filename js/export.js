@@ -245,56 +245,63 @@ function _patchSheetXml(xml, dayIdx){
     if(desc) x = _patchCell(x, 'C'+row, 's', desc);
   });
 
-  // ── Effektives Spalten-Layout ────────────────────────────────────
-  // Iteriert exportColumns der Reihe nach; leere Slots werden übersprungen.
-  // Hat eine Station >2 Personen, belegt der Überlauf die nächste Template-Spalte
-  // direkt rechts – alle nachfolgenden Stationen rücken entsprechend nach rechts.
-  const A = buildAssignments(dayIdx);
-  const effectiveCols = [];   // { col:number, code:string, nums:[nr,...] }
-  let tplIdx = 0;
+  // ── Slot-Map: exportColumns[i] → TEMPLATE_STATION_COLS[i] (1:1) ────────
+  // Leere exportColumns-Einträge bleiben leer im Template.
+  // Hat eine Station >2 Personen, scannt der Algorithmus von ihrer Position
+  // nach rechts und befüllt den nächsten freien Slot mit dem Überlauf-Paar.
+  // HW-Überlauf (Personen 5+ inkl. Kranke) füllt danach verbleibende leere Slots.
+  const A       = buildAssignments(dayIdx);
+  const slotMap = new Array(TEMPLATE_STATION_COLS.length).fill(null);
+  // { code:string, nums:[nr|null, nr|null] }
 
-  for(const rawCode of exportColumns){
-    const code = (rawCode || '').trim();
+  // 1. Primäre Belegung – direkte 1:1-Zuordnung
+  for(let i = 0; i < TEMPLATE_STATION_COLS.length; i++){
+    const code = (exportColumns[i] || '').trim();
     if(!code) continue;
-    if(tplIdx >= TEMPLATE_STATION_COLS.length) break;
+    slotMap[i] = { code, nums: (A[code] || []).slice(0, 2) };
+  }
 
-    const nums = A[code] || [];
-    effectiveCols.push({ col: TEMPLATE_STATION_COLS[tplIdx++], code, nums: nums.slice(0, 2) });
-
-    // Overflow-Spalten direkt nebeneinander (Person 3, 4, 5 … in Paaren)
-    for(let i = 2; i < nums.length; i += 2){
-      if(tplIdx >= TEMPLATE_STATION_COLS.length) break;
-      effectiveCols.push({ col: TEMPLATE_STATION_COLS[tplIdx++], code, nums: nums.slice(i, i + 2) });
+  // 2. Überlauf: nächsten freien Slot rechts von der Station verwenden
+  for(let i = 0; i < TEMPLATE_STATION_COLS.length; i++){
+    const code = (exportColumns[i] || '').trim();
+    if(!code) continue;
+    const overflowNrs = (A[code] || []).slice(2);
+    if(!overflowNrs.length) continue;
+    let placed = 0;
+    for(let j = i + 1; j < TEMPLATE_STATION_COLS.length && placed * 2 < overflowNrs.length; j++){
+      if(slotMap[j] === null){
+        slotMap[j] = { code, nums: overflowNrs.slice(placed * 2, placed * 2 + 2) };
+        placed++;
+      }
     }
   }
 
-  // Stationscodes in Zeile 21 + Stundendaten schreiben
-  effectiveCols.forEach(({ col, code, nums }) => {
+  // 3. HW-Überlauf (Personen 5+ inkl. Kranke) → verbleibende leere Slots
+  const main = lastResult.schedule[dayIdx].assign.find(s => s.kind === 'main');
+  if(main){
+    const allHWNrs = [...main.mainGuards, ...main.base, ...main.bootsfLeft, ...(main.sick||[])]
+      .map(p => personNr(p.id)).filter(n => n != null);
+    const overflowHW = allHWNrs.slice(4);
+    let placed = 0;
+    for(let j = 0; j < TEMPLATE_STATION_COLS.length && placed * 2 < overflowHW.length; j++){
+      if(slotMap[j] === null){
+        slotMap[j] = { code: 'HW', nums: overflowHW.slice(placed * 2, placed * 2 + 2) };
+        placed++;
+      }
+    }
+  }
+
+  // 4. Alle belegten Slots in XML schreiben; leere Slots unangetastet lassen
+  for(let i = 0; i < TEMPLATE_STATION_COLS.length; i++){
+    if(!slotMap[i]) continue;
+    const col          = TEMPLATE_STATION_COLS[i];
+    const { code, nums } = slotMap[i];
     x = _patchCell(x, colLetter(col)+'21', 's', code);
     FILL_HOURS.forEach(hr => {
       const [rt, rb] = HOUR_ROWS_X[hr];
       if(nums[0] != null) x = _patchCell(x, colLetter(col)+rt, 'n', nums[0]);
       if(nums[1] != null) x = _patchCell(x, colLetter(col)+rb, 'n', nums[1]);
     });
-  });
-
-  // HW-Überlauf: Personen 5+ (inkl. Kranke) → verbleibende Template-Spalten
-  const main = lastResult.schedule[dayIdx].assign.find(s => s.kind === 'main');
-  if(main){
-    const allHWNrs = [...main.mainGuards, ...main.base, ...main.bootsfLeft, ...(main.sick||[])]
-      .map(p => personNr(p.id)).filter(n => n != null);
-    const overflowHW = allHWNrs.slice(4);
-    for(let i = 0; i < overflowHW.length; i += 2){
-      if(tplIdx >= TEMPLATE_STATION_COLS.length) break;
-      const col = TEMPLATE_STATION_COLS[tplIdx++];
-      x = _patchCell(x, colLetter(col)+'21', 's', 'HW');
-      const nr1 = overflowHW[i], nr2 = overflowHW[i+1];
-      FILL_HOURS.forEach(hr => {
-        const [rt, rb] = HOUR_ROWS_X[hr];
-        if(nr1 != null) x = _patchCell(x, colLetter(col)+rt, 'n', nr1);
-        if(nr2 != null) x = _patchCell(x, colLetter(col)+rb, 'n', nr2);
-      });
-    }
   }
 
   return x;
