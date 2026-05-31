@@ -124,17 +124,31 @@ HOUR_ROWS_X = { '09:00':[25,26], ... }     // Zeilen-Paare pro Stunde (oben/unte
 - `EE3` → Datum (Excel-Seriennummer via `excelSerial()`)
 - `slotNameRef(n)` → Personennamen 1–28
 - `C11,C13,C15,C17,C19` → Positionsbeschriftungen
-- Zeile 21 der Stationsspalten → Stationscodes (aus `exportColumns`)
-- Stundenraster → Personennummern (1-basiert) für jede Station
-- HW-Overflow → Überzählige HW-Personen (>4) in leere exportColumns-Slots
+- Zeile 21 + Stundendaten → via `effectiveCols` (s. Overflow-Strategie unten)
+- HW-Overflow → Personen 5+ (inkl. Kranke) in verbleibende Template-Spalten
+
+### Overflow-Strategie & effektives Layout (`_patchSheetXml`)
+`effectiveCols[]` wird beim Export berechnet, `exportColumns` bleibt unberührt:
+1. Iteriere `exportColumns` der Reihe nach; leere Slots überspringen
+2. Jede Station belegt eine Template-Spalte (primär: Personen 1–2)
+3. Hat die Station >2 Personen → Überlauf-Paare belegen die **nächste** Template-Spalte direkt rechts (adjacent, nicht am Ende)
+4. Nachfolgende Stationen rücken entsprechend nach rechts
+5. Verbleibende Template-Spalten → HW-Overflow (Personen 5+, inkl. Kranke)
+
+### `autoFillExportColumns()` – Reihenfolge
+Pro Turm (Prio absteigend): erst zugeordnete Boote, dann Turm → Boot steht immer links von seinem Turm. Dann freie Boote, WF, WF2, HW, HW2.
+
+### `renderExportColumnUI()` – Drag & Drop
+Jede Zeile hat `draggable="true"` + ⠿-Handle. dragstart speichert Quell-Index; drop tauscht `exportColumns[src]` ↔ `exportColumns[dst]` und re-rendert. Input hat `draggable="false"`.
+
+### `buildAssignments(dayIdx)` → `{ code: [Nr, ...] }`
+- Türme: **alle** Besatzer (kein slice); Überlauf >2 → adjacent via `effectiveCols`
+- HW: `mainGuards + base + bootsfLeft + sick` → WF/WF2 (Führung), HW/HW2 (Rest inkl. Kranke)
 
 ### Template-Caching
 - Primär: `fetch('Wachplan Template.xlsx')` (aus Projektordner)
 - Fallback: `localStorage` (Base64, Key: `dlrg_wachplan_template_b64`)
 - Chunks à 9000 Bytes (Vielfaches von 3 → kein btoa-Padding-Problem)
-
-### `buildAssignments(dayIdx)` → `{ code: [Nr, Nr] }`
-Baut Map: WF, WF2, HW, HW2, Turm-Codes, Boot-Codes → Personennummern
 
 ---
 
