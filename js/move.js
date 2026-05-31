@@ -85,30 +85,22 @@ function _slotLabel(kind, slotId){
 }
 
 /**
- * Schreibt Zwangszuweisungen in forcedPlacements.
+ * Schreibt eine Zwangszuweisung NUR für den heutigen Tag.
  *
- * @param {boolean} forward
- *   false (Standard) → nur heute; transparent=true → Rotationsstatistik der
- *                       Folgetage wird nicht beeinflusst; Person kann am nächsten
- *                       Tag wieder frei rotieren
- *   true              → heute + alle Folgetage fixiert; Stats laufen normal mit
+ * @param {boolean} recalcFuture
+ *   false (Standard / "transparent") → Folgetage laufen so als wäre der
+ *     heutige Wechsel nie passiert. Jonas bleibt Dienstag auf T12 wie
+ *     laut Originalplanung vorgesehen.
+ *   true → commitPerson zählt heute; Folgetage-Algorithmus berücksichtigt
+ *     den heutigen Wechsel und kann Jonas woanders einteilen.
  */
-function _applyMove(personId, dayIdx, kind, slotId, forward){
-  if(forward){
-    // Alle Tage ab heute fixieren (Stats laufen normal)
-    const days = Array.from({ length: DAYS - dayIdx }, (_, i) => dayIdx + i);
-    days.forEach(d => {
-      if(!forcedPlacements[d]) forcedPlacements[d] = [];
-      forcedPlacements[d] = forcedPlacements[d].filter(f => f.personId !== personId);
-      forcedPlacements[d].push({ personId, kind, slotId });
-    });
-  } else {
-    // Nur heute; transparent=true → commitPerson wird übersprungen
-    // → Folgetage rotieren so als wäre der Wechsel nie passiert
-    if(!forcedPlacements[dayIdx]) forcedPlacements[dayIdx] = [];
-    forcedPlacements[dayIdx] = forcedPlacements[dayIdx].filter(f => f.personId !== personId);
-    forcedPlacements[dayIdx].push({ personId, kind, slotId, transparent: true });
-  }
+function _applyMove(personId, dayIdx, kind, slotId, recalcFuture){
+  if(!forcedPlacements[dayIdx]) forcedPlacements[dayIdx] = [];
+  forcedPlacements[dayIdx] = forcedPlacements[dayIdx].filter(f => f.personId !== personId);
+  forcedPlacements[dayIdx].push({
+    personId, kind, slotId,
+    transparent: !recalcFuture,   // Standard: transparent → Folgetage unverändert
+  });
 }
 
 /**

@@ -94,17 +94,21 @@ function renderBoatCfg(){
         `<option value="${t.id}" ${b.towerId===t.id?'selected':''}>→ ${escapeHtml(t.name)} (${escapeHtml(t.code||'?')})</option>`)
     ).join('');
     row.innerHTML = `
-      <input type="text" value="${escapeHtml(b.name)}" data-id="${b.id}" class="bname">
-      <span class="code-input">
-        <label>CODE</label>
-        <input type="text" value="${escapeHtml(b.code||'')}" data-id="${b.id}" class="bcode" placeholder="78/x">
-      </span>
-      <select class="bassign" data-id="${b.id}">${towerOpts}</select>
-      <button class="mini-btn del-b" data-id="${b.id}">×</button>`;
+      <input type="text" value="${escapeHtml(b.name)}" data-id="${b.id}" class="bname" placeholder="Bootname">
+      <div class="tower-row-meta">
+        <span class="code-input">
+          <label>CODE</label>
+          <input type="text" value="${escapeHtml(b.code||'')}" data-id="${b.id}" class="bcode" placeholder="78/x">
+        </span>
+        <select class="bassign" data-id="${b.id}" style="flex:1;min-width:0">${towerOpts}</select>
+        <button class="mini-btn del-b" data-id="${b.id}">×</button>
+      </div>`;
     c.appendChild(row);
   });
-  c.querySelectorAll('.bname').forEach(i =>
-    i.oninput = e => { getBoat(+e.target.dataset.id).name = e.target.value; renderHWBoatSelector(); renderPositionDescUI(); });
+  c.querySelectorAll('.bname').forEach(i => {
+    i.oninput = e  => { getBoat(+e.target.dataset.id).name = e.target.value; };
+    i.onblur  = () => { renderHWBoatSelector(); renderPositionDescUI(); };
+  });
   c.querySelectorAll('.bcode').forEach(i =>
     i.oninput = e => { getBoat(+e.target.dataset.id).code = e.target.value.trim(); });
   c.querySelectorAll('.bassign').forEach(s =>

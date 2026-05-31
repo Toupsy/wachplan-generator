@@ -53,12 +53,13 @@
   .tower-row input.tname:focus{outline:none;border-color:var(--sea-bright);box-shadow:0 0 0 3px rgba(24,168,216,.15)}
   .tower-row input.tname::placeholder{color:var(--text-dim)}
   .tower-row-meta{display:flex;align-items:center;gap:7px}
-  /* Boote erben die tower-row Basis, überschreiben layout */
-  .boat-row{flex-direction:row !important;align-items:center !important;border-color:rgba(24,168,216,.3) !important;background:linear-gradient(180deg,var(--deep),rgba(24,168,216,.04)) !important}
-  .boat-row .bname{flex:1;min-width:60px;background:transparent;border:none;color:var(--text);font-family:'Spline Sans',sans-serif;font-size:.85rem}
-  .boat-row .bname:focus{outline:none}
-  .boat-row select{background:var(--navy-2);border:1px solid var(--line-strong);border-radius:7px;padding:6px 8px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.74rem;cursor:pointer;flex:1.2;min-width:100px}
-  .boat-row select:focus{outline:none;border-color:var(--sea-bright)}
+  /* Boote: gleiche 2-Zeilen-Struktur wie Türme, nur blau eingefärbt */
+  .boat-row{border-color:rgba(24,168,216,.3) !important;background:linear-gradient(180deg,var(--deep),rgba(24,168,216,.04)) !important}
+  .boat-row .bname{width:100%;background:var(--navy-2);border:1px solid rgba(24,168,216,.4);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'Spline Sans',sans-serif;font-size:.88rem}
+  .boat-row .bname:focus{outline:none;border-color:var(--sea-bright);box-shadow:0 0 0 3px rgba(24,168,216,.15)}
+  .boat-row .bname::placeholder{color:var(--text-dim)}
+  .tower-row-meta select{background:var(--navy-2);border:1px solid var(--line-strong);border-radius:7px;padding:6px 8px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.74rem;cursor:pointer;width:100%}
+  .tower-row-meta select:focus{outline:none;border-color:var(--sea-bright)}
   .code-input{display:flex;align-items:center;gap:4px;background:rgba(255,179,71,.08);border:1px solid rgba(255,179,71,.3);border-radius:7px;padding:3px 6px}
   .code-input label{font-family:'Spline Sans Mono',monospace;font-size:.58rem;color:var(--warn);letter-spacing:.06em}
   .code-input input{width:42px;background:var(--deep);border:1px solid var(--line);border-radius:5px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.74rem;text-align:center;padding:4px 2px}
@@ -203,8 +204,8 @@
       <label class="scope-toggle-label">
         <input type="checkbox" id="scope-forward-chk">
         <div>
-          <div class="scope-toggle-text">Folgetage ebenfalls ändern</div>
-          <div class="scope-toggle-sub">Person wird auch in den Folgetagen auf diesen Slot fixiert</div>
+          <div class="scope-toggle-text">Folgetage neu berechnen</div>
+          <div class="scope-toggle-sub">Heutiger Wechsel beeinflusst den Algorithmus der Folgetage — sonst bleibt der Originalplan erhalten</div>
         </div>
       </label>
     </div>
