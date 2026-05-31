@@ -246,55 +246,67 @@ function _patchSheetXml(xml, dayIdx){
   });
 
   // ── Slot-Map: exportColumns[i] → TEMPLATE_STATION_COLS[i] (1:1) ────────
-  // Leere exportColumns-Einträge bleiben leer im Template.
-  // Hat eine Station >2 Personen, scannt der Algorithmus von ihrer Position
-  // nach rechts und befüllt den nächsten freien Slot mit dem Überlauf-Paar.
-  // HW-Überlauf (Personen 5+ inkl. Kranke) füllt danach verbleibende leere Slots.
-  const A       = buildAssignments(dayIdx);
-  const slotMap = new Array(TEMPLATE_STATION_COLS.length).fill(null);
-  // { code:string, nums:[nr|null, nr|null] }
+  // Leere Slots bleiben leer. Overflow-Insertion schiebt den nächsten null-Slot
+  // als Absorber nach rechts (alle dazwischen liegenden Einträge rücken 1 nach rechts).
+  // Gibt es keinen null rechts vom Einfügepunkt, wird der erste freie Slot gefüllt.
+  // Dasselbe gilt für HW-Overflow nach dem letzten HW/HW2-Eintrag.
+  const A = buildAssignments(dayIdx);
+  const N = TEMPLATE_STATION_COLS.length;
+  const slotMap = new Array(N).fill(null);
 
   // 1. Primäre Belegung – direkte 1:1-Zuordnung
-  for(let i = 0; i < TEMPLATE_STATION_COLS.length; i++){
+  for(let i = 0; i < N; i++){
     const code = (exportColumns[i] || '').trim();
-    if(!code) continue;
-    slotMap[i] = { code, nums: (A[code] || []).slice(0, 2) };
+    if(code) slotMap[i] = { code, nums: (A[code] || []).slice(0, 2) };
   }
 
-  // 2. Überlauf: nächsten freien Slot rechts von der Station verwenden
-  for(let i = 0; i < TEMPLATE_STATION_COLS.length; i++){
-    const code = (exportColumns[i] || '').trim();
-    if(!code) continue;
-    const overflowNrs = (A[code] || []).slice(2);
-    if(!overflowNrs.length) continue;
-    let placed = 0;
-    for(let j = i + 1; j < TEMPLATE_STATION_COLS.length && placed * 2 < overflowNrs.length; j++){
-      if(slotMap[j] === null){
-        slotMap[j] = { code, nums: overflowNrs.slice(placed * 2, placed * 2 + 2) };
-        placed++;
-      }
+  // Shift-Insert: fügt Entry bei pos ein, schiebt alles bis zum nächsten null nach rechts.
+  // Fallback: ersten freien Slot füllen wenn kein null rechts erreichbar.
+  function tryInsert(pos, entry){
+    let ni = -1;
+    for(let j = pos; j < N; j++) if(slotMap[j] === null){ ni = j; break; }
+    if(ni >= 0){
+      for(let j = ni; j > pos; j--) slotMap[j] = slotMap[j - 1];
+      slotMap[pos] = entry;
+    } else {
+      for(let j = 0; j < N; j++) if(slotMap[j] === null){ slotMap[j] = entry; return; }
     }
   }
 
-  // 3. HW-Überlauf (Personen 5+ inkl. Kranke) → verbleibende leere Slots
+  // 2. Station-Overflow: nach rechts schieben
+  for(let origI = 0; origI < N; origI++){
+    const code = (exportColumns[origI] || '').trim();
+    if(!code) continue;
+    const ov = (A[code] || []).slice(2);
+    if(!ov.length) continue;
+    // Aktuelle Position der primären Station in slotMap finden (kann durch frühere Shifts > origI sein)
+    let stPos = -1;
+    for(let j = origI; j < N; j++) if(slotMap[j]?.code === code){ stPos = j; break; }
+    if(stPos < 0) continue;
+    let insertAt = stPos + 1;
+    for(let j = 0; j < ov.length; j += 2)
+      tryInsert(insertAt++, { code, nums: ov.slice(j, j + 2) });
+  }
+
+  // 3. HW-Overflow (Personen 5+ inkl. Kranke): nach rechts schieben ab HW/HW2-Ende
   const main = lastResult.schedule[dayIdx].assign.find(s => s.kind === 'main');
   if(main){
     const allHWNrs = [...main.mainGuards, ...main.base, ...main.bootsfLeft, ...(main.sick||[])]
       .map(p => personNr(p.id)).filter(n => n != null);
-    const overflowHW = allHWNrs.slice(4);
-    let placed = 0;
-    for(let j = 0; j < TEMPLATE_STATION_COLS.length && placed * 2 < overflowHW.length; j++){
-      if(slotMap[j] === null){
-        slotMap[j] = { code: 'HW', nums: overflowHW.slice(placed * 2, placed * 2 + 2) };
-        placed++;
-      }
+    const hwOv = allHWNrs.slice(4);
+    if(hwOv.length){
+      let hwEnd = -1;
+      for(let j = N - 1; j >= 0; j--) if(slotMap[j]?.code === 'HW2' || slotMap[j]?.code === 'HW'){ hwEnd = j; break; }
+      let insertAt = hwEnd >= 0 ? hwEnd + 1 : N - 1;
+      for(let j = 0; j < hwOv.length; j += 2)
+        tryInsert(insertAt++, { code: 'HW', nums: hwOv.slice(j, j + 2) });
     }
   }
 
   // 4. Alle belegten Slots in XML schreiben; leere Slots unangetastet lassen
-  for(let i = 0; i < TEMPLATE_STATION_COLS.length; i++){
+  for(let i = 0; i < N; i++){
     if(!slotMap[i]) continue;
-    const col          = TEMPLATE_STATION_COLS[i];
+    const col = TEMPLATE_STATION_COLS[i];
     const { code, nums } = slotMap[i];
     x = _patchCell(x, colLetter(col)+'21', 's', code);
     FILL_HOURS.forEach(hr => {
