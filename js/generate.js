@@ -40,10 +40,7 @@ function generate(){
     });
     const forcedIds   = new Set(dayForced.map(f => f.personId));
 
-    // Helfer: Ist Person p zwangsweise zugewiesen?
-    const isForced      = p => forcedIds.has(p.id);
-    // Helfer: Ist die Zwangszuweisung transparent (kein Stats-Einfluss auf Folgetage)?
-    const isTransparent = p => dayForced.find(f => f.personId === p.id)?.transparent === true;
+    const isForced = p => forcedIds.has(p.id);
 
     // Verfügbare Personen OHNE zwangsweise zugewiesene
     const availF    = people.filter(p => p.role==='F' && !isSick(p.id) && !isForced(p));
@@ -183,7 +180,7 @@ function generate(){
 
     // Zwangsweise HW-Zuweisungen zuerst
     forcedForMain.forEach(p => {
-      if(!isTransparent(p)) commitPerson(p, mainPseudo);
+      commitPerson(p, mainPseudo);
       mainGuards.push(p);
     });
 
@@ -212,10 +209,7 @@ function generate(){
 
       // Zwangsbelegte Plätze bereits vorab eintragen
       const pre = (forcedByTower[t.id] || []);
-      pre.forEach(p => {
-        if(!isTransparent(p)) commitPerson(p, t);
-        slot.occupants.push(p);
-      });
+      pre.forEach(p => { commitPerson(p, t); slot.occupants.push(p); });
 
       // Algorithmus füllt verbleibende Plätze
       const need = 2 - slot.occupants.length;
@@ -244,8 +238,7 @@ function generate(){
           // Paar mit dem vorabbelegten bilden – nur wenn Vorabbelegter nicht transparent
           if(slot.occupants.length === 2){
             const [A,B] = slot.occupants;
-            if(!isTransparent(A) && !isTransparent(B))
-              pairCount[pairKey(A.id,B.id)] = (pairCount[pairKey(A.id,B.id)]||0)+1;
+            pairCount[pairKey(A.id,B.id)] = (pairCount[pairKey(A.id,B.id)]||0)+1;
           }
           const roles = slot.occupants.map(x=>x.role).join('');
           if(roles==='UU') slot.warn='Zwei Unerfahrene – kein Erfahrener frei';
@@ -281,10 +274,8 @@ function generate(){
       const forceForThisBoat = forcedByBoat[bo.id];
       if(forceForThisBoat){
         slot.bootsf = forceForThisBoat;
-        if(!isTransparent(forceForThisBoat)){
-          const s = ensure(forceForThisBoat.id);
-          s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id]||0)+1;
-        }
+        const s = ensure(forceForThisBoat.id);
+        s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id]||0)+1;
         dayAssign.push(slot);
         continue;
       }
@@ -314,10 +305,8 @@ function generate(){
         const forceHW = forcedByBoat[bo.id];
         if(forceHW){
           hwBoatSlot.bootsf = forceHW;
-          if(!isTransparent(forceHW)){
-            const s = ensure(forceHW.id);
-            s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id]||0)+1;
-          }
+          const s = ensure(forceHW.id);
+          s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id]||0)+1;
         } else {
           poolB.sort((a,b) => {
             const sa=ensure(a.id),sb=ensure(b.id);

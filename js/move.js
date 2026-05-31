@@ -1,84 +1,70 @@
 // ============================================================
-// move.js – Modal zum manuellen Verschieben von Personen (Feature 3 & 4)
+// move.js – Modal zum manuellen Verschieben von Personen
 // ============================================================
 
-/**
- * Öffnet das Verschiebe-Modal für eine Person.
- *
- * @param {number} personId  – ID der zu verschiebenden Person
- * @param {number} dayIdx    – Aktueller Tag
- * @param {string} fromKind  – 'tower'|'boat'|'main'|'hwboat'
- * @param {number|null} fromSlotId – towerId / boatId / null für HW
- */
 function openMoveModal(personId, dayIdx, fromKind, fromSlotId){
   const person = getP(personId);
   if(!person) return;
 
-  const overlay = document.getElementById('move-modal');
-  const title   = document.getElementById('move-modal-title');
-  const sub     = document.getElementById('move-modal-sub');
-  const slotList= document.getElementById('move-slot-list');
-  const scopeDiv= document.getElementById('move-scope');
-  const confirm = document.getElementById('move-modal-confirm');
+  const overlay  = document.getElementById('move-modal');
+  const title    = document.getElementById('move-modal-title');
+  const sub      = document.getElementById('move-modal-sub');
+  const slotSel  = document.getElementById('move-slot-select');
+  const scopeDiv = document.getElementById('move-scope');
+  const confirm  = document.getElementById('move-modal-confirm');
 
   title.textContent = `${person.name} verschieben`;
   sub.textContent   = `Von: ${_slotLabel(fromKind, fromSlotId)}`;
 
-  let selectedTarget = null;
-  let selectedScope  = 'today'; // 'today' | 'forward'
+  // ── Dropdown befüllen ─────────────────────────────────────────
+  slotSel.innerHTML = '<option value="">— Ziel auswählen —</option>';
 
-  // ── Slot-Auswahl ─────────────────────────────────────────────
-  slotList.innerHTML = '';
-  const addSlot = (kind, slotId, label, sublabel) => {
-    const btn = document.createElement('button');
-    btn.className   = 'move-slot-btn';
-    btn.innerHTML   = `<div>${escapeHtml(label)}</div><div class="move-slot-label">${escapeHtml(sublabel)}</div>`;
-    btn.onclick = () => {
-      slotList.querySelectorAll('.move-slot-btn').forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
-      selectedTarget = { kind, slotId };
-      confirm.disabled = false;
-    };
-    slotList.appendChild(btn);
+  const addOpt = (kind, slotId, label) => {
+    const opt = document.createElement('option');
+    opt.value = JSON.stringify({ kind, slotId });
+    opt.textContent = label;
+    slotSel.appendChild(opt);
   };
 
-  // Türme (für alle Rollen)
   const d = lastResult.schedule[dayIdx];
+
+  // Türme (für alle Rollen)
   d.openTowers.forEach(t => {
-    if(fromKind === 'tower' && fromSlotId === t.id) return; // Herkunft überspringen
-    addSlot('tower', t.id, `🗼 ${t.name}`, `${t.code||'?'} · Prio ${t.prio}`);
+    if(fromKind === 'tower' && fromSlotId === t.id) return;
+    addOpt('tower', t.id, `🗼 ${t.name}  (${t.code||'?'} · Prio ${t.prio})`);
   });
+
   // Boote + HW-Boot: nur für Bootsführer
   if(person.role === 'B'){
-    // Aktiv besetzte Boote
     d.assign.filter(s => s.kind === 'boat').forEach(s => {
       if(fromKind === 'boat' && fromSlotId === s.boatId) return;
-      addSlot('boat', s.boatId, `🚤 ${s.name}`, `BF-Slot · ${s.code||'?'}`);
+      addOpt('boat', s.boatId, `🚤 ${s.name}  (${s.code||'?'})`);
     });
-    // Boote ohne Bootsführer (z.B. weil BF manuell woanders zugewiesen wurde)
     d.boatsNoBootsf.forEach(b => {
-      addSlot('boat', b.id, `🚤 ${b.name}`, `BF-Slot · ${b.code||'?'} · kein BF`);
+      addOpt('boat', b.id, `🚤 ${b.name}  (${b.code||'?'} · kein BF)`);
     });
-    // HW-Boot
     const mainSlot = d.assign.find(s => s.kind === 'main');
-    if(mainSlot?.hwBoatSlot && fromKind !== 'hwboat'){
-      addSlot('boat', mainSlot.hwBoatSlot.boatId, `🚤 HW-Boot: ${mainSlot.hwBoatSlot.name}`, 'BF-Slot');
-    }
+    if(mainSlot?.hwBoatSlot && fromKind !== 'hwboat')
+      addOpt('boat', mainSlot.hwBoatSlot.boatId, `🚤 HW-Boot: ${mainSlot.hwBoatSlot.name}`);
   }
+
   // Hauptwache
-  if(fromKind !== 'main'){
-    addSlot('main', MAIN_ID, '⛱ Hauptwache', 'Guard-/Reserve-Slot');
-  }
+  if(fromKind !== 'main')
+    addOpt('main', MAIN_ID, '⛱ Hauptwache');
 
-  // ── Scope-Auswahl (Checkbox) ─────────────────────────────────
-  const scopeChk = scopeDiv.querySelector('#scope-forward-chk');
-  if(scopeChk) scopeChk.checked = false;  // Default: Folgetage NICHT beeinflussen
-
+  slotSel.value = '';
   confirm.disabled = true;
+  slotSel.onchange = () => { confirm.disabled = !slotSel.value; };
+
+  // ── Checkbox zurücksetzen ─────────────────────────────────────
+  const scopeChk = document.getElementById('scope-forward-chk');
+  if(scopeChk) scopeChk.checked = false;
+
   confirm.onclick = () => {
-    if(!selectedTarget) return;
-    const influenceFuture = scopeChk ? scopeChk.checked : false;
-    _applyMove(personId, dayIdx, selectedTarget.kind, selectedTarget.slotId, influenceFuture);
+    if(!slotSel.value) return;
+    const target       = JSON.parse(slotSel.value);
+    const forwardScope = scopeChk?.checked ?? false;
+    _applyMove(personId, dayIdx, target.kind, target.slotId, forwardScope);
     closeMoveModal();
     generate();
   };
@@ -90,39 +76,35 @@ function closeMoveModal(){
   document.getElementById('move-modal').style.display = 'none';
 }
 
-// ── Interne Helfer ────────────────────────────────────────────────
-
+// ── Hilfsfunktion: lesbares Herkunfts-Label ──────────────────────
 function _slotLabel(kind, slotId){
-  if(kind === 'tower'){
-    const t = getT(slotId);
-    return t ? `🗼 ${t.name}` : 'Turm';
-  }
-  if(kind === 'boat' || kind === 'hwboat'){
-    const b = getBoat(slotId);
-    return b ? `🚤 ${b.name}` : 'Boot';
-  }
+  if(kind === 'tower')  { const t = getT(slotId);    return t ? `🗼 ${t.name}` : 'Turm'; }
+  if(kind === 'boat' || kind === 'hwboat')
+                        { const b = getBoat(slotId);  return b ? `🚤 ${b.name}` : 'Boot'; }
   return '⛱ Hauptwache';
 }
 
 /**
- * Schreibt die Zwangszuweisung für den heutigen Tag.
+ * Schreibt Zwangszuweisungen in forcedPlacements.
  *
- * @param {boolean} influenceFuture  true  → Zuweisung zählt für Rotationsstatistik der Folgetage
- *                                   false → Nur visuell für heute, Folgetage ignorieren diesen Wechsel
+ * @param {boolean} forward  true  → für heute + alle Folgetage
+ *                           false → nur für heute
  */
-function _applyMove(personId, dayIdx, kind, slotId, influenceFuture){
-  // transparent = true  → commitPerson wird für diese Zwangszuweisung übersprungen
-  //                        → Folgetage rotieren so, als hätte der Wechsel nie stattgefunden
-  const entry = { personId, kind, slotId, transparent: !influenceFuture };
-  if(!forcedPlacements[dayIdx]) forcedPlacements[dayIdx] = [];
-  forcedPlacements[dayIdx] = forcedPlacements[dayIdx].filter(f => f.personId !== personId);
-  forcedPlacements[dayIdx].push(entry);
+function _applyMove(personId, dayIdx, kind, slotId, forward){
+  const entry = { personId, kind, slotId };
+  const days  = forward
+    ? Array.from({ length: DAYS - dayIdx }, (_, i) => dayIdx + i)
+    : [dayIdx];
+
+  days.forEach(d => {
+    if(!forcedPlacements[d]) forcedPlacements[d] = [];
+    forcedPlacements[d] = forcedPlacements[d].filter(f => f.personId !== personId);
+    forcedPlacements[d].push({ ...entry });
+  });
 }
 
-// ── Zwangszuweisung entfernen ─────────────────────────────────────
-
 /**
- * Entfernt alle Zwangszuweisungen für eine Person ab einem bestimmten Tag.
+ * Entfernt Zwangszuweisungen für eine Person ab einem bestimmten Tag.
  */
 function clearForced(personId, fromDay, scope){
   const days = scope === 'forward'

@@ -172,11 +172,9 @@
   .modal-close-btn:hover{border-color:var(--coral);color:var(--coral)}
   .modal-title{font-family:'Archivo Black',sans-serif;font-size:1.1rem;margin-bottom:4px;padding-right:36px}
   .modal-sub{font-size:.78rem;color:var(--text-dim);margin-bottom:18px}
-  .move-slot-list{display:flex;flex-direction:column;gap:7px;margin-bottom:18px}
-  .move-slot-btn{background:var(--deep);border:1px solid var(--line);border-radius:9px;padding:10px 14px;cursor:pointer;text-align:left;transition:all .15s;color:var(--text);font-family:'Spline Sans',sans-serif;font-size:.88rem;width:100%}
-  .move-slot-btn:hover{border-color:var(--sea-bright);background:rgba(24,168,216,.08)}
-  .move-slot-btn.selected{border-color:var(--sea-bright);background:rgba(24,168,216,.16)}
-  .move-slot-label{font-size:.7rem;color:var(--text-dim);margin-top:3px;font-family:'Spline Sans Mono',monospace}
+  /* Turm-Name: sichtbares Eingabefeld (überschreibt den transparenten Standard) */
+  .tower-row input.tname{background:var(--deep);border:1px solid var(--line-strong);border-radius:7px;padding:6px 9px}
+  .tower-row input.tname:focus{outline:none;border-color:var(--sea-bright);box-shadow:0 0 0 3px rgba(24,168,216,.15)}
   .move-scope-toggle{background:var(--deep);border:1px solid var(--line-strong);border-radius:10px;padding:13px 15px;margin-bottom:18px}
   .scope-toggle-label{display:flex;align-items:flex-start;gap:11px;cursor:pointer}
   .scope-toggle-label input[type=checkbox]{width:17px;height:17px;accent-color:var(--sea-bright);flex-shrink:0;margin-top:2px;cursor:pointer}
@@ -197,13 +195,13 @@
     <button class="modal-close-btn" id="move-modal-close-btn">×</button>
     <div class="modal-title" id="move-modal-title">Person verschieben</div>
     <div class="modal-sub"   id="move-modal-sub"></div>
-    <div id="move-slot-list" class="move-slot-list"></div>
+    <select id="move-slot-select" class="full-select" style="margin-bottom:18px"></select>
     <div id="move-scope" class="move-scope-toggle">
       <label class="scope-toggle-label">
         <input type="checkbox" id="scope-forward-chk">
         <div>
-          <div class="scope-toggle-text">Folgetage ebenfalls beeinflussen</div>
-          <div class="scope-toggle-sub">Wechsel beeinflusst die Rotationslogik der Folgetage</div>
+          <div class="scope-toggle-text">Folgetage ebenfalls ändern</div>
+          <div class="scope-toggle-sub">Person wird auch in den Folgetagen auf diesen Slot fixiert</div>
         </div>
       </label>
     </div>

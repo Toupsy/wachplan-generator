@@ -28,7 +28,6 @@ function renderOutput(){
             const flags = [];
             if(d.sickCount > 0)            flags.push('🤒');
             if(d.manualClosed.length > 0)  flags.push('⛔');
-            if((forcedPlacements[i]||[]).length > 0) flags.push('🔒');
             return `<button class="day-tab ${i===activeDay?'active':''}" data-day="${i}">${dayLabel(i)}${flags.length?`<span class="flag">${flags.join('')}</span>`:''}</button>`;
           }).join('')}
         </div>
