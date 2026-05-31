@@ -129,11 +129,16 @@ HOUR_ROWS_X = { '09:00':[25,26], ... }     // Zeilen-Paare pro Stunde (oben/unte
 
 ### Slot-Map-Strategie (`_patchSheetXml`)
 `slotMap[0..15]` wird beim Export berechnet; `exportColumns` bleibt unberührt:
-1. **Sequenz-Aufbau**: `exportColumns` wird von links nach rechts durchlaufen; leere Einträge → `null` in Sequenz; belegte Einträge → primärer Slot + ggf. Overflow-Slots direkt dahinter eingefügt (Array-Insertion)
-2. **Overflow-Verhalten**: Overflow-Einträge werden per `seq.push` direkt nach der Station eingefügt → alle nachfolgenden Einträge (auch `null`-Slots) rücken um 1 nach rechts. Beispiel: `[78/1, 9/12, '', WF]` + 9/12-Overflow → `[78/1, 9/12, 9/12, '', WF]`
-3. **HW-Overflow**: Personen 5+ (inkl. Kranke) werden per `splice` direkt nach dem letzten HW/HW2-Eintrag in die Sequenz eingefügt
-4. Sequenz wird auf 16 Slots gekürzt; überschüssige Einträge am Ende fallen weg
-5. `null`-Slots werden nicht in die XML geschrieben → Template-Felder bleiben leer
+1. **Sequenz-Aufbau**: `exportColumns` von links nach rechts; leere Einträge → `null`; belegte Einträge → primärer Slot + Overflow-Paare direkt dahinter (alle Folgeeinträge incl. nulls rücken nach rechts)
+2. **Overflow-Beispiel**: `[78/1, 9/12, '', WF, HW, '', '']` + 9/12-Overflow + WF-Overflow + HW-Overflow → seq = `[78/1,9/12,9/12,null,WF,WF,HW,HW,null,null]` → 3 nulls von rechts entfernen → `[78/1,9/12,9/12,WF,WF,HW,HW]`
+3. **Null-Entfernung von rechts**: Ist seq länger als 16, werden null-Slots von rechts entfernt bis seq passt. Nur wenn keine nulls mehr übrig: hart kürzen (letzter Ausweg)
+4. **HW-Overflow-Splice** (nur wenn `HW2` in exportColumns): Personen 5+ per `splice` nach HW2. Wenn HW2 NICHT konfiguriert → alle allHW in `A['HW']` inline
+5. `null`-Slots → nicht in XML geschrieben → Template-Felder bleiben leer
+
+### `buildAssignments(dayIdx)` – WF/HW-Splitting
+- Wenn `WF2` in exportColumns: `A['WF'] = f.slice(0,2)`, `A['WF2'] = f.slice(2,4)` (klassisch)
+- Wenn `WF2` NICHT in exportColumns: `A['WF'] = f` (alle Führung → Overflow inline)
+- Identisch für `HW`/`HW2` mit `allHW`
 
 ### `autoFillExportColumns()` – Reihenfolge
 Pro Turm (Prio absteigend): erst zugeordnete Boote, dann Turm → Boot steht immer links von seinem Turm. Dann freie Boote, WF, WF2, HW, HW2.

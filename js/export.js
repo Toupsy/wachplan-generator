@@ -61,6 +61,14 @@ function personNr(id){
  * Türme: alle Besatzer (kein slice) – Überlauf >2 wird in _patchSheetXml direkt daneben platziert.
  * Kranke: werden der HW-Liste zugerechnet und erscheinen im Export bei HW.
  */
+/**
+ * Besetzungsdaten für einen Tag aufbereiten.
+ * Türme: alle Besatzer (kein slice) – Überlauf >2 inline in _patchSheetXml.
+ * WF/HW: wenn WF2/HW2 NICHT in exportColumns → alle Personen in A['WF']/A['HW'],
+ *         Überlauf wird inline als Overflow-Paar eingefügt.
+ *         wenn WF2/HW2 IN exportColumns → klassische Split-Logik (slice 0-2 / 2-4).
+ * Kranke: in der HW-Liste, erscheinen im Export bei HW.
+ */
 function buildAssignments(dayIdx){
   const d = lastResult.schedule[dayIdx];
   const A = {};
@@ -74,13 +82,26 @@ function buildAssignments(dayIdx){
   });
   const main = d.assign.find(s=>s.kind==='main');
   if(main){
-    const f=main.fuehrung.map(p=>personNr(p.id)).filter(n=>n!=null);
-    if(f.length)    A['WF'] =f.slice(0,2);
-    if(f.length>2)  A['WF2']=f.slice(2,4);
-    const allHW=[...main.mainGuards,...main.base,...main.bootsfLeft,...(main.sick||[])]
+    const hasWF2 = exportColumns.some(c => (c||'').trim() === 'WF2');
+    const hasHW2 = exportColumns.some(c => (c||'').trim() === 'HW2');
+
+    const f = main.fuehrung.map(p=>personNr(p.id)).filter(n=>n!=null);
+    if(hasWF2){
+      if(f.length)   A['WF']  = f.slice(0,2);
+      if(f.length>2) A['WF2'] = f.slice(2,4);
+    } else {
+      if(f.length)   A['WF']  = f;   // alle Führung → Overflow inline
+    }
+
+    const allHW = [...main.mainGuards,...main.base,...main.bootsfLeft,...(main.sick||[])]
       .map(p=>personNr(p.id)).filter(n=>n!=null);
-    if(allHW.length)    A['HW'] =allHW.slice(0,2);
-    if(allHW.length>2)  A['HW2']=allHW.slice(2,4);
+    if(hasHW2){
+      if(allHW.length)   A['HW']  = allHW.slice(0,2);
+      if(allHW.length>2) A['HW2'] = allHW.slice(2,4);
+    } else {
+      if(allHW.length)   A['HW']  = allHW; // alle HW → Overflow inline
+    }
+
     if(main.hwBoatSlot?.bootsf){
       const boCode = getBoat(main.hwBoatSlot.boatId)?.code;
       if(boCode){ const nr=personNr(main.hwBoatSlot.bootsf.id); if(nr!=null) A[boCode]=[nr]; }
@@ -245,29 +266,34 @@ function _patchSheetXml(xml, dayIdx){
     if(desc) x = _patchCell(x, 'C'+row, 's', desc);
   });
 
-  // ── Sequenz-Aufbau: Overflow inline einfügen, alles rechts davon rückt nach ──
-  // Leere Slots (null) werden mitgepusht – sie verschieben sich nach rechts wenn
-  // eine Station davor Overflow hat. Am Ende wird auf 16 Slots gekürzt.
-  // Beispiel: [78/1, 9/12, '', WF, HW, '', ''] + 9/12-Overflow
-  //        → [78/1, 9/12, 9/12, '', WF, HW, '']   ('' rückte von Pos 2 auf 3)
+  // ── Sequenz-Aufbau: Overflow inline, leere Slots von rechts freigeben ────────
+  // 1. Overflow-Paare direkt nach der Station einfügen (alle Folgeeinträge incl.
+  //    null-Slots rücken nach rechts).
+  // 2. Wenn seq länger als N: null-Slots von RECHTS entfernen bis seq passt.
+  //    → Datenverlust nur wenn gar keine nulls mehr übrig.
+  //    Bsp.: [78/1,9/12,'',WF,HW,'',''] + 9/12- WF- HW-Overflow (je 1 Paar)
+  //          seq = [78/1,9/12,9/12,null,WF,WF,HW,HW,null,null]  (10 für 7)
+  //          → entferne 3 nulls von rechts → [78/1,9/12,9/12,WF,WF,HW,HW] ✓
   const A   = buildAssignments(dayIdx);
   const N   = TEMPLATE_STATION_COLS.length;
-  const seq = [];  // { code, nums } | null – kann länger als N werden
+  const seq = [];
 
   for(let i = 0; i < N; i++){
     const code = (exportColumns[i] || '').trim();
     if(!code){ seq.push(null); continue; }
     const allNums = A[code] || [];
     seq.push({ code, nums: allNums.slice(0, 2) });
-    // Overflow-Paare direkt dahinter einfügen (pushen alles nach rechts)
     for(let j = 2; j < allNums.length; j += 2)
       seq.push({ code, nums: allNums.slice(j, j + 2) });
   }
 
-  // HW-Overflow (Personen 5+ inkl. Kranke): nach letztem HW/HW2-Eintrag einfügen
-  const main = lastResult.schedule[dayIdx].assign.find(s => s.kind === 'main');
-  if(main){
-    const allHWNrs = [...main.mainGuards, ...main.base, ...main.bootsfLeft, ...(main.sick||[])]
+  // HW-Overflow (Personen 5+ nach HW+HW2): nur wenn HW2 in exportColumns ist.
+  // Wenn HW2 NICHT konfiguriert ist, sind alle HW-Personen bereits über A['HW']
+  // inline in der Sequenz – kein doppelter Eintrag nötig.
+  const hasHW2 = exportColumns.some(c => (c||'').trim() === 'HW2');
+  const main   = lastResult.schedule[dayIdx].assign.find(s => s.kind === 'main');
+  if(main && hasHW2){
+    const allHWNrs = [...main.mainGuards,...main.base,...main.bootsfLeft,...(main.sick||[])]
       .map(p => personNr(p.id)).filter(n => n != null);
     const hwOv = allHWNrs.slice(4);
     if(hwOv.length){
@@ -275,16 +301,23 @@ function _patchSheetXml(xml, dayIdx){
       for(let j = seq.length - 1; j >= 0; j--)
         if(seq[j]?.code === 'HW2' || seq[j]?.code === 'HW'){ hwPos = j; break; }
       const ins = hwPos >= 0 ? hwPos + 1 : seq.length;
-      const hwEntries = [];
+      const entries = [];
       for(let j = 0; j < hwOv.length; j += 2)
-        hwEntries.push({ code: 'HW', nums: hwOv.slice(j, j + 2) });
-      seq.splice(ins, 0, ...hwEntries);
+        entries.push({ code: 'HW', nums: hwOv.slice(j, j + 2) });
+      seq.splice(ins, 0, ...entries);
     }
   }
 
-  // Auf N Slots kürzen; überschüssige Einträge am Ende fallen weg
-  const slotMap = seq.slice(0, N);
-  while(slotMap.length < N) slotMap.push(null);
+  // Zu lang → null-Slots von RECHTS entfernen (Datenverlust vermeiden)
+  if(seq.length > N){
+    let toRemove = seq.length - N;
+    for(let j = seq.length - 1; j >= 0 && toRemove > 0; j--){
+      if(seq[j] === null){ seq.splice(j, 1); toRemove--; }
+    }
+    if(seq.length > N) seq.length = N;   // letzter Ausweg: hart kürzen
+  }
+  while(seq.length < N) seq.push(null);
+  const slotMap = seq;
 
   // Alle belegten Slots in XML schreiben; null-Slots unangetastet lassen
   for(let i = 0; i < N; i++){
