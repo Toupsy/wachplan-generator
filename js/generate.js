@@ -40,7 +40,8 @@ function generate(){
     });
     const forcedIds   = new Set(dayForced.map(f => f.personId));
 
-    const isForced = p => forcedIds.has(p.id);
+    const isForced      = p => forcedIds.has(p.id);
+    const isTransparent = p => !!dayForced.find(f => f.personId === p.id)?.transparent;
 
     // Verfügbare Personen OHNE zwangsweise zugewiesene
     const availF    = people.filter(p => p.role==='F' && !isSick(p.id) && !isForced(p));
@@ -180,7 +181,7 @@ function generate(){
 
     // Zwangsweise HW-Zuweisungen zuerst
     forcedForMain.forEach(p => {
-      commitPerson(p, mainPseudo);
+      if(!isTransparent(p)) commitPerson(p, mainPseudo);
       mainGuards.push(p);
     });
 
@@ -209,7 +210,10 @@ function generate(){
 
       // Zwangsbelegte Plätze bereits vorab eintragen
       const pre = (forcedByTower[t.id] || []);
-      pre.forEach(p => { commitPerson(p, t); slot.occupants.push(p); });
+      pre.forEach(p => {
+        if(!isTransparent(p)) commitPerson(p, t);
+        slot.occupants.push(p);
+      });
 
       // Algorithmus füllt verbleibende Plätze
       const need = 2 - slot.occupants.length;
@@ -274,8 +278,10 @@ function generate(){
       const forceForThisBoat = forcedByBoat[bo.id];
       if(forceForThisBoat){
         slot.bootsf = forceForThisBoat;
-        const s = ensure(forceForThisBoat.id);
-        s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id]||0)+1;
+        if(!isTransparent(forceForThisBoat)){
+          const s = ensure(forceForThisBoat.id);
+          s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id]||0)+1;
+        }
         dayAssign.push(slot);
         continue;
       }
@@ -305,8 +311,10 @@ function generate(){
         const forceHW = forcedByBoat[bo.id];
         if(forceHW){
           hwBoatSlot.bootsf = forceHW;
-          const s = ensure(forceHW.id);
-          s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id]||0)+1;
+          if(!isTransparent(forceHW)){
+            const s = ensure(forceHW.id);
+            s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id]||0)+1;
+          }
         } else {
           poolB.sort((a,b) => {
             const sa=ensure(a.id),sb=ensure(b.id);

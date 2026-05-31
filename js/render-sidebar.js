@@ -57,8 +57,11 @@ function renderTowerCfg(){
       <button class="mini-btn del-t" data-id="${t.id}">×</button>`;
     c.appendChild(row);
   });
-  c.querySelectorAll('.tname').forEach(i =>
-    i.oninput = e => { getT(+e.target.dataset.id).name = e.target.value; renderBoatCfg(); renderPositionDescUI(); });
+  c.querySelectorAll('.tname').forEach(i => {
+    // Modell sofort aktualisieren, aber Nachbar-Sections erst nach Eingabe neu rendern
+    i.oninput = e  => { getT(+e.target.dataset.id).name = e.target.value; };
+    i.onblur  = () => { renderBoatCfg(); renderPositionDescUI(); };
+  });
   c.querySelectorAll('.tcode').forEach(i =>
     i.oninput = e => { getT(+e.target.dataset.id).code = e.target.value.trim(); });
   c.querySelectorAll('.tprio').forEach(i =>

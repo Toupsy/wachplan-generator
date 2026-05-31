@@ -87,20 +87,28 @@ function _slotLabel(kind, slotId){
 /**
  * Schreibt Zwangszuweisungen in forcedPlacements.
  *
- * @param {boolean} forward  true  → für heute + alle Folgetage
- *                           false → nur für heute
+ * @param {boolean} forward
+ *   false (Standard) → nur heute; transparent=true → Rotationsstatistik der
+ *                       Folgetage wird nicht beeinflusst; Person kann am nächsten
+ *                       Tag wieder frei rotieren
+ *   true              → heute + alle Folgetage fixiert; Stats laufen normal mit
  */
 function _applyMove(personId, dayIdx, kind, slotId, forward){
-  const entry = { personId, kind, slotId };
-  const days  = forward
-    ? Array.from({ length: DAYS - dayIdx }, (_, i) => dayIdx + i)
-    : [dayIdx];
-
-  days.forEach(d => {
-    if(!forcedPlacements[d]) forcedPlacements[d] = [];
-    forcedPlacements[d] = forcedPlacements[d].filter(f => f.personId !== personId);
-    forcedPlacements[d].push({ ...entry });
-  });
+  if(forward){
+    // Alle Tage ab heute fixieren (Stats laufen normal)
+    const days = Array.from({ length: DAYS - dayIdx }, (_, i) => dayIdx + i);
+    days.forEach(d => {
+      if(!forcedPlacements[d]) forcedPlacements[d] = [];
+      forcedPlacements[d] = forcedPlacements[d].filter(f => f.personId !== personId);
+      forcedPlacements[d].push({ personId, kind, slotId });
+    });
+  } else {
+    // Nur heute; transparent=true → commitPerson wird übersprungen
+    // → Folgetage rotieren so als wäre der Wechsel nie passiert
+    if(!forcedPlacements[dayIdx]) forcedPlacements[dayIdx] = [];
+    forcedPlacements[dayIdx] = forcedPlacements[dayIdx].filter(f => f.personId !== personId);
+    forcedPlacements[dayIdx].push({ personId, kind, slotId, transparent: true });
+  }
 }
 
 /**
