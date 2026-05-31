@@ -191,7 +191,7 @@ function buildUebersichtSheet(dayIdx){
   return XLSX.utils.aoa_to_sheet(aoa);
 }
 
-// ── Offizieller XLSX-Export (mit Original-Template) ─────────────
+// ── Offizieller XLSX-Export (Kopie von "Wachplan Template.xlsx") ──
 
 async function exportOfficial(dayIdx){
   if(typeof XLSX === 'undefined'){
@@ -200,18 +200,25 @@ async function exportOfficial(dayIdx){
   }
   if(!lastResult){ alert('Bitte zuerst Plan generieren.'); return; }
 
-  if(typeof TEMPLATE_B64 === 'undefined' || !TEMPLATE_B64){
-    alert('Template nicht gefunden – XLSX-Export nicht möglich.'); return;
+  // Template-Datei aus dem Projektordner laden
+  let templateBuffer;
+  try {
+    const resp = await fetch('Wachplan Template.xlsx');
+    if(!resp.ok) throw new Error('HTTP ' + resp.status);
+    templateBuffer = await resp.arrayBuffer();
+  } catch(e){
+    alert('Template-Datei "Wachplan Template.xlsx" konnte nicht geladen werden.\n' + e.message);
+    return;
   }
-  // Template laden – nur das eine Sheet "Dienstplan" verwenden
-  const wb = XLSX.read(TEMPLATE_B64, { type: 'base64', cellStyles: true });
-  // Alle übrigen Sheets entfernen (falls vorhanden), nur Dienstplan behalten
-  while(wb.SheetNames.length > 1) wb.SheetNames.pop();
+
+  // Kopie des Templates einlesen, Dienstplan-Sheet befüllen
+  const wb = XLSX.read(new Uint8Array(templateBuffer), { type: 'array', cellStyles: true });
+  while(wb.SheetNames.length > 1) wb.SheetNames.pop();   // nur Dienstplan behalten
   const ws = wb.Sheets[wb.SheetNames[0]];
   _fillTemplateSheet(ws, dayIdx);
 
   const iso = computeDayDates()[dayIdx];
-  const fn  = (iso||('Tag'+(dayIdx+1)))+'_Wachplan.xlsx';
+  const fn  = (iso || ('Tag'+(dayIdx+1))) + '_Wachplan.xlsx';
   const out = XLSX.write(wb, { bookType:'xlsx', type:'array', cellStyles: true });
   const blob= new Blob([out], { type:'application/octet-stream' });
   const a   = document.createElement('a');
