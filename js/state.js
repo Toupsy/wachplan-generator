@@ -2,16 +2,12 @@
 // state.js – Konstanten und globaler Anwendungszustand
 // ============================================================
 
-// Unveränderliche Konfiguration
 const DAYS = 6;
 const DAYNAMES = ['Tag 1','Tag 2','Tag 3','Tag 4','Tag 5','Tag 6'];
 const ROLE = { F:'Führung', B:'Bootsführer', E:'Erfahren', U:'Unerfahren' };
-const MAIN_ID = 0;  // Pseudo-ID für die Hauptwache im Paar-Score
+const MAIN_ID = 0;
 
-// Laufender ID-Zähler (wird bei jedem neuen Objekt inkrementiert)
 let uid = 0;
-
-// Zufalls-Seed für reproduzierbare Ergebnisse (0 = deaktiviert)
 let randomSeed = 0;
 
 // Stammdaten
@@ -19,17 +15,36 @@ let people   = [];   // [{ id, name, role }]
 let towers   = [];   // [{ id, name, prio, code }]
 let boats    = [];   // [{ id, name, code, towerId, prio }]
 
-// Konfiguration Hauptwache (Anzahl Guard-Slots neben der Führung)
-let mainK = 2;
+// Hauptwache-Konfiguration
+let mainK    = 2;    // Anzahl Guard-Slots neben der Führung
+let hwBoatId = null; // Boot das der Hauptwache zugeordnet ist (Feature 6)
 
-// Pro-Tag-Status (Krank, manuell geschlossen, Boot außer Dienst)
+// Pro-Tag-Status
 let dayState = [];   // Array[DAYS] von { sick:Set, closed:Set, closedBoats:Set }
 
-// Letztes Berechnungsergebnis (wird von renderOutput genutzt)
+// Manuelle Zwangszuweisungen (Feature 3 & 4)
+// forcedPlacements[day] = [{ personId, kind:'tower'|'boat'|'main', slotId }]
+let forcedPlacements = [];
+
+// Positionsbeschriftungen für den XLSX-Export (Feature 2)
+// Entsprechen den Zellen C11, C13, C15, C17, C19 im DLRG-Formular
+let positionDescriptions = { 3:'', 4:'', 5:'', 6:'', 7:'' };
+
+// Letztes Berechnungsergebnis
 let lastResult = null;
+let activeDay  = 0;
+let startDate  = '';
 
-// Aktuell angezeigter Tag-Tab
-let activeDay = 0;
+// ── Konstruktoren ────────────────────────────────────────────────
 
-// Startdatum als ISO-String ('YYYY-MM-DD') oder leer
-let startDate = '';
+function freshDayState(){
+  return Array.from({ length: DAYS }, () => ({
+    sick:        new Set(),
+    closed:      new Set(),
+    closedBoats: new Set(),
+  }));
+}
+
+function freshForcedPlacements(){
+  return Array.from({ length: DAYS }, () => []);
+}

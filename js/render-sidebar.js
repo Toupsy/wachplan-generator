@@ -1,8 +1,7 @@
 // ============================================================
-// render-sidebar.js – Sidebar: Wachgänger, Türme, Boote
+// render-sidebar.js – Sidebar: Wachgänger, Türme, Boote, Extras
 // ============================================================
 
-/** Rendert die Wachgänger-Liste in der Sidebar. */
 function renderPeople(){
   const c = document.getElementById('people-edit');
   c.innerHTML = '';
@@ -10,7 +9,7 @@ function renderPeople(){
     const row = document.createElement('div');
     row.className = 'person-edit';
     row.innerHTML = `
-      <span class="pnr" title="Nummer in der Besetzungsliste">${i + 1}</span>
+      <span class="pnr" title="Nr. in Besetzungsliste">${i+1}</span>
       <input type="text" value="${escapeHtml(p.name)}" data-id="${p.id}" class="pname" placeholder="Name">
       <select data-id="${p.id}" class="prole">
         <option value="F" ${p.role==='F'?'selected':''}>Führung</option>
@@ -21,23 +20,23 @@ function renderPeople(){
       <button class="mini-btn del-p" data-id="${p.id}">×</button>`;
     c.appendChild(row);
   });
-
   c.querySelectorAll('.pname').forEach(i =>
     i.oninput = e => { getP(+e.target.dataset.id).name = e.target.value; });
-
   c.querySelectorAll('.prole').forEach(s =>
     s.onchange = e => { getP(+e.target.dataset.id).role = e.target.value; renderPeople(); });
-
   c.querySelectorAll('.del-p').forEach(b =>
     b.onclick = e => {
       const id = +e.target.dataset.id;
       people = people.filter(p => p.id !== id);
       dayState.forEach(d => d.sick.delete(id));
+      forcedPlacements.forEach(fp => {
+        const idx = fp.findIndex(f => f.personId === id);
+        if(idx >= 0) fp.splice(idx, 1);
+      });
       renderPeople();
     });
 }
 
-/** Rendert die Turm-Konfiguration in der Sidebar. */
 function renderTowerCfg(){
   autoCodes();
   const c = document.getElementById('tower-cfg');
@@ -58,40 +57,39 @@ function renderTowerCfg(){
       <button class="mini-btn del-t" data-id="${t.id}">×</button>`;
     c.appendChild(row);
   });
-
   c.querySelectorAll('.tname').forEach(i =>
-    i.oninput = e => { getT(+e.target.dataset.id).name = e.target.value; renderBoatCfg(); });
-
+    i.oninput = e => { getT(+e.target.dataset.id).name = e.target.value; renderBoatCfg(); renderPositionDescUI(); });
   c.querySelectorAll('.tcode').forEach(i =>
     i.oninput = e => { getT(+e.target.dataset.id).code = e.target.value.trim(); });
-
   c.querySelectorAll('.tprio').forEach(i =>
-    i.oninput = e => { getT(+e.target.dataset.id).prio = Math.max(1, +e.target.value || 1); });
-
+    i.oninput = e => { getT(+e.target.dataset.id).prio = Math.max(1, +e.target.value||1); });
   c.querySelectorAll('.del-t').forEach(b =>
     b.onclick = e => {
       const id = +e.target.dataset.id;
       towers = towers.filter(t => t.id !== id);
       boats.forEach(bt => { if(bt.towerId === id) bt.towerId = null; });
       dayState.forEach(d => d.closed.delete(id));
-      renderTowerCfg();
-      renderBoatCfg();
+      forcedPlacements.forEach(fp => {
+        const toRemove = fp.filter(f => f.kind==='tower' && f.slotId===id);
+        toRemove.forEach(f => fp.splice(fp.indexOf(f), 1));
+      });
+      renderTowerCfg(); renderBoatCfg(); renderPositionDescUI(); renderHWBoatSelector();
     });
 }
 
-/** Rendert die Boot-Konfiguration in der Sidebar. */
 function renderBoatCfg(){
   autoCodes();
   const c = document.getElementById('boat-cfg');
   if(!c) return;
   c.innerHTML = '';
-
   boats.forEach(b => {
     const row = document.createElement('div');
     row.className = 'tower-row boat-row';
-    const towerOpts = ['<option value="">— frei —</option>'].concat(
+    const towerOpts = ['<option value="">— frei —</option>',
+      '<option value="HW" ' + (b.towerId==='HW'?'selected':'') + '>⛱ Hauptwache</option>',
+    ].concat(
       towers.map(t =>
-        `<option value="${t.id}" ${b.towerId === t.id ? 'selected' : ''}>→ ${escapeHtml(t.name)} (${escapeHtml(t.code||'?')})</option>`)
+        `<option value="${t.id}" ${b.towerId===t.id?'selected':''}>→ ${escapeHtml(t.name)} (${escapeHtml(t.code||'?')})</option>`)
     ).join('');
     row.innerHTML = `
       <input type="text" value="${escapeHtml(b.name)}" data-id="${b.id}" class="bname">
@@ -103,21 +101,56 @@ function renderBoatCfg(){
       <button class="mini-btn del-b" data-id="${b.id}">×</button>`;
     c.appendChild(row);
   });
-
   c.querySelectorAll('.bname').forEach(i =>
-    i.oninput = e => { getBoat(+e.target.dataset.id).name = e.target.value; });
-
+    i.oninput = e => { getBoat(+e.target.dataset.id).name = e.target.value; renderHWBoatSelector(); renderPositionDescUI(); });
   c.querySelectorAll('.bcode').forEach(i =>
     i.oninput = e => { getBoat(+e.target.dataset.id).code = e.target.value.trim(); });
-
   c.querySelectorAll('.bassign').forEach(s =>
-    s.onchange = e => { getBoat(+e.target.dataset.id).towerId = +e.target.value || null; });
-
+    s.onchange = e => {
+      const val = e.target.value;
+      getBoat(+e.target.dataset.id).towerId = val === 'HW' ? 'HW' : (+val || null);
+      renderHWBoatSelector();
+    });
   c.querySelectorAll('.del-b').forEach(b =>
     b.onclick = e => {
       const id = +e.target.dataset.id;
+      if(hwBoatId === id) hwBoatId = null;
       boats = boats.filter(x => x.id !== id);
       dayState.forEach(d => d.closedBoats.delete(id));
-      renderBoatCfg();
+      forcedPlacements.forEach(fp => {
+        const toRemove = fp.filter(f => f.kind==='boat' && f.slotId===id);
+        toRemove.forEach(f => fp.splice(fp.indexOf(f), 1));
+      });
+      renderBoatCfg(); renderHWBoatSelector();
     });
+}
+
+/** Feature 6: Dropdown zur HW-Boot-Auswahl */
+function renderHWBoatSelector(){
+  const c = document.getElementById('hw-boat-select');
+  if(!c) return;
+  const opts = ['<option value="">— kein HW-Boot —</option>'].concat(
+    boats.map(b => `<option value="${b.id}" ${hwBoatId===b.id?'selected':''}>${escapeHtml(b.name)} (${escapeHtml(b.code||'?')})</option>`)
+  ).join('');
+  c.innerHTML = opts;
+  c.onchange = e => { hwBoatId = +e.target.value || null; };
+}
+
+/** Feature 2: Positionsbeschriftungen für XLSX (C11,C13,C15,C17,C19) */
+function renderPositionDescUI(){
+  const c = document.getElementById('pos-desc-fields');
+  if(!c) return;
+  c.innerHTML = '';
+  for(let pos = 3; pos <= 7; pos++){
+    const row = document.createElement('div');
+    row.className = 'pos-desc-row';
+    row.innerHTML = `
+      <label class="pos-label">Pos. ${pos} <span style="color:var(--text-dim);font-size:.65rem">(C${pos*2+5})</span></label>
+      <input type="text" class="pos-desc-input" data-pos="${pos}"
+        value="${escapeHtml(positionDescriptions[pos]||'')}"
+        placeholder="z.B. ${towers[pos-3] ? escapeHtml(towers[pos-3].name) : 'Turm '+pos}">`;
+    c.appendChild(row);
+  }
+  c.querySelectorAll('.pos-desc-input').forEach(i =>
+    i.oninput = e => { positionDescriptions[+e.target.dataset.pos] = e.target.value; });
 }

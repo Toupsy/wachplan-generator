@@ -24,9 +24,9 @@ function seed(){
   add('Nils',  'U'); add('Ole',  'U'); add('Pia',  'U');
 
   // Türme
-  const tN = { id: ++uid, name: 'Turm Nord', prio: 3, code: '' };
-  const tS = { id: ++uid, name: 'Turm Süd',  prio: 2, code: '' };
-  const tW = { id: ++uid, name: 'Turm West', prio: 1, code: '' };
+  const tN = { id: ++uid, name: '9/12', prio: 3, code: '' };
+  const tS = { id: ++uid, name: '9/13',  prio: 2, code: '' };
+  const tW = { id: ++uid, name: '9/14', prio: 1, code: '' };
   towers.push(tN, tS, tW);
 
   // Boot (dem Nord-Turm zugeordnet)
