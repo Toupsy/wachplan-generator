@@ -3,6 +3,13 @@
 > **Wichtig für Claude:** Diese Datei nach jeder Änderung am Projekt aktualisieren
 > (neue Features, geänderte Funktionen, neue Dateien, Bugfixes).
 
+## Git-Workflow
+
+- **Niemals direkt auf `main` committen oder pushen**
+- Zu Beginn jeder Aufgabe Branch erstellen: `git checkout -b feature/<kurzname>` oder `git checkout -b fix/<kurzname>`
+- Am Ende: `git push origin <branch>` → `gh pr create` gegen `main`
+- Remote: `https://github.com/Toupsy/Wachplan-Generator`
+
 ---
 
 ## Was ist das?
