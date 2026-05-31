@@ -47,12 +47,18 @@
   .legend span{display:flex;align-items:center;gap:5px}
   .legend .role-dot{width:8px;height:8px;border-radius:50%}
   .rd-f{background:var(--warn)}.rd-b{background:var(--sea-bright)}.rd-e{background:var(--green)}.rd-u{background:var(--text-dim)}
-  .tower-row{display:grid;grid-template-columns:1fr auto auto auto 28px;gap:7px;align-items:center;background:var(--deep);border:1px solid var(--line);border-radius:9px;padding:8px 9px;margin-bottom:7px;font-size:.85rem}
-  .boat-row{grid-template-columns:minmax(70px,1fr) auto minmax(120px,1.2fr) 28px !important;border-color:rgba(24,168,216,.3) !important;background:linear-gradient(180deg,var(--deep),rgba(24,168,216,.04)) !important}
-  .boat-row select{background:var(--navy-2);border:1px solid var(--line-strong);border-radius:7px;padding:6px 8px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.74rem;cursor:pointer;width:100%}
+  /* Turm-Zeile: Name oben (volle Breite), CODE/PRIO/× unten kompakt */
+  .tower-row{display:flex;flex-direction:column;gap:6px;background:var(--deep);border:1px solid var(--line);border-radius:9px;padding:9px 10px;margin-bottom:7px;font-size:.85rem}
+  .tower-row input.tname{width:100%;background:var(--navy-2);border:1px solid var(--line-strong);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'Spline Sans',sans-serif;font-size:.88rem}
+  .tower-row input.tname:focus{outline:none;border-color:var(--sea-bright);box-shadow:0 0 0 3px rgba(24,168,216,.15)}
+  .tower-row input.tname::placeholder{color:var(--text-dim)}
+  .tower-row-meta{display:flex;align-items:center;gap:7px}
+  /* Boote erben die tower-row Basis, überschreiben layout */
+  .boat-row{flex-direction:row !important;align-items:center !important;border-color:rgba(24,168,216,.3) !important;background:linear-gradient(180deg,var(--deep),rgba(24,168,216,.04)) !important}
+  .boat-row .bname{flex:1;min-width:60px;background:transparent;border:none;color:var(--text);font-family:'Spline Sans',sans-serif;font-size:.85rem}
+  .boat-row .bname:focus{outline:none}
+  .boat-row select{background:var(--navy-2);border:1px solid var(--line-strong);border-radius:7px;padding:6px 8px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.74rem;cursor:pointer;flex:1.2;min-width:100px}
   .boat-row select:focus{outline:none;border-color:var(--sea-bright)}
-  .tower-row input[type=text]{background:transparent;border:none;color:var(--text);font-family:'Spline Sans',sans-serif;font-size:.85rem;width:100%}
-  .tower-row input[type=text]:focus{outline:none}
   .code-input{display:flex;align-items:center;gap:4px;background:rgba(255,179,71,.08);border:1px solid rgba(255,179,71,.3);border-radius:7px;padding:3px 6px}
   .code-input label{font-family:'Spline Sans Mono',monospace;font-size:.58rem;color:var(--warn);letter-spacing:.06em}
   .code-input input{width:42px;background:var(--deep);border:1px solid var(--line);border-radius:5px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.74rem;text-align:center;padding:4px 2px}
@@ -172,9 +178,6 @@
   .modal-close-btn:hover{border-color:var(--coral);color:var(--coral)}
   .modal-title{font-family:'Archivo Black',sans-serif;font-size:1.1rem;margin-bottom:4px;padding-right:36px}
   .modal-sub{font-size:.78rem;color:var(--text-dim);margin-bottom:18px}
-  /* Turm-Name: sichtbares Eingabefeld (überschreibt den transparenten Standard) */
-  .tower-row input.tname{background:var(--deep);border:1px solid var(--line-strong);border-radius:7px;padding:6px 9px}
-  .tower-row input.tname:focus{outline:none;border-color:var(--sea-bright);box-shadow:0 0 0 3px rgba(24,168,216,.15)}
   .move-scope-toggle{background:var(--deep);border:1px solid var(--line-strong);border-radius:10px;padding:13px 15px;margin-bottom:18px}
   .scope-toggle-label{display:flex;align-items:flex-start;gap:11px;cursor:pointer}
   .scope-toggle-label input[type=checkbox]{width:17px;height:17px;accent-color:var(--sea-bright);flex-shrink:0;margin-top:2px;cursor:pointer}

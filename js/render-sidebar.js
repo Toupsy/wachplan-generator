@@ -45,16 +45,18 @@ function renderTowerCfg(){
     const row = document.createElement('div');
     row.className = 'tower-row';
     row.innerHTML = `
-      <input type="text" value="${escapeHtml(t.name)}" data-id="${t.id}" class="tname">
-      <span class="code-input" title="Stationscode">
-        <label>CODE</label>
-        <input type="text" value="${escapeHtml(t.code||'')}" data-id="${t.id}" class="tcode" placeholder="9/xx">
-      </span>
-      <span class="prio-input">
-        <label>PRIO</label>
-        <input type="number" min="1" value="${t.prio}" data-id="${t.id}" class="tprio">
-      </span>
-      <button class="mini-btn del-t" data-id="${t.id}">×</button>`;
+      <input type="text" value="${escapeHtml(t.name)}" data-id="${t.id}" class="tname" placeholder="Turmname">
+      <div class="tower-row-meta">
+        <span class="code-input" title="Stationscode">
+          <label>CODE</label>
+          <input type="text" value="${escapeHtml(t.code||'')}" data-id="${t.id}" class="tcode" placeholder="9/xx">
+        </span>
+        <span class="prio-input">
+          <label>PRIO</label>
+          <input type="number" min="1" value="${t.prio}" data-id="${t.id}" class="tprio">
+        </span>
+        <button class="mini-btn del-t" data-id="${t.id}">×</button>
+      </div>`;
     c.appendChild(row);
   });
   c.querySelectorAll('.tname').forEach(i =>
