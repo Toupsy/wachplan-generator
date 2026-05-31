@@ -30,7 +30,7 @@ function computeDayDates(){
  */
 function dayLabel(d){
   const dates = computeDayDates();
-  if(!dates[d]) return DAYNAMES[d];
+  if(!dates[d]) return `Tag ${d+1}`;
   const [y, mo, day] = dates[d].split('-').map(Number);
   return new Date(y, mo - 1, day)
     .toLocaleDateString('de-DE', { weekday:'short', day:'2-digit', month:'2-digit' });

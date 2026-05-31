@@ -1,15 +1,16 @@
 // ============================================================
-// state-io.js – Planstatus-Import / Export (Feature 7)
+// state-io.js – Planstatus-Import / Export (Feature 7) + Lokale Persistenz
 // ============================================================
 
-const STATE_VERSION = 2;
+const STATE_VERSION = 3;
+const STORAGE_KEY   = 'dlrg_wachplan_autosave';
 
 /**
  * Serialisiert den kompletten Anwendungsstatus als JSON-Blob
  * und startet den Browser-Download.
  */
-function exportStateJSON(){
-  const state = {
+function _buildStateObject(){
+  return {
     version:              STATE_VERSION,
     exportedAt:           new Date().toISOString(),
     uid,
@@ -17,11 +18,11 @@ function exportStateJSON(){
     startDate,
     mainK,
     hwBoatId,
+    days:                 DAYS,
     positionDescriptions: { ...positionDescriptions },
     people:               people.map(p => ({ ...p })),
     towers:               towers.map(t => ({ ...t })),
     boats:                boats.map(b => ({ ...b })),
-    // Sets müssen als Arrays gespeichert werden
     dayState: dayState.map(d => ({
       sick:        [...d.sick],
       closed:      [...d.closed],
@@ -29,6 +30,10 @@ function exportStateJSON(){
     })),
     forcedPlacements: forcedPlacements.map(fp => fp.map(f => ({ ...f }))),
   };
+}
+
+function exportStateJSON(){
+  const state = _buildStateObject();
 
   const json = JSON.stringify(state, null, 2);
   const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
@@ -45,7 +50,7 @@ function exportStateJSON(){
  *
  * @param {string} json  – Inhalt der geladenen JSON-Datei
  */
-function importStateJSON(json){
+function importStateJSON(json, silent = false){
   let s;
   try { s = JSON.parse(json); }
   catch(e){ alert('Ungültige JSON-Datei: ' + e.message); return; }
@@ -60,8 +65,12 @@ function importStateJSON(json){
   startDate         = s.startDate         ?? '';
   mainK             = s.mainK             ?? 2;
   hwBoatId          = s.hwBoatId          ?? null;
+  DAYS              = s.days              ?? 6;
   positionDescriptions = Object.assign({ 3:'',4:'',5:'',6:'',7:'' },
                                        s.positionDescriptions || {});
+  // Tageanzahl-Input synchronisieren
+  const daysInput = document.getElementById('num-days');
+  if(daysInput) daysInput.value = DAYS;
 
   people = (s.people || []).map(p => ({ ...p }));
   towers = (s.towers || []).map(t => ({ ...t }));
@@ -98,6 +107,52 @@ function importStateJSON(json){
   // Plan neu berechnen falls Ergebnis vorhanden war
   if(lastResult) generate();
 
-  showToast('✅ Status importiert – ' + people.length + ' Personen, '
+  if(!silent) showToast('✅ Status importiert – ' + people.length + ' Personen, '
     + towers.length + ' Türme, ' + boats.length + ' Boote');
+}
+
+// ── Lokale Persistenz (localStorage) ────────────────────────────
+
+function autoSave(){
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildStateObject()));
+    _updateSaveIndicator();
+  } catch(e) {}
+}
+
+function autoLoad(){
+  let raw;
+  try { raw = localStorage.getItem(STORAGE_KEY); } catch(e) { return false; }
+  if(!raw) return false;
+  try {
+    importStateJSON(raw, true);  // silent – eigene Toast folgt
+    generate();
+    showToast('♻️ Letzter Stand wiederhergestellt');
+    return true;
+  } catch(e) {
+    try { localStorage.removeItem(STORAGE_KEY); } catch(_) {}
+    return false;
+  }
+}
+
+function clearLocalSave(){
+  try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
+  _updateSaveIndicator();
+  showToast('🗑️ Lokaler Speicherstand gelöscht');
+}
+
+function _updateSaveIndicator(){
+  const el = document.getElementById('autosave-indicator');
+  if(!el) return;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const s = JSON.parse(raw);
+      const ts = s.exportedAt ? new Date(s.exportedAt).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) : '';
+      el.textContent = '💾 Gespeichert ' + ts;
+      el.style.display = '';
+    } else {
+      el.style.display = 'none';
+    }
+  } catch(e) { el.style.display = 'none'; }
 }

@@ -345,4 +345,5 @@ function generate(){
   };
   if(activeDay >= DAYS) activeDay = 0;
   renderOutput();
+  autoSave();
 }

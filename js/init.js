@@ -30,6 +30,20 @@ document.getElementById('main-k').oninput = e => {
 // ── Sidebar – Datum & Generierung ────────────────────────────────
 document.getElementById('start-date').onchange = e => { startDate = e.target.value; };
 document.getElementById('generate').onclick    = generate;
+
+// ── Sidebar – Tageanzahl ─────────────────────────────────────────
+document.getElementById('num-days').oninput = e => {
+  const v = Math.min(14, Math.max(1, +e.target.value || 6));
+  if(v === DAYS) return;
+  DAYS = v;
+  // dayState und forcedPlacements anpassen
+  while(dayState.length < DAYS)        dayState.push({ sick:new Set(), closed:new Set(), closedBoats:new Set() });
+  while(forcedPlacements.length < DAYS) forcedPlacements.push([]);
+  dayState.length        = DAYS;
+  forcedPlacements.length = DAYS;
+  if(activeDay >= DAYS) activeDay = 0;
+  if(lastResult) generate();
+};
 document.getElementById('randomize').onclick   = () => {
   randomSeed = Math.floor(Math.random()*999998)+1;
   updateSeedDisplay();
@@ -54,18 +68,25 @@ document.getElementById('import-file-input').onchange = e => {
   const reader = new FileReader();
   reader.onload = ev => importStateJSON(ev.target.result);
   reader.readAsText(file, 'utf-8');
-  e.target.value = ''; // Reset damit dieselbe Datei erneut gewählt werden kann
+  e.target.value = '';
 };
+document.getElementById('btn-clear-save').onclick = clearLocalSave;
 
 // ── Startsequenz ─────────────────────────────────────────────────
-seed();
-forcedPlacements = freshForcedPlacements();   // sicherheitshalber neu initialisieren
+const _restored = autoLoad();   // gespeicherten Stand wiederherstellen
+if(!_restored){
+  // Kein Speicherstand → Beispieldaten laden
+  seed();
+  forcedPlacements = freshForcedPlacements();
+  dayState = freshDayState();
 
-document.getElementById('start-date').value = startDate;
-updateSeedDisplay();
-autoCodes();
-renderPeople();
-renderTowerCfg();
-renderBoatCfg();
-renderHWBoatSelector();
-renderPositionDescUI();
+  document.getElementById('start-date').value = startDate;
+  updateSeedDisplay();
+  autoCodes();
+  renderPeople();
+  renderTowerCfg();
+  renderBoatCfg();
+  renderHWBoatSelector();
+  renderPositionDescUI();
+}
+_updateSaveIndicator();

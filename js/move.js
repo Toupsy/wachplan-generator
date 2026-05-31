@@ -42,21 +42,28 @@ function openMoveModal(personId, dayIdx, fromKind, fromSlotId){
     slotList.appendChild(btn);
   };
 
-  // Türme
+  // Türme (für alle Rollen)
   const d = lastResult.schedule[dayIdx];
   d.openTowers.forEach(t => {
     if(fromKind === 'tower' && fromSlotId === t.id) return; // Herkunft überspringen
     addSlot('tower', t.id, `🗼 ${t.name}`, `${t.code||'?'} · Prio ${t.prio}`);
   });
-  // Boote (nur aktive)
-  d.assign.filter(s => s.kind === 'boat').forEach(s => {
-    if(fromKind === 'boat' && fromSlotId === s.boatId) return;
-    addSlot('boat', s.boatId, `🚤 ${s.name}`, `BF-Slot · ${s.code||'?'}`);
-  });
-  // HW-Boot
-  const mainSlot = d.assign.find(s => s.kind === 'main');
-  if(mainSlot?.hwBoatSlot && !(fromKind === 'hwboat')){
-    addSlot('boat', mainSlot.hwBoatSlot.boatId, `🚤 HW-Boot: ${mainSlot.hwBoatSlot.name}`, 'BF-Slot');
+  // Boote + HW-Boot: nur für Bootsführer
+  if(person.role === 'B'){
+    // Aktiv besetzte Boote
+    d.assign.filter(s => s.kind === 'boat').forEach(s => {
+      if(fromKind === 'boat' && fromSlotId === s.boatId) return;
+      addSlot('boat', s.boatId, `🚤 ${s.name}`, `BF-Slot · ${s.code||'?'}`);
+    });
+    // Boote ohne Bootsführer (z.B. weil BF manuell woanders zugewiesen wurde)
+    d.boatsNoBootsf.forEach(b => {
+      addSlot('boat', b.id, `🚤 ${b.name}`, `BF-Slot · ${b.code||'?'} · kein BF`);
+    });
+    // HW-Boot
+    const mainSlot = d.assign.find(s => s.kind === 'main');
+    if(mainSlot?.hwBoatSlot && fromKind !== 'hwboat'){
+      addSlot('boat', mainSlot.hwBoatSlot.boatId, `🚤 HW-Boot: ${mainSlot.hwBoatSlot.name}`, 'BF-Slot');
+    }
   }
   // Hauptwache
   if(fromKind !== 'main'){

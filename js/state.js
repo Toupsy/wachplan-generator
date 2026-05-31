@@ -2,8 +2,7 @@
 // state.js – Konstanten und globaler Anwendungszustand
 // ============================================================
 
-const DAYS = 6;
-const DAYNAMES = ['Tag 1','Tag 2','Tag 3','Tag 4','Tag 5','Tag 6'];
+let DAYS = 6;
 const ROLE = { F:'Führung', B:'Bootsführer', E:'Erfahren', U:'Unerfahren' };
 const MAIN_ID = 0;
 

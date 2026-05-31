@@ -188,7 +188,7 @@ function buildUebersichtSheet(dayIdx){
   return XLSX.utils.aoa_to_sheet(aoa);
 }
 
-// ── Offizieller XLSX-Export ──────────────────────────────────────
+// ── Offizieller XLSX-Export (mit Original-Template) ─────────────
 
 async function exportOfficial(dayIdx){
   if(typeof XLSX === 'undefined'){
@@ -197,11 +197,29 @@ async function exportOfficial(dayIdx){
   }
   if(!lastResult){ alert('Bitte zuerst Plan generieren.'); return; }
 
-  const wb  = XLSX.utils.book_new();
-  const ws1 = buildFormularSheet(dayIdx);
-  const ws2 = buildUebersichtSheet(dayIdx);
-  if(ws1) XLSX.utils.book_append_sheet(wb, ws1, 'Formular');
-  if(ws2) XLSX.utils.book_append_sheet(wb, ws2, 'Übersicht');
+  let wb;
+  if(typeof TEMPLATE_B64 !== 'undefined' && TEMPLATE_B64){
+    // Template laden und Zellen überschreiben
+    wb = XLSX.read(TEMPLATE_B64, { type: 'base64' });
+    const sheetName = wb.SheetNames[0];
+    const ws = wb.Sheets[sheetName];
+    _fillTemplateSheet(ws, dayIdx);
+    // Übersicht anhängen (neues Sheet)
+    const ws2 = buildUebersichtSheet(dayIdx);
+    if(ws2){
+      // Vorhandenes Übersicht-Sheet ersetzen oder neu anlegen
+      const existing = wb.SheetNames.indexOf('Übersicht');
+      if(existing >= 0) wb.SheetNames.splice(existing, 1);
+      XLSX.utils.book_append_sheet(wb, ws2, 'Übersicht');
+    }
+  } else {
+    // Fallback: leere Sheets
+    wb  = XLSX.utils.book_new();
+    const ws1 = buildFormularSheet(dayIdx);
+    const ws2 = buildUebersichtSheet(dayIdx);
+    if(ws1) XLSX.utils.book_append_sheet(wb, ws1, 'Formular');
+    if(ws2) XLSX.utils.book_append_sheet(wb, ws2, 'Übersicht');
+  }
 
   const iso = computeDayDates()[dayIdx];
   const fn  = (iso||('Tag'+(dayIdx+1)))+'_Wachplan.xlsx';
@@ -211,6 +229,34 @@ async function exportOfficial(dayIdx){
   a.href    = URL.createObjectURL(blob);
   a.download= fn;
   a.click();
+}
+
+/** Schreibt Wachplan-Daten direkt in das geladene Template-Worksheet. */
+function _fillTemplateSheet(ws, dayIdx){
+  const iso = computeDayDates()[dayIdx];
+  if(iso) ws['EE3'] = { v: excelSerial(iso), t:'n', z:'DD.MM.YYYY' };
+
+  [11,13,15,17,19].forEach((row,i) => {
+    const desc = positionDescriptions[i+3];
+    if(desc) ws['C'+row] = { v: desc, t:'s' };
+  });
+
+  for(let n=1;n<=28;n++){
+    const ref = slotNameRef(n);
+    const p   = people[n-1];
+    ws[ref]   = p ? { v: p.name||('Nr '+n), t:'s' } : { v:'', t:'s' };
+  }
+
+  const A = buildAssignments(dayIdx);
+  FILL_HOURS.forEach(hr => {
+    const [rt,rb] = HOUR_ROWS_X[hr];
+    for(const code in A){
+      const col  = STATION_COL_X[code]; if(!col) continue;
+      const nums = A[code];
+      if(nums[0]!=null) ws[colLetter(col)+rt]={ v:nums[0], t:'n' };
+      if(nums[1]!=null) ws[colLetter(col)+rb]={ v:nums[1], t:'n' };
+    }
+  });
 }
 
 // ── CSV-Export ───────────────────────────────────────────────────
