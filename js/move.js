@@ -72,16 +72,13 @@ function openMoveModal(personId, dayIdx, fromKind, fromSlotId){
 
   // ── Scope-Auswahl (Checkbox) ─────────────────────────────────
   const scopeChk = scopeDiv.querySelector('#scope-forward-chk');
-  if(scopeChk){
-    scopeChk.checked = false;
-    selectedScope = 'today';
-    scopeChk.onchange = () => { selectedScope = scopeChk.checked ? 'forward' : 'today'; };
-  }
+  if(scopeChk) scopeChk.checked = false;  // Default: Folgetage NICHT beeinflussen
 
   confirm.disabled = true;
   confirm.onclick = () => {
     if(!selectedTarget) return;
-    _applyMove(personId, dayIdx, selectedTarget.kind, selectedTarget.slotId, selectedScope);
+    const influenceFuture = scopeChk ? scopeChk.checked : false;
+    _applyMove(personId, dayIdx, selectedTarget.kind, selectedTarget.slotId, influenceFuture);
     closeMoveModal();
     generate();
   };
@@ -108,23 +105,18 @@ function _slotLabel(kind, slotId){
 }
 
 /**
- * Schreibt die Zwangszuweisung in forcedPlacements.
- * Scope 'today': nur Tag dayIdx.
- * Scope 'forward': Tag dayIdx bis DAYS-1.
+ * Schreibt die Zwangszuweisung für den heutigen Tag.
+ *
+ * @param {boolean} influenceFuture  true  → Zuweisung zählt für Rotationsstatistik der Folgetage
+ *                                   false → Nur visuell für heute, Folgetage ignorieren diesen Wechsel
  */
-function _applyMove(personId, dayIdx, kind, slotId, scope){
-  const entry = { personId, kind, slotId };
-  const days  = scope === 'forward'
-    ? Array.from({ length: DAYS - dayIdx }, (_, i) => dayIdx + i)
-    : [dayIdx];
-
-  days.forEach(d => {
-    if(!forcedPlacements[d]) forcedPlacements[d] = [];
-    // Alte Einträge für diese Person entfernen
-    forcedPlacements[d] = forcedPlacements[d].filter(f => f.personId !== personId);
-    // Neue Zuweisung hinzufügen
-    forcedPlacements[d].push({ ...entry });
-  });
+function _applyMove(personId, dayIdx, kind, slotId, influenceFuture){
+  // transparent = true  → commitPerson wird für diese Zwangszuweisung übersprungen
+  //                        → Folgetage rotieren so, als hätte der Wechsel nie stattgefunden
+  const entry = { personId, kind, slotId, transparent: !influenceFuture };
+  if(!forcedPlacements[dayIdx]) forcedPlacements[dayIdx] = [];
+  forcedPlacements[dayIdx] = forcedPlacements[dayIdx].filter(f => f.personId !== personId);
+  forcedPlacements[dayIdx].push(entry);
 }
 
 // ── Zwangszuweisung entfernen ─────────────────────────────────────

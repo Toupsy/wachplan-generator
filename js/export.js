@@ -200,29 +200,15 @@ async function exportOfficial(dayIdx){
   }
   if(!lastResult){ alert('Bitte zuerst Plan generieren.'); return; }
 
-  let wb;
-  if(typeof TEMPLATE_B64 !== 'undefined' && TEMPLATE_B64){
-    // Template laden und Zellen überschreiben (cellStyles bewahrt Formatierung)
-    wb = XLSX.read(TEMPLATE_B64, { type: 'base64', cellStyles: true });
-    const sheetName = wb.SheetNames[0];
-    const ws = wb.Sheets[sheetName];
-    _fillTemplateSheet(ws, dayIdx);
-    // Übersicht anhängen (neues Sheet)
-    const ws2 = buildUebersichtSheet(dayIdx);
-    if(ws2){
-      // Vorhandenes Übersicht-Sheet ersetzen oder neu anlegen
-      const existing = wb.SheetNames.indexOf('Übersicht');
-      if(existing >= 0) wb.SheetNames.splice(existing, 1);
-      XLSX.utils.book_append_sheet(wb, ws2, 'Übersicht');
-    }
-  } else {
-    // Fallback: leere Sheets
-    wb  = XLSX.utils.book_new();
-    const ws1 = buildFormularSheet(dayIdx);
-    const ws2 = buildUebersichtSheet(dayIdx);
-    if(ws1) XLSX.utils.book_append_sheet(wb, ws1, 'Formular');
-    if(ws2) XLSX.utils.book_append_sheet(wb, ws2, 'Übersicht');
+  if(typeof TEMPLATE_B64 === 'undefined' || !TEMPLATE_B64){
+    alert('Template nicht gefunden – XLSX-Export nicht möglich.'); return;
   }
+  // Template laden – nur das eine Sheet "Dienstplan" verwenden
+  const wb = XLSX.read(TEMPLATE_B64, { type: 'base64', cellStyles: true });
+  // Alle übrigen Sheets entfernen (falls vorhanden), nur Dienstplan behalten
+  while(wb.SheetNames.length > 1) wb.SheetNames.pop();
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  _fillTemplateSheet(ws, dayIdx);
 
   const iso = computeDayDates()[dayIdx];
   const fn  = (iso||('Tag'+(dayIdx+1)))+'_Wachplan.xlsx';
@@ -247,31 +233,68 @@ function _setCell(ws, ref, value, type){
 
 /** Schreibt Wachplan-Daten direkt in das geladene Template-Worksheet. */
 function _fillTemplateSheet(ws, dayIdx){
+  // ── Datum ─────────────────────────────────────────────────────
   const iso = computeDayDates()[dayIdx];
   if(iso){
-    const existing = ws['EE3'] || {};
-    ws['EE3'] = { ...existing, v: excelSerial(iso), t:'n', z:'DD.MM.YYYY' };
+    const ex = ws['EE3'] || {};
+    ws['EE3'] = { ...ex, v: excelSerial(iso), t:'n', z:'DD.MM.YYYY' };
   }
 
+  // ── Positionsbeschriftungen ────────────────────────────────────
   [11,13,15,17,19].forEach((row,i) => {
     const desc = positionDescriptions[i+3];
     if(desc) _setCell(ws, 'C'+row, desc, 's');
   });
 
-  for(let n=1;n<=28;n++){
+  // ── Besetzungsliste (28 Slots) ─────────────────────────────────
+  for(let n=1; n<=28; n++){
     const ref = slotNameRef(n);
     const p   = people[n-1];
     _setCell(ws, ref, p ? (p.name || ('Nr '+n)) : '', 's');
   }
 
+  // ── Stunden-Raster ────────────────────────────────────────────
   const A = buildAssignments(dayIdx);
+
+  // Alle HW-Personen (guards + base + bootsfLeft) für Überlauf
+  const main = lastResult.schedule[dayIdx].assign.find(s => s.kind === 'main');
+  const allHWNrs = main
+    ? [...main.mainGuards, ...main.base, ...main.bootsfLeft]
+        .map(p => personNr(p.id)).filter(n => n != null)
+    : [];
+  // HW / HW2 halten max. 4 Personen; Überlauf → freie Template-Stationen
+  const overflowHW = allHWNrs.slice(4);
+
+  // Freie (unbelegte) Station-Spalten für HW-Überlauf verwenden
+  const coreHWCodes = new Set(['WF','WF2','HW','HW2']);
+  const usedCodes   = new Set(Object.keys(A));
+  const freeCols    = Object.entries(STATION_COL_X)
+    .filter(([code]) => !usedCodes.has(code) && !coreHWCodes.has(code))
+    .sort((a,b) => a[1] - b[1])    // aufsteigend nach Spalte
+    .map(([, col]) => col);
+
+  // Paarweise je 2 HW-Personen in eine freie Station-Spalte schreiben
+  overflowHW.forEach((nr, i) => {
+    const pairIdx = Math.floor(i / 2);
+    if(pairIdx >= freeCols.length) return;
+    const col    = freeCols[pairIdx];
+    const isTop  = (i % 2 === 0);
+    // Spalten-Beschriftung in Zeile 21 auf "HW" umbenennen
+    if(isTop) _setCell(ws, colLetter(col) + '21', 'HW', 's');
+    FILL_HOURS.forEach(hr => {
+      const [rt, rb] = HOUR_ROWS_X[hr];
+      _setCell(ws, colLetter(col) + (isTop ? rt : rb), nr, 'n');
+    });
+  });
+
+  // Standard-Stationsdaten schreiben
   FILL_HOURS.forEach(hr => {
-    const [rt,rb] = HOUR_ROWS_X[hr];
+    const [rt, rb] = HOUR_ROWS_X[hr];
     for(const code in A){
       const col  = STATION_COL_X[code]; if(!col) continue;
       const nums = A[code];
-      if(nums[0]!=null) _setCell(ws, colLetter(col)+rt, nums[0], 'n');
-      if(nums[1]!=null) _setCell(ws, colLetter(col)+rb, nums[1], 'n');
+      if(nums[0] != null) _setCell(ws, colLetter(col) + rt, nums[0], 'n');
+      if(nums[1] != null) _setCell(ws, colLetter(col) + rb, nums[1], 'n');
     }
   });
 }
