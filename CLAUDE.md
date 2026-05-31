@@ -129,10 +129,11 @@ HOUR_ROWS_X = { '09:00':[25,26], ... }     // Zeilen-Paare pro Stunde (oben/unte
 
 ### Slot-Map-Strategie (`_patchSheetXml`)
 `slotMap[0..15]` wird beim Export berechnet; `exportColumns` bleibt unberührt:
-1. **1:1-Mapping**: `exportColumns[i]` → `TEMPLATE_STATION_COLS[i]` direkt; leere Einträge bleiben leer im Template
-2. **Überlauf**: Hat Station an Position `i` mehr als 2 Personen, scannt der Algorithmus ab `i+1` nach rechts und füllt den **ersten freien Slot** mit dem Überlauf-Paar (Slot muss `null` sein)
-3. **HW-Overflow**: Personen 5+ (inkl. Kranke) belegen danach verbleibende `null`-Slots (von links nach rechts)
-4. Alle `null`-Slots werden nicht in die XML geschrieben → Template-Felder bleiben leer
+1. **Sequenz-Aufbau**: `exportColumns` wird von links nach rechts durchlaufen; leere Einträge → `null` in Sequenz; belegte Einträge → primärer Slot + ggf. Overflow-Slots direkt dahinter eingefügt (Array-Insertion)
+2. **Overflow-Verhalten**: Overflow-Einträge werden per `seq.push` direkt nach der Station eingefügt → alle nachfolgenden Einträge (auch `null`-Slots) rücken um 1 nach rechts. Beispiel: `[78/1, 9/12, '', WF]` + 9/12-Overflow → `[78/1, 9/12, 9/12, '', WF]`
+3. **HW-Overflow**: Personen 5+ (inkl. Kranke) werden per `splice` direkt nach dem letzten HW/HW2-Eintrag in die Sequenz eingefügt
+4. Sequenz wird auf 16 Slots gekürzt; überschüssige Einträge am Ende fallen weg
+5. `null`-Slots werden nicht in die XML geschrieben → Template-Felder bleiben leer
 
 ### `autoFillExportColumns()` – Reihenfolge
 Pro Turm (Prio absteigend): erst zugeordnete Boote, dann Turm → Boot steht immer links von seinem Turm. Dann freie Boote, WF, WF2, HW, HW2.

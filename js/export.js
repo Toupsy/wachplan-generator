@@ -245,65 +245,48 @@ function _patchSheetXml(xml, dayIdx){
     if(desc) x = _patchCell(x, 'C'+row, 's', desc);
   });
 
-  // ── Slot-Map: exportColumns[i] → TEMPLATE_STATION_COLS[i] (1:1) ────────
-  // Leere Slots bleiben leer. Overflow-Insertion schiebt den nächsten null-Slot
-  // als Absorber nach rechts (alle dazwischen liegenden Einträge rücken 1 nach rechts).
-  // Gibt es keinen null rechts vom Einfügepunkt, wird der erste freie Slot gefüllt.
-  // Dasselbe gilt für HW-Overflow nach dem letzten HW/HW2-Eintrag.
-  const A = buildAssignments(dayIdx);
-  const N = TEMPLATE_STATION_COLS.length;
-  const slotMap = new Array(N).fill(null);
+  // ── Sequenz-Aufbau: Overflow inline einfügen, alles rechts davon rückt nach ──
+  // Leere Slots (null) werden mitgepusht – sie verschieben sich nach rechts wenn
+  // eine Station davor Overflow hat. Am Ende wird auf 16 Slots gekürzt.
+  // Beispiel: [78/1, 9/12, '', WF, HW, '', ''] + 9/12-Overflow
+  //        → [78/1, 9/12, 9/12, '', WF, HW, '']   ('' rückte von Pos 2 auf 3)
+  const A   = buildAssignments(dayIdx);
+  const N   = TEMPLATE_STATION_COLS.length;
+  const seq = [];  // { code, nums } | null – kann länger als N werden
 
-  // 1. Primäre Belegung – direkte 1:1-Zuordnung
   for(let i = 0; i < N; i++){
     const code = (exportColumns[i] || '').trim();
-    if(code) slotMap[i] = { code, nums: (A[code] || []).slice(0, 2) };
+    if(!code){ seq.push(null); continue; }
+    const allNums = A[code] || [];
+    seq.push({ code, nums: allNums.slice(0, 2) });
+    // Overflow-Paare direkt dahinter einfügen (pushen alles nach rechts)
+    for(let j = 2; j < allNums.length; j += 2)
+      seq.push({ code, nums: allNums.slice(j, j + 2) });
   }
 
-  // Shift-Insert: fügt Entry bei pos ein, schiebt alles bis zum nächsten null nach rechts.
-  // Fallback: ersten freien Slot füllen wenn kein null rechts erreichbar.
-  function tryInsert(pos, entry){
-    let ni = -1;
-    for(let j = pos; j < N; j++) if(slotMap[j] === null){ ni = j; break; }
-    if(ni >= 0){
-      for(let j = ni; j > pos; j--) slotMap[j] = slotMap[j - 1];
-      slotMap[pos] = entry;
-    } else {
-      for(let j = 0; j < N; j++) if(slotMap[j] === null){ slotMap[j] = entry; return; }
-    }
-  }
-
-  // 2. Station-Overflow: nach rechts schieben
-  for(let origI = 0; origI < N; origI++){
-    const code = (exportColumns[origI] || '').trim();
-    if(!code) continue;
-    const ov = (A[code] || []).slice(2);
-    if(!ov.length) continue;
-    // Aktuelle Position der primären Station in slotMap finden (kann durch frühere Shifts > origI sein)
-    let stPos = -1;
-    for(let j = origI; j < N; j++) if(slotMap[j]?.code === code){ stPos = j; break; }
-    if(stPos < 0) continue;
-    let insertAt = stPos + 1;
-    for(let j = 0; j < ov.length; j += 2)
-      tryInsert(insertAt++, { code, nums: ov.slice(j, j + 2) });
-  }
-
-  // 3. HW-Overflow (Personen 5+ inkl. Kranke): nach rechts schieben ab HW/HW2-Ende
+  // HW-Overflow (Personen 5+ inkl. Kranke): nach letztem HW/HW2-Eintrag einfügen
   const main = lastResult.schedule[dayIdx].assign.find(s => s.kind === 'main');
   if(main){
     const allHWNrs = [...main.mainGuards, ...main.base, ...main.bootsfLeft, ...(main.sick||[])]
       .map(p => personNr(p.id)).filter(n => n != null);
     const hwOv = allHWNrs.slice(4);
     if(hwOv.length){
-      let hwEnd = -1;
-      for(let j = N - 1; j >= 0; j--) if(slotMap[j]?.code === 'HW2' || slotMap[j]?.code === 'HW'){ hwEnd = j; break; }
-      let insertAt = hwEnd >= 0 ? hwEnd + 1 : N - 1;
+      let hwPos = -1;
+      for(let j = seq.length - 1; j >= 0; j--)
+        if(seq[j]?.code === 'HW2' || seq[j]?.code === 'HW'){ hwPos = j; break; }
+      const ins = hwPos >= 0 ? hwPos + 1 : seq.length;
+      const hwEntries = [];
       for(let j = 0; j < hwOv.length; j += 2)
-        tryInsert(insertAt++, { code: 'HW', nums: hwOv.slice(j, j + 2) });
+        hwEntries.push({ code: 'HW', nums: hwOv.slice(j, j + 2) });
+      seq.splice(ins, 0, ...hwEntries);
     }
   }
 
-  // 4. Alle belegten Slots in XML schreiben; leere Slots unangetastet lassen
+  // Auf N Slots kürzen; überschüssige Einträge am Ende fallen weg
+  const slotMap = seq.slice(0, N);
+  while(slotMap.length < N) slotMap.push(null);
+
+  // Alle belegten Slots in XML schreiben; null-Slots unangetastet lassen
   for(let i = 0; i < N; i++){
     if(!slotMap[i]) continue;
     const col = TEMPLATE_STATION_COLS[i];
