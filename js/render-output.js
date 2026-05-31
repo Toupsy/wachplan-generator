@@ -133,10 +133,9 @@ function renderOutput(){
         html += `<div class="tower-card main" style="grid-column:span 2;">
           <div class="tc-head"><span class="tc-name">⛱ ${slot.tower}</span><span class="tc-type main">Zentrale · k=${slot.k}</span></div>
           ${slot.fuehrung.map(p=>occ(p,'Führung','main',MAIN_ID)).join('')}
-          ${slot.mainGuards.map(p=>occ(p,p.role==='E'?'Erfahren · Wache':'Unerf. · Wache','main',MAIN_ID)).join('')}
-          ${slot.base.length?'<div class="hq-divider">Zusätzlich (nicht verteilbar)</div>':''}
-          ${slot.base.map(p=>occ(p,p.role==='E'?'Erfahren · Reserve':'Unerf. · Reserve','main',MAIN_ID)).join('')}
-          ${slot.bootsfLeft.map(p=>occ(p,'Bootsf. · frei','main',MAIN_ID)).join('')}
+          ${slot.mainGuards.map(p=>occ(p,p.role==='E'?'Erfahren · HW':'Unerf. · HW','main',MAIN_ID)).join('')}
+          ${slot.base.map(p=>occ(p,p.role==='E'?'Erfahren · HW':'Unerf. · HW','main',MAIN_ID)).join('')}
+          ${slot.bootsfLeft.map(p=>occ(p,'Bootsführer · HW','main',MAIN_ID)).join('')}
           ${slot.hwBoatSlot ? `
             <div class="hq-divider">🚤 HW-Boot: ${escapeHtml(slot.hwBoatSlot.name)}</div>
             ${slot.hwBoatSlot.bootsf ? occ(slot.hwBoatSlot.bootsf,'Bootsführer','hwboat',slot.hwBoatSlot.boatId) : '<div style="color:var(--coral);font-size:.78rem;padding:6px 0">⚠ Kein Bootsführer verfügbar</div>'}

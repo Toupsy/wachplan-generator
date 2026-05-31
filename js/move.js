@@ -70,15 +70,13 @@ function openMoveModal(personId, dayIdx, fromKind, fromSlotId){
     addSlot('main', MAIN_ID, '⛱ Hauptwache', 'Guard-/Reserve-Slot');
   }
 
-  // ── Scope-Auswahl ─────────────────────────────────────────────
-  scopeDiv.querySelectorAll('.scope-btn').forEach(b => {
-    b.classList.toggle('selected', b.dataset.scope === 'today');
-    b.onclick = () => {
-      scopeDiv.querySelectorAll('.scope-btn').forEach(x => x.classList.remove('selected'));
-      b.classList.add('selected');
-      selectedScope = b.dataset.scope;
-    };
-  });
+  // ── Scope-Auswahl (Checkbox) ─────────────────────────────────
+  const scopeChk = scopeDiv.querySelector('#scope-forward-chk');
+  if(scopeChk){
+    scopeChk.checked = false;
+    selectedScope = 'today';
+    scopeChk.onchange = () => { selectedScope = scopeChk.checked ? 'forward' : 'today'; };
+  }
 
   confirm.disabled = true;
   confirm.onclick = () => {

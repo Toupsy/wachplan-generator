@@ -177,11 +177,11 @@
   .move-slot-btn:hover{border-color:var(--sea-bright);background:rgba(24,168,216,.08)}
   .move-slot-btn.selected{border-color:var(--sea-bright);background:rgba(24,168,216,.16)}
   .move-slot-label{font-size:.7rem;color:var(--text-dim);margin-top:3px;font-family:'Spline Sans Mono',monospace}
-  .modal-scope-label{font-family:'Spline Sans Mono',monospace;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--foam);margin-bottom:8px}
-  .modal-scope{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px}
-  .scope-btn{background:var(--navy-2);border:1px solid var(--line-strong);border-radius:9px;padding:11px 8px;cursor:pointer;font-size:.8rem;color:var(--text-dim);transition:all .15s;font-family:'Spline Sans',sans-serif;text-align:center}
-  .scope-btn:hover{border-color:var(--foam);color:var(--foam)}
-  .scope-btn.selected{background:rgba(24,168,216,.15);border-color:var(--sea-bright);color:#fff}
+  .move-scope-toggle{background:var(--deep);border:1px solid var(--line-strong);border-radius:10px;padding:13px 15px;margin-bottom:18px}
+  .scope-toggle-label{display:flex;align-items:flex-start;gap:11px;cursor:pointer}
+  .scope-toggle-label input[type=checkbox]{width:17px;height:17px;accent-color:var(--sea-bright);flex-shrink:0;margin-top:2px;cursor:pointer}
+  .scope-toggle-text{font-size:.9rem;font-weight:600;color:var(--text)}
+  .scope-toggle-sub{display:block;font-size:.72rem;color:var(--text-dim);margin-top:3px;font-family:'Spline Sans Mono',monospace}
   .modal-confirm{width:100%;background:linear-gradient(135deg,var(--sea),var(--sea-bright));border:none;border-radius:9px;padding:13px;color:#fff;font-weight:700;font-size:.95rem;cursor:pointer;transition:all .15s;font-family:'Spline Sans',sans-serif}
   .modal-confirm:hover:not(:disabled){opacity:.9;transform:translateY(-1px)}
   .modal-confirm:disabled{opacity:.35;cursor:default;transform:none}
@@ -198,10 +198,14 @@
     <div class="modal-title" id="move-modal-title">Person verschieben</div>
     <div class="modal-sub"   id="move-modal-sub"></div>
     <div id="move-slot-list" class="move-slot-list"></div>
-    <div class="modal-scope-label">Geltungsbereich</div>
-    <div id="move-scope" class="modal-scope">
-      <button class="scope-btn selected" data-scope="today">Nur heute</button>
-      <button class="scope-btn"          data-scope="forward">Ab heute · alle Folgetage</button>
+    <div id="move-scope" class="move-scope-toggle">
+      <label class="scope-toggle-label">
+        <input type="checkbox" id="scope-forward-chk">
+        <div>
+          <div class="scope-toggle-text">Folgetage ebenfalls beeinflussen</div>
+          <div class="scope-toggle-sub">Wechsel beeinflusst die Rotationslogik der Folgetage</div>
+        </div>
+      </label>
     </div>
     <button id="move-modal-confirm" class="modal-confirm" disabled>Verschieben &amp; neu berechnen</button>
   </div>

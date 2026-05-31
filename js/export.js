@@ -59,7 +59,9 @@ function buildAssignments(dayIdx){
     const f=main.fuehrung.map(p=>personNr(p.id)).filter(n=>n!=null);
     if(f.length)    A['WF'] =f.slice(0,2);
     if(f.length>2)  A['WF2']=f.slice(2,4);
-    const g=main.mainGuards.map(p=>personNr(p.id)).filter(n=>n!=null);
+    // Alle HW-Personen: Guards + Reserve (base) + überzählige BF
+    const g=[...main.mainGuards,...main.base,...main.bootsfLeft]
+      .map(p=>personNr(p.id)).filter(n=>n!=null);
     if(g.length)    A['HW'] =g.slice(0,2);
     if(g.length>2)  A['HW2']=g.slice(2,4);
     if(main.hwBoatSlot?.bootsf){
@@ -163,7 +165,8 @@ function buildUebersichtSheet(dayIdx){
   const main = d.assign.find(s=>s.kind==='main');
   if(main){
     main.fuehrung.forEach(p  => add('HW','Hauptwache','WF', '', personNr(p.id)||'',p.name,'',''));
-    main.mainGuards.forEach(p=> add('HW','Hauptwache','HW', '', personNr(p.id)||'',p.name,'',''));
+    [...main.mainGuards,...main.base,...main.bootsfLeft]
+      .forEach(p => add('HW','Hauptwache','HW', '', personNr(p.id)||'',p.name,'',''));
     if(main.hwBoatSlot?.bootsf){
       const bo=getBoat(main.hwBoatSlot.boatId);
       add('HW-Boot', main.hwBoatSlot.name, bo?.code||'', '',
@@ -199,8 +202,8 @@ async function exportOfficial(dayIdx){
 
   let wb;
   if(typeof TEMPLATE_B64 !== 'undefined' && TEMPLATE_B64){
-    // Template laden und Zellen überschreiben
-    wb = XLSX.read(TEMPLATE_B64, { type: 'base64' });
+    // Template laden und Zellen überschreiben (cellStyles bewahrt Formatierung)
+    wb = XLSX.read(TEMPLATE_B64, { type: 'base64', cellStyles: true });
     const sheetName = wb.SheetNames[0];
     const ws = wb.Sheets[sheetName];
     _fillTemplateSheet(ws, dayIdx);
@@ -223,7 +226,7 @@ async function exportOfficial(dayIdx){
 
   const iso = computeDayDates()[dayIdx];
   const fn  = (iso||('Tag'+(dayIdx+1)))+'_Wachplan.xlsx';
-  const out = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+  const out = XLSX.write(wb, { bookType:'xlsx', type:'array', cellStyles: true });
   const blob= new Blob([out], { type:'application/octet-stream' });
   const a   = document.createElement('a');
   a.href    = URL.createObjectURL(blob);
@@ -231,20 +234,34 @@ async function exportOfficial(dayIdx){
   a.click();
 }
 
+/**
+ * Schreibt einen Wert in eine Zelle und bewahrt dabei den bestehenden Style
+ * aus dem Template.
+ */
+function _setCell(ws, ref, value, type){
+  const existing = ws[ref] || {};
+  ws[ref] = { ...existing, v: value, t: type };
+  // z (format string) nur setzen wenn nicht schon vorhanden
+  if(type === 'n' && !existing.z) ws[ref].z = '0';
+}
+
 /** Schreibt Wachplan-Daten direkt in das geladene Template-Worksheet. */
 function _fillTemplateSheet(ws, dayIdx){
   const iso = computeDayDates()[dayIdx];
-  if(iso) ws['EE3'] = { v: excelSerial(iso), t:'n', z:'DD.MM.YYYY' };
+  if(iso){
+    const existing = ws['EE3'] || {};
+    ws['EE3'] = { ...existing, v: excelSerial(iso), t:'n', z:'DD.MM.YYYY' };
+  }
 
   [11,13,15,17,19].forEach((row,i) => {
     const desc = positionDescriptions[i+3];
-    if(desc) ws['C'+row] = { v: desc, t:'s' };
+    if(desc) _setCell(ws, 'C'+row, desc, 's');
   });
 
   for(let n=1;n<=28;n++){
     const ref = slotNameRef(n);
     const p   = people[n-1];
-    ws[ref]   = p ? { v: p.name||('Nr '+n), t:'s' } : { v:'', t:'s' };
+    _setCell(ws, ref, p ? (p.name || ('Nr '+n)) : '', 's');
   }
 
   const A = buildAssignments(dayIdx);
@@ -253,8 +270,8 @@ function _fillTemplateSheet(ws, dayIdx){
     for(const code in A){
       const col  = STATION_COL_X[code]; if(!col) continue;
       const nums = A[code];
-      if(nums[0]!=null) ws[colLetter(col)+rt]={ v:nums[0], t:'n' };
-      if(nums[1]!=null) ws[colLetter(col)+rb]={ v:nums[1], t:'n' };
+      if(nums[0]!=null) _setCell(ws, colLetter(col)+rt, nums[0], 'n');
+      if(nums[1]!=null) _setCell(ws, colLetter(col)+rb, nums[1], 'n');
     }
   });
 }
