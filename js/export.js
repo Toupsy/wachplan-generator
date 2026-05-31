@@ -55,13 +55,18 @@ function personNr(id){
   return i < 0 ? null : i + 1;
 }
 
-/** Besetzungsdaten für einen Tag aufbereiten (code → [Nr, Nr]) */
+/**
+ * Besetzungsdaten für einen Tag aufbereiten.
+ * Gibt code → [Nr, ...] zurück – Türme können mehr als 2 Einträge haben (Überlauf).
+ * Kranke Personen werden der HW-Liste zugerechnet (erscheinen im Export bei HW).
+ */
 function buildAssignments(dayIdx){
   const d = lastResult.schedule[dayIdx];
   const A = {};
   d.assign.forEach(slot => {
     if(slot.kind==='tower' && slot.code)
-      A[slot.code] = slot.occupants.map(p=>personNr(p.id)).filter(n=>n!=null).slice(0,2);
+      // Alle Besatzer zurückgeben – kein slice(0,2); Überlauf wird in _patchSheetXml verarbeitet
+      A[slot.code] = slot.occupants.map(p=>personNr(p.id)).filter(n=>n!=null);
     else if(slot.kind==='boat' && slot.code && slot.bootsf){
       const nr=personNr(slot.bootsf.id);
       if(nr!=null) A[slot.code]=[nr];
@@ -72,7 +77,8 @@ function buildAssignments(dayIdx){
     const f=main.fuehrung.map(p=>personNr(p.id)).filter(n=>n!=null);
     if(f.length)    A['WF'] =f.slice(0,2);
     if(f.length>2)  A['WF2']=f.slice(2,4);
-    const allHW=[...main.mainGuards,...main.base,...main.bootsfLeft]
+    // Kranke Personen (main.sick) erscheinen ebenfalls in der HW-Spalte
+    const allHW=[...main.mainGuards,...main.base,...main.bootsfLeft,...(main.sick||[])]
       .map(p=>personNr(p.id)).filter(n=>n!=null);
     if(allHW.length)    A['HW'] =allHW.slice(0,2);
     if(allHW.length>2)  A['HW2']=allHW.slice(2,4);
@@ -250,28 +256,40 @@ function _patchSheetXml(xml, dayIdx){
     if(code) x = _patchCell(x, colLetter(col)+'21', 's', code);
   });
 
-  // HW-Überlauf: überzählige HW-Personen in freie (leere) exportColumns-Slots
+  // ── Overflow-Pool: freie Spalten (exportColumns-Eintrag leer) ────
+  // Reihenfolge: erst Turm/Boot-Überlauf (>2 Personen), dann HW-Überlauf (>4).
+  // Freie Spalten werden sequenziell vergeben – kein Überschreiben konfigurierter Spalten.
+  const freeCols = TEMPLATE_STATION_COLS.filter((_, i) => !(exportColumns[i]||'').trim());
+  let freeColPtr = 0;
+
+  function writeOverflowPairs(code, nrs){
+    for(let i = 0; i < nrs.length; i += 2){
+      if(freeColPtr >= freeCols.length) return;
+      const col = freeCols[freeColPtr++];
+      x = _patchCell(x, colLetter(col)+'21', 's', code);
+      const nr1 = nrs[i], nr2 = nrs[i+1];
+      FILL_HOURS.forEach(hr => {
+        const [rt, rb] = HOUR_ROWS_X[hr];
+        if(nr1 != null) x = _patchCell(x, colLetter(col)+rt, 'n', nr1);
+        if(nr2 != null) x = _patchCell(x, colLetter(col)+rb, 'n', nr2);
+      });
+    }
+  }
+
+  // Turm/Boot-Überlauf: Stationen mit mehr als 2 Personen
+  for(const code in A){
+    if(A[code].length > 2) writeOverflowPairs(code, A[code].slice(2));
+  }
+
+  // HW-Überlauf: Personen 5+ (inkl. Kranke) der Hauptwache
   const main = lastResult.schedule[dayIdx].assign.find(s => s.kind === 'main');
-  const allHWNrs = main
-    ? [...main.mainGuards, ...main.base, ...main.bootsfLeft]
-        .map(p => personNr(p.id)).filter(n => n != null)
-    : [];
-  const overflowHW = allHWNrs.slice(4);
-  const freeCols   = TEMPLATE_STATION_COLS.filter((_, i) => !(exportColumns[i]||'').trim());
+  if(main){
+    const allHWNrs = [...main.mainGuards, ...main.base, ...main.bootsfLeft, ...(main.sick||[])]
+      .map(p => personNr(p.id)).filter(n => n != null);
+    writeOverflowPairs('HW', allHWNrs.slice(4));
+  }
 
-  overflowHW.forEach((nr, i) => {
-    const pairIdx = Math.floor(i/2);
-    if(pairIdx >= freeCols.length) return;
-    const col   = freeCols[pairIdx];
-    const isTop = (i % 2 === 0);
-    if(isTop) x = _patchCell(x, colLetter(col)+'21', 's', 'HW');
-    FILL_HOURS.forEach(hr => {
-      const [rt, rb] = HOUR_ROWS_X[hr];
-      x = _patchCell(x, colLetter(col) + (isTop ? rt : rb), 'n', nr);
-    });
-  });
-
-  // Standard-Stationsdaten (aus buildAssignments, gemapt über colX)
+  // Standard-Stationsdaten: erste 2 Personen pro Station in die konfigurierten Spalten
   FILL_HOURS.forEach(hr => {
     const [rt, rb] = HOUR_ROWS_X[hr];
     for(const code in A){

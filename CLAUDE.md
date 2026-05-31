@@ -126,15 +126,23 @@ HOUR_ROWS_X = { '09:00':[25,26], ... }     // Zeilen-Paare pro Stunde (oben/unte
 - `C11,C13,C15,C17,C19` → Positionsbeschriftungen
 - Zeile 21 der Stationsspalten → Stationscodes (aus `exportColumns`)
 - Stundenraster → Personennummern (1-basiert) für jede Station
-- HW-Overflow → Überzählige HW-Personen (>4) in leere exportColumns-Slots
+- **Turm-Overflow** → Personen 3+ pro Turm in freie exportColumns-Slots (gleicher Code in Zeile 21)
+- **HW-Overflow** → Personen 5+ an der HW (inkl. Kranke) in freie exportColumns-Slots
+
+### Overflow-Strategie (`_patchSheetXml`)
+Freie Spalten = `TEMPLATE_STATION_COLS`-Einträge wo `exportColumns[i]` leer ist.
+Vergabe sequenziell via `freeColPtr`: erst Turm/Boot-Überlauf, dann HW-Überlauf.
+Konfigurierte Spalten werden nie überschrieben.
 
 ### Template-Caching
 - Primär: `fetch('Wachplan Template.xlsx')` (aus Projektordner)
 - Fallback: `localStorage` (Base64, Key: `dlrg_wachplan_template_b64`)
 - Chunks à 9000 Bytes (Vielfaches von 3 → kein btoa-Padding-Problem)
 
-### `buildAssignments(dayIdx)` → `{ code: [Nr, Nr] }`
-Baut Map: WF, WF2, HW, HW2, Turm-Codes, Boot-Codes → Personennummern
+### `buildAssignments(dayIdx)` → `{ code: [Nr, ...] }`
+- Türme: **alle** Besatzer ohne slice; Überlauf >2 wird von `_patchSheetXml` verarbeitet
+- HW: `mainGuards + base + bootsfLeft + sick` → WF/WF2 (Führung), HW/HW2 (Rest inkl. Kranke)
+- Kranke Personen erscheinen in der HW-Spalte im Export
 
 ---
 
