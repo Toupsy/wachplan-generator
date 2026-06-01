@@ -225,6 +225,15 @@
     <button class="modal-close-btn" id="confirm-modal-close-btn">×</button>
     <div class="modal-title">Regel überschreiben?</div>
     <div class="modal-message" id="confirm-modal-message" style="margin:16px 0;color:var(--text-dim);font-size:.9rem;line-height:1.6"></div>
+    <div id="confirm-modal-scope" class="move-scope-toggle" style="display:none;margin:16px 0">
+      <label class="scope-toggle-label">
+        <input type="checkbox" id="confirm-scope-forward-chk" checked>
+        <div>
+          <div class="scope-toggle-text">Folgetage neu berechnen</div>
+          <div class="scope-toggle-sub">Dieser Wechsel beeinflusst den Algorithmus der Folgetage</div>
+        </div>
+      </label>
+    </div>
     <div style="display:flex;gap:12px;margin-top:20px">
       <button id="confirm-modal-cancel" class="modal-confirm" style="flex:1;background:rgba(127,212,232,.08);color:var(--sea-bright);border:1px solid var(--line-strong)">Abbrechen</button>
       <button id="confirm-modal-proceed" class="modal-confirm" style="flex:1">Trotzdem verschieben</button>
@@ -286,8 +295,8 @@
         <select id="hw-boat-select" class="full-select"></select>
 
         <!-- Positionsbeschriftungen (Feature 2) -->
-        <div class="section-label" style="margin-top:18px;">Positionsbeschriftung XLSX</div>
-        <div class="info-box">Bezeichnungen für die Felder <b>C11, C13, C15, C17, C19</b> im DLRG-Formular (Positionen 3–7).</div>
+        <div class="section-label" style="margin-top:18px;">Zusatzbezeichnungen für Personalpositionen</div>
+        <div class="info-box">Optionale Bezeichnungen für die Positionen 3–7 im DLRG-Formular (z.B. „Wachführer", „Bootsführer", „Sanitäter" etc.).</div>
         <div id="pos-desc-fields"></div>
 
         <!-- XLSX-Stationsspalten -->

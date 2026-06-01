@@ -252,14 +252,17 @@ function renderPositionDescUI(){
   const c = document.getElementById('pos-desc-fields');
   if(!c) return;
   c.innerHTML = '';
+  const defaultPlaceholders = ['Wachführer', 'Bootsführer', 'Bootsführerin', 'Koch', 'Sanitäter'];
   for(let pos = 3; pos <= 7; pos++){
     const row = document.createElement('div');
     row.className = 'pos-desc-row';
+    const placeholderIdx = pos - 3;
+    const placeholder = defaultPlaceholders[placeholderIdx] || '';
     row.innerHTML = `
       <label class="pos-label">Pos. ${pos} <span style="color:var(--text-dim);font-size:.65rem">(C${pos*2+5})</span></label>
       <input type="text" class="pos-desc-input" data-pos="${pos}"
         value="${escapeHtml(positionDescriptions[pos]||'')}"
-        placeholder="z.B. ${towers[pos-3] ? escapeHtml(towers[pos-3].name) : 'Turm '+pos}">`;
+        placeholder="z.B. ${placeholder}">`;
     c.appendChild(row);
   }
   c.querySelectorAll('.pos-desc-input').forEach(i =>

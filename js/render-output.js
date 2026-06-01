@@ -303,12 +303,13 @@ function renderOutput(){
       const clearCard = () => { card.style.backgroundColor = ''; card.style.borderColor = ''; };
       showConfirmation(
         `${p.name} ist ${ROLE[p.role]}, nicht Bootsführer. Trotzdem zum Boot verschieben?`,
-        () => {
-          _applyMove(dragSrc.personId, activeDay, targetKind, targetSlot, false);
+        (recalcFuture) => {
+          _applyMove(dragSrc.personId, activeDay, targetKind, targetSlot, recalcFuture);
           generate();
           clearCard();
         },
-        clearCard
+        clearCard,
+        true  // showRecalcCheckbox
       );
       return;
     }

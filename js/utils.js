@@ -17,20 +17,30 @@ function showToast(msg){
 }
 
 /** Bestätigungs-Dialog mit OK/Abbrechen */
-function showConfirmation(message, onConfirm, onCancel) {
+function showConfirmation(message, onConfirm, onCancel, showRecalcCheckbox) {
   const modal = document.getElementById('confirm-modal');
   const msgEl = document.getElementById('confirm-modal-message');
   const proceedBtn = document.getElementById('confirm-modal-proceed');
   const cancelBtn = document.getElementById('confirm-modal-cancel');
+  const scopeDiv = document.getElementById('confirm-modal-scope');
+  const scopeChk = document.getElementById('confirm-scope-forward-chk');
 
   msgEl.textContent = message;
+
+  // Checkbox nur bei Bedarf anzeigen
+  if(showRecalcCheckbox) {
+    scopeDiv.style.display = '';
+  } else {
+    scopeDiv.style.display = 'none';
+  }
 
   const cleanup = () => { proceedBtn.onclick = null; cancelBtn.onclick = null; };
 
   proceedBtn.onclick = () => {
     modal.style.display = 'none';
     cleanup();
-    onConfirm();
+    const recalcFuture = showRecalcCheckbox ? scopeChk.checked : false;
+    onConfirm(recalcFuture);
   };
   cancelBtn.onclick = () => {
     modal.style.display = 'none';

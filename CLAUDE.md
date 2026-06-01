@@ -64,6 +64,22 @@ mainK              // Anzahl Guard-Slots neben der Führung an der Hauptwache
 
 Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) übertragen sich auf Folgetage → faire Rotation.
 
+### Erweiterte Fairness-Metriken (Feature 7)
+
+**Tracking pro Person:**
+- `hwVisits` – Anzahl Tage an der Hauptwache
+- `towerWithBoatDays` – Anzahl Tage auf Turm mit aktivem Boot
+- `boatCaptainPairings` – Häufigkeit (Captain-ID → Count) wie oft mit bestimmtem Bootsführer zusammen
+
+**Scoring-Verbesserungen:**
+- bestPair() bestraft Turm-Paare wenn beide viele Boot-Tage haben (+150 Penalty)
+- bestPair() bonusiert Turm-Paare wenn eine Person viele HW-Tage hat (-50 Bonus)
+- Boot-Sortierung: 50× Penalty für wiederholte Zuweisungen + 5× HW-Balance
+
+**Darstellung (render-output.js):**
+- Stats-Bar zeigt `avgHwVisits | avgTowerWithBoatDays` (z.B. 0.9 | 0.9) mit Farbe (grün=ausgeglichen, orange=skew)
+- Stats-Bar zeigt Boot-Paarungen-Diversität % (z.B. 80% einzigartig)
+
 ### Zwangszuweisungen (forcedPlacements)
 - `transparent: false` (effektiv) → Person aus Pool entfernen, fest vorab platzieren, Statistik zählt mit → Folgetage berücksichtigen den Wechsel
 - `transparent: true` → Person bleibt im Pool, Algorithmus läuft normal, danach visuell in Zielslot verschoben → Folgetage identisch zum Originalplan
@@ -82,6 +98,8 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 + 30×v  Turmbesuche Person B (v≥2 → +300)
 + 5×    Gesamteinsätze (Fairness: wer wenig hatte, kommt zuerst)
 + 800   surplusBF-Strafe (Turm mit aktivem Boot)
++ 150   beide haben viele Boot-Tage (Tower+Boat balance)  ← NEW Feature 7
+- 50    Person hat viele HW-Tage (Bonus für Tower-Zuweisung)  ← NEW Feature 7
 + Tiebreaker (deterministisch oder seededRand() für Tag 1)
 ```
 **Niedrigster Score gewinnt.**
@@ -89,21 +107,34 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 ### Zuweisung pro Tag (Reihenfolge)
 1. **Hauptwache** – Zwangszuweisungen → Paare via bestPair → Einzelpersonen
 2. **Türme** – je 2 Wachgänger via bestPair(t, true), Türme nach prio absteigend
-3. **Boote** – je 1 BF, sortiert nach wenigsten Einsätzen + Boot-Besuchen
-4. **HW-Boot** (Feature 6) – dedizierter BF wenn hwBoatId aktiv
-5. **HW finalize** – alle übrigen Personen kommen zur Hauptwache
-6. **Transparente Zuweisungen** anwenden (visueller Tausch nach dem Algorithmus)
+3. **Boote** – je 1 BF, sortiert nach:
+   - Gesamteinsätze (primary)
+   - Boot-Besuche × 50 Penalty (Rotation fairness) ← NEW Feature 7
+   - HW-Besuche × 5 (balance HW-heavy people) ← NEW Feature 7
+4. **HW-Boot** (Feature 6) – dedizierter BF wenn hwBoatId aktiv (gleiche Sortierung)
+5. **Boot-Captain-Paarungen tracking** ← NEW Feature 7 – Nach Boot-Zuweisung: registriere Turm-Personen × Captain
+6. **HW finalize** – alle übrigen Personen kommen zur Hauptwache
+7. **Transparente Zuweisungen** anwenden (visueller Tausch nach dem Algorithmus)
 
 ---
 
-## Manuelles Verschieben (move.js)
+## Manuelles Verschieben & Drag-and-Drop (move.js, render-output.js)
 
+**Move-Modal** (↕-Button):
 - Jeder Wachgänger hat einen **↕-Button** (erscheint bei hover auf `.occupant`)
 - `openMoveModal(personId, dayIdx, fromKind, fromSlotId)` – öffnet Modal
 - Dropdown: alle validen Zielslots; Bootsführer sehen auch Boot-Optionen
 - Checkbox **"Folgetage neu berechnen"** → steuert `transparent`-Flag
 - `_applyMove()` → schreibt in `forcedPlacements[dayIdx]`, ruft `generate()` auf
 - `clearForced(personId, fromDay, scope)` → entfernt Fixierungen ('today' | 'forward')
+
+**Drag-and-Drop** (NEW):
+- Personen können direkt per D&D zwischen Slots verschoben werden
+- Visuelles Feedback: Opacity bei drag, Highlighting beim hover
+- Rollenvalidierung: Nicht-Bootsführer zu Boot → Confirmation-Dialog
+- **Confirmation mit Checkbox**: "Folgetage neu berechnen" Option im Dialog
+- `showConfirmation(message, onConfirm, onCancel, showRecalcCheckbox)` – erweiterbar
+- `recalcFuture` wird durch Checkbox-Status bestimmt und an `_applyMove()` übergeben
 
 ---
 
@@ -177,7 +208,7 @@ Jede Zeile hat `draggable="true"` + ⠿-Handle. dragstart speichert Quell-Index;
 | `renderHWBoatSelector()` | Dropdown: welches Boot ist HW-Boot? |
 | `autoFillExportColumns()` | Füllt exportColumns: Boote → Türme (Prio↓) → WF → WF2 → HW → HW2 |
 | `renderExportColumnUI()` | 16 Felder für manuelles Stationscode-Mapping |
-| `renderPositionDescUI()` | 5 Felder für XLSX-Positionsbeschriftungen (Pos. 3–7) |
+| `renderPositionDescUI()` | 5 Felder für XLSX-Positionsbeschriftungen (Pos. 3–7) mit aussagekräftigen Placeholders (z.B. „Wachführer", „Bootsführer", „Sanitäter") |
 
 ---
 
@@ -208,12 +239,14 @@ _updateSaveIndicator() + _updateTemplateStatus()
 | Aspekt | Lösung |
 |---|---|
 | Faire Rotation | Akkumulierte stats (total, towerVisits, boatVisits) über alle Tage |
+| Fairness Metrics (Feature 7) | hwVisits, towerWithBoatDays, boatCaptainPairings für Balance-Scoring |
 | Reproduzierbarkeit | `seededRand()` – LCG-Zufallsgenerator, nur für Tag-1-Tiebreaker |
 | UU-Warnung | score +1000 wenn beide Unerfahren → nur als Notlösung |
 | BF-Schutz | surplusBFPenalty() +800 wenn BF an Turm mit aktivem Boot |
 | Kein Framework | Vanilla-JS; Re-Renders via komplettem innerHTML-Replace |
 | XLSX-Integrität | XML-Patch statt SheetJS-Write → Styles/Bilder/Schutz erhalten |
 | Transparenter Swap | Person im Statistik-Pool belassen, nur Darstellung überschreiben |
+| D&D Validation | Rollenvalidierung mit Confirmation-Dialog + optional Zukunfts-Neuberechnung |
 | Timezone-Bug | Lokale Datumsarithmetik statt toISOString() → kein UTC-Off-by-one |
 | Template-Fallback | fetch() → localStorage → Nutzer-Upload (pending export queue) |
 
