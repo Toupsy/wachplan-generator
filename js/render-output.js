@@ -281,6 +281,14 @@ function renderOutput(){
     const targetKind = card.dataset.dropKind;
     const targetSlot = +card.dataset.dropSlot;
 
+    // Validierung: Nicht in geschlossene Türme
+    if(card.classList.contains('closed')) {
+      showToast('⚠️ Kann nicht zu geschlossenen Türmen/Booten verschoben werden');
+      card.style.backgroundColor = '';
+      card.style.borderColor = '';
+      return;
+    }
+
     // Validierung: Bootsführer nur zu Booten
     const p = getP(dragSrc.personId);
     if((targetKind === 'boat' || targetKind === 'hwboat') && p && p.role !== 'B') {
