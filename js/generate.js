@@ -356,7 +356,23 @@ function generate(){
       else if(b.towerId && !openTowers.some(t => t.id === b.towerId)) boatsClosedTower.push(b);
     });
 
-    for(const bo of boatCandidates){
+    // WICHTIG: Verarbeite ZUERST forcierte Boote (auch wenn ihr Turm nicht offen ist)
+    // Dann normale Boote von boatCandidates
+    const allBoatsToProcess = [
+      ...Object.keys(forcedByBoat).map(boatId => boats.find(b => b.id === +boatId)).filter(Boolean),
+      ...boatCandidates
+    ];
+    // Duplikate entfernen (forcierte Boote die auch in boatCandidates sind)
+    const seenBoatIds = new Set();
+    const boatsProcessed = [];
+    allBoatsToProcess.forEach(bo => {
+      if(!seenBoatIds.has(bo.id)) {
+        seenBoatIds.add(bo.id);
+        boatsProcessed.push(bo);
+      }
+    });
+
+    for(const bo of boatsProcessed){
       const slot = {
         kind:'boat', boatId:bo.id, name:bo.name, code:bo.code, prio:bo.prio,
         towerId:bo.towerId, towerName:towers.find(t=>t.id===bo.towerId)?.name||'',
