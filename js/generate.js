@@ -75,6 +75,25 @@ function generate(){
           availE = byRole['E'] || [], availU = byRole['U'] || [];
     const sickToday = people.filter(p => isSick(p.id));
 
+    // Zusätzlich: nur EFFEKTIV forcierte Personen aus Pools entfernen
+    // Transparent forcierte Personen bleiben im Pool, werden normal eingeplant,
+    // dann visuell verschoben (am Ende des Tags)
+    const removeFromPools = (id) => {
+      const person = people.find(x => x.id === id);
+      if(!person) return;
+      // Remove from all pools
+      const idx_f = availF.findIndex(x => x.id === id);
+      if(idx_f >= 0) availF.splice(idx_f, 1);
+      const idx_b = availB.findIndex(x => x.id === id);
+      if(idx_b >= 0) availB.splice(idx_b, 1);
+      const idx_e = availE.findIndex(x => x.id === id);
+      if(idx_e >= 0) availE.splice(idx_e, 1);
+      const idx_u = availU.findIndex(x => x.id === id);
+      if(idx_u >= 0) availU.splice(idx_u, 1);
+    };
+    // Remove only EFFECTIVE forced persons (transparent stay in pools)
+    effectiveDayForced.forEach(f => removeFromPools(f.personId));
+
     // Effektive Zwangszuweisungen nach Ziel gruppieren
     const forcedByTower = {};
     const forcedByBoat  = {};
@@ -288,7 +307,12 @@ function generate(){
       const wasEmpty = slot.occupants.length === 0;
       let pairsAdded = 0;
       while(need > 0){
-        if(need >= 2){
+        // Wenn bereits 1 forcierte Person vorhanden: NUR einzelne Person hinzufügen (nicht Paar)
+        // um mit der forcierten Person zu paaren
+        // WICHTIG: Neu berechnen bei jedem Loop-Durchgang, da slot.occupants wächst
+        const hasForcedSingle = pre.length === 1 && slot.occupants.length === 1;
+
+        if(need >= 2 && !hasForcedSingle){
           // requireMix=true nur beim ersten Paar, falls Slot ursprünglich leer war
           const best = bestPair(t, wasEmpty && pairsAdded === 0, d);
           if(!best) break;
