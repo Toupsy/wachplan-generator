@@ -193,21 +193,20 @@ function renderOutput(){
   panel.querySelectorAll('.day-tab').forEach(t =>
     t.onclick = e => { activeDay = +e.currentTarget.dataset.day; renderOutput(); });
 
-  panel.querySelectorAll('[data-sick]').forEach(el =>
-    el.onclick = e => {
-      const id=+e.currentTarget.dataset.sick, day=+e.currentTarget.dataset.day;
-      const s=dayState[day].sick; s.has(id)?s.delete(id):s.add(id); generate();
-    });
-  panel.querySelectorAll('[data-closet]').forEach(el =>
-    el.onclick = e => {
-      const id=+e.currentTarget.dataset.closet, day=+e.currentTarget.dataset.day;
-      const s=dayState[day].closed; s.has(id)?s.delete(id):s.add(id); generate();
-    });
-  panel.querySelectorAll('[data-closeb]').forEach(el =>
-    el.onclick = e => {
-      const id=+e.currentTarget.dataset.closeb, day=+e.currentTarget.dataset.day;
-      const s=dayState[day].closedBoats; s.has(id)?s.delete(id):s.add(id); generate();
-    });
+  const togSets = [
+    { sel: '[data-sick]',    key: 'sick',        getter: d => dayState[d].sick },
+    { sel: '[data-closet]',  key: 'closet',      getter: d => dayState[d].closed },
+    { sel: '[data-closeb]',  key: 'closeb',      getter: d => dayState[d].closedBoats },
+  ];
+  togSets.forEach(({ sel, key, getter }) => {
+    panel.querySelectorAll(sel).forEach(el =>
+      el.onclick = e => {
+        const id = +e.currentTarget.dataset[key], day = +e.currentTarget.dataset.day;
+        const s = getter(day);
+        s.has(id) ? s.delete(id) : s.add(id);
+        generate();
+      });
+  });
 
   // Move-Buttons
   panel.querySelectorAll('.move-btn').forEach(btn =>

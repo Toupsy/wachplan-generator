@@ -51,10 +51,13 @@ function generate(){
     const isForced = p => effectiveForcedIds.has(p.id);  // nur effektive aus Pool entfernen
 
     // Verfügbare Personen OHNE effektiv-zwangsweise zugewiesene
-    const availF    = people.filter(p => p.role==='F' && !isSick(p.id) && !isForced(p));
-    const availB    = people.filter(p => p.role==='B' && !isSick(p.id) && !isForced(p));
-    const availE    = people.filter(p => p.role==='E' && !isSick(p.id) && !isForced(p));
-    const availU    = people.filter(p => p.role==='U' && !isSick(p.id) && !isForced(p));
+    const byRole = {};
+    people.forEach(p => {
+      if(isSick(p.id) || isForced(p)) return;
+      (byRole[p.role] || (byRole[p.role] = [])).push(p);
+    });
+    const availF = byRole['F'] || [], availB = byRole['B'] || [],
+          availE = byRole['E'] || [], availU = byRole['U'] || [];
     const sickToday = people.filter(p => isSick(p.id));
 
     // Effektive Zwangszuweisungen nach Ziel gruppieren
@@ -82,13 +85,13 @@ function generate(){
       && boats.some(b => b.id === hwBoatId);
 
     // ── Vorab-Schätzung der BF-Aufteilung ────────────────────────
-    const preCandTowers = towers
+    const openTowersSorted = towers
       .filter(t => !ds.closed.has(t.id))
       .slice().sort((a,b) => (b.prio-a.prio)||(a.id-b.id));
 
     let usedGpre = k;
     const tempOpen = [];
-    for(const t of preCandTowers){
+    for(const t of openTowersSorted){
       if(usedGpre + 2 <= availE.length + availU.length){ tempOpen.push(t); usedGpre += 2; }
     }
     // Boote, für die BF benötigt werden (ohne HW-Boot)
@@ -107,9 +110,7 @@ function generate(){
     const surplusBF = availB.slice(neededBF);
 
     // ── Kandidaten-Türme für echte Öffnungsentscheidung ──────────
-    const candidateTowers = towers
-      .filter(t => !ds.closed.has(t.id))
-      .slice().sort((a,b) => (b.prio-a.prio)||(a.id-b.id));
+    const candidateTowers = openTowersSorted;
 
     let poolE   = [...availE];
     let poolU   = [...availU];

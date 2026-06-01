@@ -79,8 +79,9 @@ function importStateJSON(json, silent = false){
   boats  = (s.boats  || []).map(b => ({ ...b }));
 
   // uid sicherstellen (max vorhandener ID + 1)
-  const allIds = [...people,...towers,...boats].map(x=>x.id).filter(Boolean);
-  if(allIds.length) uid = Math.max(uid, ...allIds);
+  let maxId = uid;
+  [...people,...towers,...boats].forEach(x => { if(x.id > maxId) maxId = x.id; });
+  uid = maxId;
 
   // dayState mit Sets rekonstruieren
   dayState = (s.dayState || []).map(d => ({

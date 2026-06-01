@@ -79,8 +79,7 @@ function closeMoveModal(){
 // ── Hilfsfunktion: lesbares Herkunfts-Label ──────────────────────
 function _slotLabel(kind, slotId){
   if(kind === 'tower')  { const t = getT(slotId);    return t ? `🗼 ${t.name}` : 'Turm'; }
-  if(kind === 'boat' || kind === 'hwboat')
-                        { const b = getBoat(slotId);  return b ? `🚤 ${b.name}` : 'Boot'; }
+  if(kind === 'boat' || kind === 'hwboat') { const b = getBoat(slotId);  return b ? `🚤 ${b.name}` : 'Boot'; }
   return '⛱ Hauptwache';
 }
 

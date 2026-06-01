@@ -55,20 +55,8 @@ function personNr(id){
   return i < 0 ? null : i + 1;
 }
 
-/** Besetzungsdaten für einen Tag aufbereiten (code → [Nr, Nr]) */
-/**
- * Besetzungsdaten für einen Tag aufbereiten.
- * Türme: alle Besatzer (kein slice) – Überlauf >2 wird in _patchSheetXml direkt daneben platziert.
- * Kranke: werden der HW-Liste zugerechnet und erscheinen im Export bei HW.
- */
-/**
- * Besetzungsdaten für einen Tag aufbereiten.
- * Türme: alle Besatzer (kein slice) – Überlauf >2 inline in _patchSheetXml.
- * WF/HW: wenn WF2/HW2 NICHT in exportColumns → alle Personen in A['WF']/A['HW'],
- *         Überlauf wird inline als Overflow-Paar eingefügt.
- *         wenn WF2/HW2 IN exportColumns → klassische Split-Logik (slice 0-2 / 2-4).
- * Kranke: in der HW-Liste, erscheinen im Export bei HW.
- */
+/** Besetzungsdaten für einen Tag aufbereiten. Türme: alle Besatzer (Overflow inline).
+ *  WF/HW: mit/ohne WF2/HW2 – split oder overflow. Kranke in HW-Liste. */
 function buildAssignments(dayIdx){
   const d = lastResult.schedule[dayIdx];
   const A = {};
