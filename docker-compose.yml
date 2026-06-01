@@ -1,10 +1,27 @@
+# ============================================================
+# docker-compose.yml für DLRG Wachplan-Generator
+#
+# Optionen:
+# - LOCAL BUILD (Standard): `docker-compose up -d`
+#   Baut Image lokal, speichert als 'dlrg-wachplan-generator:latest'
+#
+# - DOCKER HUB (optional): Setze IMAGE_NAME und IMAGE_TAG
+#   `IMAGE_NAME=yourname/wachplan IMAGE_TAG=latest docker-compose up -d`
+#   Pullt vorgefertigtes Image statt zu bauen
+# ============================================================
+
 version: '3.8'
 
 services:
   wachplan:
+    # OPTION A: Lokal bauen (Standard)
     build:
       context: .
       dockerfile: Dockerfile
+
+    # OPTION B: Docker Hub pullen (deaktiviert; aktiviere indem du diese Zeile nutzt)
+    # image: ${IMAGE_NAME:-dlrg-wachplan-generator}:${IMAGE_TAG:-latest}
+
     container_name: dlrg-wachplan-generator
     ports:
       - "3000:3000"
