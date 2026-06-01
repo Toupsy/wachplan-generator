@@ -307,7 +307,8 @@ function renderOutput(){
     });
 
   // ── Drag-and-Drop Event Handler ───────────────────────────────────
-  const grid = panel.querySelector('.towers-grid');
+  // Wichtig: AKTIVES Panel-Grid nehmen, nicht das erste im DOM (das wäre Tag 1)
+  const grid = panel.querySelector(`.day-panel[data-panel="${activeDay}"] .towers-grid`);
   let dragSrc = null;
 
   grid.addEventListener('dragstart', e => {
