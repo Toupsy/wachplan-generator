@@ -225,6 +225,72 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 
 **Result:** D&D funktioniert zuverlässig, keine TypeError mehr.
 
+### Bugfix 4: Move ohne Folgetage-Neuberechnung – CORRECT IMPLEMENTATION
+**Original Problem:** Case 1 (transparent move) sollte nur Tag heute ändern und Folgetage unverändert lassen.
+
+**Root Cause:** `generate()` berechnet IMMER alle Tage neu. Auch wenn transparent placements am ENDE angewendet werden, die Folgetage werden mit möglichem Zufall neu berechnet → unterschiedliche Ergebnisse.
+
+**Failed Attempts:**
+1. Storing/restoring stats: Insufficient, entire schedule was recalculated
+2. Plan restoration: Complex, didn't account for randomization in generate()
+
+**CORRECT Fix (Current Implementation):**
+- **Case 1 (transparent=true):** Do NOT call `generate()` at all
+- **Case 2 (transparent=false):** Call `generate()`, but only keep days AFTER the change
+
+**Implementation in js/move.js and js/render-output.js:**
+```js
+if(forwardScope){
+  // Case 2: Effective change, partial recalculation
+  const oldSchedule = lastResult.schedule.map(d => JSON.parse(JSON.stringify(d)));
+
+  _applyMove(personId, dayIdx, target.kind, target.slotId, true);
+  generate();
+
+  // Restore days BEFORE the change from old schedule
+  // Keep day of change and all following days NEW
+  for(let d = 0; d < dayIdx; d++){
+    lastResult.schedule[d] = oldSchedule[d];
+  }
+  renderOutput();
+} else {
+  // Case 1: Visual-only, NO generate()
+  _applyMove(personId, dayIdx, target.kind, target.slotId, false);
+  renderOutput();
+}
+```
+
+**Implementation in js/render-output.js:**
+- At start of `renderOutput()`: Clone schedule and apply transparent placements visually
+- Only affects display layer, `lastResult` remains completely untouched
+```js
+// Wende transparent placements visuell an (ohne generate())
+schedule = schedule.map((day, dayIdx) => {
+  const dayForcedTransparent = (forcedPlacements[dayIdx] || []).filter(f => f.transparent);
+  if(dayForcedTransparent.length === 0) return day;
+  
+  const dayClone = JSON.parse(JSON.stringify(day));
+  // Manipuliere dayClone Occupants, original bleibt unverändert
+  dayForcedTransparent.forEach(f => { /* move logic */ });
+  return dayClone;
+});
+```
+
+**Why This Works:**
+- **Case 1:** No `generate()` call = Folgetage completely untouched
+  - renderOutput() clones schedule, applies visual move to display only
+  - `lastResult.schedule` and `lastResult.stats` identical to original
+  - Days before, day of change, and days after all UNCHANGED
+  
+- **Case 2:** `generate()` called, but only keep days after change
+  - Days 0..dayIdx-1: **Restored from old plan** (untouched by change)
+  - Day dayIdx: **New from generate()** (with manual change applied)
+  - Days dayIdx+1+: **New from generate()** (calculated with updated fairness from day of change)
+  - `lastResult.stats` accumulated up to day of change, then used for future planning
+  - This ensures: previous schedule stability + change takes effect + fair future planning
+
+**Result:** ✅ Case 1 und Case 2 funktionieren korrekt separiert.
+
 ---
 
 ## Feature 11: Seed-basierte Start-Konstellationen

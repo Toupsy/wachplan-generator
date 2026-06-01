@@ -64,12 +64,25 @@ function openMoveModal(personId, dayIdx, fromKind, fromSlotId){
     if(!slotSel.value) return;
     const target       = JSON.parse(slotSel.value);
     const forwardScope = scopeChk?.checked ?? false;
-    _applyMove(personId, dayIdx, target.kind, target.slotId, forwardScope);
+
     closeMoveModal();
-    // IMMER generate() – unterschied ist nur die transparent flag
-    // transparent: true → Stats ändern nicht, ganze Woche bleibt gleich
-    // transparent: false → Stats zählen mit, ganze Woche neu berechnet
-    generate();
+
+    if(forwardScope){
+      // ✓ Case 2: MIT Haken
+      // Tag heute: direkt im Schedule modifizieren (kein generate für diesen Tag!)
+      // → 9/12=[Lena], 9/13=[Hugo,Klara,Ida] genau wie der Nutzer will
+      _applyMoveToSchedule(personId, dayIdx, target.kind, target.slotId);
+      // forcedPlacement speichern (für Display-Badge + zukünftige Re-Generates)
+      _applyMove(personId, dayIdx, target.kind, target.slotId, true);
+      // Folgetage neu berechnen: re-akkumuliert Stats aus Tagen 0..dayIdx,
+      // dann generiert Tage dayIdx+1..DAYS-1 frisch
+      generate(dayIdx + 1);
+      renderOutput();
+    } else {
+      // ✓ Case 1: OHNE Haken = Nur visuell (kein generate!)
+      _applyMove(personId, dayIdx, target.kind, target.slotId, false);
+      renderOutput();
+    }
   };
 
   overlay.style.display = 'flex';
@@ -87,38 +100,65 @@ function _slotLabel(kind, slotId){
 }
 
 /**
- * Schreibt eine Zwangszuweisung für den heutigen Tag und optional Folgetage.
+ * Wendet eine Verschiebung DIREKT auf lastResult.schedule[dayIdx] an —
+ * ohne generate(). Entfernt die Person aus ihrem alten Slot und fügt sie
+ * in den Zielslot ein. Wird für Case 2 genutzt, damit der Tag sofort
+ * korrekt aussieht, bevor generate(dayIdx+1) die Folgetage neu berechnet.
+ */
+function _applyMoveToSchedule(personId, dayIdx, kind, slotId){
+  const person  = people.find(p => p.id === personId);
+  const dayData = lastResult.schedule[dayIdx];
+  if(!person || !dayData) return;
+
+  // Person aus altem Slot entfernen
+  dayData.assign.forEach(slot => {
+    if(slot.kind === 'tower')
+      slot.occupants = slot.occupants.filter(p => p.id !== personId);
+    else if(slot.kind === 'boat'){
+      slot.occupants = slot.occupants.filter(p => p.id !== personId);
+      slot.bootsf = slot.occupants[0] || null;
+    }
+    else if(slot.kind === 'main'){
+      slot.fuehrung   = slot.fuehrung.filter(p => p.id !== personId);
+      slot.mainGuards = slot.mainGuards.filter(p => p.id !== personId);
+      slot.base       = slot.base.filter(p => p.id !== personId);
+      slot.bootsfLeft = slot.bootsfLeft.filter(p => p.id !== personId);
+      if(slot.hwBoatSlot?.bootsf?.id === personId) slot.hwBoatSlot.bootsf = null;
+    }
+  });
+
+  // Person in Zielslot einfügen
+  if(kind === 'tower'){
+    const s = dayData.assign.find(s => s.kind === 'tower' && s.towerId === slotId);
+    if(s) s.occupants.push(person);
+  } else if(kind === 'boat'){
+    const s = dayData.assign.find(s => s.kind === 'boat' && s.boatId === slotId);
+    if(s){ s.occupants.push(person); if(!s.bootsf) s.bootsf = person; }
+  } else if(kind === 'hwboat'){
+    const m = dayData.assign.find(s => s.kind === 'main');
+    if(m?.hwBoatSlot?.boatId === slotId) m.hwBoatSlot.bootsf = person;
+  } else if(kind === 'main'){
+    const m = dayData.assign.find(s => s.kind === 'main');
+    if(m) m.base.push(person);
+  }
+}
+
+/**
+ * Schreibt eine Zwangszuweisung für den heutigen Tag.
  *
  * @param {boolean} recalcFuture
- *   false (Standard / "transparent") → Nur dieser Tag wird visuell geändert.
- *     Folgetage bleiben unverändert (Person bleibt visuell im Originalplan).
- *   true ("effective") → Dieser Tag wird geändert UND Folgetage werden
- *     neu berechnet. Die alte Zuweisung dieser Person wird aus Folgetagen
- *     entfernt, damit der Algorithmus neu arrangiert.
+ *   false (transparent) → Person wird NUR VISUELL verschoben (renderOutput-Layer).
+ *     Plan und Stats bleiben unverändert. Folgetage identisch mit Original.
+ *   true (effektiv) → Wird NICHT mehr für generate() genutzt! Stattdessen
+ *     modifiziert move.js für Case 2 das Schedule direkt + ruft generate(dayIdx+1).
+ *     Hier wird nur der forcedPlacement-Eintrag für zukünftige Re-Generates gesetzt.
  */
 function _applyMove(personId, dayIdx, kind, slotId, recalcFuture){
   if(!forcedPlacements[dayIdx]) forcedPlacements[dayIdx] = [];
-
-  // Entferne alte Zuweisung für diese Person an diesem Tag
   forcedPlacements[dayIdx] = forcedPlacements[dayIdx].filter(f => f.personId !== personId);
-
-  // Neue Zuweisung hinzufügen
-  forcedPlacements[dayIdx].push({
-    personId, kind, slotId,
-    transparent: !recalcFuture,
-  });
-
-  // WICHTIG: Wenn recalcFuture=true (effective), muss ich alte Zuweisungen
-  // aus Folgetagen entfernen, damit der Algorithmus die Person nicht doppelt
-  // einplant (einmal am neuen Slot heute, einmal am alten Slot morgen)
-  if(recalcFuture){
-    for(let d = dayIdx + 1; d < DAYS; d++){
-      if(!forcedPlacements[d]) forcedPlacements[d] = [];
-      // Entferne ALLE forcedPlacements dieser Person von den Folgetagen
-      // damit der Algorithmus neu arrangieren kann
-      forcedPlacements[d] = forcedPlacements[d].filter(f => f.personId !== personId);
-    }
-  }
+  // Transparent=true für beide Cases: bei Case 2 ist die echte Änderung schon im Schedule
+  // und der forcedPlacement dient nur dem Display-Badge (🔒) + zukünftigen Re-Generates
+  forcedPlacements[dayIdx].push({ personId, kind, slotId, transparent: !recalcFuture });
 }
 
 /**
@@ -163,6 +203,8 @@ function showConfirmation(message, onConfirm, onCancel, showRecalcCheckbox) {
   // Alte Handler entfernen um keine Duplikate
   proceedBtn.onclick = null;
   cancelBtn.onclick = null;
+  const closeBtn = document.getElementById('confirm-modal-close-btn');
+  if(closeBtn) closeBtn.onclick = null;
 
   proceedBtn.onclick = () => {
     const recalcFuture = checkbox?.checked ?? false;
@@ -170,10 +212,12 @@ function showConfirmation(message, onConfirm, onCancel, showRecalcCheckbox) {
     if(onConfirm) onConfirm(recalcFuture);
   };
 
-  cancelBtn.onclick = () => {
+  const closeFn = () => {
     modal.style.display = 'none';
     if(onCancel) onCancel();
   };
+  cancelBtn.onclick = closeFn;
+  if(closeBtn) closeBtn.onclick = closeFn;
 
   modal.style.display = 'flex';
 }

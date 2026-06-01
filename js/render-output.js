@@ -5,7 +5,62 @@
 /** Rendert den kompletten Ausgabe-Bereich neu. */
 function renderOutput(){
   const panel = document.getElementById('output-panel');
-  const { schedule } = lastResult;
+  let { schedule } = lastResult;
+
+  // ── Wende transparent placements visuell an (ohne generate()) ────
+  // Für Case 1: Personen VISUELL verschieben, aber Plan bleibt unverändert
+  schedule = schedule.map((day, dayIdx) => {
+    const dayForcedTransparent = (forcedPlacements[dayIdx] || []).filter(f => f.transparent);
+    if(dayForcedTransparent.length === 0) return day;
+
+    // Kopiere den Day, damit original unverändert bleibt
+    const dayClone = JSON.parse(JSON.stringify(day));
+
+    dayForcedTransparent.forEach(f => {
+      const person = people.find(p => p.id === f.personId);
+      if(!person) return;
+
+      // Entferne Person aus natürlichem Slot
+      dayClone.assign.forEach(slot => {
+        if(slot.kind === 'tower')
+          slot.occupants = slot.occupants.filter(p => p.id !== f.personId);
+        else if(slot.kind === 'boat'){
+          slot.occupants = slot.occupants.filter(p => p.id !== f.personId);
+          if(slot.occupants.length > 0) slot.bootsf = slot.occupants[0];
+          else slot.bootsf = null;
+        }
+        else if(slot.kind === 'main'){
+          slot.fuehrung = slot.fuehrung.filter(p => p.id !== f.personId);
+          slot.mainGuards = slot.mainGuards.filter(p => p.id !== f.personId);
+          slot.base = slot.base.filter(p => p.id !== f.personId);
+          slot.bootsfLeft = slot.bootsfLeft.filter(p => p.id !== f.personId);
+          if(slot.hwBoatSlot?.bootsf?.id === f.personId) slot.hwBoatSlot.bootsf = null;
+        }
+      });
+
+      // Füge in Zielslot ein
+      if(f.kind === 'tower'){
+        const s = dayClone.assign.find(s => s.kind === 'tower' && s.towerId === f.slotId);
+        if(s) s.occupants.push(person);
+      } else if(f.kind === 'boat'){
+        const s = dayClone.assign.find(s => s.kind === 'boat' && s.boatId === f.slotId);
+        if(s){
+          s.occupants.push(person);
+          s.bootsf = s.occupants[0];
+        }
+      } else if(f.kind === 'hwboat'){
+        const main = dayClone.assign.find(s => s.kind === 'main');
+        if(main?.hwBoatSlot && main.hwBoatSlot.boatId === f.slotId){
+          main.hwBoatSlot.bootsf = person;
+        }
+      } else if(f.kind === 'main'){
+        const main = dayClone.assign.find(s => s.kind === 'main');
+        if(main) main.base.push(person);
+      }
+    });
+
+    return dayClone;
+  });
 
   // ── Globale Statistiken ────────────────────────────────────────
   const allPairs    = Object.entries(lastResult.pairCount);
@@ -252,7 +307,8 @@ function renderOutput(){
     });
 
   // ── Drag-and-Drop Event Handler ───────────────────────────────────
-  const grid = panel.querySelector('.towers-grid');
+  // Wichtig: AKTIVES Panel-Grid nehmen, nicht das erste im DOM (das wäre Tag 1)
+  const grid = panel.querySelector(`.day-panel[data-panel="${activeDay}"] .towers-grid`);
   let dragSrc = null;
 
   grid.addEventListener('dragstart', e => {
@@ -329,11 +385,17 @@ function renderOutput(){
     showConfirmation(
       confirmMsg,
       (recalcFuture) => {
-        _applyMove(srcPersonId, activeDay, targetKind, targetSlot, recalcFuture);
-        // IMMER generate() aufrufen – unterschied ist nur die transparent flag in forcedPlacements
-        // transparent: true → Stats ändern nicht, Folgetage identisch
-        // transparent: false → Stats zählen mit, Folgetage neu berechnet
-        generate();
+        if(recalcFuture){
+          // Case 2: Schedule direkt modifizieren + nur Folgetage neu generieren
+          _applyMoveToSchedule(srcPersonId, activeDay, targetKind, targetSlot);
+          _applyMove(srcPersonId, activeDay, targetKind, targetSlot, true);
+          generate(activeDay + 1);
+        } else {
+          // Case 1: Nur visuell (kein generate!)
+          _applyMove(srcPersonId, activeDay, targetKind, targetSlot, false);
+        }
+
+        renderOutput();
         clearCard();
       },
       clearCard,
