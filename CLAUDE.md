@@ -118,14 +118,23 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 
 ---
 
-## Manuelles Verschieben (move.js)
+## Manuelles Verschieben & Drag-and-Drop (move.js, render-output.js)
 
+**Move-Modal** (↕-Button):
 - Jeder Wachgänger hat einen **↕-Button** (erscheint bei hover auf `.occupant`)
 - `openMoveModal(personId, dayIdx, fromKind, fromSlotId)` – öffnet Modal
 - Dropdown: alle validen Zielslots; Bootsführer sehen auch Boot-Optionen
 - Checkbox **"Folgetage neu berechnen"** → steuert `transparent`-Flag
 - `_applyMove()` → schreibt in `forcedPlacements[dayIdx]`, ruft `generate()` auf
 - `clearForced(personId, fromDay, scope)` → entfernt Fixierungen ('today' | 'forward')
+
+**Drag-and-Drop** (NEW):
+- Personen können direkt per D&D zwischen Slots verschoben werden
+- Visuelles Feedback: Opacity bei drag, Highlighting beim hover
+- Rollenvalidierung: Nicht-Bootsführer zu Boot → Confirmation-Dialog
+- **Confirmation mit Checkbox**: "Folgetage neu berechnen" Option im Dialog
+- `showConfirmation(message, onConfirm, onCancel, showRecalcCheckbox)` – erweiterbar
+- `recalcFuture` wird durch Checkbox-Status bestimmt und an `_applyMove()` übergeben
 
 ---
 
@@ -199,7 +208,7 @@ Jede Zeile hat `draggable="true"` + ⠿-Handle. dragstart speichert Quell-Index;
 | `renderHWBoatSelector()` | Dropdown: welches Boot ist HW-Boot? |
 | `autoFillExportColumns()` | Füllt exportColumns: Boote → Türme (Prio↓) → WF → WF2 → HW → HW2 |
 | `renderExportColumnUI()` | 16 Felder für manuelles Stationscode-Mapping |
-| `renderPositionDescUI()` | 5 Felder für XLSX-Positionsbeschriftungen (Pos. 3–7) |
+| `renderPositionDescUI()` | 5 Felder für XLSX-Positionsbeschriftungen (Pos. 3–7) mit aussagekräftigen Placeholders (z.B. „Wachführer", „Bootsführer", „Sanitäter") |
 
 ---
 
@@ -230,12 +239,14 @@ _updateSaveIndicator() + _updateTemplateStatus()
 | Aspekt | Lösung |
 |---|---|
 | Faire Rotation | Akkumulierte stats (total, towerVisits, boatVisits) über alle Tage |
+| Fairness Metrics (Feature 7) | hwVisits, towerWithBoatDays, boatCaptainPairings für Balance-Scoring |
 | Reproduzierbarkeit | `seededRand()` – LCG-Zufallsgenerator, nur für Tag-1-Tiebreaker |
 | UU-Warnung | score +1000 wenn beide Unerfahren → nur als Notlösung |
 | BF-Schutz | surplusBFPenalty() +800 wenn BF an Turm mit aktivem Boot |
 | Kein Framework | Vanilla-JS; Re-Renders via komplettem innerHTML-Replace |
 | XLSX-Integrität | XML-Patch statt SheetJS-Write → Styles/Bilder/Schutz erhalten |
 | Transparenter Swap | Person im Statistik-Pool belassen, nur Darstellung überschreiben |
+| D&D Validation | Rollenvalidierung mit Confirmation-Dialog + optional Zukunfts-Neuberechnung |
 | Timezone-Bug | Lokale Datumsarithmetik statt toISOString() → kein UTC-Off-by-one |
 | Template-Fallback | fetch() → localStorage → Nutzer-Upload (pending export queue) |
 
