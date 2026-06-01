@@ -236,19 +236,26 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 
 **CORRECT Fix (Current Implementation):**
 - **Case 1 (transparent=true):** Do NOT call `generate()` at all
-- **Case 2 (transparent=false):** Call `generate()` normally
+- **Case 2 (transparent=false):** Call `generate()`, but only keep days AFTER the change
 
-**Implementation in js/move.js:**
+**Implementation in js/move.js and js/render-output.js:**
 ```js
 if(forwardScope){
-  // Case 2: Effective change, full recalculation
+  // Case 2: Effective change, partial recalculation
+  const oldSchedule = lastResult.schedule.map(d => JSON.parse(JSON.stringify(d)));
+
   _applyMove(personId, dayIdx, target.kind, target.slotId, true);
   generate();
+
+  // Restore days BEFORE the change from old schedule
+  // Keep day of change and all following days NEW
+  for(let d = 0; d < dayIdx; d++){
+    lastResult.schedule[d] = oldSchedule[d];
+  }
   renderOutput();
 } else {
   // Case 1: Visual-only, NO generate()
   _applyMove(personId, dayIdx, target.kind, target.slotId, false);
-  // generate() NICHT aufrufen!
   renderOutput();
 }
 ```
@@ -270,14 +277,17 @@ schedule = schedule.map((day, dayIdx) => {
 ```
 
 **Why This Works:**
-- Case 1: No `generate()` call = Folgetage untouched in `lastResult`
-  - renderOutput() clones schedule, applies visual move
+- **Case 1:** No `generate()` call = Folgetage completely untouched
+  - renderOutput() clones schedule, applies visual move to display only
   - `lastResult.schedule` and `lastResult.stats` identical to original
-  - Display shows moved person, algorithm unchanged for Folgetage
-- Case 2: `generate()` called = full recalculation
-  - `lastResult.schedule` completely new (all days)
-  - `lastResult.stats` updated with new fairness metrics
-  - Folgetage planned using new metrics
+  - Days before, day of change, and days after all UNCHANGED
+  
+- **Case 2:** `generate()` called, but only keep days after change
+  - Days 0..dayIdx-1: **Restored from old plan** (untouched by change)
+  - Day dayIdx: **New from generate()** (with manual change applied)
+  - Days dayIdx+1+: **New from generate()** (calculated with updated fairness from day of change)
+  - `lastResult.stats` accumulated up to day of change, then used for future planning
+  - This ensures: previous schedule stability + change takes effect + fair future planning
 
 **Result:** ✅ Case 1 und Case 2 funktionieren korrekt separiert.
 
