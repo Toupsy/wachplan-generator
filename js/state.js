@@ -11,8 +11,8 @@ let randomSeed = 0;
 
 // Stammdaten
 let people   = [];   // [{ id, name, role }]
-let towers   = [];   // [{ id, name, prio, code }]
-let boats    = [];   // [{ id, name, code, towerId, prio }]
+let towers   = [];   // [{ id, name, prio, code, slotCount }]
+let boats    = [];   // [{ id, name, code, towerId, prio, slotCount }]
 
 // Hauptwache-Konfiguration
 let mainK    = 2;    // Anzahl Guard-Slots neben der Führung

@@ -22,8 +22,8 @@ function _buildStateObject(){
     positionDescriptions: { ...positionDescriptions },
     exportColumns:        [...exportColumns],
     people:               people.map(p => ({ ...p })),
-    towers:               towers.map(t => ({ ...t })),
-    boats:                boats.map(b => ({ ...b })),
+    towers:               towers.map(t => ({ ...t, slotCount: t.slotCount || 2 })),
+    boats:                boats.map(b => ({ ...b, slotCount: b.slotCount || 1 })),
     dayState: dayState.map(d => ({
       sick:        [...d.sick],
       closed:      [...d.closed],
@@ -75,8 +75,8 @@ function importStateJSON(json, silent = false){
   if(daysInput) daysInput.value = DAYS;
 
   people = (s.people || []).map(p => ({ ...p }));
-  towers = (s.towers || []).map(t => ({ ...t }));
-  boats  = (s.boats  || []).map(b => ({ ...b }));
+  towers = (s.towers || []).map(t => ({ ...t, slotCount: t.slotCount || 2 }));
+  boats  = (s.boats  || []).map(b => ({ ...b, slotCount: b.slotCount || 1 }));
 
   // uid sicherstellen (max vorhandener ID + 1)
   let maxId = uid;

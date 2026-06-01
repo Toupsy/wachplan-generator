@@ -220,40 +220,32 @@ function generate(){
       const pre = (forcedByTower[t.id] || []);
       pre.forEach(p => { commitPerson(p, t); slot.occupants.push(p); });
 
-      // Algorithmus füllt verbleibende Plätze
-      const need = 2 - slot.occupants.length;
-      if(need === 2){
-        const best = bestPair(t, true);
-        if(best){
+      // Algorithmus füllt verbleibende Plätze (variable Slot-Anzahl)
+      let need = (t.slotCount || 2) - slot.occupants.length;
+      while(need > 0){
+        if(need >= 2){
+          const best = bestPair(t, need === (t.slotCount || 2)); // requireMix nur bei erstem Slot
+          if(!best) break;
           const [A,B] = best;
-          slot.occupants = [A,B];
+          slot.occupants.push(A, B);
           removeAll(A); removeAll(B);
           pairCount[pairKey(A.id,B.id)] = (pairCount[pairKey(A.id,B.id)]||0)+1;
           commitPerson(A,t); commitPerson(B,t);
           if((A.role+B.role)==='UU') slot.warn='Zwei Unerfahrene – kein Erfahrener frei';
-        }
-      } else if(need === 1){
-        // 1 Platz noch offen – besten Einzelkandidaten wählen
-        const cand = getGuardPool().sort((a,b) => {
-          let s = (ensure(a.id).total - ensure(b.id).total);
-          s += surplusBFPenalty(a, t) - surplusBFPenalty(b, t);
-          return s;
-        });
-        const P = cand[0];
-        if(P){
-          slot.occupants.push(P);
-          removeAll(P);
-          commitPerson(P, t);
-          // Paar mit dem vorabbelegten bilden – nur wenn Vorabbelegter nicht transparent
-          if(slot.occupants.length === 2){
-            const [A,B] = slot.occupants;
-            pairCount[pairKey(A.id,B.id)] = (pairCount[pairKey(A.id,B.id)]||0)+1;
-          }
-          const roles = slot.occupants.map(x=>x.role).join('');
-          if(roles==='UU') slot.warn='Zwei Unerfahrene – kein Erfahrener frei';
+          need -= 2;
+        } else {
+          const cand = getGuardPool().sort((a,b) => {
+            let s = (ensure(a.id).total - ensure(b.id).total);
+            s += surplusBFPenalty(a, t) - surplusBFPenalty(b, t);
+            return s;
+          });
+          if(!cand[0]) break;
+          slot.occupants.push(cand[0]);
+          removeAll(cand[0]);
+          commitPerson(cand[0], t);
+          need--;
         }
       }
-      // need === 0: beide Plätze zwangsbelegt, kein Algorithmus nötig
       dayAssign.push(slot);
     }
 

@@ -55,6 +55,10 @@ function renderTowerCfg(){
           <label>PRIO</label>
           <input type="number" min="1" value="${t.prio}" data-id="${t.id}" class="tprio">
         </span>
+        <span class="slot-input">
+          <label>SLOTS</label>
+          <input type="number" min="1" max="10" value="${t.slotCount||2}" data-id="${t.id}" class="tslots">
+        </span>
         <button class="mini-btn del-t" data-id="${t.id}">×</button>
       </div>`;
     c.appendChild(row);
@@ -65,6 +69,8 @@ function renderTowerCfg(){
     i.oninput = e => { getT(+e.target.dataset.id).code = e.target.value.trim(); });
   c.querySelectorAll('.tprio').forEach(i =>
     i.oninput = e => { getT(+e.target.dataset.id).prio = Math.max(1, +e.target.value||1); });
+  c.querySelectorAll('.tslots').forEach(i =>
+    i.oninput = e => { getT(+e.target.dataset.id).slotCount = Math.max(1, +e.target.value||2); generate(); });
   c.querySelectorAll('.del-t').forEach(b =>
     b.onclick = e => {
       const id = +e.target.dataset.id;
@@ -101,6 +107,10 @@ function renderBoatCfg(){
           <input type="text" value="${escapeHtml(b.code||'')}" data-id="${b.id}" class="bcode" placeholder="78/x">
         </span>
         <select class="bassign" data-id="${b.id}" style="flex:1;min-width:0">${towerOpts}</select>
+        <span class="slot-input">
+          <label>SLOTS</label>
+          <input type="number" min="1" max="3" value="${b.slotCount||1}" data-id="${b.id}" class="bslots">
+        </span>
         <button class="mini-btn del-b" data-id="${b.id}">×</button>
       </div>`;
     c.appendChild(row);
@@ -117,6 +127,8 @@ function renderBoatCfg(){
       getBoat(+e.target.dataset.id).towerId = val === 'HW' ? 'HW' : (+val || null);
       renderHWBoatSelector();
     });
+  c.querySelectorAll('.bslots').forEach(i =>
+    i.oninput = e => { getBoat(+e.target.dataset.id).slotCount = Math.max(1, +e.target.value||1); generate(); });
   c.querySelectorAll('.del-b').forEach(b =>
     b.onclick = e => {
       const id = +e.target.dataset.id;

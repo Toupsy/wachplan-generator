@@ -121,7 +121,7 @@ function renderOutput(){
       // ─ Hauptwache ─
       if(slot.kind === 'main'){
         const occ = (p, lbl, kind, slotId) => `
-          <div class="occupant">
+          <div class="occupant" draggable="true" data-person-id="${p.id}" data-source-kind="${kind}" data-source-slot="${slotId}">
             <i class="role-dot rd-${p.role.toLowerCase()}"></i>
             ${escapeHtml(p.name)}
             ${forcedIds.has(p.id)?'<span class="forced-badge" title="Manuell fixiert">🔒</span>':''}
@@ -129,7 +129,7 @@ function renderOutput(){
             <button class="move-btn" data-move-person="${p.id}" data-move-day="${di}"
               data-move-kind="${kind}" data-move-slot="${slotId||''}" title="Verschieben">↕</button>
           </div>`;
-        html += `<div class="tower-card main" style="grid-column:span 2;">
+        html += `<div class="tower-card main" style="grid-column:span 2;" data-drop-kind="main" data-drop-slot="${MAIN_ID}">
           <div class="tc-head"><span class="tc-name">⛱ ${slot.tower}</span><span class="tc-type main">Zentrale · k=${slot.k}</span></div>
           ${slot.fuehrung.map(p=>occ(p,'Führung','main',MAIN_ID)).join('')}
           ${slot.mainGuards.map(p=>occ(p,p.role==='E'?'Erfahren · HW':'Unerf. · HW','main',MAIN_ID)).join('')}
@@ -144,10 +144,10 @@ function renderOutput(){
       }
       // ─ Turm ─
       else if(slot.kind === 'tower'){
-        html += `<div class="tower-card">
+        html += `<div class="tower-card" data-drop-kind="tower" data-drop-slot="${slot.towerId}">
           <div class="tc-head"><span class="tc-name">🗼 ${escapeHtml(slot.tower)}</span><span class="tc-type normal">Turm · ${escapeHtml(slot.code||'?')} · P${slot.prio}</span></div>
           ${slot.occupants.map(p=>`
-            <div class="occupant">
+            <div class="occupant" draggable="true" data-person-id="${p.id}" data-source-kind="tower" data-source-slot="${slot.towerId}">
               <i class="role-dot rd-${p.role.toLowerCase()}"></i>${escapeHtml(p.name)}
               ${forcedIds.has(p.id)?'<span class="forced-badge" title="Manuell fixiert">🔒</span>':''}
               <span class="o-role">${ROLE[p.role]}</span>
@@ -159,10 +159,10 @@ function renderOutput(){
       }
       // ─ Boot ─
       else if(slot.kind === 'boat'){
-        html += `<div class="tower-card boot">
+        html += `<div class="tower-card boot" data-drop-kind="boat" data-drop-slot="${slot.boatId}">
           <div class="tc-head"><span class="tc-name">🚤 ${escapeHtml(slot.name)}</span><span class="tc-type boot">Boot · ${escapeHtml(slot.code||'?')}</span></div>
           <div class="boat-link">→ ${escapeHtml(slot.towerName)}</div>
-          ${slot.bootsf?`<div class="occupant">
+          ${slot.bootsf?`<div class="occupant" draggable="true" data-person-id="${slot.bootsf.id}" data-source-kind="boat" data-source-slot="${slot.boatId}">
             <i class="role-dot rd-b"></i>${escapeHtml(slot.bootsf.name)}
             ${forcedIds.has(slot.bootsf.id)?'<span class="forced-badge" title="Manuell fixiert">🔒</span>':''}
             <span class="o-role">Bootsführer</span>
@@ -237,6 +237,78 @@ function renderOutput(){
       forcedPlacements[day] = [];
       generate();
     });
+
+  // ── Drag-and-Drop Event Handler ───────────────────────────────────
+  const grid = panel.querySelector('.towers-grid');
+  let dragSrc = null;
+
+  grid.addEventListener('dragstart', e => {
+    const occ = e.target.closest('.occupant');
+    if(!occ) return;
+    dragSrc = {
+      personId: +occ.dataset.personId,
+      kind: occ.dataset.sourceKind,
+      slot: +occ.dataset.sourceSlot || null
+    };
+    occ.style.opacity = '0.4';
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', dragSrc.personId);
+  });
+
+  grid.addEventListener('dragover', e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const card = e.target.closest('.tower-card');
+    if(card && !card.classList.contains('closed')) {
+      card.style.backgroundColor = 'rgba(24,168,216,0.15)';
+      card.style.borderColor = 'var(--sea-bright)';
+    }
+  });
+
+  grid.addEventListener('dragleave', e => {
+    const card = e.target.closest('.tower-card');
+    if(card) {
+      card.style.backgroundColor = '';
+      card.style.borderColor = '';
+    }
+  });
+
+  grid.addEventListener('drop', e => {
+    e.preventDefault();
+    const card = e.target.closest('.tower-card');
+    if(!card || !dragSrc) return;
+
+    const targetKind = card.dataset.dropKind;
+    const targetSlot = +card.dataset.dropSlot;
+
+    // Validierung: Bootsführer nur zu Booten
+    const p = getP(dragSrc.personId);
+    if((targetKind === 'boat' || targetKind === 'hwboat') && p && p.role !== 'B') {
+      showToast('⚠️ Nur Bootsführer können zu Booten verschoben werden');
+      card.style.backgroundColor = '';
+      card.style.borderColor = '';
+      return;
+    }
+
+    // Verhindern von Drop in denselben Slot
+    if(dragSrc.kind === targetKind && dragSrc.slot === targetSlot) {
+      card.style.backgroundColor = '';
+      card.style.borderColor = '';
+      return;
+    }
+
+    // Verschiebung anwenden
+    _applyMove(dragSrc.personId, activeDay, targetKind, targetSlot, false);
+    generate();
+    card.style.backgroundColor = '';
+    card.style.borderColor = '';
+  });
+
+  grid.addEventListener('dragend', e => {
+    const occ = e.target.closest('.occupant');
+    if(occ) occ.style.opacity = '';
+    dragSrc = null;
+  });
 
   document.getElementById('btn-csv').onclick   = exportCSV;
   document.getElementById('btn-print').onclick = () => window.print();
