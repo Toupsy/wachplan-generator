@@ -221,10 +221,14 @@ function generate(){
       pre.forEach(p => { commitPerson(p, t); slot.occupants.push(p); });
 
       // Algorithmus füllt verbleibende Plätze (variable Slot-Anzahl)
-      let need = (t.slotCount || 2) - slot.occupants.length;
+      const totalSlots = t.slotCount || 2;
+      let need = totalSlots - slot.occupants.length;
+      const wasEmpty = slot.occupants.length === 0;
+      let pairsAdded = 0;
       while(need > 0){
         if(need >= 2){
-          const best = bestPair(t, need === (t.slotCount || 2)); // requireMix nur bei erstem Slot
+          // requireMix=true nur beim ersten Paar, falls Slot ursprünglich leer war
+          const best = bestPair(t, wasEmpty && pairsAdded === 0);
           if(!best) break;
           const [A,B] = best;
           slot.occupants.push(A, B);
@@ -233,6 +237,7 @@ function generate(){
           commitPerson(A,t); commitPerson(B,t);
           if((A.role+B.role)==='UU') slot.warn='Zwei Unerfahrene – kein Erfahrener frei';
           need -= 2;
+          pairsAdded++;
         } else {
           const cand = getGuardPool().sort((a,b) => {
             let s = (ensure(a.id).total - ensure(b.id).total);
