@@ -13,7 +13,87 @@
  *  - Wenn hwBoatId gesetzt ist, wird ein Bootsführer für das HW-Boot
  *    reserviert (Feature 6).
  */
-function generate(){
+/**
+ * Akkumuliert Stats + pairCount aus einem bereits berechneten Tages-Schedule.
+ * Wird von generate(startDay > 0) genutzt, um Stats aus bestehenden Tagen
+ * wiederherzustellen, bevor Folgetage neu generiert werden.
+ */
+function _reAccumulateDayStats(daySchedule, dayIdx, stats, pairCount, ensure, pairKey){
+  // Welche Türme hatten an diesem Tag ein aktives Boot?
+  const activeTowerBoats = {};
+  daySchedule.assign.forEach(slot => {
+    if(slot.kind === 'boat' && slot.towerId && slot.occupants?.length > 0){
+      activeTowerBoats[slot.towerId] = slot.boatId;
+    }
+  });
+
+  daySchedule.assign.forEach(slot => {
+    if(slot.kind === 'tower'){
+      const tId = slot.towerId;
+      const hasBoat = tId in activeTowerBoats;
+      slot.occupants.forEach(p => {
+        const s = ensure(p.id);
+        s.total++;
+        s.towerVisits[tId] = (s.towerVisits[tId] || 0) + 1;
+        if(hasBoat) s.towerWithBoatDays++;
+      });
+      // Paar-Zähler
+      for(let i = 0; i < slot.occupants.length - 1; i++){
+        for(let j = i+1; j < slot.occupants.length; j++){
+          const key = pairKey(slot.occupants[i].id, slot.occupants[j].id);
+          pairCount[key] = (pairCount[key] || 0) + 1;
+        }
+      }
+      // boatCaptainPairings: Turm-Personen × Boot-Kapitän
+      const boatId = activeTowerBoats[tId];
+      if(boatId){
+        const boatSlot = daySchedule.assign.find(bs => bs.kind === 'boat' && bs.boatId === boatId);
+        const captain = boatSlot?.occupants?.[0];
+        if(captain){
+          slot.occupants.forEach(tp => {
+            if(tp.id !== captain.id){
+              const s = ensure(tp.id);
+              s.boatCaptainPairings[captain.id] = (s.boatCaptainPairings[captain.id] || 0) + 1;
+            }
+          });
+        }
+      }
+    } else if(slot.kind === 'boat'){
+      slot.occupants.forEach(p => {
+        const s = ensure(p.id);
+        s.total++;
+        s.boatVisits[slot.boatId] = (s.boatVisits[slot.boatId] || 0) + 1;
+      });
+    } else if(slot.kind === 'main'){
+      // Aktive HW-Personen (Führung + mainGuards): total++ + hwVisits++
+      [...(slot.fuehrung || []), ...(slot.mainGuards || [])].forEach(p => {
+        const s = ensure(p.id);
+        s.total++;
+        s.hwVisits++;
+      });
+      // Overflow (base + bootsfLeft): nur hwVisits++
+      [...(slot.base || []), ...(slot.bootsfLeft || [])].forEach(p => {
+        ensure(p.id).hwVisits++;
+      });
+      // HW-Boot Kapitän
+      if(slot.hwBoatSlot?.bootsf){
+        const p = slot.hwBoatSlot.bootsf;
+        const s = ensure(p.id);
+        s.total++;
+        s.boatVisits[slot.hwBoatSlot.boatId] = (s.boatVisits[slot.hwBoatSlot.boatId] || 0) + 1;
+      }
+    }
+  });
+}
+
+/**
+ * Berechnet den Wachplan.
+ * @param {number} startDay  Erster Tag der NEU berechnet wird (Standard: 0).
+ *   Wenn > 0: lastResult.schedule[0..startDay-1] bleibt erhalten,
+ *   Stats werden aus diesen Tagen akkumuliert, danach werden
+ *   Tage startDay..DAYS-1 frisch generiert.
+ */
+function generate(startDay = 0){
   autoCodes();
 
   const pairCount = {};
@@ -34,7 +114,15 @@ function generate(){
   const schedule = [];
   const k = Math.max(0, mainK | 0);
 
-  for(let d = 0; d < DAYS; d++){
+  // Wenn startDay > 0: bestehende Tage übernehmen + Stats daraus akkumulieren
+  if(startDay > 0 && lastResult?.schedule){
+    for(let d = 0; d < Math.min(startDay, lastResult.schedule.length); d++){
+      schedule.push(lastResult.schedule[d]);
+      _reAccumulateDayStats(lastResult.schedule[d], d, stats, pairCount, ensure, pairKey);
+    }
+  }
+
+  for(let d = startDay; d < DAYS; d++){
     const ds     = dayState[d];
     const isSick = id => ds.sick.has(id);
 
@@ -169,12 +257,17 @@ function generate(){
       poolSBF = poolSBF.filter(x => x.id !== p.id);
     };
 
-    let openTowers = [], usedG = k;
+    // Wenn forcedForMain bereits k Guard-Slots füllt, müssen wir weniger aus dem
+    // Guard-Pool reservieren (z.B. wenn _freezeDay alle Personen einfriert)
+    const guardRoles = new Set(['E','U','B']);
+    const preForcedGuards = forcedForMain.filter(p => guardRoles.has(p.role)).length;
+    let openTowers = [], usedG = Math.max(0, k - preForcedGuards);
     // Vorabbelegte Türme brauchen ggf. weniger Pool-Personen
     for(const t of candidateTowers){
       const preCount = (forcedByTower[t.id] || []).length;
-      const need     = Math.max(0, 2 - preCount);
-      if(usedG + need <= getGuardPool().length){ openTowers.push(t); usedG += need; }
+      const need     = Math.max(0, (t.slotCount || 2) - preCount);
+      // need===0: Turm ist voll vorbelegt → immer öffnen (kein Pool nötig)
+      if(need === 0 || usedG + need <= getGuardPool().length){ openTowers.push(t); usedG += need; }
     }
     const personnelClosed = candidateTowers
       .filter(t => !openTowers.includes(t))

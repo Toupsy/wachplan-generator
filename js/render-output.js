@@ -385,19 +385,12 @@ function renderOutput(){
       confirmMsg,
       (recalcFuture) => {
         if(recalcFuture){
-          // Case 2: MIT Haken = Nur Tage NACH der Änderung neu berechnen
-          const oldSchedule = lastResult.schedule.map(d => JSON.parse(JSON.stringify(d)));
-
+          // Case 2: Schedule direkt modifizieren + nur Folgetage neu generieren
+          _applyMoveToSchedule(srcPersonId, activeDay, targetKind, targetSlot);
           _applyMove(srcPersonId, activeDay, targetKind, targetSlot, true);
-          generate();
-
-          // Ersetze Tage 0..activeDay-1 mit alten Tagen (bleiben unverändert)
-          // Tag activeDay und Folgetage sind NEU
-          for(let d = 0; d < activeDay; d++){
-            lastResult.schedule[d] = oldSchedule[d];
-          }
+          generate(activeDay + 1);
         } else {
-          // Case 1: OHNE Haken = Visual-Only (kein generate!)
+          // Case 1: Nur visuell (kein generate!)
           _applyMove(srcPersonId, activeDay, targetKind, targetSlot, false);
         }
 
