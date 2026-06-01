@@ -173,13 +173,14 @@ function renderOutput(){
         html += `<div class="tower-card boot" data-drop-kind="boat" data-drop-slot="${slot.boatId}">
           <div class="tc-head"><span class="tc-name">🚤 ${escapeHtml(slot.name)}</span><span class="tc-type boot">Boot · ${escapeHtml(slot.code||'?')}</span></div>
           <div class="boat-link">→ ${escapeHtml(slot.towerName)}</div>
-          ${slot.bootsf?`<div class="occupant" draggable="true" data-person-id="${slot.bootsf.id}" data-source-kind="boat" data-source-slot="${slot.boatId}">
-            <i class="role-dot rd-b"></i>${escapeHtml(slot.bootsf.name)}
-            ${forcedIds.has(slot.bootsf.id)?'<span class="forced-badge" title="Manuell fixiert">🔒</span>':''}
-            <span class="o-role">Bootsführer</span>
-            <button class="move-btn" data-move-person="${slot.bootsf.id}" data-move-day="${di}"
-              data-move-kind="boat" data-move-slot="${slot.boatId}" title="Verschieben">↕</button>
-          </div>`:''}
+          ${slot.occupants.map(p=>`
+            <div class="occupant" draggable="true" data-person-id="${p.id}" data-source-kind="boat" data-source-slot="${slot.boatId}">
+              <i class="role-dot rd-${p.role.toLowerCase()}"></i>${escapeHtml(p.name)}
+              ${forcedIds.has(p.id)?'<span class="forced-badge" title="Manuell fixiert">🔒</span>':''}
+              <span class="o-role">${ROLE[p.role]}</span>
+              <button class="move-btn" data-move-person="${p.id}" data-move-day="${di}"
+                data-move-kind="boat" data-move-slot="${slot.boatId}" title="Verschieben">↕</button>
+            </div>`).join('')}
         </div>`;
       }
     });
@@ -329,6 +330,9 @@ function renderOutput(){
       confirmMsg,
       (recalcFuture) => {
         _applyMove(srcPersonId, activeDay, targetKind, targetSlot, recalcFuture);
+        // IMMER generate() aufrufen – unterschied ist nur die transparent flag in forcedPlacements
+        // transparent: true → Stats ändern nicht, Folgetage identisch
+        // transparent: false → Stats zählen mit, Folgetage neu berechnet
         generate();
         clearCard();
       },

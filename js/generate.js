@@ -377,37 +377,50 @@ function generate(){
       const slot = {
         kind:'boat', boatId:bo.id, name:bo.name, code:bo.code, prio:bo.prio,
         towerId:bo.towerId, towerName:towers.find(t=>t.id===bo.towerId)?.name||'',
-        bootsf:null,
+        occupants:[], bootsf:null,  // occupants für alle Personen, bootsf für Anzeige-Kompatibilität
       };
       // Zwangszuweisung für dieses Boot?
       const forcedArray = forcedByBoat[bo.id];
       if(forcedArray && forcedArray.length > 0){
-        // Letzte forcierte Person verwendet (neueste Zuweisung überschreibt)
-        const forceForThisBoat = forcedArray[forcedArray.length - 1];
-        slot.bootsf = forceForThisBoat;
-        const s = ensure(forceForThisBoat.id);
-        s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id]||0)+1;
+        // Alle erzwungenen Personen hinzufügen (bis slotCount)
+        for(let i = 0; i < Math.min(forcedArray.length, bo.slotCount||1); i++){
+          const person = forcedArray[i];
+          slot.occupants.push(person);
+          if(i === 0) slot.bootsf = person;  // Erste Person als Bootsführer für Anzeige
+          const s = ensure(person.id);
+          s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id]||0)+1;
+        }
         dayAssign.push(slot);
         continue;
       }
+      // Fülle Boot bis slotCount mit fairness-Scoring
+      const neededSlots = bo.slotCount || 1;
       poolB.sort((a,b) => {
         const sa = ensure(a.id), sb = ensure(b.id);
-        // Primary: balance total workload
         let scoreA = sa.total;
         let scoreB = sb.total;
-        // Secondary: penalize repeated boat assignments (boat rotation fairness)
         scoreA += (sa.boatVisits[bo.id] || 0) * 50;
         scoreB += (sb.boatVisits[bo.id] || 0) * 50;
-        // Tertiary: BF mit mehr HW-Tagen BEVORZUGT für Boot (Ausgleich HW ↔ Boot)
         scoreA -= (sa.hwVisits || 0) * 10;
         scoreB -= (sb.hwVisits || 0) * 10;
         return scoreA - scoreB || (a.id - b.id);
       });
-      const bf = poolB.shift();
-      if(bf){
-        slot.bootsf = bf;
-        const s = ensure(bf.id);
-        s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id]||0)+1;
+
+      let assigned = 0;
+      while(assigned < neededSlots && poolB.length > 0){
+        const bf = poolB.shift();
+        if(bf){
+          slot.occupants.push(bf);
+          if(assigned === 0) slot.bootsf = bf;  // Erste Person als Bootsführer
+          const s = ensure(bf.id);
+          s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id]||0)+1;
+          assigned++;
+        } else {
+          break;
+        }
+      }
+
+      if(slot.occupants.length > 0){
         dayAssign.push(slot);
       } else {
         boatsNoBootsf.push(bo);
@@ -488,8 +501,11 @@ function generate(){
       dayAssign.forEach(slot => {
         if(slot.kind === 'tower')
           slot.occupants = slot.occupants.filter(p => p.id !== f.personId);
-        else if(slot.kind === 'boat' && slot.bootsf?.id === f.personId)
-          slot.bootsf = null;
+        else if(slot.kind === 'boat'){
+          slot.occupants = slot.occupants.filter(p => p.id !== f.personId);
+          if(slot.occupants.length > 0) slot.bootsf = slot.occupants[0];
+          else slot.bootsf = null;
+        }
         else if(slot.kind === 'main'){
           slot.fuehrung   = slot.fuehrung.filter(p => p.id !== f.personId);
           slot.mainGuards = slot.mainGuards.filter(p => p.id !== f.personId);
@@ -504,8 +520,10 @@ function generate(){
         if(s) s.occupants.push(person);
       } else if(f.kind === 'boat'){
         const s = dayAssign.find(s => s.kind === 'boat' && s.boatId === f.slotId);
-        if(s) s.bootsf = person;
-        else {
+        if(s){
+          s.occupants.push(person);
+          if(!s.bootsf) s.bootsf = person;  // Erste Person als bootsf für Display-Kompatibilität
+        } else {
           const m = dayAssign.find(s => s.kind === 'main');
           if(m?.hwBoatSlot?.boatId === f.slotId) m.hwBoatSlot.bootsf = person;
         }
