@@ -373,17 +373,17 @@ function renderOutput(){
     const card = e.target.closest('.tower-card');
     if(!card) return;
 
-    // Prüfe ob Card-Sortierung
-    if(dragCardSrc && dragCardSrc.kind === card.dataset.dropKind?.replace('main','').replace('boat','').replace('tower','').trim() || dragCardSrc.slot) {
-      // Card-Sortierung: nur visuell mit CSS order
+    // Prüfe ob Card-Sortierung (nur wenn dragCardSrc gesetzt, nicht dragSrc)
+    if(dragCardSrc && dragCardSrc.kind && dragCardSrc.kind === card.dataset.dropKind) {
+      // Card-Sortierung: DOM-Reordering (Insert vor Ziel-Card)
       const srcCard = grid.querySelector(`[data-card-slot="${dragCardSrc.slot}"]`)?.closest('.tower-card');
       if(srcCard && srcCard !== card) {
-        const srcOrder = +srcCard.style.order || srcCard.dataset.cardIdx || 0;
-        const tgtOrder = +card.style.order || card.dataset.cardIdx || 0;
-        srcCard.style.order = tgtOrder;
-        card.style.order = srcOrder;
+        // Entferne srcCard aus DOM und füge vor card ein
+        srcCard.remove();
+        card.parentNode.insertBefore(srcCard, card);
       }
       dragCardSrc = null;
+      grid.querySelectorAll('.tower-card').forEach(c => { c.style.backgroundColor = ''; c.style.borderColor = ''; });
       return;
     }
 
@@ -401,7 +401,7 @@ function renderOutput(){
 
     const clearCard = () => { card.style.backgroundColor = ''; card.style.borderColor = ''; };
 
-    // Geschlossener Turm: Wie normales Verschieben, aber mit "Turm öffnen?" Vorwarnung
+    // Geschlossener Turm: Direkte Modifikation + optional Neuberechnung
     if(card.dataset.closedOverride) {
       const towerId = +card.dataset.dropSlot;
       const tower = getT(towerId);
@@ -412,19 +412,22 @@ function renderOutput(){
       showConfirmation(
         confirmMsg,
         (recalcFuture) => {
-          // Tage davor sichern für Case 2
           const oldBefore = lastResult.schedule.slice(0, activeDay).map(d => JSON.parse(JSON.stringify(d)));
 
-          // Turm öffnen
+          // 1. Turm öffnen (aus closed entfernen)
           dayState[activeDay].closed.delete(towerId);
 
+          // 2. Person direkt ins Schedule einfügen (auch geschlossene Türme haben slot im assign!)
+          _applyMoveToSchedule(srcPersonId, activeDay, 'tower', towerId);
+
           if(recalcFuture) {
-            // Case 2: Mit Folgetage-Neuberechnung
-            _applyMoveToSchedule(srcPersonId, activeDay, 'tower', towerId);
+            // Case 2: Folgetage neu berechnen
             _applyMove(srcPersonId, activeDay, 'tower', towerId, true);
+            const newFuture = lastResult.schedule.slice(activeDay + 1);
             generate(activeDay + 1);
+            // Falls generate() die bereits geöffneten Türme vergessen hat, vorher sichern
           } else {
-            // Case 1: Nur heute, transparent
+            // Case 1: Nur transparent, kein generate
             _applyMove(srcPersonId, activeDay, 'tower', towerId, false);
           }
 
@@ -432,7 +435,7 @@ function renderOutput(){
           clearCard();
         },
         clearCard,
-        true  // Checkbox zeigen: "Folgetage neu berechnen"
+        true  // Checkbox: "Folgetage neu berechnen"
       );
       return;
     }

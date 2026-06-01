@@ -87,9 +87,10 @@ function renderTowerCfg(){
       e.preventDefault();
       row.style.background = '';
       if(dragSrcTower === null || dragSrcTower === i) return;
-      // Türme umsortieren
+      // Insert: splice source raus, insert vor/nach target
       const moved = towers.splice(dragSrcTower, 1)[0];
-      towers.splice(i, 0, moved);
+      const targetIdx = dragSrcTower < i ? i - 1 : i;
+      towers.splice(targetIdx, 0, moved);
       // Prio aus Position ableiten: oben = höchste Prio
       towers.forEach((t, idx) => t.prio = towers.length - idx);
       dragSrcTower = null;
@@ -176,8 +177,10 @@ function renderBoatCfg(){
       e.preventDefault();
       row.style.background = '';
       if(dragSrcBoat === null || dragSrcBoat === i) return;
+      // Insert: splice source raus, insert vor/nach target
       const moved = boats.splice(dragSrcBoat, 1)[0];
-      boats.splice(i, 0, moved);
+      const targetIdx = dragSrcBoat < i ? i - 1 : i;
+      boats.splice(targetIdx, 0, moved);
       dragSrcBoat = null;
       generate(); renderBoatCfg();
     });
@@ -298,9 +301,10 @@ function renderExportColumnUI(){
       e.preventDefault();
       row.style.background = '';
       if(dragSrcIdx === null || dragSrcIdx === i) return;
-      const tmp = exportColumns[dragSrcIdx];
-      exportColumns[dragSrcIdx] = exportColumns[i];
-      exportColumns[i] = tmp;
+      // Insert statt Swap: splice source raus, insert vor target
+      const item = exportColumns.splice(dragSrcIdx, 1)[0];
+      const targetIdx = dragSrcIdx < i ? i - 1 : i;
+      exportColumns.splice(targetIdx, 0, item);
       dragSrcIdx = null;
       renderExportColumnUI();
     });
