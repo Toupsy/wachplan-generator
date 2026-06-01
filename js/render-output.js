@@ -329,21 +329,32 @@ function renderOutput(){
     showConfirmation(
       confirmMsg,
       (recalcFuture) => {
+        // Für Case 1 (transparent): Speichere Original-Plan BEVOR Changes
+        let originalSchedule = null;
+        let originalStats = null;
+        if(!recalcFuture && lastResult){
+          originalSchedule = lastResult.schedule.map(d => JSON.parse(JSON.stringify(d)));
+          originalStats = JSON.parse(JSON.stringify(lastResult.stats));
+        }
+
         _applyMove(srcPersonId, activeDay, targetKind, targetSlot, recalcFuture);
 
-        if(recalcFuture){
-          // Case 2: MIT Haken = ganze Woche neu berechnen
-          generate();
-        } else {
-          // Case 1: OHNE Haken = nur Anzeige ändern, Plan bleibt gleich
-          // Stats werden visuell verschoben, aber der Plan für Folgetage bleibt unverändert
-          generate();  // Generiere mit transparent flag
-          // Restore original-Stats damit Folgetage identisch mit Original sind
-          if(typeof statsBeforeMove !== 'undefined' && statsBeforeMove){
-            lastResult.stats = statsBeforeMove;
-            statsBeforeMove = null;  // Cleanup
-          }
+        // Rufe generate() auf
+        generate();
+
+        // Für Case 1 (transparent): Ersetze Folgetage mit Original, aber behalte Tag heute
+        if(!recalcFuture && originalSchedule && originalStats){
+          // Behalte nur Tag activeDay vom neuen Plan
+          const newDaySchedule = lastResult.schedule[activeDay];
+
+          // Restore alten Plan
+          lastResult.schedule = originalSchedule;
+          lastResult.stats = originalStats;
+
+          // Aber ersetze Tag activeDay mit neuem (mit visueller Änderung)
+          lastResult.schedule[activeDay] = newDaySchedule;
         }
+
         renderOutput();
         clearCard();
       },
