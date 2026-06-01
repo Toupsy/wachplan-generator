@@ -257,10 +257,11 @@ function renderOutput(){
   grid.addEventListener('dragstart', e => {
     const occ = e.target.closest('.occupant');
     if(!occ) return;
+    // Slot normalisieren: 0 für MAIN_ID (Hauptwache), sonst echte ID
     dragSrc = {
       personId: +occ.dataset.personId,
       kind: occ.dataset.sourceKind,
-      slot: +occ.dataset.sourceSlot || null
+      slot: +occ.dataset.sourceSlot || 0
     };
     occ.style.opacity = '0.4';
     e.dataTransfer.effectAllowed = 'move';
@@ -293,28 +294,33 @@ function renderOutput(){
     const targetKind = card.dataset.dropKind;
     const targetSlot = +card.dataset.dropSlot;
 
+    // dragSrc VOR dem Modal-Aufruf sichern!
+    // dragend feuert (async) sobald die Maus losgelassen wird → setzt dragSrc = null.
+    // Da showConfirmation ein Modal öffnet, ist dragSrc beim Bestätigen bereits null.
+    const srcPersonId = dragSrc.personId;
+    const srcKind     = dragSrc.kind;
+    const srcSlot     = dragSrc.slot;
+
+    const clearCard = () => { card.style.backgroundColor = ''; card.style.borderColor = ''; };
+
     // Validierung: Nicht in geschlossene Türme
     if(card.classList.contains('closed')) {
       showToast('⚠️ Kann nicht zu geschlossenen Türmen/Booten verschoben werden');
-      card.style.backgroundColor = '';
-      card.style.borderColor = '';
+      clearCard();
       return;
     }
 
     // Verhindern von Drop in denselben Slot
-    if(dragSrc.kind === targetKind && dragSrc.slot === targetSlot) {
-      card.style.backgroundColor = '';
-      card.style.borderColor = '';
+    if(srcKind === targetKind && srcSlot === targetSlot) {
+      clearCard();
       return;
     }
 
-    // Validierung: Bootsführer nur zu Booten
-    const p = getP(dragSrc.personId);
+    // Validierung: Rolle
+    const p = getP(srcPersonId);
     const isBoatTarget = (targetKind === 'boat' || targetKind === 'hwboat');
     const isRoleViolation = isBoatTarget && p && p.role !== 'B';
 
-    // Modal mit Checkbox für ALLE Verschiebungen
-    const clearCard = () => { card.style.backgroundColor = ''; card.style.borderColor = ''; };
     const confirmMsg = isRoleViolation
       ? `${p.name} ist ${ROLE[p.role]}, nicht Bootsführer. Trotzdem zum Boot verschieben?`
       : `Verschiebe ${p?.name || 'Person'} zu ${card.dataset.dropKind}?`;
@@ -322,12 +328,12 @@ function renderOutput(){
     showConfirmation(
       confirmMsg,
       (recalcFuture) => {
-        _applyMove(dragSrc.personId, activeDay, targetKind, targetSlot, recalcFuture);
+        _applyMove(srcPersonId, activeDay, targetKind, targetSlot, recalcFuture);
         generate();
         clearCard();
       },
       clearCard,
-      true  // showRecalcCheckbox - IMMER anzeigen
+      true  // showRecalcCheckbox immer anzeigen
     );
   });
 
