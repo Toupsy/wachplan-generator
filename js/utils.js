@@ -22,19 +22,17 @@ function showConfirmation(message, onConfirm, onCancel, showRecalcCheckbox) {
   const msgEl = document.getElementById('confirm-modal-message');
   const proceedBtn = document.getElementById('confirm-modal-proceed');
   const cancelBtn = document.getElementById('confirm-modal-cancel');
+  const closeBtn = document.getElementById('confirm-modal-close-btn');
   const scopeDiv = document.getElementById('confirm-modal-scope');
   const scopeChk = document.getElementById('confirm-scope-forward-chk');
 
   msgEl.textContent = message;
 
   // Checkbox nur bei Bedarf anzeigen
-  if(showRecalcCheckbox) {
-    scopeDiv.style.display = '';
-  } else {
-    scopeDiv.style.display = 'none';
-  }
+  scopeDiv.style.display = showRecalcCheckbox ? '' : 'none';
 
-  const cleanup = () => { proceedBtn.onclick = null; cancelBtn.onclick = null; };
+  const cleanup = () => { proceedBtn.onclick = null; cancelBtn.onclick = null; if(closeBtn) closeBtn.onclick = null; };
+  const close = () => { modal.style.display = 'none'; cleanup(); if(onCancel) onCancel(); };
 
   proceedBtn.onclick = () => {
     modal.style.display = 'none';
@@ -42,11 +40,8 @@ function showConfirmation(message, onConfirm, onCancel, showRecalcCheckbox) {
     const recalcFuture = showRecalcCheckbox ? scopeChk.checked : false;
     onConfirm(recalcFuture);
   };
-  cancelBtn.onclick = () => {
-    modal.style.display = 'none';
-    cleanup();
-    if(onCancel) onCancel();
-  };
+  cancelBtn.onclick = close;
+  if(closeBtn) closeBtn.onclick = close;   // × oben rechts = Abbrechen
 
   modal.style.display = 'flex';
 }

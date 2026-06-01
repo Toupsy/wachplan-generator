@@ -20,6 +20,7 @@ function _buildStateObject(){
     hwBoatId,
     days:                 DAYS,
     positionDescriptions: { ...positionDescriptions },
+    fairnessMetricsDisplay: { ...fairnessMetricsDisplay },
     exportColumns:        [...exportColumns],
     people:               people.map(p => ({ ...p })),
     towers:               towers.map(t => ({ ...t, slotCount: t.slotCount || 2 })),
@@ -69,6 +70,11 @@ function importStateJSON(json, silent = false){
   DAYS              = s.days              ?? 6;
   positionDescriptions = Object.assign({ 3:'',4:'',5:'',6:'',7:'' },
                                        s.positionDescriptions || {});
+  fairnessMetricsDisplay = Object.assign(
+    { hwBoatBalance:true, towerDistribution:true, boatPairingDiversity:true },
+    s.fairnessMetricsDisplay || {});
+  // Checkboxen mit wiederhergestelltem Zustand synchronisieren
+  syncMetricCheckboxes();
   exportColumns = Array.isArray(s.exportColumns) ? [...s.exportColumns] : [];
   // Tageanzahl-Input synchronisieren
   const daysInput = document.getElementById('num-days');

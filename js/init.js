@@ -82,17 +82,26 @@ document.getElementById('btn-auto-export-cols').onclick = () => {
 };
 
 // ── Fairness-Metriken Anzeige ─────────────────────────────────────
-const metricsMap = {
-  'metric-hw-balance': 'hwBoatBalance',
-  'metric-tower-dist': 'towerDistribution',
-  'metric-boat-pairing': 'boatPairingDiversity'
+const METRICS_MAP = {
+  'metric-hw-balance':  'hwBoatBalance',
+  'metric-tower-dist':  'towerDistribution',
+  'metric-boat-pairing':'boatPairingDiversity'
 };
-Object.entries(metricsMap).forEach(([id, key]) => {
-  document.getElementById(id).onchange = e => {
+Object.entries(METRICS_MAP).forEach(([id, key]) => {
+  const el = document.getElementById(id);
+  if(el) el.onchange = e => {
     fairnessMetricsDisplay[key] = e.target.checked;
     if(lastResult) renderOutput();
   };
 });
+
+/** Checkbox-Zustände aus fairnessMetricsDisplay übernehmen (nach State-Import). */
+function syncMetricCheckboxes(){
+  Object.entries(METRICS_MAP).forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    if(el) el.checked = !!fairnessMetricsDisplay[key];
+  });
+}
 
 // ── Import / Export Planstatus ────────────────────────────────────
 document.getElementById('btn-export-state').onclick = exportStateJSON;

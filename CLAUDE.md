@@ -40,13 +40,14 @@ js/init.js                – Event-Listener + Startsequenz (autoLoad → seed f
 
 ```js
 people[]           // { id, name, role:'F'|'B'|'E'|'U' }
-towers[]           // { id, name, prio:number, code:string }
-boats[]            // { id, name, code, towerId:number|'HW'|null, prio }
+towers[]           // { id, name, prio:number, code:string, slotCount:number (Default 2, 1–10) }
+boats[]            // { id, name, code, towerId:number|'HW'|null, prio, slotCount:number (Default 1, 1–3) }
 dayState[]         // Array[DAYS]: { sick:Set, closed:Set, closedBoats:Set }
 forcedPlacements[] // Array[DAYS]: [{ personId, kind:'tower'|'boat'|'main'|'hwboat', slotId, transparent:bool }]
 positionDescriptions // { 3:'', 4:'', 5:'', 6:'', 7:'' } → XLSX-Zellen C11,C13,C15,C17,C19
+fairnessMetricsDisplay // { hwBoatBalance:bool, towerDistribution:bool, boatPairingDiversity:bool } – welche Stats-Bar-Metriken sichtbar sind
 exportColumns[]    // 16 Stationscodes → Template-Spalten (TEMPLATE_STATION_COLS)
-lastResult         // letztes Berechnungsergebnis { schedule, pairCount, stats, peopleGuards }
+lastResult         // { schedule, pairCount, stats, peopleGuards, fairnessMetrics }
 activeDay          // aktuell sichtbarer Tab (0-basiert)
 DAYS               // 1–14 (veränderbar zur Laufzeit)
 uid                // monoton steigender ID-Counter
@@ -57,6 +58,10 @@ mainK              // Anzahl Guard-Slots neben der Führung an der Hauptwache
 
 **Rollen:** F = Führung, B = Bootsführer, E = Erfahren, U = Unerfahren  
 **MAIN_ID = 0** (Pseudo-ID der Hauptwache)
+
+**`lastResult.stats[personId]`** (pro Person akkumuliert über alle Tage):
+`{ total, towerVisits:{towerId→count}, boatVisits:{boatId→count}, hwVisits, towerWithBoatDays, boatCaptainPairings:{captainId→count} }`.
+Hinweis: HW-Overflow (Personen in `main.base`) erhöht `total` NICHT – nur aktive Dienste (Turm, Boot, k-Guard-Slots an HW) zählen. Das ist Absicht: wer „nur" an der HW saß, gilt als unterbeschäftigt und wird für Folgetage bevorzugt aktiv eingeplant.
 
 ---
 
@@ -233,8 +238,10 @@ Jede Zeile hat `draggable="true"` + ⠿-Handle. dragstart speichert Quell-Index;
 - `autoSave()` – nach jeder `generate()`-Ausführung → `localStorage` (Key: `dlrg_wachplan_autosave`)
 - `autoLoad()` – beim Seitenstart; bei Erfolg: silent import + generate + Toast
 - `exportStateJSON()` / `importStateJSON()` – vollständiger Status als `.json`-Datei
-- Sets werden als Arrays serialisiert, beim Import rekonstruiert
-- `STATE_VERSION = 3` – fehlende Felder in alten Exports werden mit Defaults gefüllt
+- `_buildStateObject()` – zentrale Serialisierung (von autoSave UND exportStateJSON genutzt). Enthält u.a. `slotCount`, `fairnessMetricsDisplay`, `positionDescriptions`, `exportColumns`
+- Sets (sick/closed/closedBoats) werden als Arrays serialisiert, beim Import rekonstruiert
+- Beim Import: `syncMetricCheckboxes()` setzt die Checkbox-Zustände passend zu `fairnessMetricsDisplay`
+- `STATE_VERSION = 3` – fehlende Felder in alten Exports werden mit Defaults gefüllt (`fairnessMetricsDisplay` → alle true, `slotCount` → 2/1)
 
 ---
 
@@ -243,8 +250,8 @@ Jede Zeile hat `draggable="true"` + ⠿-Handle. dragstart speichert Quell-Index;
 | Funktion | Was sie tut |
 |---|---|
 | `renderPeople()` | Personenliste neu zeichnen; beim Löschen: aus dayState.sick + forcedPlacements bereinigen |
-| `renderTowerCfg()` | Turm-Zeilen (Name / CODE / PRIO / ×); beim Löschen: verknüpfte Boote trennen |
-| `renderBoatCfg()` | Boot-Zeilen (Name / CODE / Turm-Dropdown / ×) |
+| `renderTowerCfg()` | Turm-Zeilen (Name / CODE / PRIO / **Slot-Spinner ±** / ×); Spinner ändert `slotCount` (1–10) + generate(); beim Löschen: verknüpfte Boote trennen |
+| `renderBoatCfg()` | Boot-Zeilen (Name / CODE / Turm-Dropdown / **Slot-Spinner ±** / ×); Spinner ändert `slotCount` (1–3) |
 | `renderHWBoatSelector()` | Dropdown: welches Boot ist HW-Boot? |
 | `autoFillExportColumns()` | Füllt exportColumns: Boote → Türme (Prio↓) → WF → WF2 → HW → HW2 |
 | `renderExportColumnUI()` | 16 Felder für manuelles Stationscode-Mapping |
@@ -255,10 +262,12 @@ Jede Zeile hat `draggable="true"` + ⠿-Handle. dragstart speichert Quell-Index;
 ## Ausgabe-Rendering (render-output.js)
 
 - `renderOutput()` – zeichnet gesamten Output-Bereich neu (innerHTML-Replace)
-- Tags: Tabs pro Tag (🤒/⛔ Flags), Stats-Bar, day-controls, Karten-Grid, Matrix
+- Tags: Tabs pro Tag (🤒/⛔ Flags), Stats-Bar, day-controls, Karten-Grid, Tower-Stats-Tabelle, Matrix
 - Karten-Typen: `main` (gold, span-2), `tower` (normal), `boat` (blau), `closed` (ausgegraut)
-- `renderMatrix()` – Paarungs-Kreuztabelle aller E+U-Personen (grün=1×, rot≥2×)
-- Event-Listener direkt in renderOutput() verdrahtet (Tabs, Chips, Move-Buttons)
+- **Stats-Bar:** 4 feste Metriken (Paare, Wiederholungen, U+U, Turm>2×) + 3 optionale (via `fairnessMetricsDisplay` ein-/ausblendbar): 🏠 HW|Boot-Turm, 📍 Ø Türme, 👥 Boot-Paare-unique
+- `renderTowerStatsPerPerson()` – Tabelle Person | Gesamt | Unique-Türme | Details (Türme nach Prio sortiert, farbcodiert ≥50%)
+- `renderMatrix()` – Paarungs-Kreuztabelle aller E+U-Personen (grün=1×, rot≥2×); nur bei 2–18 E/U
+- Event-Listener direkt in renderOutput() verdrahtet (Tabs, Chips, Move-Buttons, D&D auf `.towers-grid`)
 
 ---
 
@@ -280,15 +289,21 @@ _updateSaveIndicator() + _updateTemplateStatus()
 |---|---|
 | Faire Rotation | Akkumulierte stats (total, towerVisits, boatVisits) über alle Tage |
 | Fairness Metrics (Feature 7) | hwVisits, towerWithBoatDays, boatCaptainPairings für Balance-Scoring |
+| Konsekutiv-Regel (Feature 8) | `prevTowerSet` (Set der gestrigen Turm-Personen) 1× pro bestPair vorberechnet → +200/Person Penalty. Soft → weicht bei knapper Besetzung |
+| Metrik-Toggle (Feature 9) | `fairnessMetricsDisplay` Flags; Checkboxes in Sidebar; `syncMetricCheckboxes()` nach Import |
+| Tower-Stats (Feature 10) | `renderTowerStatsPerPerson()` Tabelle |
+| Variable Slot-Kapazität | `slotCount` pro Turm (1–10) / Boot (1–3) via Spinner; Algorithmus füllt `slotCount - vorbelegte` Plätze |
 | Reproduzierbarkeit | `seededRand()` – LCG-Zufallsgenerator, nur für Tag-1-Tiebreaker |
 | UU-Warnung | score +1000 wenn beide Unerfahren → nur als Notlösung |
 | BF-Schutz | surplusBFPenalty() +800 wenn BF an Turm mit aktivem Boot |
 | Kein Framework | Vanilla-JS; Re-Renders via komplettem innerHTML-Replace |
 | XLSX-Integrität | XML-Patch statt SheetJS-Write → Styles/Bilder/Schutz erhalten |
-| Transparenter Swap | Person im Statistik-Pool belassen, nur Darstellung überschreiben |
-| D&D Validation | Rollenvalidierung mit Confirmation-Dialog + optional Zukunfts-Neuberechnung |
+| Transparenter Swap | Person im Statistik-Pool belassen, nur Darstellung überschreiben. **Achtung:** transparentes Verschieben auf vollen Turm zeigt `slotCount+1` Belegung (visueller Overlay, kein Verdrängen) – Absicht; Export verarbeitet Overflow zu Nachbarspalte |
+| D&D Validation | Rollenvalidierung mit Confirmation-Dialog (× = Abbrechen) + optional Zukunfts-Neuberechnung |
 | Timezone-Bug | Lokale Datumsarithmetik statt toISOString() → kein UTC-Off-by-one |
 | Template-Fallback | fetch() → localStorage → Nutzer-Upload (pending export queue) |
+| `personNr()` | NUR in utils.js definiert (utils lädt vor export) – nicht duplizieren |
+| Perf-Optimierungen | `activeBoatTowers`-Set pro Tag; `prevTowerSet` + `ensure()`-Caching in bestPair → ~20ms für 28 Pers./14 Tage |
 
 ---
 
@@ -308,3 +323,25 @@ Dark-Theme mit CSS-Variables:
 - Max. 16 Stationsspalten im Template (`TEMPLATE_STATION_COLS`)
 - Paarungs-Matrix nur angezeigt wenn 2–18 Erfahren/Unerfahren-Personen
 - DAYS max 14, min 1
+- Turm `slotCount` 1–10, Boot `slotCount` 1–3
+- Transparentes Verschieben auf vollen Turm → Overflow-Darstellung (siehe Design-Tabelle)
+
+---
+
+## Testing & Performance
+
+**Test-Strategie (bewährt):** Browser-Preview + `preview_eval`-Harness statt Unit-Tests (kein Build-Setup nötig).
+
+**Invarianten-Validator** (im Page-Context via eval injizieren) prüft nach jedem `generate()`:
+- Keine Person doppelt eingeteilt (double-booking) am selben Tag
+- Keine kranke Person irgendwo eingeteilt
+- Kein geschlossener Turm / außer-Dienst-Boot belegt
+- `slotCount` eingehalten (Ausnahme: transparenter Overlay – siehe oben)
+
+**Bewährte Test-Szenarien:** baseline 6d · 14d · 1d · kranke Personen · geschlossener Turm/Boot · 0 Personen · 1 Person · alle krank · alle Türme zu · Zwangszuweisung effektiv/transparent · **Fuzz-Test** (100× zufällige sick/closed/forced-Muster).
+
+**Konsekutiv-Regel-Messung:** Verstöße/Gelegenheiten zählen → normal 0%, unter Extremdruck ~2,4%.
+
+**Performance-Baseline:** ~20 ms für 28 Personen × 14 Tage (Maximalszenario). Bei Regressionen >100 ms: Hot-Loop in `bestPair` (O(n²) über Guard-Pool pro Turm) prüfen.
+
+**Preview starten:** `.claude/launch.json` Server „wachplan" (Port 3000), dann `/Wachplan-Generator.html`. localStorage-Key `dlrg_wachplan_autosave` vor Tests löschen für sauberen Seed.
