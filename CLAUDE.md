@@ -64,6 +64,22 @@ mainK              // Anzahl Guard-Slots neben der Führung an der Hauptwache
 
 Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) übertragen sich auf Folgetage → faire Rotation.
 
+### Erweiterte Fairness-Metriken (Feature 7)
+
+**Tracking pro Person:**
+- `hwVisits` – Anzahl Tage an der Hauptwache
+- `towerWithBoatDays` – Anzahl Tage auf Turm mit aktivem Boot
+- `boatCaptainPairings` – Häufigkeit (Captain-ID → Count) wie oft mit bestimmtem Bootsführer zusammen
+
+**Scoring-Verbesserungen:**
+- bestPair() bestraft Turm-Paare wenn beide viele Boot-Tage haben (+150 Penalty)
+- bestPair() bonusiert Turm-Paare wenn eine Person viele HW-Tage hat (-50 Bonus)
+- Boot-Sortierung: 50× Penalty für wiederholte Zuweisungen + 5× HW-Balance
+
+**Darstellung (render-output.js):**
+- Stats-Bar zeigt `avgHwVisits | avgTowerWithBoatDays` (z.B. 0.9 | 0.9) mit Farbe (grün=ausgeglichen, orange=skew)
+- Stats-Bar zeigt Boot-Paarungen-Diversität % (z.B. 80% einzigartig)
+
 ### Zwangszuweisungen (forcedPlacements)
 - `transparent: false` (effektiv) → Person aus Pool entfernen, fest vorab platzieren, Statistik zählt mit → Folgetage berücksichtigen den Wechsel
 - `transparent: true` → Person bleibt im Pool, Algorithmus läuft normal, danach visuell in Zielslot verschoben → Folgetage identisch zum Originalplan
@@ -82,6 +98,8 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 + 30×v  Turmbesuche Person B (v≥2 → +300)
 + 5×    Gesamteinsätze (Fairness: wer wenig hatte, kommt zuerst)
 + 800   surplusBF-Strafe (Turm mit aktivem Boot)
++ 150   beide haben viele Boot-Tage (Tower+Boat balance)  ← NEW Feature 7
+- 50    Person hat viele HW-Tage (Bonus für Tower-Zuweisung)  ← NEW Feature 7
 + Tiebreaker (deterministisch oder seededRand() für Tag 1)
 ```
 **Niedrigster Score gewinnt.**
@@ -89,10 +107,14 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 ### Zuweisung pro Tag (Reihenfolge)
 1. **Hauptwache** – Zwangszuweisungen → Paare via bestPair → Einzelpersonen
 2. **Türme** – je 2 Wachgänger via bestPair(t, true), Türme nach prio absteigend
-3. **Boote** – je 1 BF, sortiert nach wenigsten Einsätzen + Boot-Besuchen
-4. **HW-Boot** (Feature 6) – dedizierter BF wenn hwBoatId aktiv
-5. **HW finalize** – alle übrigen Personen kommen zur Hauptwache
-6. **Transparente Zuweisungen** anwenden (visueller Tausch nach dem Algorithmus)
+3. **Boote** – je 1 BF, sortiert nach:
+   - Gesamteinsätze (primary)
+   - Boot-Besuche × 50 Penalty (Rotation fairness) ← NEW Feature 7
+   - HW-Besuche × 5 (balance HW-heavy people) ← NEW Feature 7
+4. **HW-Boot** (Feature 6) – dedizierter BF wenn hwBoatId aktiv (gleiche Sortierung)
+5. **Boot-Captain-Paarungen tracking** ← NEW Feature 7 – Nach Boot-Zuweisung: registriere Turm-Personen × Captain
+6. **HW finalize** – alle übrigen Personen kommen zur Hauptwache
+7. **Transparente Zuweisungen** anwenden (visueller Tausch nach dem Algorithmus)
 
 ---
 
