@@ -384,13 +384,22 @@ function renderOutput(){
     showConfirmation(
       confirmMsg,
       (recalcFuture) => {
-        _applyMove(srcPersonId, activeDay, targetKind, targetSlot, recalcFuture);
-
         if(recalcFuture){
-          // Case 2: MIT Haken = generate() mit neuen forcedPlacements
+          // Case 2: MIT Haken = Nur Tage NACH der Änderung neu berechnen
+          const oldSchedule = lastResult.schedule.map(d => JSON.parse(JSON.stringify(d)));
+
+          _applyMove(srcPersonId, activeDay, targetKind, targetSlot, true);
           generate();
+
+          // Ersetze Tage 0..activeDay-1 mit alten Tagen (bleiben unverändert)
+          // Tag activeDay und Folgetage sind NEU
+          for(let d = 0; d < activeDay; d++){
+            lastResult.schedule[d] = oldSchedule[d];
+          }
+        } else {
+          // Case 1: OHNE Haken = Visual-Only (kein generate!)
+          _applyMove(srcPersonId, activeDay, targetKind, targetSlot, false);
         }
-        // Case 1: OHNE Haken = renderOutput() wendet transparent placements visuell an (ohne generate!)
 
         renderOutput();
         clearCard();

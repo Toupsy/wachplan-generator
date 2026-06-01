@@ -68,9 +68,22 @@ function openMoveModal(personId, dayIdx, fromKind, fromSlotId){
     closeMoveModal();
 
     if(forwardScope){
-      // ✓ Case 2: MIT Haken = Effektive Änderung, ganze Woche neu berechnen
+      // ✓ Case 2: MIT Haken = Effektive Änderung
+      // Speichere alten Plan BEVOR Changes
+      const oldSchedule = lastResult.schedule.map(d => JSON.parse(JSON.stringify(d)));
+
       _applyMove(personId, dayIdx, target.kind, target.slotId, true);
+
+      // Generiere komplette Woche neu
       generate();
+
+      // Wichtig: Ersetze Tage 0..dayIdx-1 mit den ALTEN Tagen
+      // Das sorgt dafür, dass nur Tage AB dayIdx (mit Änderung) NEU sind
+      // und die Folgetage dann neu basierend auf dieser Änderung berechnet werden
+      for(let d = 0; d < dayIdx; d++){
+        lastResult.schedule[d] = oldSchedule[d];
+      }
+
       renderOutput();
     } else {
       // ✓ Case 1: OHNE Haken = Visual-Only (kein generate!)
