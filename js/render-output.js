@@ -330,10 +330,21 @@ function renderOutput(){
       confirmMsg,
       (recalcFuture) => {
         _applyMove(srcPersonId, activeDay, targetKind, targetSlot, recalcFuture);
-        // IMMER generate() aufrufen – unterschied ist nur die transparent flag in forcedPlacements
-        // transparent: true → Stats ändern nicht, Folgetage identisch
-        // transparent: false → Stats zählen mit, Folgetage neu berechnet
-        generate();
+
+        if(recalcFuture){
+          // Case 2: MIT Haken = ganze Woche neu berechnen
+          generate();
+        } else {
+          // Case 1: OHNE Haken = nur Anzeige ändern, Plan bleibt gleich
+          // Stats werden visuell verschoben, aber der Plan für Folgetage bleibt unverändert
+          generate();  // Generiere mit transparent flag
+          // Restore original-Stats damit Folgetage identisch mit Original sind
+          if(typeof statsBeforeMove !== 'undefined' && statsBeforeMove){
+            lastResult.stats = statsBeforeMove;
+            statsBeforeMove = null;  // Cleanup
+          }
+        }
+        renderOutput();
         clearCard();
       },
       clearCard,

@@ -64,12 +64,35 @@ function openMoveModal(personId, dayIdx, fromKind, fromSlotId){
     if(!slotSel.value) return;
     const target       = JSON.parse(slotSel.value);
     const forwardScope = scopeChk?.checked ?? false;
+
+    // Für Case 1 (transparent): Speichere Original-Plan BEVOR Changes
+    let originalSchedule = null;
+    let originalStats = null;
+    if(!forwardScope && lastResult){
+      originalSchedule = lastResult.schedule.map(d => JSON.parse(JSON.stringify(d)));
+      originalStats = JSON.parse(JSON.stringify(lastResult.stats));
+    }
+
     _applyMove(personId, dayIdx, target.kind, target.slotId, forwardScope);
     closeMoveModal();
-    // IMMER generate() – unterschied ist nur die transparent flag
-    // transparent: true → Stats ändern nicht, ganze Woche bleibt gleich
-    // transparent: false → Stats zählen mit, ganze Woche neu berechnet
+
+    // Rufe generate() auf
     generate();
+
+    // Für Case 1 (transparent): Ersetze Folgetage mit Original, aber behalte Tag heute
+    if(!forwardScope && originalSchedule && originalStats){
+      // Behalte nur Tag dayIdx vom neuen Plan
+      const newDaySchedule = lastResult.schedule[dayIdx];
+
+      // Restore alten Plan
+      lastResult.schedule = originalSchedule;
+      lastResult.stats = originalStats;
+
+      // Aber ersetze Tag dayIdx mit neuem (mit visueller Änderung)
+      lastResult.schedule[dayIdx] = newDaySchedule;
+    }
+
+    renderOutput();
   };
 
   overlay.style.display = 'flex';
@@ -90,11 +113,11 @@ function _slotLabel(kind, slotId){
  * Schreibt eine Zwangszuweisung für den heutigen Tag und optional Folgetage.
  *
  * @param {boolean} recalcFuture
- *   false (Standard / "transparent") → Nur dieser Tag wird visuell geändert.
- *     Folgetage bleiben unverändert (Person bleibt visuell im Originalplan).
- *   true ("effective") → Dieser Tag wird geändert UND Folgetage werden
- *     neu berechnet. Die alte Zuweisung dieser Person wird aus Folgetagen
- *     entfernt, damit der Algorithmus neu arrangiert.
+ *   false (Standard / "transparent") → Nur dieser Tag wird visuell geändert, transparent flag.
+ *     Person bleibt im Pool, Algorithmus läuft normal, danach visuell verschoben.
+ *     Folgetage sind identisch mit Original.
+ *   true ("effective") → Dieser Tag wird wirksam geändert, transparent=false.
+ *     Alte Zuweisung aus Folgetagen entfernt, Algorithmus neu arrangiert Folgetage.
  */
 function _applyMove(personId, dayIdx, kind, slotId, recalcFuture){
   if(!forcedPlacements[dayIdx]) forcedPlacements[dayIdx] = [];
@@ -102,15 +125,14 @@ function _applyMove(personId, dayIdx, kind, slotId, recalcFuture){
   // Entferne alte Zuweisung für diese Person an diesem Tag
   forcedPlacements[dayIdx] = forcedPlacements[dayIdx].filter(f => f.personId !== personId);
 
-  // Neue Zuweisung hinzufügen
+  // Neue Zuweisung hinzufügen mit transparent flag
   forcedPlacements[dayIdx].push({
     personId, kind, slotId,
-    transparent: !recalcFuture,
+    transparent: !recalcFuture,  // Case 1: !true=true (transparent), Case 2: !false=false (effective)
   });
 
-  // WICHTIG: Wenn recalcFuture=true (effective), muss ich alte Zuweisungen
-  // aus Folgetagen entfernen, damit der Algorithmus die Person nicht doppelt
-  // einplant (einmal am neuen Slot heute, einmal am alten Slot morgen)
+  // CASE 2: transparent=false → Alte Zuweisungen aus Folgetagen entfernen
+  // für Case 1 (transparent=true) bleiben die Folgetage unverändert
   if(recalcFuture){
     for(let d = dayIdx + 1; d < DAYS; d++){
       if(!forcedPlacements[d]) forcedPlacements[d] = [];

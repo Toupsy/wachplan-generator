@@ -225,6 +225,43 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 
 **Result:** D&D funktioniert zuverlässig, keine TypeError mehr.
 
+### Bugfix 4: Move ohne Folgetage-Neuberechnung → Folgetage nicht wirklich unverändert
+**Problem:** Case 1 (transparent move) sollte nur Tag heute ändern und Folgetage unverändert lassen. Aber `generate()` rechnet ALLE Folgetage neu → andere Ergebnisse als Original (Zufall/Seed)
+
+**Root Cause:**
+- Transparente Placements werden AM ENDE des Algorithmus angewendet (nach alle Folgetage geplant)
+- Aber die Folgetage werden JEDES MAL neu berechnet, wenn `generate()` aufgerufen wird
+- Ergebnis: Nur Tag heute hat visuelle Änderung, Folgetage sind aber unterschiedlich vom Original
+
+**Fix in `js/move.js` (confirm.onclick Handler):**
+- Für Case 1 (kein Haken / `!forwardScope`): Speichere `originalSchedule` + `originalStats` BEVOR `generate()`
+- Nach `generate()`: Restore `lastResult.schedule` + `lastResult.stats` mit Original-Werten
+- Aber ersetze nur `lastResult.schedule[dayIdx]` mit dem neuen Plan von heute
+- **Resultat:** Tag heute hat neue Platzierung, Folgetage sind PIXEL-PERFEKT identisch mit Original
+
+**Code in move.js:**
+```js
+// Für Case 1: Speichere Original BEVOR Changes
+let originalSchedule = null;
+let originalStats = null;
+if(!forwardScope && lastResult){
+  originalSchedule = lastResult.schedule.map(d => JSON.parse(JSON.stringify(d)));
+  originalStats = JSON.parse(JSON.stringify(lastResult.stats));
+}
+
+generate();
+
+// Für Case 1: Restore Folgetage mit Original
+if(!forwardScope && originalSchedule && originalStats){
+  const newDaySchedule = lastResult.schedule[dayIdx];
+  lastResult.schedule = originalSchedule;
+  lastResult.stats = originalStats;
+  lastResult.schedule[dayIdx] = newDaySchedule;  // Nur heute mit neuer Platzierung
+}
+```
+
+**Result:** Case 1 und Case 2 funktionieren korrekt separiert.
+
 ---
 
 ## Feature 11: Seed-basierte Start-Konstellationen
