@@ -413,11 +413,27 @@ function renderOutput(){
         confirmMsg,
         (recalcFuture) => {
           const oldBefore = lastResult.schedule.slice(0, activeDay).map(d => JSON.parse(JSON.stringify(d)));
+          const dayData = lastResult.schedule[activeDay];
 
           // 1. Turm öffnen (aus closed entfernen)
           dayState[activeDay].closed.delete(towerId);
 
-          // 2. Person direkt ins Schedule einfügen (auch geschlossene Türme haben slot im assign!)
+          // 2. Wenn Turm KEINEN Slot in assign hat (weil er geschlossen war), einen erstellen
+          const existingSlot = dayData.assign.find(s => s.kind === 'tower' && s.towerId === towerId);
+          if(!existingSlot) {
+            const towerObj = getT(towerId);
+            dayData.assign.push({
+              kind: 'tower',
+              towerId: towerId,
+              tower: towerObj?.name || `Turm ${towerId}`,
+              code: towerObj?.code || '?',
+              prio: towerObj?.prio || 99,
+              occupants: [],
+              warn: null
+            });
+          }
+
+          // 3. Person direkt ins Schedule einfügen
           _applyMoveToSchedule(srcPersonId, activeDay, 'tower', towerId);
 
           if(recalcFuture) {
