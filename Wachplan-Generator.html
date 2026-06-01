@@ -227,7 +227,7 @@
     <div class="modal-message" id="confirm-modal-message" style="margin:16px 0;color:var(--text-dim);font-size:.9rem;line-height:1.6"></div>
     <div id="confirm-modal-scope" class="move-scope-toggle" style="display:none;margin:16px 0">
       <label class="scope-toggle-label">
-        <input type="checkbox" id="confirm-scope-forward-chk" checked>
+        <input type="checkbox" id="confirm-scope-forward-chk">
         <div>
           <div class="scope-toggle-text">Folgetage neu berechnen</div>
           <div class="scope-toggle-sub">Dieser Wechsel beeinflusst den Algorithmus der Folgetage</div>
@@ -340,9 +340,20 @@
               style="background:var(--navy-2);border:1px solid var(--line-strong);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.82rem;padding:7px 9px;width:62px;text-align:center;color-scheme:dark;">
           </div>
         </div>
+
+        <!-- Seed Input -->
+        <div style="background:var(--deep);border:1px solid rgba(160,120,255,.25);border-radius:9px;padding:11px 13px;margin-bottom:10px">
+          <label style="display:block;font-size:.84rem;margin-bottom:8px;color:var(--text-dim)">
+            🎲 Seed für Startkonstellation
+            <span style="display:block;font-size:.7rem;margin-top:2px">0 = Standard, 1-n = verschiedene Varianten</span>
+          </label>
+          <input id="seed-input" type="number" min="0" max="999" value="0"
+            style="width:100%;background:var(--navy-2);border:1px solid rgba(160,120,255,.35);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.95rem;text-align:center;padding:8px 4px">
+        </div>
+
         <div class="gen-row">
           <button class="generate" id="generate">⚓ Plan generieren</button>
-          <button class="randomize" id="randomize" title="Zufälligen Seed würfeln">🎲</button>
+          <button class="randomize" id="randomize" title="Neuen Seed würfeln">🎲</button>
         </div>
         <div style="text-align:center;margin-top:5px;min-height:18px">
           <span id="seed-display" class="seed-badge" style="display:none"></span>

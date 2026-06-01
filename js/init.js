@@ -29,7 +29,88 @@ document.getElementById('main-k').oninput = e => {
 
 // ── Sidebar – Datum & Generierung ────────────────────────────────
 document.getElementById('start-date').onchange = e => { startDate = e.target.value; };
-document.getElementById('generate').onclick    = generate;
+document.getElementById('generate').onclick = () => {
+  const seedVal = +document.getElementById('seed-input').value || 0;
+  if(seedVal > 0) applySeedConstraints(seedVal);
+  generate();
+};
+
+/** Generiere verschiedene Startkonstellationen basierend auf Seed.
+ * Seed > 0 erzeugt forcierte Zuweisungen für Day 1, ab Tag 2 läuft normal.
+ * Nutzt Fisher-Yates Shuffle mit Seed für deterministische Permutation.
+ */
+function applySeedConstraints(seed){
+  // Verfügbare Slots Day 1
+  const avail = { towers: [], boats: [], main: 0 };
+  towers.filter(t => !dayState[0].closed.has(t.id)).slice(0, 3).forEach(t => {
+    avail.towers.push(...Array(t.slotCount||2).fill(t.id));
+  });
+  boats.filter(b => !dayState[0].closedBoats.has(b.id)).slice(0, 2).forEach(b => {
+    avail.boats.push(b.id);
+  });
+  avail.main = mainK + 2;
+
+  // Seeded shuffle helper (LCG-basiert wie seededRand)
+  const seedShuffle = (arr, seedVal) => {
+    const result = arr.slice();
+    let rng = seedVal;
+    for(let i = result.length - 1; i > 0; i--){
+      rng = (rng * 1664525 + 1013904223) & 0x7fffffff;
+      const j = rng % (i + 1);
+      [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
+  };
+
+  forcedPlacements[0] = [];
+
+  // Shuffelte E/U Personen, dann verteile auf Türme
+  const eu = people.filter(p => p.role === 'E' || p.role === 'U');
+  const shuffledEU = seedShuffle(eu, seed).slice(0, avail.towers.length);
+  shuffledEU.forEach((p, i) => {
+    forcedPlacements[0].push({
+      personId: p.id,
+      kind: 'tower',
+      slotId: avail.towers[i],
+      transparent: false
+    });
+  });
+
+  // Shuffelte Bootsführer, dann verteile auf Boote
+  const bs = people.filter(p => p.role === 'B');
+  const shuffledBF = seedShuffle(bs, seed * 2).slice(0, avail.boats.length);
+  shuffledBF.forEach((p, i) => {
+    forcedPlacements[0].push({
+      personId: p.id,
+      kind: 'boat',
+      slotId: avail.boats[i],
+      transparent: false
+    });
+  });
+
+  // Rest zur Hauptwache
+  const usedIds = new Set([...shuffledEU, ...shuffledBF].map(p => p.id));
+  const remaining = people.filter(p => !usedIds.has(p.id)).slice(0, Math.max(1, avail.main - 2));
+  remaining.forEach(p => {
+    forcedPlacements[0].push({
+      personId: p.id,
+      kind: 'main',
+      slotId: 0,
+      transparent: false
+    });
+  });
+
+  showToast(`🎲 Seed ${seed}: ${forcedPlacements[0].length} Personen fixiert für Tag 1`);
+};
+
+// Randomize-Button: würfle neuen Seed
+document.getElementById('randomize').onclick = () => {
+  const newSeed = Math.floor(Math.random() * 1000) + 1;
+  document.getElementById('seed-input').value = newSeed;
+  const badge = document.getElementById('seed-display');
+  badge.textContent = `Seed: ${newSeed}`;
+  badge.style.display = 'inline-block';
+};
 
 // ── Sidebar – Tageanzahl ─────────────────────────────────────────
 document.getElementById('num-days').oninput = e => {

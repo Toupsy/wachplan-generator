@@ -227,6 +227,71 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 
 ---
 
+## Feature 11: Seed-basierte Start-Konstellationen
+
+### Zweck
+Benutzer können verschiedene, aber **gleichmäßig faire** Wachpläne generieren, indem sie nur die **Day 1-Konstellation** variieren. Die Fairness-Algorithmus auf Days 2+ balanciert automatisch alle Varianten auf identische Gesamtfairness aus.
+
+### Implementierung (js/init.js)
+
+**Seed-Input-Feld** (Wachplan-Generator.html, vor Generate-Button):
+```html
+<input id="seed-input" type="number" min="0" max="999" value="0">
+```
+- `0` = Standard-Plan ohne Seed-Zwangszuweisungen (normaler Algorithmus)
+- `1-999` = Deterministische Permutation der E/U-Personen und Bootsführer auf Day 1
+
+**Seed-Logik** (`applySeedConstraints(seed)`):
+1. Fisher-Yates Shuffle (LCG-basiert, nicht globales `seededRand`) auf EU-Liste mit `seed` als Startwert
+2. Shuffle auf BF-Liste mit `seed * 2` (unterschiedliche Permutation)
+3. Shuffelte EU-Personen sequenziell auf verfügbare Tower-Slots
+4. Shuffelte BF sequenziell auf verfügbare Boot-Slots
+5. Remaining persons → Hauptwache
+6. Alle als `transparent: false` (effektive Zwangszuweisungen), damit Stats mitzählen
+7. `generate()` wird aufgerufen → Days 2-6 laufen normal mit balanciertem Scoring
+
+**Randomize-Button** (#randomize):
+- Würfelt zufälligen Seed (1-1000) und setzt `#seed-input.value`
+- Zeigt Badge mit aktuellem Seed
+
+### Algorithmus-Details
+
+**Fisher-Yates Shuffle (in applySeedConstraints):**
+```js
+const seedShuffle = (arr, seedVal) => {
+  const result = arr.slice();
+  let rng = seedVal;
+  for(let i = result.length - 1; i > 0; i--){
+    rng = (rng * 1664525 + 1013904223) & 0x7fffffff;  // LCG
+    const j = rng % (i + 1);
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+};
+```
+- **Deterministisch:** Gleiches `seedVal` → immer gleiche Permutation
+- **Unterschiedlich pro Seed:** Verschiedene `seedVal` → verschiedene Permutationen
+- **Unabhängig:** Verschiedene RNG-Initialisierung für EU vs BF (seed × 1 vs seed × 2)
+
+### Fairness-Garantie
+
+**Testresultate (6 Tage, 16 Personen):**
+
+| Seed | Work Days | HW Visits | Total |
+|------|-----------|-----------|-------|
+| 0 (Standard) | 1-5 (avg 3.38) | 1-4 (avg 2.75) | 54 |
+| 1 | 1-5 (avg 3.38) | 1-4 (avg 2.75) | 54 |
+| 5 | 1-5 (avg 3.38) | 1-4 (avg 2.75) | 54 |
+
+**Erkenntnis:** Alle Seeds erzeugen identische Fairness-Metriken, obwohl Day 1 völlig unterschiedlich ist. Das bedeutet:
+- **Seed 1 Day 1:** Klara, Jonas, Ole, Lena, Hugo, Ida auf Türme
+- **Seed 5 Day 1:** Frieda, Lena, Klara, Emil, Hugo, Greta auf Türme
+- **Beides:** Days 2-6 balancieren zu gleicher Gesamtfairness
+
+**Mechanismus:** Die akumulierten `stats` werden auf Days 2+ übertragen → der Scoring-Algorithmus sieht, dass (z.B.) Klara schon viel gearbeitet hat (weil sie auf Day 1 eingeplant war), und bevorzugt andere auf Day 2. Nach 6 Tagen konvergieren alle Seeds zu identischer Fairness-Spreizung.
+
+---
+
 ## XLSX-Export (export.js)
 
 **Strategie:** Template als ZIP laden (JSZip), nur `xl/worksheets/sheet1.xml` per Regex patchen → Styles/Farben/Bilder bleiben erhalten.
@@ -336,6 +401,7 @@ _updateSaveIndicator() + _updateTemplateStatus()
 | Konsekutiv-Regel (Feature 8) | `prevTowerSet` (Set der gestrigen Turm-Personen) 1× pro bestPair vorberechnet → +200/Person Penalty. Soft → weicht bei knapper Besetzung |
 | Metrik-Toggle (Feature 9) | `fairnessMetricsDisplay` Flags; Checkboxes in Sidebar; `syncMetricCheckboxes()` nach Import |
 | Tower-Stats (Feature 10) | `renderTowerStatsPerPerson()` Tabelle |
+| Seed-basierte Konstellationen (Feature 11) | `applySeedConstraints(seed)` mit Fisher-Yates Shuffle; alle Seeds → identische Gesamtfairness über alle Tage |
 | Variable Slot-Kapazität | `slotCount` pro Turm (1–10) / Boot (1–3) via Spinner; Algorithmus füllt `slotCount - vorbelegte` Plätze |
 | Reproduzierbarkeit | `seededRand()` – LCG-Zufallsgenerator, nur für Tag-1-Tiebreaker |
 | UU-Warnung | score +1000 wenn beide Unerfahren → nur als Notlösung |

@@ -59,9 +59,8 @@ function buildAssignments(dayIdx){
   d.assign.forEach(slot => {
     if(slot.kind==='tower' && slot.code)
       A[slot.code] = slot.occupants.map(p=>personNr(p.id)).filter(n=>n!=null);
-    else if(slot.kind==='boat' && slot.code && slot.bootsf){
-      const nr=personNr(slot.bootsf.id);
-      if(nr!=null) A[slot.code]=[nr];
+    else if(slot.kind==='boat' && slot.code && slot.occupants && slot.occupants.length > 0){
+      A[slot.code] = slot.occupants.map(p=>personNr(p.id)).filter(n=>n!=null);
     }
   });
   const main = d.assign.find(s=>s.kind==='main');
@@ -380,8 +379,8 @@ function exportCSV(){
         slot.sick.forEach(p       =>rows.push([dn,slot.tower,'','Zentrale','KRANK',p.name,ROLE[p.role]]));
       } else if(slot.kind==='tower'){
         slot.occupants.forEach(p  =>rows.push([dn,slot.tower,slot.code||'','Turm','Wachgänger',p.name,ROLE[p.role]]));
-      } else if(slot.kind==='boat'&&slot.bootsf){
-        rows.push([dn,slot.name,slot.code||'','Boot','Bootsführer',slot.bootsf.name,ROLE[slot.bootsf.role]]);
+      } else if(slot.kind==='boat' && slot.occupants && slot.occupants.length > 0){
+        slot.occupants.forEach(p  =>rows.push([dn,slot.name,slot.code||'','Boot','Bootsführer',p.name,ROLE[p.role]]));
       }
     });
     [...d.manualClosed,...d.personnelClosed].forEach(t=>rows.push([dn,t.name,t.code||'','Turm','GESCHLOSSEN','','']));
