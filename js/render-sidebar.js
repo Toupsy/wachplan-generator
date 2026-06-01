@@ -41,19 +41,24 @@ function renderTowerCfg(){
   autoCodes();
   const c = document.getElementById('tower-cfg');
   c.innerHTML = '';
-  towers.forEach(t => {
+  let dragSrcTower = null;
+
+  towers.forEach((t, i) => {
     const row = document.createElement('div');
     row.className = 'tower-row';
+    row.draggable = true;
+    row.dataset.idx = i;
     row.innerHTML = `
-      <input type="text" value="${escapeHtml(t.name)}" data-id="${t.id}" class="tname" placeholder="Turmname">
+      <span style="color:var(--text-dim);font-size:1rem;cursor:grab;user-select:none;padding-right:4px;flex-shrink:0" title="Ziehen zum Sortieren">⠿</span>
+      <input type="text" value="${escapeHtml(t.name)}" data-id="${t.id}" class="tname" placeholder="Turmname" draggable="false">
       <div class="tower-row-meta">
         <span class="code-input" title="Stationscode">
           <label>CODE</label>
-          <input type="text" value="${escapeHtml(t.code||'')}" data-id="${t.id}" class="tcode" placeholder="9/xx">
+          <input type="text" value="${escapeHtml(t.code||'')}" data-id="${t.id}" class="tcode" placeholder="9/xx" draggable="false">
         </span>
         <span class="prio-input">
           <label>PRIO</label>
-          <input type="number" min="1" value="${t.prio}" data-id="${t.id}" class="tprio">
+          <input type="number" min="1" value="${t.prio}" data-id="${t.id}" class="tprio" draggable="false">
         </span>
         <div class="slot-spinner">
           <button class="slot-btn slot-minus" data-id="${t.id}" data-type="tower">−</button>
@@ -62,6 +67,36 @@ function renderTowerCfg(){
         </div>
         <button class="mini-btn del-t" data-id="${t.id}">×</button>
       </div>`;
+
+    row.addEventListener('dragstart', e => {
+      dragSrcTower = i;
+      e.dataTransfer.effectAllowed = 'move';
+      setTimeout(() => row.style.opacity = '0.4', 0);
+    });
+    row.addEventListener('dragend', () => {
+      row.style.opacity = '';
+      c.querySelectorAll('.tower-row').forEach(r => r.style.background = '');
+    });
+    row.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      row.style.background = 'rgba(24,168,216,.15)';
+    });
+    row.addEventListener('dragleave', () => row.style.background = '');
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      row.style.background = '';
+      if(dragSrcTower === null || dragSrcTower === i) return;
+      // Insert: splice source raus, insert vor/nach target
+      const moved = towers.splice(dragSrcTower, 1)[0];
+      const targetIdx = dragSrcTower < i ? i - 1 : i;
+      towers.splice(targetIdx, 0, moved);
+      // Prio aus Position ableiten: oben = höchste Prio
+      towers.forEach((t, idx) => t.prio = towers.length - idx);
+      dragSrcTower = null;
+      generate(); renderTowerCfg();
+    });
+
     c.appendChild(row);
   });
   c.querySelectorAll('.tname').forEach(i =>
@@ -93,9 +128,13 @@ function renderBoatCfg(){
   const c = document.getElementById('boat-cfg');
   if(!c) return;
   c.innerHTML = '';
-  boats.forEach(b => {
+  let dragSrcBoat = null;
+
+  boats.forEach((b, i) => {
     const row = document.createElement('div');
     row.className = 'tower-row boat-row';
+    row.draggable = true;
+    row.dataset.idx = i;
     const towerOpts = ['<option value="">— frei —</option>',
       '<option value="HW" ' + (b.towerId==='HW'?'selected':'') + '>⛱ Hauptwache</option>',
     ].concat(
@@ -103,13 +142,14 @@ function renderBoatCfg(){
         `<option value="${t.id}" ${b.towerId===t.id?'selected':''}>→ ${escapeHtml(t.name)} (${escapeHtml(t.code||'?')})</option>`)
     ).join('');
     row.innerHTML = `
-      <input type="text" value="${escapeHtml(b.name)}" data-id="${b.id}" class="bname" placeholder="Bootname">
+      <span style="color:var(--text-dim);font-size:1rem;cursor:grab;user-select:none;padding-right:4px;flex-shrink:0" title="Ziehen zum Sortieren">⠿</span>
+      <input type="text" value="${escapeHtml(b.name)}" data-id="${b.id}" class="bname" placeholder="Bootname" draggable="false">
       <div class="tower-row-meta">
         <span class="code-input">
           <label>CODE</label>
-          <input type="text" value="${escapeHtml(b.code||'')}" data-id="${b.id}" class="bcode" placeholder="78/x">
+          <input type="text" value="${escapeHtml(b.code||'')}" data-id="${b.id}" class="bcode" placeholder="78/x" draggable="false">
         </span>
-        <select class="bassign" data-id="${b.id}" style="flex:1;min-width:0">${towerOpts}</select>
+        <select class="bassign" data-id="${b.id}" style="flex:1;min-width:0" draggable="false">${towerOpts}</select>
         <div class="slot-spinner">
           <button class="slot-btn slot-minus" data-id="${b.id}" data-type="boat">−</button>
           <span class="slot-display">${b.slotCount||1}</span>
@@ -117,6 +157,34 @@ function renderBoatCfg(){
         </div>
         <button class="mini-btn del-b" data-id="${b.id}">×</button>
       </div>`;
+
+    row.addEventListener('dragstart', e => {
+      dragSrcBoat = i;
+      e.dataTransfer.effectAllowed = 'move';
+      setTimeout(() => row.style.opacity = '0.4', 0);
+    });
+    row.addEventListener('dragend', () => {
+      row.style.opacity = '';
+      c.querySelectorAll('.boat-row').forEach(r => r.style.background = '');
+    });
+    row.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      row.style.background = 'rgba(24,168,216,.15)';
+    });
+    row.addEventListener('dragleave', () => row.style.background = '');
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      row.style.background = '';
+      if(dragSrcBoat === null || dragSrcBoat === i) return;
+      // Insert: splice source raus, insert vor/nach target
+      const moved = boats.splice(dragSrcBoat, 1)[0];
+      const targetIdx = dragSrcBoat < i ? i - 1 : i;
+      boats.splice(targetIdx, 0, moved);
+      dragSrcBoat = null;
+      generate(); renderBoatCfg();
+    });
+
     c.appendChild(row);
   });
   c.querySelectorAll('.bname').forEach(i => {
@@ -233,9 +301,10 @@ function renderExportColumnUI(){
       e.preventDefault();
       row.style.background = '';
       if(dragSrcIdx === null || dragSrcIdx === i) return;
-      const tmp = exportColumns[dragSrcIdx];
-      exportColumns[dragSrcIdx] = exportColumns[i];
-      exportColumns[i] = tmp;
+      // Insert statt Swap: splice source raus, insert vor target
+      const item = exportColumns.splice(dragSrcIdx, 1)[0];
+      const targetIdx = dragSrcIdx < i ? i - 1 : i;
+      exportColumns.splice(targetIdx, 0, item);
       dragSrcIdx = null;
       renderExportColumnUI();
     });

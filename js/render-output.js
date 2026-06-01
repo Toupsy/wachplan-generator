@@ -211,7 +211,7 @@ function renderOutput(){
       // ─ Turm ─
       else if(slot.kind === 'tower'){
         html += `<div class="tower-card" data-drop-kind="tower" data-drop-slot="${slot.towerId}">
-          <div class="tc-head"><span class="tc-name">🗼 ${escapeHtml(slot.tower)}</span><span class="tc-type normal">Turm · ${escapeHtml(slot.code||'?')} · P${slot.prio}</span></div>
+          <div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="tower" data-card-slot="${slot.towerId}" title="Zum Sortieren ziehen"><span class="tc-name">🗼 ${escapeHtml(slot.tower)}</span><span class="tc-type normal">Turm · ${escapeHtml(slot.code||'?')} · P${slot.prio}</span></div>
           ${slot.occupants.map(p=>`
             <div class="occupant" draggable="true" data-person-id="${p.id}" data-source-kind="tower" data-source-slot="${slot.towerId}">
               <i class="role-dot rd-${p.role.toLowerCase()}"></i>${escapeHtml(p.name)}
@@ -226,7 +226,7 @@ function renderOutput(){
       // ─ Boot ─
       else if(slot.kind === 'boat'){
         html += `<div class="tower-card boot" data-drop-kind="boat" data-drop-slot="${slot.boatId}">
-          <div class="tc-head"><span class="tc-name">🚤 ${escapeHtml(slot.name)}</span><span class="tc-type boot">Boot · ${escapeHtml(slot.code||'?')}</span></div>
+          <div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="boat" data-card-slot="${slot.boatId}" title="Zum Sortieren ziehen"><span class="tc-name">🚤 ${escapeHtml(slot.name)}</span><span class="tc-type boot">Boot · ${escapeHtml(slot.code||'?')}</span></div>
           <div class="boat-link">→ ${escapeHtml(slot.towerName)}</div>
           ${slot.occupants.map(p=>`
             <div class="occupant" draggable="true" data-person-id="${p.id}" data-source-kind="boat" data-source-slot="${slot.boatId}">
@@ -240,10 +240,10 @@ function renderOutput(){
       }
     });
 
-    // Geschlossene Türme & Boote
+    // Geschlossene Türme & Boote (mit data-drop für Override)
     [...d.manualClosed,...d.personnelClosed].forEach(t => {
       const reason = d.manualClosed.includes(t)?'manuell geschlossen':'Personalmangel';
-      html += `<div class="tower-card closed"><div class="tc-head"><span class="tc-name">🗼 ${escapeHtml(t.name)}</span><span class="tc-type closed">zu</span></div><div style="color:var(--text-dim);font-size:.82rem;padding:8px 0">${reason}</div></div>`;
+      html += `<div class="tower-card closed" data-drop-kind="tower" data-drop-slot="${t.id}" data-closed-override="true"><div class="tc-head"><span class="tc-name">🗼 ${escapeHtml(t.name)}</span><span class="tc-type closed">zu</span></div><div style="color:var(--text-dim);font-size:.82rem;padding:8px 0">${reason}</div></div>`;
     });
     [...d.boatsManualClosed,...d.boatsClosedTower,...d.boatsNoBootsf].forEach(b => {
       const reason = d.boatsManualClosed.includes(b)?'manuell außer Dienst':d.boatsClosedTower.includes(b)?'Turm zu':'kein Bootsführer';
@@ -306,30 +306,55 @@ function renderOutput(){
       generate();
     });
 
+  // ── Card-Sortierung (kosmetisch) ──────────────────────────────────────
+  // Stores die aktuelle Anzeige-Reihenfolge pro Tag (visuell nur, ändert nichts an Daten)
+  const cardSortOrder = {}; // cardSortOrder[dayIdx] = [idx0, idx1, ...]
+  if(!lastResult) window.cardSortOrder = cardSortOrder;
+
   // ── Drag-and-Drop Event Handler ───────────────────────────────────
   // Wichtig: AKTIVES Panel-Grid nehmen, nicht das erste im DOM (das wäre Tag 1)
   const grid = panel.querySelector(`.day-panel[data-panel="${activeDay}"] .towers-grid`);
   let dragSrc = null;
+  let dragCardSrc = null;  // Für Card-zu-Card Sortierung
 
   grid.addEventListener('dragstart', e => {
+    // Option 1: Person drag
     const occ = e.target.closest('.occupant');
-    if(!occ) return;
-    // Slot normalisieren: 0 für MAIN_ID (Hauptwache), sonst echte ID
-    dragSrc = {
-      personId: +occ.dataset.personId,
-      kind: occ.dataset.sourceKind,
-      slot: +occ.dataset.sourceSlot || 0
-    };
-    occ.style.opacity = '0.4';
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', dragSrc.personId);
+    if(occ) {
+      dragSrc = {
+        personId: +occ.dataset.personId,
+        kind: occ.dataset.sourceKind,
+        slot: +occ.dataset.sourceSlot || 0
+      };
+      occ.style.opacity = '0.4';
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', dragSrc.personId);
+      return;
+    }
+
+    // Option 2: Card-Head drag (für Sortierung)
+    const head = e.target.closest('.tc-head');
+    if(head && head.dataset.cardKind) {
+      dragCardSrc = {
+        kind: head.dataset.cardKind,
+        slot: head.dataset.cardSlot
+      };
+      head.style.opacity = '0.5';
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', `card-${dragCardSrc.kind}-${dragCardSrc.slot}`);
+    }
   });
 
   grid.addEventListener('dragover', e => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     const card = e.target.closest('.tower-card');
-    if(card && !card.classList.contains('closed')) {
+    if(!card) return;
+    if(card.dataset.closedOverride) {
+      // Geschlossener Turm: orange Highlight als Hinweis auf Override
+      card.style.backgroundColor = 'rgba(255,165,0,0.15)';
+      card.style.borderColor = 'var(--warn)';
+    } else if(!card.classList.contains('closed')) {
       card.style.backgroundColor = 'rgba(24,168,216,0.15)';
       card.style.borderColor = 'var(--sea-bright)';
     }
@@ -346,7 +371,23 @@ function renderOutput(){
   grid.addEventListener('drop', e => {
     e.preventDefault();
     const card = e.target.closest('.tower-card');
-    if(!card || !dragSrc) return;
+    if(!card) return;
+
+    // Prüfe ob Card-Sortierung (nur wenn dragCardSrc gesetzt, nicht dragSrc)
+    if(dragCardSrc && dragCardSrc.kind && dragCardSrc.kind === card.dataset.dropKind) {
+      // Card-Sortierung: DOM-Reordering (Insert vor Ziel-Card)
+      const srcCard = grid.querySelector(`[data-card-slot="${dragCardSrc.slot}"]`)?.closest('.tower-card');
+      if(srcCard && srcCard !== card) {
+        // Entferne srcCard aus DOM und füge vor card ein
+        srcCard.remove();
+        card.parentNode.insertBefore(srcCard, card);
+      }
+      dragCardSrc = null;
+      grid.querySelectorAll('.tower-card').forEach(c => { c.style.backgroundColor = ''; c.style.borderColor = ''; });
+      return;
+    }
+
+    if(!dragSrc) return;
 
     const targetKind = card.dataset.dropKind;
     const targetSlot = +card.dataset.dropSlot;
@@ -360,10 +401,58 @@ function renderOutput(){
 
     const clearCard = () => { card.style.backgroundColor = ''; card.style.borderColor = ''; };
 
-    // Validierung: Nicht in geschlossene Türme
-    if(card.classList.contains('closed')) {
-      showToast('⚠️ Kann nicht zu geschlossenen Türmen/Booten verschoben werden');
-      clearCard();
+    // Geschlossener Turm: Direkte Modifikation + optional Neuberechnung
+    if(card.dataset.closedOverride) {
+      const towerId = +card.dataset.dropSlot;
+      const tower = getT(towerId);
+      const person = getP(srcPersonId);
+
+      const confirmMsg = `🔒 Turm "${tower?.name || '?'}" ist geschlossen. Für heute öffnen und ${person?.name || 'Person'} dorthin verschieben?`;
+
+      showConfirmation(
+        confirmMsg,
+        (recalcFuture) => {
+          const oldBefore = lastResult.schedule.slice(0, activeDay).map(d => JSON.parse(JSON.stringify(d)));
+          const dayData = lastResult.schedule[activeDay];
+
+          // 1. Turm öffnen (aus closed entfernen)
+          dayState[activeDay].closed.delete(towerId);
+
+          // 2. Wenn Turm KEINEN Slot in assign hat (weil er geschlossen war), einen erstellen
+          const existingSlot = dayData.assign.find(s => s.kind === 'tower' && s.towerId === towerId);
+          if(!existingSlot) {
+            const towerObj = getT(towerId);
+            dayData.assign.push({
+              kind: 'tower',
+              towerId: towerId,
+              tower: towerObj?.name || `Turm ${towerId}`,
+              code: towerObj?.code || '?',
+              prio: towerObj?.prio || 99,
+              occupants: [],
+              warn: null
+            });
+          }
+
+          // 3. Person direkt ins Schedule einfügen
+          _applyMoveToSchedule(srcPersonId, activeDay, 'tower', towerId);
+
+          if(recalcFuture) {
+            // Case 2: Folgetage neu berechnen
+            _applyMove(srcPersonId, activeDay, 'tower', towerId, true);
+            const newFuture = lastResult.schedule.slice(activeDay + 1);
+            generate(activeDay + 1);
+            // Falls generate() die bereits geöffneten Türme vergessen hat, vorher sichern
+          } else {
+            // Case 1: Nur transparent, kein generate
+            _applyMove(srcPersonId, activeDay, 'tower', towerId, false);
+          }
+
+          renderOutput();
+          clearCard();
+        },
+        clearCard,
+        true  // Checkbox: "Folgetage neu berechnen"
+      );
       return;
     }
 
@@ -406,7 +495,12 @@ function renderOutput(){
   grid.addEventListener('dragend', e => {
     const occ = e.target.closest('.occupant');
     if(occ) occ.style.opacity = '';
+
+    const head = e.target.closest('.tc-head');
+    if(head) head.style.opacity = '';
+
     dragSrc = null;
+    dragCardSrc = null;
   });
 
   document.getElementById('btn-csv').onclick   = exportCSV;
