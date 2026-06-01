@@ -5,7 +5,62 @@
 /** Rendert den kompletten Ausgabe-Bereich neu. */
 function renderOutput(){
   const panel = document.getElementById('output-panel');
-  const { schedule } = lastResult;
+  let { schedule } = lastResult;
+
+  // ── Wende transparent placements visuell an (ohne generate()) ────
+  // Für Case 1: Personen VISUELL verschieben, aber Plan bleibt unverändert
+  schedule = schedule.map((day, dayIdx) => {
+    const dayForcedTransparent = (forcedPlacements[dayIdx] || []).filter(f => f.transparent);
+    if(dayForcedTransparent.length === 0) return day;
+
+    // Kopiere den Day, damit original unverändert bleibt
+    const dayClone = JSON.parse(JSON.stringify(day));
+
+    dayForcedTransparent.forEach(f => {
+      const person = people.find(p => p.id === f.personId);
+      if(!person) return;
+
+      // Entferne Person aus natürlichem Slot
+      dayClone.assign.forEach(slot => {
+        if(slot.kind === 'tower')
+          slot.occupants = slot.occupants.filter(p => p.id !== f.personId);
+        else if(slot.kind === 'boat'){
+          slot.occupants = slot.occupants.filter(p => p.id !== f.personId);
+          if(slot.occupants.length > 0) slot.bootsf = slot.occupants[0];
+          else slot.bootsf = null;
+        }
+        else if(slot.kind === 'main'){
+          slot.fuehrung = slot.fuehrung.filter(p => p.id !== f.personId);
+          slot.mainGuards = slot.mainGuards.filter(p => p.id !== f.personId);
+          slot.base = slot.base.filter(p => p.id !== f.personId);
+          slot.bootsfLeft = slot.bootsfLeft.filter(p => p.id !== f.personId);
+          if(slot.hwBoatSlot?.bootsf?.id === f.personId) slot.hwBoatSlot.bootsf = null;
+        }
+      });
+
+      // Füge in Zielslot ein
+      if(f.kind === 'tower'){
+        const s = dayClone.assign.find(s => s.kind === 'tower' && s.towerId === f.slotId);
+        if(s) s.occupants.push(person);
+      } else if(f.kind === 'boat'){
+        const s = dayClone.assign.find(s => s.kind === 'boat' && s.boatId === f.slotId);
+        if(s){
+          s.occupants.push(person);
+          s.bootsf = s.occupants[0];
+        }
+      } else if(f.kind === 'hwboat'){
+        const main = dayClone.assign.find(s => s.kind === 'main');
+        if(main?.hwBoatSlot && main.hwBoatSlot.boatId === f.slotId){
+          main.hwBoatSlot.bootsf = person;
+        }
+      } else if(f.kind === 'main'){
+        const main = dayClone.assign.find(s => s.kind === 'main');
+        if(main) main.base.push(person);
+      }
+    });
+
+    return dayClone;
+  });
 
   // ── Globale Statistiken ────────────────────────────────────────
   const allPairs    = Object.entries(lastResult.pairCount);
@@ -329,31 +384,13 @@ function renderOutput(){
     showConfirmation(
       confirmMsg,
       (recalcFuture) => {
-        // Für Case 1 (transparent): Speichere Original-Plan BEVOR Changes
-        let originalSchedule = null;
-        let originalStats = null;
-        if(!recalcFuture && lastResult){
-          originalSchedule = lastResult.schedule.map(d => JSON.parse(JSON.stringify(d)));
-          originalStats = JSON.parse(JSON.stringify(lastResult.stats));
-        }
-
         _applyMove(srcPersonId, activeDay, targetKind, targetSlot, recalcFuture);
 
-        // Rufe generate() auf
-        generate();
-
-        // Für Case 1 (transparent): Ersetze Folgetage mit Original, aber behalte Tag heute
-        if(!recalcFuture && originalSchedule && originalStats){
-          // Behalte nur Tag activeDay vom neuen Plan
-          const newDaySchedule = lastResult.schedule[activeDay];
-
-          // Restore alten Plan
-          lastResult.schedule = originalSchedule;
-          lastResult.stats = originalStats;
-
-          // Aber ersetze Tag activeDay mit neuem (mit visueller Änderung)
-          lastResult.schedule[activeDay] = newDaySchedule;
+        if(recalcFuture){
+          // Case 2: MIT Haken = generate() mit neuen forcedPlacements
+          generate();
         }
+        // Case 1: OHNE Haken = renderOutput() wendet transparent placements visuell an (ohne generate!)
 
         renderOutput();
         clearCard();

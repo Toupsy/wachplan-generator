@@ -65,34 +65,20 @@ function openMoveModal(personId, dayIdx, fromKind, fromSlotId){
     const target       = JSON.parse(slotSel.value);
     const forwardScope = scopeChk?.checked ?? false;
 
-    // Für Case 1 (transparent): Speichere Original-Plan BEVOR Changes
-    let originalSchedule = null;
-    let originalStats = null;
-    if(!forwardScope && lastResult){
-      originalSchedule = lastResult.schedule.map(d => JSON.parse(JSON.stringify(d)));
-      originalStats = JSON.parse(JSON.stringify(lastResult.stats));
-    }
-
-    _applyMove(personId, dayIdx, target.kind, target.slotId, forwardScope);
     closeMoveModal();
 
-    // Rufe generate() auf
-    generate();
-
-    // Für Case 1 (transparent): Ersetze Folgetage mit Original, aber behalte Tag heute
-    if(!forwardScope && originalSchedule && originalStats){
-      // Behalte nur Tag dayIdx vom neuen Plan
-      const newDaySchedule = lastResult.schedule[dayIdx];
-
-      // Restore alten Plan
-      lastResult.schedule = originalSchedule;
-      lastResult.stats = originalStats;
-
-      // Aber ersetze Tag dayIdx mit neuem (mit visueller Änderung)
-      lastResult.schedule[dayIdx] = newDaySchedule;
+    if(forwardScope){
+      // ✓ Case 2: MIT Haken = Effektive Änderung, ganze Woche neu berechnen
+      _applyMove(personId, dayIdx, target.kind, target.slotId, true);
+      generate();
+      renderOutput();
+    } else {
+      // ✓ Case 1: OHNE Haken = Visual-Only (kein generate!)
+      // Verschiebe Person NUR VISUELL in renderOutput, plan bleibt unverändert
+      _applyMove(personId, dayIdx, target.kind, target.slotId, false);
+      // generate() NICHT aufrufen! Nur renderOutput mit visual move
+      renderOutput();
     }
-
-    renderOutput();
   };
 
   overlay.style.display = 'flex';
