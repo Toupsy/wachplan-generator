@@ -434,6 +434,23 @@ function generate(){
 
   // Calculate fairness metrics
   const allStats = Object.values(stats);
+
+  // Tower distribution: count unique towers per person
+  const towerDistribution = {};
+  people.forEach(p => {
+    const stat = stats[p.id];
+    if(stat && stat.towerVisits) {
+      towerDistribution[p.id] = Object.keys(stat.towerVisits).length;
+    } else {
+      towerDistribution[p.id] = 0;
+    }
+  });
+
+  const avgUniqueTowers = allStats.length > 0
+    ? (Object.values(towerDistribution).reduce((a,b) => a+b, 0) / allStats.length).toFixed(1)
+    : 0;
+  const minUniqueTowers = Math.min(...Object.values(towerDistribution), 0);
+
   const avgHwVisits = allStats.length > 0
     ? (allStats.reduce((sum, s) => sum + (s.hwVisits || 0), 0) / allStats.length).toFixed(1)
     : 0;
@@ -473,7 +490,12 @@ function generate(){
         maxTowerWithBoatDays,
         isBalanced: Math.abs(parseFloat(avgHwVisits) - parseFloat(avgTowerWithBoatDays)) < 1.5
       },
-      boatPairingDiversity
+      boatPairingDiversity,
+      towerDistribution: {
+        avgUniqueTowers: parseFloat(avgUniqueTowers),
+        minUniqueTowers,
+        distribution: towerDistribution
+      }
     }
   };
   if(activeDay >= DAYS) activeDay = 0;
