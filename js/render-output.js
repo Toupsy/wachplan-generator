@@ -21,8 +21,10 @@ function renderOutput(){
   // NEW: Fairness metrics
   const hwBalance = lastResult.fairnessMetrics?.hwBalance || {};
   const boatDiversity = lastResult.fairnessMetrics?.boatPairingDiversity || {};
+  const towerDist = lastResult.fairnessMetrics?.towerDistribution || {};
   const hwBalanceColor = hwBalance.isBalanced ? 'var(--green)' : 'var(--warn)';
   const boatDiversityColor = boatDiversity.maxRepeats <= 2 ? 'var(--green)' : 'var(--warn)';
+  const towerDistColor = towerDist.minUniqueTowers >= towers.length * 0.5 ? 'var(--green)' : 'var(--warn)';
 
   // ── Kopfbereich ────────────────────────────────────────────────
   let html = `
@@ -49,8 +51,9 @@ function renderOutput(){
       <div class="stat"><div class="num" style="color:${repeatedPairs?'var(--warn)':'var(--green)'}">${repeatedPairs}</div><div class="lbl">Paar-Wiederholungen</div></div>
       <div class="stat"><div class="num" style="color:${uuTotal?'var(--coral)':'var(--green)'}">${uuTotal}</div><div class="lbl">U+U Besetzungen</div></div>
       <div class="stat"><div class="num" style="color:${repeatTowers?'var(--coral)':'var(--green)'}">${repeatTowers}</div><div class="lbl">Turm &gt;2× gleich</div></div>
-      <div class="stat"><div class="num" style="color:${hwBalanceColor}">${hwBalance.avgHwVisits||0} | ${hwBalance.avgTowerWithBoatDays||0}</div><div class="lbl">🏠 HW-Tage | ⛵ Boot-Turm</div></div>
-      <div class="stat"><div class="num" style="color:${boatDiversityColor}">${boatDiversity.diversePercent||0}%</div><div class="lbl">👥 Boot-Paarungen einzigartig</div></div>
+      ${fairnessMetricsDisplay.hwBoatBalance ? `<div class="stat"><div class="num" style="color:${hwBalanceColor}">${hwBalance.avgHwVisits||0} | ${hwBalance.avgTowerWithBoatDays||0}</div><div class="lbl">🏠 HW | ⛵ Boot-Turm</div></div>` : ''}
+      ${fairnessMetricsDisplay.towerDistribution ? `<div class="stat"><div class="num" style="color:${towerDistColor}">${towerDist.avgUniqueTowers||0}</div><div class="lbl">📍 Ø verschiedene Türme</div></div>` : ''}
+      ${fairnessMetricsDisplay.boatPairingDiversity ? `<div class="stat"><div class="num" style="color:${boatDiversityColor}">${boatDiversity.diversePercent||0}%</div><div class="lbl">👥 Boot-Paare unique</div></div>` : ''}
     </div>`;
 
   // ── Tages-Panels ──────────────────────────────────────────────
@@ -194,6 +197,7 @@ function renderOutput(){
     html += `</div></div>`;
   });
 
+  html += renderTowerStatsPerPerson();
   html += renderMatrix();
   panel.innerHTML = html;
 
@@ -297,23 +301,6 @@ function renderOutput(){
       return;
     }
 
-    // Validierung: Bootsführer nur zu Booten
-    const p = getP(dragSrc.personId);
-    if((targetKind === 'boat' || targetKind === 'hwboat') && p && p.role !== 'B') {
-      const clearCard = () => { card.style.backgroundColor = ''; card.style.borderColor = ''; };
-      showConfirmation(
-        `${p.name} ist ${ROLE[p.role]}, nicht Bootsführer. Trotzdem zum Boot verschieben?`,
-        (recalcFuture) => {
-          _applyMove(dragSrc.personId, activeDay, targetKind, targetSlot, recalcFuture);
-          generate();
-          clearCard();
-        },
-        clearCard,
-        true  // showRecalcCheckbox
-      );
-      return;
-    }
-
     // Verhindern von Drop in denselben Slot
     if(dragSrc.kind === targetKind && dragSrc.slot === targetSlot) {
       card.style.backgroundColor = '';
@@ -321,11 +308,27 @@ function renderOutput(){
       return;
     }
 
-    // Verschiebung anwenden
-    _applyMove(dragSrc.personId, activeDay, targetKind, targetSlot, false);
-    generate();
-    card.style.backgroundColor = '';
-    card.style.borderColor = '';
+    // Validierung: Bootsführer nur zu Booten
+    const p = getP(dragSrc.personId);
+    const isBoatTarget = (targetKind === 'boat' || targetKind === 'hwboat');
+    const isRoleViolation = isBoatTarget && p && p.role !== 'B';
+
+    // Modal mit Checkbox für ALLE Verschiebungen
+    const clearCard = () => { card.style.backgroundColor = ''; card.style.borderColor = ''; };
+    const confirmMsg = isRoleViolation
+      ? `${p.name} ist ${ROLE[p.role]}, nicht Bootsführer. Trotzdem zum Boot verschieben?`
+      : `Verschiebe ${p?.name || 'Person'} zu ${card.dataset.dropKind}?`;
+
+    showConfirmation(
+      confirmMsg,
+      (recalcFuture) => {
+        _applyMove(dragSrc.personId, activeDay, targetKind, targetSlot, recalcFuture);
+        generate();
+        clearCard();
+      },
+      clearCard,
+      true  // showRecalcCheckbox - IMMER anzeigen
+    );
   });
 
   grid.addEventListener('dragend', e => {
@@ -338,6 +341,30 @@ function renderOutput(){
   document.getElementById('btn-print').onclick = () => window.print();
   const bo = document.getElementById('btn-official');
   if(bo) bo.onclick = () => exportOfficial(activeDay);
+}
+
+/** Tower-Einsatzverteilung pro Person */
+function renderTowerStatsPerPerson(){
+  if(!lastResult?.stats) return '';
+  const tMap = {}; towers.forEach(t => tMap[t.id] = t);
+  const threshold = towers.length * 0.5;
+  let html = '<div class="section-label" style="margin-top:30px;">Turm-Einsatzverteilung pro Person</div>';
+  html += '<div style="font-size:.85rem;overflow-x:auto"><table style="width:100%;border-collapse:collapse">';
+  html += '<tr style="border-bottom:1px solid var(--line)"><th style="text-align:left;padding:6px;font-weight:bold">Person</th>';
+  html += '<th style="text-align:center;padding:6px;font-weight:bold">Gesamt</th><th style="text-align:center;padding:6px;font-weight:bold">Türme</th>';
+  html += '<th style="text-align:left;padding:6px;font-weight:bold">Details</th></tr>';
+  people.forEach(p => {
+    const stat = lastResult.stats[p.id];
+    if(!stat) return;
+    const cnt = Object.keys(stat.towerVisits||{}).length;
+    const deets = Object.entries(stat.towerVisits||{}).sort(([a],[b])=>(tMap[b]?.prio||0)-(tMap[a]?.prio||0))
+      .map(([tid,c])=>(tMap[tid]?.name||`T${tid}`)+'('+c+')').join(', ');
+    html += `<tr style="border-bottom:1px solid var(--line-strong)"><td style="padding:6px">${escapeHtml(p.name)}</td>`;
+    html += `<td style="text-align:center;padding:6px">${stat.total}</td><td style="text-align:center;padding:6px;color:${cnt>=threshold?'var(--green)':'var(--warn)'};font-weight:bold">${cnt}</td>`;
+    html += `<td style="padding:6px;font-size:.75rem;color:var(--text-dim)">${escapeHtml(deets)}</td></tr>`;
+  });
+  html += '</table></div>';
+  return html;
 }
 
 /** Paarungs-Matrix. */

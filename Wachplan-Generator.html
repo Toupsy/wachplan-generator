@@ -305,6 +305,24 @@
         <button class="add-btn" id="btn-auto-export-cols" style="margin-bottom:8px">↺ Automatisch aus Türmen &amp; Booten befüllen</button>
         <div id="export-col-fields"></div>
 
+        <!-- Fairness-Metriken Anzeige -->
+        <div class="section-label" style="margin-top:18px;">Fairness-Metriken</div>
+        <div class="info-box">Wähle welche Balance-Metriken in der Statistik angezeigt werden.</div>
+        <div style="display:flex;flex-direction:column;gap:8px;padding:8px">
+          <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:.9rem">
+            <input type="checkbox" id="metric-hw-balance" checked>
+            <span>🏠 HW-Tage vs Boot-Turm Balance</span>
+          </label>
+          <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:.9rem">
+            <input type="checkbox" id="metric-tower-dist" checked>
+            <span>📍 Durchschnitt verschiedene Türme</span>
+          </label>
+          <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:.9rem">
+            <input type="checkbox" id="metric-boat-pairing" checked>
+            <span>👥 Boot-Paarungen Vielfalt</span>
+          </label>
+        </div>
+
         <!-- Datum & Generierung -->
         <div class="section-label" style="margin-top:18px;">Datum &amp; Tageanzahl</div>
         <div class="start-date-cfg">

@@ -29,6 +29,13 @@ let forcedPlacements = [];
 // Entsprechen den Zellen C11, C13, C15, C17, C19 im DLRG-Formular
 let positionDescriptions = { 3:'', 4:'', 5:'', 6:'', 7:'' };
 
+// Fairness-Metriken Einstellungen
+let fairnessMetricsDisplay = {
+  hwBoatBalance: true,      // Zeige HW-Tage | Boot-Turm Balance
+  towerDistribution: true,  // Zeige Durchschnitt verschiedene Türme
+  boatPairingDiversity: true
+};
+
 // XLSX-Stationsspalten: 16 Einträge, jeder ein Stations-Code (oder '') für die
 // Template-Spalten U, AA, AG, AM, AS, AY, BE, BK, BQ, BW, CC, CI, CO, CU, DM, DS
 // Leer ('') = Spalte bleibt im Export unbeschriftet
