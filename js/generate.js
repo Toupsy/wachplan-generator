@@ -106,7 +106,8 @@ function generate(){
         if(!forcedByTower[f.slotId]) forcedByTower[f.slotId] = [];
         if(forcedByTower[f.slotId].length < 2) forcedByTower[f.slotId].push(p);
       } else if(f.kind === 'boat'){
-        if(!forcedByBoat[f.slotId]) forcedByBoat[f.slotId] = p;
+        if(!forcedByBoat[f.slotId]) forcedByBoat[f.slotId] = [];
+        forcedByBoat[f.slotId].push(p);  // Boot kann auch mehrere Plätze haben (slotCount)
       } else if(f.kind === 'main'){
         forcedForMain.push(p);
       }
@@ -379,8 +380,10 @@ function generate(){
         bootsf:null,
       };
       // Zwangszuweisung für dieses Boot?
-      const forceForThisBoat = forcedByBoat[bo.id];
-      if(forceForThisBoat){
+      const forcedArray = forcedByBoat[bo.id];
+      if(forcedArray && forcedArray.length > 0){
+        // Letzte forcierte Person verwendet (neueste Zuweisung überschreibt)
+        const forceForThisBoat = forcedArray[forcedArray.length - 1];
         slot.bootsf = forceForThisBoat;
         const s = ensure(forceForThisBoat.id);
         s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id]||0)+1;
@@ -434,8 +437,10 @@ function generate(){
         hwBoatSlot = {
           kind:'hwboat', boatId:bo.id, name:bo.name, code:bo.code, bootsf:null,
         };
-        const forceHW = forcedByBoat[bo.id];
-        if(forceHW){
+        const forcedArray = forcedByBoat[bo.id];
+        if(forcedArray && forcedArray.length > 0){
+          // Letzte forcierte Person für HW-Boot
+          const forceHW = forcedArray[forcedArray.length - 1];
           hwBoatSlot.bootsf = forceHW;
           const s = ensure(forceHW.id);
           s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id]||0)+1;
