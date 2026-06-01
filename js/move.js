@@ -203,6 +203,8 @@ function showConfirmation(message, onConfirm, onCancel, showRecalcCheckbox) {
   // Alte Handler entfernen um keine Duplikate
   proceedBtn.onclick = null;
   cancelBtn.onclick = null;
+  const closeBtn = document.getElementById('confirm-modal-close-btn');
+  if(closeBtn) closeBtn.onclick = null;
 
   proceedBtn.onclick = () => {
     const recalcFuture = checkbox?.checked ?? false;
@@ -210,10 +212,12 @@ function showConfirmation(message, onConfirm, onCancel, showRecalcCheckbox) {
     if(onConfirm) onConfirm(recalcFuture);
   };
 
-  cancelBtn.onclick = () => {
+  const closeFn = () => {
     modal.style.display = 'none';
     if(onCancel) onCancel();
   };
+  cancelBtn.onclick = closeFn;
+  if(closeBtn) closeBtn.onclick = closeFn;
 
   modal.style.display = 'flex';
 }
