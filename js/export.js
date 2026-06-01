@@ -49,11 +49,7 @@ function excelSerial(iso){
   return Math.round((Date.UTC(y,m-1,d)-Date.UTC(1899,11,30))/86400000);
 }
 
-/** 1-basierte Nummer einer Person (für Zelleinträge im Stundenraster) */
-function personNr(id){
-  const i = people.findIndex(p => p.id === id);
-  return i < 0 ? null : i + 1;
-}
+// personNr() ist in utils.js definiert (wird vor export.js geladen).
 
 /** Besetzungsdaten für einen Tag aufbereiten. Türme: alle Besatzer (Overflow inline).
  *  WF/HW: mit/ohne WF2/HW2 – split oder overflow. Kranke in HW-Liste. */

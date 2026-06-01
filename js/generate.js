@@ -34,14 +34,14 @@ function generate(){
   const schedule = [];
   const k = Math.max(0, mainK | 0);
 
-  // Türme, an denen (für einen bestimmten Tag) ein aktives Boot liegt
-  function towerHasActiveBoat(towerId, ds){
-    return boats.some(b => b.towerId === towerId && !ds.closedBoats.has(b.id));
-  }
-
   for(let d = 0; d < DAYS; d++){
     const ds     = dayState[d];
     const isSick = id => ds.sick.has(id);
+
+    // Türme mit aktivem Boot für DIESEN Tag einmalig vorberechnen (statt pro Lookup über boats zu iterieren)
+    const activeBoatTowers = new Set();
+    boats.forEach(b => { if(b.towerId && b.towerId !== 'HW' && !ds.closedBoats.has(b.id)) activeBoatTowers.add(b.towerId); });
+    const towerHasActiveBoat = towerId => activeBoatTowers.has(towerId);
 
     // ── Zwangszuweisungen für diesen Tag vorbereiten ──────────────
     const dayForced = (forcedPlacements[d] || []).filter(f => {
@@ -158,49 +158,46 @@ function generate(){
     function surplusBFPenalty(candidate, tower){
       if(!poolSBF.some(x => x.id === candidate.id)) return 0;
       if(!tower || tower.id === MAIN_ID) return 0;
-      return towerHasActiveBoat(tower.id, ds) ? 800 : 0;
-    }
-
-    // Feature: Consecutive day penalty – prevent same person on same tower on consecutive days
-    function checkConsecutiveTowerPenalty(personA, personB, towerId, currentDay){
-      if(currentDay === 0 || !schedule[currentDay-1]) return 0;
-      const slot = schedule[currentDay-1].assign.find(s => s.kind==='tower' && s.towerId===towerId);
-      if(!slot) return 0;
-      let p = 0;
-      if(slot.occupants.some(x => x.id === personA.id)) p += 200;
-      if(slot.occupants.some(x => x.id === personB.id)) p += 200;
-      return p;
+      return towerHasActiveBoat(tower.id) ? 800 : 0;
     }
 
     function bestPair(t, requireMix, currentDay){
-      const cand = getGuardPool();
+      const cand   = getGuardPool();
+      const isMain = t.id === MAIN_ID;
       let best = null, bestScore = Infinity;
+      // Feature 8: Personen die GESTERN auf diesem Turm waren einmalig vorberechnen
+      // (statt pro Paar erneut den Vortag zu durchsuchen → O(n²·m) ⇒ O(m + n²))
+      let prevTowerSet = null;
+      if(!isMain && currentDay > 0 && schedule[currentDay-1]){
+        const slot = schedule[currentDay-1].assign.find(s => s.kind==='tower' && s.towerId===t.id);
+        if(slot) prevTowerSet = new Set(slot.occupants.map(p => p.id));
+      }
       for(let i = 0; i < cand.length; i++){
         for(let j = i + 1; j < cand.length; j++){
           const A = cand[i], B = cand[j], roles = A.role + B.role;
+          const sA = ensure(A.id), sB = ensure(B.id);
           let score = 0;
           if(requireMix){
             if(roles === 'UU') score += 1000;
             else if(roles === 'EE') score += 40;
           }
           score += (pairCount[pairKey(A.id, B.id)] || 0) * 120;
-          const vA = ensure(A.id).towerVisits[t.id] || 0;
-          const vB = ensure(B.id).towerVisits[t.id] || 0;
+          const vA = sA.towerVisits[t.id] || 0;
+          const vB = sB.towerVisits[t.id] || 0;
           score += vA >= 2 ? 300 : vA * 30;
           score += vB >= 2 ? 300 : vB * 30;
-          score += (stats[A.id].total + stats[B.id].total) * 5;
+          score += (sA.total + sB.total) * 5;
           score += surplusBFPenalty(A, t) + surplusBFPenalty(B, t);
-          // Feature: Consecutive day penalty – prevent same person on same tower
-          if(t.id !== MAIN_ID){
-            score += checkConsecutiveTowerPenalty(A, B, t.id, currentDay);
-          }
-          // NEW: Tower+Boat balance penalty – prefer variety
-          const hiBothBoat = (ensure(A.id).towerWithBoatDays > 2 && ensure(B.id).towerWithBoatDays > 2);
-          score += hiBothBoat ? 150 : 0;
-          // NEW: HW balance bonus – if assigning to tower and people have many HW days, prefer this
-          if(t.id !== MAIN_ID){
-            const hiHwA = (ensure(A.id).hwVisits > 2), hiHwB = (ensure(B.id).hwVisits > 2);
-            if(hiHwA || hiHwB) score -= 50;  // Bonus (negative penalty) for people with high HW days
+          if(!isMain){
+            // Feature 8: Konsekutive Tage auf gleichem Turm bestrafen (+200 pro Person)
+            if(prevTowerSet){
+              if(prevTowerSet.has(A.id)) score += 200;
+              if(prevTowerSet.has(B.id)) score += 200;
+            }
+            // Tower+Boat-Balance: zwei "Boot-lastige" Personen meiden
+            if(sA.towerWithBoatDays > 2 && sB.towerWithBoatDays > 2) score += 150;
+            // HW-Balance: Personen mit vielen HW-Tagen bevorzugt auf Turm setzen
+            if(sA.hwVisits > 2 || sB.hwVisits > 2) score -= 50;
           }
           score += (d === 0 && randomSeed !== 0)
             ? seededRand(randomSeed, A.id*31 + B.id*97 + t.id*13) * 30
@@ -217,7 +214,7 @@ function generate(){
         s.hwVisits++;
       } else {
         s.towerVisits[t.id] = (s.towerVisits[t.id] || 0) + 1;
-        if(towerHasActiveBoat(t.id, ds)){
+        if(towerHasActiveBoat(t.id)){
           s.towerWithBoatDays++;
         }
       }
