@@ -1,0 +1,24 @@
+{
+  "name": "dlrg-wachplan-generator",
+  "version": "2.0.0",
+  "description": "Single-Page Application für automatische DLRG Wachplangeneration",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "DLRG",
+    "Wachplan",
+    "Scheduler",
+    "Rescue"
+  ],
+  "author": "DLRG",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
