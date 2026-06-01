@@ -38,9 +38,14 @@ function generate(){
     const ds     = dayState[d];
     const isSick = id => ds.sick.has(id);
 
-    // Türme mit aktivem Boot für DIESEN Tag einmalig vorberechnen (statt pro Lookup über boats zu iterieren)
+    // Türme mit aktivem Boot / außer-Dienst-Boot für DIESEN Tag vorberechnen
     const activeBoatTowers = new Set();
-    boats.forEach(b => { if(b.towerId && b.towerId !== 'HW' && !ds.closedBoats.has(b.id)) activeBoatTowers.add(b.towerId); });
+    const closedBoatTowers = new Set();
+    boats.forEach(b => {
+      if(!b.towerId || b.towerId === 'HW') return;
+      if(ds.closedBoats.has(b.id)) closedBoatTowers.add(b.towerId);
+      else activeBoatTowers.add(b.towerId);
+    });
     const towerHasActiveBoat = towerId => activeBoatTowers.has(towerId);
 
     // ── Zwangszuweisungen für diesen Tag vorbereiten ──────────────
@@ -69,6 +74,25 @@ function generate(){
     const availF = byRole['F'] || [], availB = byRole['B'] || [],
           availE = byRole['E'] || [], availU = byRole['U'] || [];
     const sickToday = people.filter(p => isSick(p.id));
+
+    // Zusätzlich: nur EFFEKTIV forcierte Personen aus Pools entfernen
+    // Transparent forcierte Personen bleiben im Pool, werden normal eingeplant,
+    // dann visuell verschoben (am Ende des Tags)
+    const removeFromPools = (id) => {
+      const person = people.find(x => x.id === id);
+      if(!person) return;
+      // Remove from all pools
+      const idx_f = availF.findIndex(x => x.id === id);
+      if(idx_f >= 0) availF.splice(idx_f, 1);
+      const idx_b = availB.findIndex(x => x.id === id);
+      if(idx_b >= 0) availB.splice(idx_b, 1);
+      const idx_e = availE.findIndex(x => x.id === id);
+      if(idx_e >= 0) availE.splice(idx_e, 1);
+      const idx_u = availU.findIndex(x => x.id === id);
+      if(idx_u >= 0) availU.splice(idx_u, 1);
+    };
+    // Remove only EFFECTIVE forced persons (transparent stay in pools)
+    effectiveDayForced.forEach(f => removeFromPools(f.personId));
 
     // Effektive Zwangszuweisungen nach Ziel gruppieren
     const forcedByTower = {};
@@ -115,6 +139,16 @@ function generate(){
     // HW-Boot zählt ebenfalls als BF-Bedarf
     const hwBoatBFNeeded = hwBoatActive ? 1 : 0;
 
+    // BFs nach Fairness sortieren, BEVOR aktiveBF/surplusBF-Aufteilung:
+    // Wer weniger Bootstage hat UND mehr HW-Tage, kommt zuerst in den Boot-Pool.
+    // Ohne diese Sortierung bekäme immer die erste Person in der Liste den Boot-Slot.
+    availB.sort((a,b) => {
+      const sa = ensure(a.id), sb = ensure(b.id);
+      const boatA = Object.values(sa.boatVisits||{}).reduce((s,v)=>s+v,0);
+      const boatB = Object.values(sb.boatVisits||{}).reduce((s,v)=>s+v,0);
+      return (boatA * 50 - (sa.hwVisits||0) * 10) - (boatB * 50 - (sb.hwVisits||0) * 10)
+          || (a.id - b.id);
+    });
     const neededBF  = Math.min(boatsPre.length + hwBoatBFNeeded, availB.length);
     const activeBF  = availB.slice(0, neededBF);
     const surplusBF = availB.slice(neededBF);
@@ -196,8 +230,18 @@ function generate(){
             }
             // Tower+Boat-Balance: zwei "Boot-lastige" Personen meiden
             if(sA.towerWithBoatDays > 2 && sB.towerWithBoatDays > 2) score += 150;
-            // HW-Balance: Personen mit vielen HW-Tagen bevorzugt auf Turm setzen
-            if(sA.hwVisits > 2 || sB.hwVisits > 2) score -= 50;
+            // HW-Balance: proportionaler Bonus je mehr HW-Tage (inkl. Overflow-Tage)
+            score -= sA.hwVisits * 60;
+            score -= sB.hwVisits * 60;
+            // Boot außer Dienst: surplusBF bevorzugt zum Turm des außer-Dienst-Boots
+            if(closedBoatTowers.has(t.id)){
+              if(poolSBF.some(x => x.id === A.id)) score -= 350;
+              if(poolSBF.some(x => x.id === B.id)) score -= 350;
+            }
+          } else {
+            // HW k-Slot-Auswahl: Personen mit vielen HW-Tagen NICHT nochmal auf HW
+            score += sA.hwVisits * 60;
+            score += sB.hwVisits * 60;
           }
           score += (d === 0 && randomSeed !== 0)
             ? seededRand(randomSeed, A.id*31 + B.id*97 + t.id*13) * 30
@@ -243,7 +287,7 @@ function generate(){
       } else {
         const cand = getGuardPool().sort((a,b) =>
           (ensure(a.id).total - ensure(b.id).total) ||
-          ((ensure(a.id).towerVisits[MAIN_ID]||0) - (ensure(b.id).towerVisits[MAIN_ID]||0)));
+          ((ensure(a.id).hwVisits||0) - (ensure(b.id).hwVisits||0))); // weniger HW → bevorzugt
         const P = cand[0]; if(!P) break;
         removeAll(P); commitPerson(P, mainPseudo); mainGuards.push(P);
       }
@@ -263,7 +307,12 @@ function generate(){
       const wasEmpty = slot.occupants.length === 0;
       let pairsAdded = 0;
       while(need > 0){
-        if(need >= 2){
+        // Wenn bereits 1 forcierte Person vorhanden: NUR einzelne Person hinzufügen (nicht Paar)
+        // um mit der forcierten Person zu paaren
+        // WICHTIG: Neu berechnen bei jedem Loop-Durchgang, da slot.occupants wächst
+        const hasForcedSingle = pre.length === 1 && slot.occupants.length === 1;
+
+        if(need >= 2 && !hasForcedSingle){
           // requireMix=true nur beim ersten Paar, falls Slot ursprünglich leer war
           const best = bestPair(t, wasEmpty && pairsAdded === 0, d);
           if(!best) break;
@@ -307,7 +356,23 @@ function generate(){
       else if(b.towerId && !openTowers.some(t => t.id === b.towerId)) boatsClosedTower.push(b);
     });
 
-    for(const bo of boatCandidates){
+    // WICHTIG: Verarbeite ZUERST forcierte Boote (auch wenn ihr Turm nicht offen ist)
+    // Dann normale Boote von boatCandidates
+    const allBoatsToProcess = [
+      ...Object.keys(forcedByBoat).map(boatId => boats.find(b => b.id === +boatId)).filter(Boolean),
+      ...boatCandidates
+    ];
+    // Duplikate entfernen (forcierte Boote die auch in boatCandidates sind)
+    const seenBoatIds = new Set();
+    const boatsProcessed = [];
+    allBoatsToProcess.forEach(bo => {
+      if(!seenBoatIds.has(bo.id)) {
+        seenBoatIds.add(bo.id);
+        boatsProcessed.push(bo);
+      }
+    });
+
+    for(const bo of boatsProcessed){
       const slot = {
         kind:'boat', boatId:bo.id, name:bo.name, code:bo.code, prio:bo.prio,
         towerId:bo.towerId, towerName:towers.find(t=>t.id===bo.towerId)?.name||'',
@@ -330,9 +395,9 @@ function generate(){
         // Secondary: penalize repeated boat assignments (boat rotation fairness)
         scoreA += (sa.boatVisits[bo.id] || 0) * 50;
         scoreB += (sb.boatVisits[bo.id] || 0) * 50;
-        // Tertiary: balance HW visits (prefer those with fewer HW visits for boat duty)
-        scoreA += (sa.hwVisits || 0) * 5;
-        scoreB += (sb.hwVisits || 0) * 5;
+        // Tertiary: BF mit mehr HW-Tagen BEVORZUGT für Boot (Ausgleich HW ↔ Boot)
+        scoreA -= (sa.hwVisits || 0) * 10;
+        scoreB -= (sb.hwVisits || 0) * 10;
         return scoreA - scoreB || (a.id - b.id);
       });
       const bf = poolB.shift();
@@ -377,8 +442,9 @@ function generate(){
         } else {
           poolB.sort((a,b) => {
             const sa=ensure(a.id),sb=ensure(b.id);
-            let scoreA = sa.total + (sa.boatVisits[bo.id]||0)*50 + (sa.hwVisits||0)*5;
-            let scoreB = sb.total + (sb.boatVisits[bo.id]||0)*50 + (sb.hwVisits||0)*5;
+            // HW-Besuche negativ: BF mit mehr HW-Tagen bevorzugt fürs HW-Boot
+            let scoreA = sa.total + (sa.boatVisits[bo.id]||0)*50 - (sa.hwVisits||0)*10;
+            let scoreB = sb.total + (sb.boatVisits[bo.id]||0)*50 - (sb.hwVisits||0)*10;
             return scoreA - scoreB || (a.id - b.id);
           });
           const bf = poolB.shift();
@@ -399,6 +465,13 @@ function generate(){
       bootsfLeft:poolB, hwBoatSlot,
       sick:sickToday, k,
     });
+
+    // HW-Besuche für ALLE passiven HW-Personen (Overflow + übrige BF) tracken.
+    // mainGuards bekommen hwVisits bereits via commitPerson.
+    // Ohne dieses Tracking denkt der Algorithmus, Overflow-Personen waren nie an HW
+    // → sie häufen sich immer in der Overflow-Liste an statt zu rotieren.
+    leftovers.forEach(p => ensure(p.id).hwVisits++);
+    poolB.forEach(p => ensure(p.id).hwVisits++);
 
     // ── 6) TRANSPARENTE Zuweisungen: visueller Tausch NACH dem Algorithmus ──
     // Person bleibt im Pool → Statistik identisch zum Originalplan.

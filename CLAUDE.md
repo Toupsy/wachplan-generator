@@ -94,7 +94,7 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 - `surplusBF` = übrige BF, landen an Türmen/HW
 - **Feature 5:** surplusBF bekommen +800 Punkte Strafe wenn sie in Turm mit aktivem Boot landen würden
 
-### `bestPair(tower, requireMix, currentDay)` – Scoring (Feature 8: Consecutive Day Prevention)
+### `bestPair(tower, requireMix, currentDay)` – Scoring (Feature 8: Consecutive Day Prevention + Session Fixes)
 ```
 + 1000  beide Unerfahren (UU) + requireMix=true  → Notlösung
 + 40    beide Erfahren (EE) + requireMix=true
@@ -103,23 +103,27 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 + 30×v  Turmbesuche Person B (v≥2 → +300)
 + 5×    Gesamteinsätze (Fairness: wer wenig hatte, kommt zuerst)
 + 800   surplusBF-Strafe (Turm mit aktivem Boot)
-+ 200×2 konsekutive Tage auf gleichen Turm (Feature 8) ← NEW: 200 Punkte pro Person wenn Vortag auf selben Turm
++ 200×2 konsekutive Tage auf gleichen Turm (Feature 8)
 + 150   beide haben viele Boot-Tage (Tower+Boat balance)
-- 50    Person hat viele HW-Tage (Bonus für Tower-Zuweisung)
+- 60×   Person hat viele HW-Tage (proportionaler Bonus für Tower-Zuweisung) ← FIX: statt -50, jetzt proportional
+- 350   surplusBF zu Turm dessen Boot außer Dienst (1150 Swing gg. aktives Boot) ← FIX: NEW
++ 60×   (HW-k-Slots) Person hat viele HW-Tage (Strafe für erneute HW) ← FIX: NEW
 + Tiebreaker (deterministisch oder seededRand() für Tag 1)
 ```
 **Niedrigster Score gewinnt.**
 
 ### Zuweisung pro Tag (Reihenfolge)
+0. **BF-Rotation Fairness** (neu Session Bugfix) – `availB` nach boatDays*50 - hwVisits*10 sortieren VOR activeBF/surplusBF-Split → faire Verteilung statt immer gleiche Person
 1. **Hauptwache** – Zwangszuweisungen → Paare via bestPair → Einzelpersonen
-2. **Türme** – je 2 Wachgänger via bestPair(t, true), Türme nach prio absteigend
-3. **Boote** – je 1 BF, sortiert nach:
+2. **Türme** – je `slotCount` Wachgänger via bestPair(t, true), Türme nach prio absteigend
+3. **Boote** – je 1 BF (aus `poolB.slice(0, neededBF)`), sortiert nach:
    - Gesamteinsätze (primary)
-   - Boot-Besuche × 50 Penalty (Rotation fairness) ← NEW Feature 7
-   - HW-Besuche × 5 (balance HW-heavy people) ← NEW Feature 7
+   - Boot-Besuche × 50 Penalty (Rotation fairness)
+   - HW-Besuche × -10 Bonus (BF mit mehr HW-Tagen bevorzugt für Boot)
 4. **HW-Boot** (Feature 6) – dedizierter BF wenn hwBoatId aktiv (gleiche Sortierung)
-5. **Boot-Captain-Paarungen tracking** ← NEW Feature 7 – Nach Boot-Zuweisung: registriere Turm-Personen × Captain
-6. **HW finalize** – alle übrigen Personen kommen zur Hauptwache
+5. **Boot-Captain-Paarungen tracking** – Nach Boot-Zuweisung: registriere Turm-Personen × Captain
+6. **HW finalize** – Zwangszuweisungen → verbleibende Personen + alle Overflow
+   - **HW-Tracking (neu Session Bugfix):** `mainGuards` + alle in `base` / `poolB` (Overflow) bekommen `hwVisits++`
 7. **Transparente Zuweisungen** anwenden (visueller Tausch nach dem Algorithmus)
 
 ---
@@ -134,13 +138,14 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 - `_applyMove()` → schreibt in `forcedPlacements[dayIdx]`, ruft `generate()` auf
 - `clearForced(personId, fromDay, scope)` → entfernt Fixierungen ('today' | 'forward')
 
-**Drag-and-Drop** (NEW):
+**Drag-and-Drop**:
 - Personen können direkt per D&D zwischen Slots verschoben werden
 - Visuelles Feedback: Opacity bei drag, Highlighting beim hover
 - Rollenvalidierung: Nicht-Bootsführer zu Boot → Confirmation-Dialog
 - **Confirmation mit Checkbox**: "Folgetage neu berechnen" Option im Dialog
 - `showConfirmation(message, onConfirm, onCancel, showRecalcCheckbox)` – erweiterbar
 - `recalcFuture` wird durch Checkbox-Status bestimmt und an `_applyMove()` übergeben
+- **Session Bugfix 3**: dragSrc vor Modal sichern (srcPersonId/srcKind/srcSlot local vars) → dragend nullt nicht mehr die Closure-Refs
 
 ---
 
@@ -180,6 +185,45 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 - Wird nach der Paarungs-Matrix angezeigt
 
 **Effekt:** Transparenz über Tower-Verteilung pro Person
+
+---
+
+## Session Bugfixes & Improvements
+
+### Bugfix 1: HW-Fairness (Person 3 Tage in Folge an der Hauptwache)
+**Problem:** Overflow-Personen (`main.base` / `main.bootsfLeft`) bekamen nie `hwVisits++`, daher dachte der Algorithmus, sie waren nie an der HW. → Personen häuften sich immer in der Overflow-Liste an.
+
+**Root Causes:**
+1. Overflow-Tracking fehlte
+2. `availB` wurde ohne Fairness-Sortierung in activeBF/surplusBF aufgeteilt (immer erste Person aufs Boot)
+3. Boot-Sort-Faktor für `hwVisits` war falsch herum (`+5` statt `-10`)
+
+**Fixes in `generate.js`:**
+- Nach HW-finalize: `leftovers.forEach(p => ensure(p.id).hwVisits++)` + `poolB.forEach(p => ensure(p.id).hwVisits++)`
+- BF-Sortierung VOR Split: `availB.sort((a,b) => (boatA*50 - hwA*10) - (boatB*50 - hwB*10))`
+- Boot-Scoring: `- hwVisits * 10` (war `+5`), HW-k-Slots: `+ hwVisits * 60`
+- bestPair Tower-Scoring: `- hwVisits * 60` (proportional, nicht Threshold)
+
+**Result:** HW-Spread E/U 6-Tage: **1** (war 4+), 14-Tage: **2** (war 4+), BF-Rotation: **3/3** (war 6/0).
+
+### Bugfix 2: Boot außer Dienst → BF automatisch zum Turm
+**Problem:** Wenn ein Boot außer Dienst gesetzt wird, der zugewiesene BF ging nicht automatisch zum Turm des Boots, sondern zur HW.
+
+**Fix in `generate.js`:**
+- Compute `closedBoatTowers`-Set pro Tag neben `activeBoatTowers`
+- surplusBF Scoring: `-350 Bonus` für Türme deren Boot außer Dienst
+- Kombiniert mit `+800` Penalty für aktive-Boot-Türme: **1150 Punkte Swing** → BF geht garantiert zum richtigen Turm
+
+**Result:** Boot außer Dienst → BF zu Turm **100%**.
+
+### Bugfix 3: Drag-and-Drop TypeError (dragSrc = null vor Modal-Bestätigung)
+**Problem:** `dragend` feuert asynchron kurz nach `drop` und setzt `dragSrc = null`. Die `showConfirmation()`-Closure referenziert `dragSrc.personId` beim Klick → `TypeError: Cannot read property 'personId' of null`.
+
+**Fix in `render-output.js` (drop-Handler):**
+- `dragSrc` vor `showConfirmation()` in lokale Vars sichern: `const srcPersonId = dragSrc.personId; const srcKind = dragSrc.kind; const srcSlot = dragSrc.slot;`
+- dragstart: `dragSrc.slot` normalisieren auf `0` (nicht `null`) für MAIN_ID, damit Same-Slot-Check funktioniert
+
+**Result:** D&D funktioniert zuverlässig, keine TypeError mehr.
 
 ---
 
@@ -295,11 +339,15 @@ _updateSaveIndicator() + _updateTemplateStatus()
 | Variable Slot-Kapazität | `slotCount` pro Turm (1–10) / Boot (1–3) via Spinner; Algorithmus füllt `slotCount - vorbelegte` Plätze |
 | Reproduzierbarkeit | `seededRand()` – LCG-Zufallsgenerator, nur für Tag-1-Tiebreaker |
 | UU-Warnung | score +1000 wenn beide Unerfahren → nur als Notlösung |
-| BF-Schutz | surplusBFPenalty() +800 wenn BF an Turm mit aktivem Boot |
+| BF-Schutz | surplusBFPenalty() +800 wenn BF an Turm mit aktivem Boot; -350 wenn Boot außer Dienst (1150 Swing) |
+| BF-Fairness | `availB` vor activeBF/surplusBF-Split nach `(boatDays*50 - hwVisits*10)` sortieren (Session Bugfix 1) |
+| HW-Overflow-Tracking | `leftovers` + `poolB` bekommen nach HW-finalize `hwVisits++` (Session Bugfix 1) |
+| HW-Fairness-Scoring | bestPair Tower: `- hwVisits*60`; HW-k-Slots: `+ hwVisits*60` (proportional, nicht Threshold) (Session Bugfix 1) |
 | Kein Framework | Vanilla-JS; Re-Renders via komplettem innerHTML-Replace |
 | XLSX-Integrität | XML-Patch statt SheetJS-Write → Styles/Bilder/Schutz erhalten |
 | Transparenter Swap | Person im Statistik-Pool belassen, nur Darstellung überschreiben. **Achtung:** transparentes Verschieben auf vollen Turm zeigt `slotCount+1` Belegung (visueller Overlay, kein Verdrängen) – Absicht; Export verarbeitet Overflow zu Nachbarspalte |
-| D&D Validation | Rollenvalidierung mit Confirmation-Dialog (× = Abbrechen) + optional Zukunfts-Neuberechnung |
+| D&D Validation | Rollenvalidierung + Confirmation-Dialog (× = Abbrechen) + optional Zukunfts-Neuberechnung; dragSrc vor Modal sichern (Session Bugfix 3) |
+| dragSrc capture | D&D drop-Handler: srcPersonId/srcKind/srcSlot in lokale Vars VOR showConfirmation, um dragend-Nulling zu vermeiden (Session Bugfix 3) |
 | Timezone-Bug | Lokale Datumsarithmetik statt toISOString() → kein UTC-Off-by-one |
 | Template-Fallback | fetch() → localStorage → Nutzer-Upload (pending export queue) |
 | `personNr()` | NUR in utils.js definiert (utils lädt vor export) – nicht duplizieren |
@@ -338,7 +386,17 @@ Dark-Theme mit CSS-Variables:
 - Kein geschlossener Turm / außer-Dienst-Boot belegt
 - `slotCount` eingehalten (Ausnahme: transparenter Overlay – siehe oben)
 
-**Bewährte Test-Szenarien:** baseline 6d · 14d · 1d · kranke Personen · geschlossener Turm/Boot · 0 Personen · 1 Person · alle krank · alle Türme zu · Zwangszuweisung effektiv/transparent · **Fuzz-Test** (100× zufällige sick/closed/forced-Muster).
+**Session Bugfix Test-Suite (✅ 8/8 bestanden):**
+1. HW-Spread E/U ≤ 1 (6-Tage) → ✅
+2. BF-Rotation Diff ≤ 2 (6-Tage) → ✅
+3. Keine 2-in-Folge Verstöße → ✅
+4. Boot außer Dienst → BF zu Turm → ✅
+5. D&D dragSrc.slot = 0 (nicht null) → ✅
+6. Keine Doppel-Einteilungen → ✅
+7. HW-Spread ≤ 2 (14-Tage) → ✅
+8. Fuzz-Test 10/10 Szenarien → ✅
+
+**Bewährte Test-Szenarien:** baseline 6d · 14d · 1d · kranke Personen · geschlossener Turm/Boot · Boot außer Dienst · 0 Personen · 1 Person · alle krank · alle Türme zu · Zwangszuweisung effektiv/transparent · **Fuzz-Test** (100× zufällige sick/closed/forced-Muster).
 
 **Konsekutiv-Regel-Messung:** Verstöße/Gelegenheiten zählen → normal 0%, unter Extremdruck ~2,4%.
 
