@@ -89,7 +89,7 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 - `surplusBF` = übrige BF, landen an Türmen/HW
 - **Feature 5:** surplusBF bekommen +800 Punkte Strafe wenn sie in Turm mit aktivem Boot landen würden
 
-### `bestPair(tower, requireMix)` – Scoring
+### `bestPair(tower, requireMix, currentDay)` – Scoring (Feature 8: Consecutive Day Prevention)
 ```
 + 1000  beide Unerfahren (UU) + requireMix=true  → Notlösung
 + 40    beide Erfahren (EE) + requireMix=true
@@ -98,8 +98,9 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 + 30×v  Turmbesuche Person B (v≥2 → +300)
 + 5×    Gesamteinsätze (Fairness: wer wenig hatte, kommt zuerst)
 + 800   surplusBF-Strafe (Turm mit aktivem Boot)
-+ 150   beide haben viele Boot-Tage (Tower+Boat balance)  ← NEW Feature 7
-- 50    Person hat viele HW-Tage (Bonus für Tower-Zuweisung)  ← NEW Feature 7
++ 200×2 konsekutive Tage auf gleichen Turm (Feature 8) ← NEW: 200 Punkte pro Person wenn Vortag auf selben Turm
++ 150   beide haben viele Boot-Tage (Tower+Boat balance)
+- 50    Person hat viele HW-Tage (Bonus für Tower-Zuweisung)
 + Tiebreaker (deterministisch oder seededRand() für Tag 1)
 ```
 **Niedrigster Score gewinnt.**
@@ -135,6 +136,45 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 - **Confirmation mit Checkbox**: "Folgetage neu berechnen" Option im Dialog
 - `showConfirmation(message, onConfirm, onCancel, showRecalcCheckbox)` – erweiterbar
 - `recalcFuture` wird durch Checkbox-Status bestimmt und an `_applyMove()` übergeben
+
+---
+
+## Fairness-Features (Feature 8, 9, 10)
+
+### Feature 8: "2 Tage in Folge"-Regel (Consecutive Day Prevention)
+**Problem:** Personen wurden zu oft auf aufeinanderfolgenden Tagen auf dem gleichen Turm eingeplant.  
+**Lösung:** 
+- `checkConsecutiveTowerPenalty(personA, personB, towerId, currentDay)` in `generate.js`
+- Sucht im Vortag-Plan, ob Person A/B bereits auf `towerId` waren
+- Penalty: +200 Punkte pro Person wenn Vortag auf selben Turm
+- Wird in `bestPair()` eingerechnet (nur für Tower, nicht Hauptwache)
+- `bestPair()` erhält neuen Parameter `currentDay` zur Bestrafung
+
+**Effekt:** Personen verteilen sich auf verschiedene Türme über mehrere Tage
+
+### Feature 9: Metriken-Toggle (UI-Schalter für Fairness-Metriken)
+**Problem:** Zu viele Metriken in der Stats-Bar, die nicht alle relevant sind.  
+**Lösung:**
+- Globales `fairnessMetricsDisplay` Objekt in `state.js` mit drei Flags:
+  - `hwBoatBalance` – zeige HW-Tage vs Boot-Turm Balance
+  - `towerDistribution` – zeige durchschnitt verschiedene Türme
+  - `boatPairingDiversity` – zeige Boot-Paarungen Vielfalt
+- HTML-Checkboxes in Sidebar: `#metric-hw-balance`, `#metric-tower-dist`, `#metric-boat-pairing`
+- Event-Listener in `init.js` (optimiert mit Schleife)
+- `renderOutput()` in `render-output.js` bedingt zeigt Metriken basierend auf Flags
+
+**Effekt:** Nutzer kann relevant Metriken anzeigen/verstecken
+
+### Feature 10: Pro-Person Tower-Statistik
+**Problem:** Keine Übersicht, welche Türme eine Person besucht hat (nur Paarungs-Matrix).  
+**Lösung:**
+- Neue Funktion `renderTowerStatsPerPerson()` in `render-output.js`
+- Tabelle mit Spalten: Person | Gesamt-Tage | Unique Türme | Details
+- Details zeigen Turm-Namen + Besuchsanzahl, sortiert nach Turm-Priorität
+- Farb-Coding: Grün wenn ≥50% der Türme besucht, Orange sonst
+- Wird nach der Paarungs-Matrix angezeigt
+
+**Effekt:** Transparenz über Tower-Verteilung pro Person
 
 ---
 

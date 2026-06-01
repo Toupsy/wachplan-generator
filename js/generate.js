@@ -161,7 +161,18 @@ function generate(){
       return towerHasActiveBoat(tower.id, ds) ? 800 : 0;
     }
 
-    function bestPair(t, requireMix){
+    // Feature: Consecutive day penalty – prevent same person on same tower on consecutive days
+    function checkConsecutiveTowerPenalty(personA, personB, towerId, currentDay){
+      if(currentDay === 0 || !schedule[currentDay-1]) return 0;
+      const slot = schedule[currentDay-1].assign.find(s => s.kind==='tower' && s.towerId===towerId);
+      if(!slot) return 0;
+      let p = 0;
+      if(slot.occupants.some(x => x.id === personA.id)) p += 200;
+      if(slot.occupants.some(x => x.id === personB.id)) p += 200;
+      return p;
+    }
+
+    function bestPair(t, requireMix, currentDay){
       const cand = getGuardPool();
       let best = null, bestScore = Infinity;
       for(let i = 0; i < cand.length; i++){
@@ -179,6 +190,10 @@ function generate(){
           score += vB >= 2 ? 300 : vB * 30;
           score += (stats[A.id].total + stats[B.id].total) * 5;
           score += surplusBFPenalty(A, t) + surplusBFPenalty(B, t);
+          // Feature: Consecutive day penalty – prevent same person on same tower
+          if(t.id !== MAIN_ID){
+            score += checkConsecutiveTowerPenalty(A, B, t.id, currentDay);
+          }
           // NEW: Tower+Boat balance penalty – prefer variety
           const hiBothBoat = (ensure(A.id).towerWithBoatDays > 2 && ensure(B.id).towerWithBoatDays > 2);
           score += hiBothBoat ? 150 : 0;
@@ -221,7 +236,7 @@ function generate(){
     while(mainGuards.length < k && getGuardPool().length > 0){
       const remaining = k - mainGuards.length;
       if(remaining >= 2 && getGuardPool().length >= 2){
-        const pair = bestPair(mainPseudo, false);
+        const pair = bestPair(mainPseudo, false, d);
         if(!pair) break;
         const [A, B] = pair;
         removeAll(A); removeAll(B);
@@ -253,7 +268,7 @@ function generate(){
       while(need > 0){
         if(need >= 2){
           // requireMix=true nur beim ersten Paar, falls Slot ursprünglich leer war
-          const best = bestPair(t, wasEmpty && pairsAdded === 0);
+          const best = bestPair(t, wasEmpty && pairsAdded === 0, d);
           if(!best) break;
           const [A,B] = best;
           slot.occupants.push(A, B);

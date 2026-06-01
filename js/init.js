@@ -81,6 +81,19 @@ document.getElementById('btn-auto-export-cols').onclick = () => {
   showToast('✅ Stationsspalten automatisch befüllt');
 };
 
+// ── Fairness-Metriken Anzeige ─────────────────────────────────────
+const metricsMap = {
+  'metric-hw-balance': 'hwBoatBalance',
+  'metric-tower-dist': 'towerDistribution',
+  'metric-boat-pairing': 'boatPairingDiversity'
+};
+Object.entries(metricsMap).forEach(([id, key]) => {
+  document.getElementById(id).onchange = e => {
+    fairnessMetricsDisplay[key] = e.target.checked;
+    if(lastResult) renderOutput();
+  };
+});
+
 // ── Import / Export Planstatus ────────────────────────────────────
 document.getElementById('btn-export-state').onclick = exportStateJSON;
 

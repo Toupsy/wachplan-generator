@@ -197,6 +197,7 @@ function renderOutput(){
     html += `</div></div>`;
   });
 
+  html += renderTowerStatsPerPerson();
   html += renderMatrix();
   panel.innerHTML = html;
 
@@ -340,6 +341,30 @@ function renderOutput(){
   document.getElementById('btn-print').onclick = () => window.print();
   const bo = document.getElementById('btn-official');
   if(bo) bo.onclick = () => exportOfficial(activeDay);
+}
+
+/** Tower-Einsatzverteilung pro Person */
+function renderTowerStatsPerPerson(){
+  if(!lastResult?.stats) return '';
+  const tMap = {}; towers.forEach(t => tMap[t.id] = t);
+  const threshold = towers.length * 0.5;
+  let html = '<div class="section-label" style="margin-top:30px;">Turm-Einsatzverteilung pro Person</div>';
+  html += '<div style="font-size:.85rem;overflow-x:auto"><table style="width:100%;border-collapse:collapse">';
+  html += '<tr style="border-bottom:1px solid var(--line)"><th style="text-align:left;padding:6px;font-weight:bold">Person</th>';
+  html += '<th style="text-align:center;padding:6px;font-weight:bold">Gesamt</th><th style="text-align:center;padding:6px;font-weight:bold">Türme</th>';
+  html += '<th style="text-align:left;padding:6px;font-weight:bold">Details</th></tr>';
+  people.forEach(p => {
+    const stat = lastResult.stats[p.id];
+    if(!stat) return;
+    const cnt = Object.keys(stat.towerVisits||{}).length;
+    const deets = Object.entries(stat.towerVisits||{}).sort(([a],[b])=>(tMap[b]?.prio||0)-(tMap[a]?.prio||0))
+      .map(([tid,c])=>(tMap[tid]?.name||`T${tid}`)+'('+c+')').join(', ');
+    html += `<tr style="border-bottom:1px solid var(--line-strong)"><td style="padding:6px">${escapeHtml(p.name)}</td>`;
+    html += `<td style="text-align:center;padding:6px">${stat.total}</td><td style="text-align:center;padding:6px;color:${cnt>=threshold?'var(--green)':'var(--warn)'};font-weight:bold">${cnt}</td>`;
+    html += `<td style="padding:6px;font-size:.75rem;color:var(--text-dim)">${escapeHtml(deets)}</td></tr>`;
+  });
+  html += '</table></div>';
+  return html;
 }
 
 /** Paarungs-Matrix. */
