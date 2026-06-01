@@ -225,42 +225,61 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 
 **Result:** D&D funktioniert zuverlässig, keine TypeError mehr.
 
-### Bugfix 4: Move ohne Folgetage-Neuberechnung → Folgetage nicht wirklich unverändert
-**Problem:** Case 1 (transparent move) sollte nur Tag heute ändern und Folgetage unverändert lassen. Aber `generate()` rechnet ALLE Folgetage neu → andere Ergebnisse als Original (Zufall/Seed)
+### Bugfix 4: Move ohne Folgetage-Neuberechnung – CORRECT IMPLEMENTATION
+**Original Problem:** Case 1 (transparent move) sollte nur Tag heute ändern und Folgetage unverändert lassen.
 
-**Root Cause:**
-- Transparente Placements werden AM ENDE des Algorithmus angewendet (nach alle Folgetage geplant)
-- Aber die Folgetage werden JEDES MAL neu berechnet, wenn `generate()` aufgerufen wird
-- Ergebnis: Nur Tag heute hat visuelle Änderung, Folgetage sind aber unterschiedlich vom Original
+**Root Cause:** `generate()` berechnet IMMER alle Tage neu. Auch wenn transparent placements am ENDE angewendet werden, die Folgetage werden mit möglichem Zufall neu berechnet → unterschiedliche Ergebnisse.
 
-**Fix in `js/move.js` (confirm.onclick Handler):**
-- Für Case 1 (kein Haken / `!forwardScope`): Speichere `originalSchedule` + `originalStats` BEVOR `generate()`
-- Nach `generate()`: Restore `lastResult.schedule` + `lastResult.stats` mit Original-Werten
-- Aber ersetze nur `lastResult.schedule[dayIdx]` mit dem neuen Plan von heute
-- **Resultat:** Tag heute hat neue Platzierung, Folgetage sind PIXEL-PERFEKT identisch mit Original
+**Failed Attempts:**
+1. Storing/restoring stats: Insufficient, entire schedule was recalculated
+2. Plan restoration: Complex, didn't account for randomization in generate()
 
-**Code in move.js:**
+**CORRECT Fix (Current Implementation):**
+- **Case 1 (transparent=true):** Do NOT call `generate()` at all
+- **Case 2 (transparent=false):** Call `generate()` normally
+
+**Implementation in js/move.js:**
 ```js
-// Für Case 1: Speichere Original BEVOR Changes
-let originalSchedule = null;
-let originalStats = null;
-if(!forwardScope && lastResult){
-  originalSchedule = lastResult.schedule.map(d => JSON.parse(JSON.stringify(d)));
-  originalStats = JSON.parse(JSON.stringify(lastResult.stats));
-}
-
-generate();
-
-// Für Case 1: Restore Folgetage mit Original
-if(!forwardScope && originalSchedule && originalStats){
-  const newDaySchedule = lastResult.schedule[dayIdx];
-  lastResult.schedule = originalSchedule;
-  lastResult.stats = originalStats;
-  lastResult.schedule[dayIdx] = newDaySchedule;  // Nur heute mit neuer Platzierung
+if(forwardScope){
+  // Case 2: Effective change, full recalculation
+  _applyMove(personId, dayIdx, target.kind, target.slotId, true);
+  generate();
+  renderOutput();
+} else {
+  // Case 1: Visual-only, NO generate()
+  _applyMove(personId, dayIdx, target.kind, target.slotId, false);
+  // generate() NICHT aufrufen!
+  renderOutput();
 }
 ```
 
-**Result:** Case 1 und Case 2 funktionieren korrekt separiert.
+**Implementation in js/render-output.js:**
+- At start of `renderOutput()`: Clone schedule and apply transparent placements visually
+- Only affects display layer, `lastResult` remains completely untouched
+```js
+// Wende transparent placements visuell an (ohne generate())
+schedule = schedule.map((day, dayIdx) => {
+  const dayForcedTransparent = (forcedPlacements[dayIdx] || []).filter(f => f.transparent);
+  if(dayForcedTransparent.length === 0) return day;
+  
+  const dayClone = JSON.parse(JSON.stringify(day));
+  // Manipuliere dayClone Occupants, original bleibt unverändert
+  dayForcedTransparent.forEach(f => { /* move logic */ });
+  return dayClone;
+});
+```
+
+**Why This Works:**
+- Case 1: No `generate()` call = Folgetage untouched in `lastResult`
+  - renderOutput() clones schedule, applies visual move
+  - `lastResult.schedule` and `lastResult.stats` identical to original
+  - Display shows moved person, algorithm unchanged for Folgetage
+- Case 2: `generate()` called = full recalculation
+  - `lastResult.schedule` completely new (all days)
+  - `lastResult.stats` updated with new fairness metrics
+  - Folgetage planned using new metrics
+
+**Result:** ✅ Case 1 und Case 2 funktionieren korrekt separiert.
 
 ---
 
