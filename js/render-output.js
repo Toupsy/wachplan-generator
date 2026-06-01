@@ -240,10 +240,10 @@ function renderOutput(){
       }
     });
 
-    // Geschlossene Türme & Boote
+    // Geschlossene Türme & Boote (mit data-drop für Override)
     [...d.manualClosed,...d.personnelClosed].forEach(t => {
       const reason = d.manualClosed.includes(t)?'manuell geschlossen':'Personalmangel';
-      html += `<div class="tower-card closed"><div class="tc-head"><span class="tc-name">🗼 ${escapeHtml(t.name)}</span><span class="tc-type closed">zu</span></div><div style="color:var(--text-dim);font-size:.82rem;padding:8px 0">${reason}</div></div>`;
+      html += `<div class="tower-card closed" data-drop-kind="tower" data-drop-slot="${t.id}" data-closed-override="true"><div class="tc-head"><span class="tc-name">🗼 ${escapeHtml(t.name)}</span><span class="tc-type closed">zu</span></div><div style="color:var(--text-dim);font-size:.82rem;padding:8px 0">${reason}</div></div>`;
     });
     [...d.boatsManualClosed,...d.boatsClosedTower,...d.boatsNoBootsf].forEach(b => {
       const reason = d.boatsManualClosed.includes(b)?'manuell außer Dienst':d.boatsClosedTower.includes(b)?'Turm zu':'kein Bootsführer';
@@ -329,7 +329,12 @@ function renderOutput(){
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     const card = e.target.closest('.tower-card');
-    if(card && !card.classList.contains('closed')) {
+    if(!card) return;
+    if(card.dataset.closedOverride) {
+      // Geschlossener Turm: orange Highlight als Hinweis auf Override
+      card.style.backgroundColor = 'rgba(255,165,0,0.15)';
+      card.style.borderColor = 'var(--warn)';
+    } else if(!card.classList.contains('closed')) {
       card.style.backgroundColor = 'rgba(24,168,216,0.15)';
       card.style.borderColor = 'var(--sea-bright)';
     }
@@ -360,10 +365,28 @@ function renderOutput(){
 
     const clearCard = () => { card.style.backgroundColor = ''; card.style.borderColor = ''; };
 
-    // Validierung: Nicht in geschlossene Türme
-    if(card.classList.contains('closed')) {
-      showToast('⚠️ Kann nicht zu geschlossenen Türmen/Booten verschoben werden');
-      clearCard();
+    // Geschlossener Turm: Override mit Bestätigung anbieten
+    if(card.dataset.closedOverride) {
+      const towerId = +card.dataset.dropSlot;
+      const tower = getT(towerId);
+      const person = getP(srcPersonId);
+      showConfirmation(
+        `🗼 "${tower?.name || 'Turm'}" ist geschlossen. Für heute öffnen und ${person?.name || 'Person'} dorthin verschieben?`,
+        () => {
+          // Tage davor sichern
+          const oldBefore = lastResult.schedule.slice(0, activeDay).map(d => JSON.parse(JSON.stringify(d)));
+          // Turm öffnen + Person hinzwingen
+          dayState[activeDay].closed.delete(towerId);
+          _applyMove(srcPersonId, activeDay, 'tower', towerId, true);
+          // Komplett neu generieren, dann Tage davor wiederherstellen
+          generate();
+          for(let d = 0; d < activeDay; d++) lastResult.schedule[d] = oldBefore[d];
+          renderOutput();
+          clearCard();
+        },
+        clearCard,
+        false  // Kein Checkbox — immer Neuberechnung (Turm-Status ändert den ganzen Tag)
+      );
       return;
     }
 
