@@ -188,6 +188,12 @@
   .modal-confirm:hover:not(:disabled){opacity:.9;transform:translateY(-1px)}
   .modal-confirm:disabled{opacity:.35;cursor:default;transform:none}
 
+  .slot-spinner{display:flex;align-items:center;gap:8px;background:rgba(127,212,232,.08);border:1px solid var(--line-strong);border-radius:8px;padding:6px 8px}
+  .slot-display{font-family:'Spline Sans Mono',monospace;font-size:.9rem;color:var(--sea-bright);font-weight:600;min-width:28px;text-align:center}
+  .slot-btn{background:rgba(24,168,216,.1);border:1px solid var(--sea-bright);color:var(--sea-bright);width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:all .15s}
+  .slot-btn:hover{background:rgba(24,168,216,.2);transform:scale(1.1)}
+  .slot-btn:active{transform:scale(0.95)}
+  .slot-btn:disabled{opacity:.4;cursor:not-allowed}
   @media print{.sidebar,.export-row,.day-controls{display:none !important}.day-panel{display:block !important;page-break-after:always}}
 </style>
 </head>
@@ -210,6 +216,19 @@
       </label>
     </div>
     <button id="move-modal-confirm" class="modal-confirm" disabled>Verschieben &amp; neu berechnen</button>
+  </div>
+</div>
+
+<!-- ── Confirmation-Modal ──────────────────────────────────────── -->
+<div id="confirm-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box" style="max-width:420px">
+    <button class="modal-close-btn" id="confirm-modal-close-btn">×</button>
+    <div class="modal-title">Regel überschreiben?</div>
+    <div class="modal-message" id="confirm-modal-message" style="margin:16px 0;color:var(--text-dim);font-size:.9rem;line-height:1.6"></div>
+    <div style="display:flex;gap:12px;margin-top:20px">
+      <button id="confirm-modal-cancel" class="modal-confirm" style="flex:1;background:rgba(127,212,232,.08);color:var(--sea-bright);border:1px solid var(--line-strong)">Abbrechen</button>
+      <button id="confirm-modal-proceed" class="modal-confirm" style="flex:1">Trotzdem verschieben</button>
+    </div>
   </div>
 </div>
 

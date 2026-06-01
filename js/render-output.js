@@ -292,9 +292,16 @@ function renderOutput(){
     // Validierung: Bootsführer nur zu Booten
     const p = getP(dragSrc.personId);
     if((targetKind === 'boat' || targetKind === 'hwboat') && p && p.role !== 'B') {
-      showToast('⚠️ Nur Bootsführer können zu Booten verschoben werden');
-      card.style.backgroundColor = '';
-      card.style.borderColor = '';
+      const clearCard = () => { card.style.backgroundColor = ''; card.style.borderColor = ''; };
+      showConfirmation(
+        `${p.name} ist ${ROLE[p.role]}, nicht Bootsführer. Trotzdem zum Boot verschieben?`,
+        () => {
+          _applyMove(dragSrc.personId, activeDay, targetKind, targetSlot, false);
+          generate();
+          clearCard();
+        },
+        clearCard
+      );
       return;
     }
 

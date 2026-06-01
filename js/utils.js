@@ -16,6 +16,31 @@ function showToast(msg){
   setTimeout(() => t.remove(), 3500);
 }
 
+/** Bestätigungs-Dialog mit OK/Abbrechen */
+function showConfirmation(message, onConfirm, onCancel) {
+  const modal = document.getElementById('confirm-modal');
+  const msgEl = document.getElementById('confirm-modal-message');
+  const proceedBtn = document.getElementById('confirm-modal-proceed');
+  const cancelBtn = document.getElementById('confirm-modal-cancel');
+
+  msgEl.textContent = message;
+
+  const cleanup = () => { proceedBtn.onclick = null; cancelBtn.onclick = null; };
+
+  proceedBtn.onclick = () => {
+    modal.style.display = 'none';
+    cleanup();
+    onConfirm();
+  };
+  cancelBtn.onclick = () => {
+    modal.style.display = 'none';
+    cleanup();
+    if(onCancel) onCancel();
+  };
+
+  modal.style.display = 'flex';
+}
+
 /**
  * Deterministischer Pseudo-Zufallswert im Bereich [0, 1).
  * Gleicher seed + n liefert immer dasselbe Ergebnis.
