@@ -18,7 +18,17 @@ function generate(){
 
   const pairCount = {};
   const stats     = {};
-  const ensure    = id => { if(!stats[id]) stats[id] = { total:0, towerVisits:{}, boatVisits:{} }; return stats[id]; };
+  const ensure    = id => {
+    if(!stats[id]) stats[id] = {
+      total: 0,
+      towerVisits: {},
+      boatVisits: {},
+      hwVisits: 0,
+      towerWithBoatDays: 0,
+      boatCaptainPairings: {}
+    };
+    return stats[id];
+  };
   const pairKey   = (a,b) => [a,b].sort((x,y)=>x-y).join('|');
 
   const schedule = [];
@@ -169,6 +179,14 @@ function generate(){
           score += vB >= 2 ? 300 : vB * 30;
           score += (stats[A.id].total + stats[B.id].total) * 5;
           score += surplusBFPenalty(A, t) + surplusBFPenalty(B, t);
+          // NEW: Tower+Boat balance penalty – prefer variety
+          const hiBothBoat = (ensure(A.id).towerWithBoatDays > 2 && ensure(B.id).towerWithBoatDays > 2);
+          score += hiBothBoat ? 150 : 0;
+          // NEW: HW balance bonus – if assigning to tower and people have many HW days, prefer this
+          if(t.id !== MAIN_ID){
+            const hiHwA = (ensure(A.id).hwVisits > 2), hiHwB = (ensure(B.id).hwVisits > 2);
+            if(hiHwA || hiHwB) score -= 50;  // Bonus (negative penalty) for people with high HW days
+          }
           score += (d === 0 && randomSeed !== 0)
             ? seededRand(randomSeed, A.id*31 + B.id*97 + t.id*13) * 30
             : (i*7 + j*13 + d*17) % 11;
@@ -180,7 +198,14 @@ function generate(){
     function commitPerson(p, t){
       const s = ensure(p.id);
       s.total++;
-      s.towerVisits[t.id] = (s.towerVisits[t.id] || 0) + 1;
+      if(t.id === MAIN_ID){
+        s.hwVisits++;
+      } else {
+        s.towerVisits[t.id] = (s.towerVisits[t.id] || 0) + 1;
+        if(towerHasActiveBoat(t.id, ds)){
+          s.towerWithBoatDays++;
+        }
+      }
     }
 
     // ── 1) HAUPTWACHE ──────────────────────────────────────────────
@@ -287,7 +312,16 @@ function generate(){
       }
       poolB.sort((a,b) => {
         const sa = ensure(a.id), sb = ensure(b.id);
-        return (sa.total-sb.total)||((sa.boatVisits[bo.id]||0)-(sb.boatVisits[bo.id]||0))||(a.id-b.id);
+        // Primary: balance total workload
+        let scoreA = sa.total;
+        let scoreB = sb.total;
+        // Secondary: penalize repeated boat assignments (boat rotation fairness)
+        scoreA += (sa.boatVisits[bo.id] || 0) * 50;
+        scoreB += (sb.boatVisits[bo.id] || 0) * 50;
+        // Tertiary: balance HW visits (prefer those with fewer HW visits for boat duty)
+        scoreA += (sa.hwVisits || 0) * 5;
+        scoreB += (sb.hwVisits || 0) * 5;
+        return scoreA - scoreB || (a.id - b.id);
       });
       const bf = poolB.shift();
       if(bf){
@@ -297,6 +331,21 @@ function generate(){
         dayAssign.push(slot);
       } else {
         boatsNoBootsf.push(bo);
+      }
+    }
+
+    // NEW: Track boat captain + tower person pairings for fairness
+    // After boats are assigned, identify which captain works with which tower people
+    for(const boatSlot of dayAssign.filter(s => s.kind === 'boat')){
+      if(boatSlot.bootsf){
+        const towerSlot = dayAssign.find(s => s.kind === 'tower' && s.towerId === boatSlot.towerId);
+        if(towerSlot){
+          const captainId = boatSlot.bootsf.id;
+          towerSlot.occupants.forEach(occupant => {
+            const s = ensure(occupant.id);
+            s.boatCaptainPairings[captainId] = (s.boatCaptainPairings[captainId] || 0) + 1;
+          });
+        }
       }
     }
 
@@ -316,7 +365,9 @@ function generate(){
         } else {
           poolB.sort((a,b) => {
             const sa=ensure(a.id),sb=ensure(b.id);
-            return (sa.total-sb.total)||((sa.boatVisits[bo.id]||0)-(sb.boatVisits[bo.id]||0))||(a.id-b.id);
+            let scoreA = sa.total + (sa.boatVisits[bo.id]||0)*50 + (sa.hwVisits||0)*5;
+            let scoreB = sb.total + (sb.boatVisits[bo.id]||0)*50 + (sb.hwVisits||0)*5;
+            return scoreA - scoreB || (a.id - b.id);
           });
           const bf = poolB.shift();
           if(bf){
@@ -381,9 +432,49 @@ function generate(){
     });
   }
 
+  // Calculate fairness metrics
+  const allStats = Object.values(stats);
+  const avgHwVisits = allStats.length > 0
+    ? (allStats.reduce((sum, s) => sum + (s.hwVisits || 0), 0) / allStats.length).toFixed(1)
+    : 0;
+  const avgTowerWithBoatDays = allStats.length > 0
+    ? (allStats.reduce((sum, s) => sum + (s.towerWithBoatDays || 0), 0) / allStats.length).toFixed(1)
+    : 0;
+  const maxHwVisits = Math.max(...allStats.map(s => s.hwVisits || 0), 0);
+  const maxTowerWithBoatDays = Math.max(...allStats.map(s => s.towerWithBoatDays || 0), 0);
+
+  const boatPairingDiversity = (() => {
+    let maxRepeats = 0;
+    let totalPairings = 0;
+    let diversePairings = 0;
+    Object.values(stats).forEach(s => {
+      Object.values(s.boatCaptainPairings || {}).forEach(count => {
+        totalPairings++;
+        if(count === 1) diversePairings++;
+        if(count > maxRepeats) maxRepeats = count;
+      });
+    });
+    return {
+      maxRepeats,
+      totalPairings,
+      diversePairings,
+      diversePercent: totalPairings > 0 ? ((diversePairings / totalPairings) * 100).toFixed(0) : 0
+    };
+  })();
+
   lastResult = {
     schedule, pairCount, stats,
     peopleGuards: people.filter(p => p.role==='E' || p.role==='U'),
+    fairnessMetrics: {
+      hwBalance: {
+        avgHwVisits: parseFloat(avgHwVisits),
+        avgTowerWithBoatDays: parseFloat(avgTowerWithBoatDays),
+        maxHwVisits,
+        maxTowerWithBoatDays,
+        isBalanced: Math.abs(parseFloat(avgHwVisits) - parseFloat(avgTowerWithBoatDays)) < 1.5
+      },
+      boatPairingDiversity
+    }
   };
   if(activeDay >= DAYS) activeDay = 0;
   renderOutput();

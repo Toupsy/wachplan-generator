@@ -18,6 +18,12 @@ function renderOutput(){
   Object.values(lastResult.stats).forEach(s =>
     Object.values(s.towerVisits).forEach(v => { if(v>2) repeatTowers++; }));
 
+  // NEW: Fairness metrics
+  const hwBalance = lastResult.fairnessMetrics?.hwBalance || {};
+  const boatDiversity = lastResult.fairnessMetrics?.boatPairingDiversity || {};
+  const hwBalanceColor = hwBalance.isBalanced ? 'var(--green)' : 'var(--warn)';
+  const boatDiversityColor = boatDiversity.maxRepeats <= 2 ? 'var(--green)' : 'var(--warn)';
+
   // ── Kopfbereich ────────────────────────────────────────────────
   let html = `
     <div class="out-header">
@@ -43,6 +49,8 @@ function renderOutput(){
       <div class="stat"><div class="num" style="color:${repeatedPairs?'var(--warn)':'var(--green)'}">${repeatedPairs}</div><div class="lbl">Paar-Wiederholungen</div></div>
       <div class="stat"><div class="num" style="color:${uuTotal?'var(--coral)':'var(--green)'}">${uuTotal}</div><div class="lbl">U+U Besetzungen</div></div>
       <div class="stat"><div class="num" style="color:${repeatTowers?'var(--coral)':'var(--green)'}">${repeatTowers}</div><div class="lbl">Turm &gt;2× gleich</div></div>
+      <div class="stat"><div class="num" style="color:${hwBalanceColor}">${hwBalance.avgHwVisits||0} | ${hwBalance.avgTowerWithBoatDays||0}</div><div class="lbl">🏠 HW-Tage | ⛵ Boot-Turm</div></div>
+      <div class="stat"><div class="num" style="color:${boatDiversityColor}">${boatDiversity.diversePercent||0}%</div><div class="lbl">👥 Boot-Paarungen einzigartig</div></div>
     </div>`;
 
   // ── Tages-Panels ──────────────────────────────────────────────
