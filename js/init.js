@@ -2,6 +2,20 @@
 // init.js – Event-Listener und Startsequenz
 // ============================================================
 
+/** Checkbox-Zustände aus fairnessMetricsDisplay übernehmen (nach State-Import).
+ * Muss VOR DOMContentLoaded definiert sein, da es von importStateJSON aufgerufen wird! */
+function syncMetricCheckboxes(){
+  const METRICS_MAP = {
+    'metric-hw-balance':  'hwBoatBalance',
+    'metric-tower-dist':  'towerDistribution',
+    'metric-boat-pairing':'boatPairingDiversity'
+  };
+  Object.entries(METRICS_MAP).forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    if(el) el.checked = !!fairnessMetricsDisplay[key];
+  });
+}
+
 // ── Startsequenz (nach Authentifizierung) ─────────────────────────
 // Muss VOR DOMContentLoaded definiert sein, damit es global sichtbar ist!
 async function initAfterAuth() {
@@ -205,14 +219,6 @@ Object.entries(METRICS_MAP).forEach(([id, key]) => {
     if(lastResult) renderOutput();
   };
 });
-
-/** Checkbox-Zustände aus fairnessMetricsDisplay übernehmen (nach State-Import). */
-function syncMetricCheckboxes(){
-  Object.entries(METRICS_MAP).forEach(([id, key]) => {
-    const el = document.getElementById(id);
-    if(el) el.checked = !!fairnessMetricsDisplay[key];
-  });
-}
 
 // ── Import / Export Planstatus ────────────────────────────────────
 document.getElementById('btn-export-state').onclick = exportStateJSON;
