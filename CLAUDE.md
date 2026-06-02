@@ -2,6 +2,7 @@
 
 > **Wichtig für Claude:** Diese Datei nach jeder Änderung am Projekt aktualisieren
 > (neue Features, geänderte Funktionen, neue Dateien, Bugfixes).
+> **Versioning:** Nach jedem Commit die VERSION Datei um 1 erhöhen (z.B. 0.1000 → 0.1001)
 
 ## Git-Workflow
 
