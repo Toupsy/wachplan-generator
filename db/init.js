@@ -7,14 +7,29 @@ const sqlite3 = require('sqlite3');
 const fs = require('fs');
 const path = require('path');
 
-// Ensure /app/data directory exists
-const dataDir = path.join(__dirname, '..', 'data');
+// Ensure data directory exists
+const dataDir = process.env.DATABASE_PATH
+  ? path.dirname(process.env.DATABASE_PATH)
+  : path.join(__dirname, '..', 'data');
+
+console.log('📂 __dirname:', __dirname);
+console.log('📂 dataDir:', dataDir);
+console.log('📂 dataDir exists:', fs.existsSync(dataDir));
+
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
-  console.log('✓ Created data directory:', dataDir);
+  console.log('✓ Created data directory');
 }
 
-const dbPath = path.join(dataDir, 'wachplan.db');
+try {
+  fs.accessSync(dataDir, fs.constants.W_OK);
+  console.log('📂 dataDir writable: YES');
+} catch (e) {
+  console.error('📂 dataDir writable: NO →', e.message);
+}
+
+const dbPath = process.env.DATABASE_PATH || path.join(dataDir, 'wachplan.db');
+console.log('📂 dbPath:', dbPath);
 
 // Validate environment variables
 function validateEnv() {
