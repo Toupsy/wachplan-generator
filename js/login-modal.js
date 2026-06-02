@@ -4,7 +4,7 @@
 
 async function initLoginModal() {
   try {
-    const response = await fetch('/api/auth/me');
+    const response = await fetch('/api/auth/me', { credentials: 'include' });
     if (response.ok) {
       hideLoginModal();
       return;
@@ -15,7 +15,7 @@ async function initLoginModal() {
 
   // Check if first-time setup is needed
   try {
-    const setupResponse = await fetch('/api/auth/needs-setup');
+    const setupResponse = await fetch('/api/auth/needs-setup', { credentials: 'include' });
     const setupData = await setupResponse.json();
     if (setupData.needsSetup) {
       showSetupModal();
@@ -59,6 +59,7 @@ async function handleLogin(e) {
     const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ username, password })
     });
 
@@ -96,6 +97,7 @@ async function handleSetup(e) {
     const response = await fetch('/api/auth/init', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ username, password })
     });
 
@@ -109,6 +111,7 @@ async function handleSetup(e) {
     await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ username, password })
     });
 
