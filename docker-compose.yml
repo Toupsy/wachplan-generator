@@ -2,12 +2,9 @@ version: '3.9'
 
 services:
   wachplan:
-    build:
-      context: .
-      dockerfile: Dockerfile
-
-    image: dlrg-wachplan-generator:latest
+    image: ghcr.io/toupsy/wachplan-generator:latest
     container_name: dlrg-wachplan-generator
+    pull_policy: always
 
     ports:
       - "3000:3000"
@@ -37,6 +34,7 @@ services:
       com.dlrg.version: "1.0.0"
       org.opencontainers.image.title: "DLRG Wachplan-Generator"
       org.opencontainers.image.description: "Single-Page Application für faire Wachplan-Generierung"
+      org.opencontainers.image.source: "https://github.com/Toupsy/Wachplan-Generator"
 
 networks:
   wachplan-network:
