@@ -10,13 +10,14 @@ services:
     ports:
       - "3000:3000"
 
-    env_file:
-      - .env
-
     environment:
       NODE_ENV: production
       PORT: 3000
       HOST: 0.0.0.0
+      # Secrets (set these in Portainer Environment Variables or .env file)
+      MASTER_SECRET: ${MASTER_SECRET}
+      SALT: ${SALT}
+      SESSION_SECRET: ${SESSION_SECRET}
 
     volumes:
       - wachplan-data:/app/data
@@ -49,13 +50,14 @@ services:
     ports:
       - "3001:3001"
 
-    env_file:
-      - .env
-
     environment:
       NODE_ENV: production
       ADMIN_PORT: 3001
       HOST: 0.0.0.0
+      # Secrets (set these in Portainer Environment Variables or .env file)
+      MASTER_SECRET: ${MASTER_SECRET}
+      SALT: ${SALT}
+      SESSION_SECRET: ${SESSION_SECRET}
 
     volumes:
       - wachplan-data:/app/data
