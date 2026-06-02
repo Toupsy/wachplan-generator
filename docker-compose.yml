@@ -1,41 +1,46 @@
 version: '3.9'
 
-x-common: &common
-  image: ghcr.io/toupsy/wachplan-generator:latest
-  pull_policy: always
-  restart: unless-stopped
-  volumes:
-    - wachplan-data:/app/data
-  environment: &env
-    MASTER_SECRET: "cNJqZimlDKRZdTSitVf4b7QllDWXE+FVGGPkhtwNbuw="
-    SALT: "cpDzbABAbgU/soUiD2mKFQ=="
-    SESSION_SECRET: "u8AWjZf1bkUTgbkQXiBb/Um48gbkRJcbHImxh+skqB4="
-  networks:
-    - proxy
-
 services:
   wachplan:
-    <<: *common
     container_name: dlrg-wachplan
+    image: ghcr.io/toupsy/wachplan-generator:latest
+    restart: unless-stopped
     ports:
       - '3000:3000'
+    volumes:
+      - wachplan-data:/app/data
+      - .:/app
+      - /app/node_modules
     environment:
-      <<: *env
+      MASTER_SECRET: "cNJqZimlDKRZdTSitVf4b7QllDWXE+FVGGPkhtwNbuw="
+      SALT: "cpDzbABAbgU/soUiD2mKFQ=="
+      SESSION_SECRET: "u8AWjZf1bkUTgbkQXiBb/Um48gbkRJcbHImxh+skqB4="
       ADMIN_USERNAME: "admin"
       ADMIN_PASSWORD: "changeme"
+    networks:
+      - proxy
 
   wachplan-admin:
-    <<: *common
     container_name: dlrg-wachplan-admin
+    image: ghcr.io/toupsy/wachplan-generator:latest
+    restart: unless-stopped
     ports:
       - '3001:3001'
+    volumes:
+      - wachplan-data:/app/data
+      - .:/app
+      - /app/node_modules
     environment:
-      <<: *env
+      MASTER_SECRET: "cNJqZimlDKRZdTSitVf4b7QllDWXE+FVGGPkhtwNbuw="
+      SALT: "cpDzbABAbgU/soUiD2mKFQ=="
+      SESSION_SECRET: "u8AWjZf1bkUTgbkQXiBb/Um48gbkRJcbHImxh+skqB4="
       ADMIN_PORT: "3001"
       COOKIE_SECURE: "true"
     command: node admin-server.js
     depends_on:
       - wachplan
+    networks:
+      - proxy
 
 networks:
   proxy:
