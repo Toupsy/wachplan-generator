@@ -10,9 +10,9 @@ services:
     volumes:
       - wachplan-data:/app/data
     environment:
-      MASTER_SECRET: "ERSETZEN_openssl_rand_-base64_32"
-      SALT: "ERSETZEN_openssl_rand_-base64_16"
-      SESSION_SECRET: "ERSETZEN_openssl_rand_-base64_32"
+      MASTER_SECRET: "cNJqZimlDKRZdTSitVf4b7QllDWXE+FVGGPkhtwNbuw="
+      SALT: "cpDzbABAbgU/soUiD2mKFQ=="
+      SESSION_SECRET: "u8AWjZf1bkUTgbkQXiBb/Um48gbkRJcbHImxh+skqB4="
 
   wachplan-admin:
     container_name: dlrg-wachplan-admin
@@ -24,9 +24,9 @@ services:
       - wachplan-data:/app/data
     environment:
       ADMIN_PORT: "3001"
-      MASTER_SECRET: "ERSETZEN_openssl_rand_-base64_32"
-      SALT: "ERSETZEN_openssl_rand_-base64_16"
-      SESSION_SECRET: "ERSETZEN_openssl_rand_-base64_32"
+      MASTER_SECRET: "cNJqZimlDKRZdTSitVf4b7QllDWXE+FVGGPkhtwNbuw="
+      SALT: "cpDzbABAbgU/soUiD2mKFQ=="
+      SESSION_SECRET: "u8AWjZf1bkUTgbkQXiBb/Um48gbkRJcbHImxh+skqB4="
     command: node admin-server.js
     depends_on:
       - wachplan
