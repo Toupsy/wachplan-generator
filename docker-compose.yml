@@ -16,6 +16,8 @@ services:
       SESSION_SECRET: "u8AWjZf1bkUTgbkQXiBb/Um48gbkRJcbHImxh+skqB4="
       ADMIN_USERNAME: "admin"
       ADMIN_PASSWORD: "changeme"
+    networks:
+      - proxy
 
   wachplan-admin:
     container_name: dlrg-wachplan-admin
@@ -35,6 +37,12 @@ services:
     command: node admin-server.js
     depends_on:
       - wachplan
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
 
 volumes:
   wachplan-data:
