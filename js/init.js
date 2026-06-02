@@ -31,10 +31,11 @@ document.getElementById('main-k').oninput = e => {
 
 // ── Sidebar – Datum & Generierung ────────────────────────────────
 document.getElementById('start-date').onchange = e => { startDate = e.target.value; };
-document.getElementById('generate').onclick = () => {
+document.getElementById('generate').onclick = async () => {
   const seedVal = +document.getElementById('seed-input').value || 0;
   if(seedVal > 0) applySeedConstraints(seedVal);
   generate();
+  await autoSave();
 };
 
 /** Generiere verschiedene Startkonstellationen basierend auf Seed.
