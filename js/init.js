@@ -21,6 +21,9 @@ async function initAfterAuth() {
     renderHWBoatSelector();
     renderPositionDescUI();
     autoFillExportColumns();   // Standardmäßig aus Türmen & Booten befüllen
+
+    // Neu erstellten Plan sofort speichern
+    await autoSave();
   }
   _updateSaveIndicator();
   _updateTemplateStatus();
