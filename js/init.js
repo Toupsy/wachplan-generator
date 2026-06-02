@@ -22,11 +22,15 @@ async function initAfterAuth() {
   const _restored = await autoLoad();   // gespeicherten Stand wiederherstellen (async!)
   if(!_restored){
     // Kein Speicherstand → Template von Konfiguration laden
-    if (typeof seedFromConfig === 'function' && appConfig) {
+    if (typeof seedFromConfig === 'function') {
       seedFromConfig();
+      // If seedFromConfig failed (appConfig null), fall back to seed()
+      if (!towers || towers.length === 0) {
+        console.log('seedFromConfig failed, using fallback seed');
+        seed();
+      }
     } else {
-      console.log('Using fallback seed, appConfig available:', !!appConfig);
-      seed();  // Fallback zu altem seed() wenn config nicht verfügbar
+      seed();  // Fallback zu altem seed() wenn function nicht verfügbar
     }
     forcedPlacements = freshForcedPlacements();
     dayState = freshDayState();
