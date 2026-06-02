@@ -14,29 +14,30 @@ const { dbRun, dbGet } = require('../db/connection');
 // ───────────────────────────────────────────────────────────
 // GET /api/auth/me – Check current session
 // ───────────────────────────────────────────────────────────
-router.get('/me', (req, res) => {
+router.get('/me', async (req, res) => {
   if (!req.session.userId) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
 
-  getDb().get(
-    'SELECT id, username, is_admin FROM users WHERE id = ?',
-    [req.session.userId],
-    (err, user) => {
-      if (err) {
-        return res.status(500).json({ error: 'Database error' });
-      }
-      if (!user) {
-        return res.status(401).json({ error: 'User not found' });
-      }
+  try {
+    const user = await dbGet(
+      'SELECT id, username, is_admin FROM users WHERE id = ?',
+      [req.session.userId]
+    );
 
-      res.json({
-        userId: user.id,
-        username: user.username,
-        isAdmin: user.is_admin === 1
-      });
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
     }
-  );
+
+    res.json({
+      userId: user.id,
+      username: user.username,
+      isAdmin: user.is_admin === 1
+    });
+  } catch (error) {
+    console.error('Get me error:', error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // ───────────────────────────────────────────────────────────
