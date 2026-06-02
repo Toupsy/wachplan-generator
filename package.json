@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "start:admin": "node admin-server.js",
+    "dev": "node server.js",
+    "dev:admin": "node admin-server.js"
   },
   "keywords": [
     "DLRG",

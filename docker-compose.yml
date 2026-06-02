@@ -1,6 +1,7 @@
 version: '3.9'
 
 services:
+  # Main Wachplan-Generator Application (Port 3000)
   wachplan:
     image: ghcr.io/toupsy/wachplan-generator:latest
     container_name: dlrg-wachplan-generator
@@ -34,10 +35,51 @@ services:
 
     labels:
       com.dlrg.description: "DLRG Wachplan-Generator für Wasserrettungsdienste"
-      com.dlrg.version: "1.0.0"
+      com.dlrg.version: "2.0.0"
       org.opencontainers.image.title: "DLRG Wachplan-Generator"
       org.opencontainers.image.description: "Single-Page Application für faire Wachplan-Generierung"
       org.opencontainers.image.source: "https://github.com/Toupsy/Wachplan-Generator"
+
+  # Admin Panel (Port 3001)
+  wachplan-admin:
+    image: ghcr.io/toupsy/wachplan-generator:latest
+    container_name: dlrg-wachplan-admin
+    pull_policy: always
+
+    ports:
+      - "3001:3001"
+
+    env_file:
+      - .env
+
+    environment:
+      NODE_ENV: production
+      ADMIN_PORT: 3001
+      HOST: 0.0.0.0
+
+    volumes:
+      - wachplan-data:/app/data
+
+    restart: unless-stopped
+
+    command: node admin-server.js
+
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    networks:
+      - wachplan-network
+
+    depends_on:
+      - wachplan
+
+    labels:
+      com.dlrg.description: "Admin Panel für DLRG Wachplan-Generator"
+      com.dlrg.component: "admin"
 
 networks:
   wachplan-network:

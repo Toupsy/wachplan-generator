@@ -74,10 +74,14 @@ async function logout() {
 }
 
 /**
- * Admin-Panel öffnen
+ * Admin-Panel öffnen (separater Server auf Port 3001)
  */
 function openAdminPanel() {
-  window.location.href = '/admin.html';
+  // Bestimme Admin-Panel URL basierend auf aktuellem Host
+  const protocol = window.location.protocol;
+  const hostname = window.location.hostname;
+  const adminUrl = `${protocol}//${hostname}:3001`;
+  window.open(adminUrl, '_blank');
 }
 
 /**

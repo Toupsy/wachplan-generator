@@ -50,5 +50,6 @@ ENV NODE_ENV=production \
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
 
-# Start application
+# Start application (default: main server)
+# Can be overridden with: docker run <image> node admin-server.js
 CMD ["npm", "start"]

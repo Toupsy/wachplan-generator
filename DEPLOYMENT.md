@@ -36,7 +36,9 @@ docker build -t dlrg-wachplan-generator:latest .
 docker-compose up -d
 ```
 
-Der Service läuft jetzt auf `http://localhost:3000`
+Die Services laufen jetzt auf:
+- **Hauptanwendung:** `http://localhost:3000`
+- **Admin-Panel:** `http://localhost:3001` (separate Instance)
 
 ### Schritt 5: Admin-User erstellen
 ```bash
