@@ -4,6 +4,18 @@
 
 /** Rendert den kompletten Ausgabe-Bereich neu. */
 function renderOutput(){
+  // Sicherstelle dass dayState korrekt initialisiert ist
+  if(!dayState || dayState.length === 0){
+    dayState = Array.from({ length: DAYS }, () => ({
+      sick: new Set(),
+      closed: new Set(),
+      closedBoats: new Set()
+    }));
+  }
+  while(dayState.length < DAYS){
+    dayState.push({ sick: new Set(), closed: new Set(), closedBoats: new Set() });
+  }
+
   const panel = document.getElementById('output-panel');
   let { schedule } = lastResult;
 
