@@ -351,10 +351,6 @@ Benutzer können verschiedene, aber **gleichmäßig faire** Wachpläne generiere
 6. Alle als `transparent: false` (effektive Zwangszuweisungen), damit Stats mitzählen
 7. `generate()` wird aufgerufen → Days 2-6 laufen normal mit balanciertem Scoring
 
-**Randomize-Button** (#randomize):
-- Würfelt zufälligen Seed (1-1000) und setzt `#seed-input.value`
-- Zeigt Badge mit aktuellem Seed
-
 ### Algorithmus-Details
 
 **Fisher-Yates Shuffle (in applySeedConstraints):**
@@ -431,10 +427,11 @@ Jede Zeile hat `draggable="true"` + ⠿-Handle. dragstart speichert Quell-Index;
 - Türme: **alle** Besatzer (kein slice); Überlauf >2 → adjacent via `effectiveCols`
 - HW: `mainGuards + base + bootsfLeft + sick` → WF/WF2 (Führung), HW/HW2 (Rest inkl. Kranke)
 
-### Template-Caching
-- Primär: `fetch('Wachplan Template.xlsx')` (aus Projektordner)
-- Fallback: `localStorage` (Base64, Key: `dlrg_wachplan_template_b64`)
-- Chunks à 9000 Bytes (Vielfaches von 3 → kein btoa-Padding-Problem)
+### Template-Caching (ab v0.1001)
+- **Auto-Load:** `fetch('Wachplan Template.xlsx')` (aus Projektordner) – kein manueller Upload nötig
+- **Caching:** Geladenes Template wird in `localStorage` (Base64, Key: `dlrg_wachplan_template_b64`) gespeichert für Offline-Verfügbarkeit
+- **Chunks:** 9000 Bytes (Vielfaches von 3 → kein btoa-Padding-Problem)
+- **Fehlerbehandlung:** Wenn Fetch fehlschlägt, wird Exception geworfen (kein Fallback zu Benutzer-Upload)
 
 ---
 
@@ -483,7 +480,7 @@ autoLoad()
   ├─ Erfolg → importStateJSON(silent) → generate() → Toast "wiederhergestellt"
   └─ Kein Speicherstand → seed() → freshDayState() → freshForcedPlacements()
                           → render* → autoFillExportColumns()
-_updateSaveIndicator() + _updateTemplateStatus()
+_updateSaveIndicator()
 ```
 
 ---
@@ -511,7 +508,7 @@ _updateSaveIndicator() + _updateTemplateStatus()
 | D&D Validation | Rollenvalidierung + Confirmation-Dialog (× = Abbrechen) + optional Zukunfts-Neuberechnung; dragSrc vor Modal sichern (Session Bugfix 3) |
 | dragSrc capture | D&D drop-Handler: srcPersonId/srcKind/srcSlot in lokale Vars VOR showConfirmation, um dragend-Nulling zu vermeiden (Session Bugfix 3) |
 | Timezone-Bug | Lokale Datumsarithmetik statt toISOString() → kein UTC-Off-by-one |
-| Template-Fallback | fetch() → localStorage → Nutzer-Upload (pending export queue) |
+| Template-Auto-Load | fetch('Wachplan Template.xlsx') → localStorage cache (kein Nutzer-Upload) – ab v0.1001 |
 | `personNr()` | NUR in utils.js definiert (utils lädt vor export) – nicht duplizieren |
 | Perf-Optimierungen | `activeBoatTowers`-Set pro Tag; `prevTowerSet` + `ensure()`-Caching in bestPair → ~20ms für 28 Pers./14 Tage |
 
