@@ -210,7 +210,8 @@ async function autoLoad(){
     currentPlanName = planData.name;
 
     // Importiere die dekryptierten Daten
-    importStateJSON(JSON.stringify(planData.state), true);  // silent
+    // Note: planData.state ist bereits ein String (JSON) von der API
+    importStateJSON(planData.state, true);  // silent
     generate();
     showToast('♻️ Plan „' + currentPlanName + '" wiederhergestellt');
     return true;

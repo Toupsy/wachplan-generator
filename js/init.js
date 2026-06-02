@@ -227,12 +227,23 @@ async function initAfterAuth() {
 }
 
 // Wird nach erfolgreicher Authentication aufgerufen (login-modal.js)
-// Wenn nicht im Browser mit Auth, kann diese Funktion manuell aufgerufen werden:
+// Fallback für Development-Modus (kein Login-Modal):
 if (typeof window !== 'undefined' && !document.getElementById('login-modal')) {
-  // Kein Login-Modal vorhanden (Development-Modus), starte direkt
+  // Kein Login-Modal vorhanden, starte direkt
   (async () => {
     await initAfterAuth();
   })();
 }
+
+// Safety: Stelle sicher dass initAfterAuth nach dem DOMContentLoaded aufgerufen wird
+// (falls login-modal.js aus irgendeinem Grund nicht lädt)
+document.addEventListener('DOMContentLoaded', () => {
+  if (typeof initAfterAuth === 'function' && typeof autoLoad === 'function') {
+    // Überprüfe ob bereits authentifiziert und initAfterAuth noch nicht gelaufen hat
+    if (people.length === 0 && document.getElementById('login-modal')?.style.display === 'none') {
+      initAfterAuth().catch(e => console.error('initAfterAuth fallback error:', e));
+    }
+  }
+});
 
 }); // Ende DOMContentLoaded
