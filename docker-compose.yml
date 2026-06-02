@@ -1,5 +1,18 @@
 version: '3.9'
 
+# ============================================================
+# DLRG Wachplan-Generator - Docker Compose Configuration
+#
+# ⚠️ WICHTIG: Secrets müssen vor dem Deploy generiert werden!
+#
+# Secrets generieren:
+#   MASTER_SECRET:  openssl rand -base64 32
+#   SALT:           openssl rand -base64 16
+#   SESSION_SECRET: openssl rand -base64 32
+#
+# Dann die generierten Werte unten eintragen!
+# ============================================================
+
 services:
   # Main Wachplan-Generator Application (Port 3000)
   wachplan:
@@ -11,13 +24,20 @@ services:
       - "3000:3000"
 
     environment:
+      # ─ Node Environment ─────────────────────────────────────
       NODE_ENV: production
       PORT: 3000
       HOST: 0.0.0.0
-      # Secrets (set these in Portainer Environment Variables or .env file)
-      MASTER_SECRET: ${MASTER_SECRET}
-      SALT: ${SALT}
-      SESSION_SECRET: ${SESSION_SECRET}
+
+      # ─ Encryption & Security Secrets ────────────────────────
+      # ⚠️ Bitte mit echten Werten ersetzen!
+      # Generiere neue Werte mit: openssl rand -base64 32 (oder 16)
+      MASTER_SECRET: "xw41LPAHcjYtbrsGCtFAmXnNPsB6khaVAVSWiTZC+iM="
+      SALT: "D1pW2yiSDarYqLvTdx6lJA=="
+      SESSION_SECRET: "672V4yvt/7wfDVntuoAUfD8VUezCu2T/ReO9i+iOYm0="
+
+      # ─ Database ─────────────────────────────────────────────
+      DATABASE_PATH: "/app/data/wachplan.db"
 
     volumes:
       - wachplan-data:/app/data
@@ -51,13 +71,20 @@ services:
       - "3001:3001"
 
     environment:
+      # ─ Node Environment ─────────────────────────────────────
       NODE_ENV: production
       ADMIN_PORT: 3001
       HOST: 0.0.0.0
-      # Secrets (set these in Portainer Environment Variables or .env file)
-      MASTER_SECRET: ${MASTER_SECRET}
-      SALT: ${SALT}
-      SESSION_SECRET: ${SESSION_SECRET}
+
+      # ─ Encryption & Security Secrets ────────────────────────
+      # ⚠️ MUSS identisch mit wachplan service sein!
+      # Generiere neue Werte mit: openssl rand -base64 32 (oder 16)
+      MASTER_SECRET: "xw41LPAHcjYtbrsGCtFAmXnNPsB6khaVAVSWiTZC+iM="
+      SALT: "D1pW2yiSDarYqLvTdx6lJA=="
+      SESSION_SECRET: "672V4yvt/7wfDVntuoAUfD8VUezCu2T/ReO9i+iOYm0="
+
+      # ─ Database ─────────────────────────────────────────────
+      DATABASE_PATH: "/app/data/wachplan.db"
 
     volumes:
       - wachplan-data:/app/data
