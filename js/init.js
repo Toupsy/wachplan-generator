@@ -45,7 +45,8 @@ async function initAfterAuth() {
 document.addEventListener('DOMContentLoaded', () => {
 
 // ── Sidebar – Wachgänger ─────────────────────────────────────────
-document.getElementById('add-person').onclick = () => {
+const addPersonBtn = document.getElementById('add-person');
+if(addPersonBtn) addPersonBtn.onclick = () => {
   people.push({ id:++uid, name:'', role:'E' });
   renderPeople();
 };
@@ -53,25 +54,30 @@ document.querySelectorAll('.quick-add button').forEach(b =>
   b.onclick = () => { people.push({ id:++uid, name:'', role:b.dataset.role }); renderPeople(); });
 
 // ── Sidebar – Türme & Boote ──────────────────────────────────────
-document.getElementById('add-tower').onclick = () => {
+const addTowerBtn = document.getElementById('add-tower');
+if(addTowerBtn) addTowerBtn.onclick = () => {
   const minP = towers.length ? Math.min(...towers.map(t=>t.prio)) : 1;
   towers.push({ id:++uid, name:`Turm ${towers.length+1}`, prio:Math.max(1,minP), code:'' });
   renderTowerCfg(); renderBoatCfg(); renderPositionDescUI(); renderHWBoatSelector();
 };
-document.getElementById('add-boat').onclick = () => {
+const addBoatBtn = document.getElementById('add-boat');
+if(addBoatBtn) addBoatBtn.onclick = () => {
   const minP = boats.length ? Math.min(...boats.map(b=>b.prio)) : (towers[0]?.prio||1);
   boats.push({ id:++uid, name:`Boot ${boats.length+1}`, code:'', towerId:towers[0]?.id||null, prio:minP });
   renderBoatCfg(); renderHWBoatSelector();
 };
 
 // ── Sidebar – Hauptwache ─────────────────────────────────────────
-document.getElementById('main-k').oninput = e => {
+const mainKInput = document.getElementById('main-k');
+if(mainKInput) mainKInput.oninput = e => {
   mainK = Math.max(0, +e.target.value||0);
 };
 
 // ── Sidebar – Datum & Generierung ────────────────────────────────
-document.getElementById('start-date').onchange = e => { startDate = e.target.value; };
-document.getElementById('generate').onclick = async () => {
+const startDateInput = document.getElementById('start-date');
+if(startDateInput) startDateInput.onchange = e => { startDate = e.target.value; };
+const generateBtn = document.getElementById('generate');
+if(generateBtn) generateBtn.onclick = async () => {
   const seedVal = +document.getElementById('seed-input').value || 0;
   if(seedVal > 0) applySeedConstraints(seedVal);
   generate();
@@ -148,7 +154,8 @@ function applySeedConstraints(seed){
 
 
 // ── Sidebar – Tageanzahl ─────────────────────────────────────────
-document.getElementById('num-days').oninput = e => {
+const numDaysInput = document.getElementById('num-days');
+if(numDaysInput) numDaysInput.oninput = e => {
   const v = Math.min(14, Math.max(1, +e.target.value || 6));
   if(v === DAYS) return;
   DAYS = v;
@@ -162,14 +169,16 @@ document.getElementById('num-days').oninput = e => {
 };
 
 // ── Move-Modal ────────────────────────────────────────────────────
-document.getElementById('move-modal-close-btn').onclick = closeMoveModal;
-document.getElementById('move-modal').addEventListener('click', e => {
+const moveModalCloseBtn = document.getElementById('move-modal-close-btn');
+if(moveModalCloseBtn) moveModalCloseBtn.onclick = closeMoveModal;
+const moveModal = document.getElementById('move-modal');
+if(moveModal) moveModal.addEventListener('click', e => {
   if(e.target === e.currentTarget) closeMoveModal();  // Klick außerhalb schließt Modal
 });
 
-
 // ── XLSX-Stationsspalten ──────────────────────────────────────────
-document.getElementById('btn-auto-export-cols').onclick = () => {
+const autoExportColsBtn = document.getElementById('btn-auto-export-cols');
+if(autoExportColsBtn) autoExportColsBtn.onclick = () => {
   autoFillExportColumns();
   showToast('✅ Stationsspalten automatisch befüllt');
 };
@@ -189,12 +198,16 @@ Object.entries(METRICS_MAP).forEach(([id, key]) => {
 });
 
 // ── Import / Export Planstatus ────────────────────────────────────
-document.getElementById('btn-export-state').onclick = exportStateJSON;
+const exportStateBtn = document.getElementById('btn-export-state');
+if(exportStateBtn) exportStateBtn.onclick = exportStateJSON;
 
-document.getElementById('btn-import-state').onclick = () => {
-  document.getElementById('import-file-input').click();
+const importStateBtn = document.getElementById('btn-import-state');
+if(importStateBtn) importStateBtn.onclick = () => {
+  const importFileInput = document.getElementById('import-file-input');
+  if(importFileInput) importFileInput.click();
 };
-document.getElementById('import-file-input').onchange = e => {
+const importFileInput = document.getElementById('import-file-input');
+if(importFileInput) importFileInput.onchange = e => {
   const file = e.target.files[0];
   if(!file) return;
   const reader = new FileReader();
@@ -202,7 +215,8 @@ document.getElementById('import-file-input').onchange = e => {
   reader.readAsText(file, 'utf-8');
   e.target.value = '';
 };
-document.getElementById('btn-clear-save').onclick = clearLocalSave;
+const clearSaveBtn = document.getElementById('btn-clear-save');
+if(clearSaveBtn) clearSaveBtn.onclick = clearLocalSave;
 
 // ── Login-Modal starten (nach init.js geladen) ─────────────────
 // initAfterAuth() wird NUR von login-modal.js aufgerufen, NACH erfolgreichem Login!

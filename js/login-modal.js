@@ -29,21 +29,32 @@ async function initLoginModal() {
 }
 
 function showLoginModal() {
-  document.getElementById('login-modal').style.display = 'flex';
-  document.getElementById('login-view').style.display = 'block';
-  document.getElementById('setup-view').style.display = 'none';
-  document.getElementById('login-form').addEventListener('submit', handleLogin);
+  const loginModal = document.getElementById('login-modal');
+  const loginView = document.getElementById('login-view');
+  const setupView = document.getElementById('setup-view');
+  const loginForm = document.getElementById('login-form');
+
+  if(loginModal) loginModal.style.display = 'flex';
+  if(loginView) loginView.style.display = 'block';
+  if(setupView) setupView.style.display = 'none';
+  if(loginForm) loginForm.addEventListener('submit', handleLogin);
 }
 
 function showSetupModal() {
-  document.getElementById('login-modal').style.display = 'flex';
-  document.getElementById('login-view').style.display = 'none';
-  document.getElementById('setup-view').style.display = 'block';
-  document.getElementById('setup-form').addEventListener('submit', handleSetup);
+  const loginModal = document.getElementById('login-modal');
+  const loginView = document.getElementById('login-view');
+  const setupView = document.getElementById('setup-view');
+  const setupForm = document.getElementById('setup-form');
+
+  if(loginModal) loginModal.style.display = 'flex';
+  if(loginView) loginView.style.display = 'none';
+  if(setupView) setupView.style.display = 'block';
+  if(setupForm) setupForm.addEventListener('submit', handleSetup);
 }
 
 async function hideLoginModal() {
-  document.getElementById('login-modal').style.display = 'none';
+  const loginModal = document.getElementById('login-modal');
+  if(loginModal) loginModal.style.display = 'none';
   if (typeof initAfterAuth === 'function') {
     await initAfterAuth();
   }
@@ -51,9 +62,17 @@ async function hideLoginModal() {
 
 async function handleLogin(e) {
   e.preventDefault();
-  const username = document.getElementById('login-username').value;
-  const password = document.getElementById('login-password').value;
+  const usernameEl = document.getElementById('login-username');
+  const passwordEl = document.getElementById('login-password');
   const errorEl = document.getElementById('login-error');
+
+  if(!usernameEl || !passwordEl || !errorEl) {
+    console.error('Login form elements not found');
+    return;
+  }
+
+  const username = usernameEl.value;
+  const password = passwordEl.value;
 
   try {
     const response = await fetch('/api/auth/login', {
@@ -73,16 +92,25 @@ async function handleLogin(e) {
     if (typeof updateUserInfo === 'function') await updateUserInfo();
     hideLoginModal();
   } catch (error) {
-    errorEl.textContent = 'Netzwerkfehler';
+    if(errorEl) errorEl.textContent = 'Netzwerkfehler: ' + error.message;
   }
 }
 
 async function handleSetup(e) {
   e.preventDefault();
-  const username = document.getElementById('setup-username').value;
-  const password = document.getElementById('setup-password').value;
-  const password2 = document.getElementById('setup-password2').value;
+  const usernameEl = document.getElementById('setup-username');
+  const passwordEl = document.getElementById('setup-password');
+  const password2El = document.getElementById('setup-password2');
   const errorEl = document.getElementById('setup-error');
+
+  if(!usernameEl || !passwordEl || !password2El || !errorEl) {
+    console.error('Setup form elements not found');
+    return;
+  }
+
+  const username = usernameEl.value;
+  const password = passwordEl.value;
+  const password2 = password2El.value;
 
   if (password !== password2) {
     errorEl.textContent = 'Passwörter stimmen nicht überein';
@@ -118,7 +146,7 @@ async function handleSetup(e) {
     if (typeof updateUserInfo === 'function') await updateUserInfo();
     hideLoginModal();
   } catch (error) {
-    errorEl.textContent = 'Netzwerkfehler';
+    if(errorEl) errorEl.textContent = 'Netzwerkfehler: ' + error.message;
   }
 }
 
