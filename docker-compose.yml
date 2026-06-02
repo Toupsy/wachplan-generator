@@ -1,38 +1,29 @@
-# ============================================================
-# docker-compose.yml für DLRG Wachplan-Generator
-#
-# Optionen:
-# - LOCAL BUILD (Standard): `docker-compose up -d`
-#   Baut Image lokal, speichert als 'dlrg-wachplan-generator:latest'
-#
-# - DOCKER HUB (optional): Setze IMAGE_NAME und IMAGE_TAG
-#   `IMAGE_NAME=yourname/wachplan IMAGE_TAG=latest docker-compose up -d`
-#   Pullt vorgefertigtes Image statt zu bauen
-# ============================================================
-
-version: '3.8'
+version: '3.9'
 
 services:
   wachplan:
-    # OPTION A: Lokal bauen (Standard)
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        NODE_ENV: production
 
-    # OPTION B: Docker Hub pullen (deaktiviert; aktiviere indem du diese Zeile nutzt)
-    # image: ${IMAGE_NAME:-dlrg-wachplan-generator}:${IMAGE_TAG:-latest}
-
+    image: dlrg-wachplan-generator:latest
     container_name: dlrg-wachplan-generator
+
     ports:
       - "3000:3000"
+
     environment:
-      - PORT=3000
-      - HOST=0.0.0.0
-      - NODE_ENV=production
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+
     volumes:
-      # Persistente Daten: localStorage, exported files, templates
       - wachplan-data:/app/data
+
     restart: unless-stopped
+
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
       interval: 30s
@@ -40,6 +31,21 @@ services:
       retries: 3
       start_period: 10s
 
+    networks:
+      - wachplan-network
+
+    labels:
+      description: "DLRG Wachplan-Generator für Wasserrettungsdienste"
+      version: "1.0.0"
+
+networks:
+  wachplan-network:
+    driver: bridge
+
 volumes:
   wachplan-data:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data

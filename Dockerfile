@@ -1,30 +1,54 @@
 # ============================================================
 # Dockerfile für DLRG Wachplan-Generator
+# Multi-stage build für kleine Production-Images
 # ============================================================
 
-# Multi-stage build: Kleine finale Image
-FROM node:18-alpine AS base
+# ─── Builder Stage ───────────────────────────────────────
+FROM node:18-alpine AS builder
 
-# Metadaten
-LABEL maintainer="DLRG"
-LABEL description="Single-Page Application für DLRG Wachplangeneration"
-
-# Working Directory
 WORKDIR /app
 
-# Dependencies installieren
-COPY package.json package-lock.json* ./
-RUN npm install --only=production
+# Copy dependency files
+COPY package*.json ./
 
-# Alle App-Dateien kopieren
-COPY . .
+# Install dependencies with exact versions for reproducibility
+RUN npm ci --only=production
 
-# Port exposieren
+# ─── Runtime Stage ───────────────────────────────────────
+FROM node:18-alpine
+
+# Metadata
+LABEL maintainer="DLRG"
+LABEL description="Single-Page Application für DLRG Wachplangeneration"
+LABEL version="1.0.0"
+
+# Set working directory
+WORKDIR /app
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Copy production dependencies from builder
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
+
+# Copy application code
+COPY --chown=nodejs:nodejs . .
+
+# Switch to non-root user
+USER nodejs
+
+# Expose port
 EXPOSE 3000
 
-# Health Check (Docker erkennt Crashes)
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+# Environment variables
+ENV NODE_ENV=production \
+    PORT=3000 \
+    HOST=0.0.0.0
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
 
-# Server starten
+# Start application
 CMD ["npm", "start"]
