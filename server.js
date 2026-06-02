@@ -39,14 +39,17 @@ app.get('/health', (req, res) => {
 // ── Server starten ────────────────────────────────────────────
 async function start() {
   try {
+    const dbPath = path.join(__dirname, 'data', 'wachplan.db');
+
     // Initialize database FIRST
     await initDatabase();
     console.log('✓ Database ready');
 
-    // THEN initialize session store
-    const dbPath = path.join(__dirname, 'data', 'wachplan.db');
+    // THEN initialize session store - use same path
+    // NOTE: sqlite3 handles concurrent connections via WAL mode
     const sessionStore = new SqliteStore({
-      db: dbPath
+      db: dbPath,
+      mode: parseInt('0666', 8)  // rw-rw-rw- permissions
     });
 
     console.log('📦 Session store initialized with:', dbPath);
@@ -124,12 +127,22 @@ async function start() {
 // Handle uncaught errors
 process.on('uncaughtException', (err) => {
   console.error('❌ Uncaught Exception:', err);
-  // Don't exit, let the server continue
+  // For database errors, this is likely fatal - exit
+  if (err.message && err.message.includes('database')) {
+    console.error('⚠️  Database error - exiting');
+    process.exit(1);
+  }
+  // Don't exit for other errors, let the server continue
 });
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('❌ Unhandled Rejection:', reason);
-  // Don't exit, let the server continue
+  // For database errors, this is likely fatal - exit
+  if (reason && reason.message && reason.message.includes('database')) {
+    console.error('⚠️  Database error - exiting');
+    process.exit(1);
+  }
+  // Don't exit for other errors, let the server continue
 });
 
 start();
