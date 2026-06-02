@@ -120,8 +120,8 @@ function renderTowerCfg(){
         towers.splice(targetIdx, 0, moved);
       }
 
-      // Prio aus Position ableiten
-      towers.forEach((t, idx) => t.prio = towers.length - idx);
+      // Prio aus Position ableiten (idx 0 = höchste prio = 1)
+      towers.forEach((t, idx) => t.prio = idx + 1);
       dragSrcTower = null;
       dragMode = null;
       generate(); renderTowerCfg();
