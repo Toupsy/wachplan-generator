@@ -51,32 +51,29 @@ function excelSerial(iso){
 
 // personNr() ist in utils.js definiert (wird vor export.js geladen).
 
-/** Besetzungsdaten für einen Tag aufbereiten. Türme: alle Besatzer (Overflow inline).
- *  WF/HW: mit/ohne WF2/HW2 – split oder overflow. Kranke in HW-Liste. */
+/** Besetzungsdaten für einen Tag aufbereiten (code → [Nr, Nr]) */
+/**
+ * Besetzungsdaten für einen Tag aufbereiten.
+ * Türme: alle Besatzer (kein slice) – Überlauf >2 wird in _patchSheetXml direkt daneben platziert.
+ * Kranke: werden der HW-Liste zugerechnet und erscheinen im Export bei HW.
+ */
 function buildAssignments(dayIdx){
   const d = lastResult.schedule[dayIdx];
   const A = {};
   d.assign.forEach(slot => {
     if(slot.kind==='tower' && slot.code)
       A[slot.code] = slot.occupants.map(p=>personNr(p.id)).filter(n=>n!=null);
-    else if(slot.kind==='boat' && slot.code && slot.occupants && slot.occupants.length > 0){
-      A[slot.code] = slot.occupants.map(p=>personNr(p.id)).filter(n=>n!=null);
+    else if(slot.kind==='boat' && slot.code && slot.bootsf){
+      const nr=personNr(slot.bootsf.id);
+      if(nr!=null) A[slot.code]=[nr];
     }
   });
   const main = d.assign.find(s=>s.kind==='main');
   if(main){
-    const hasWF2 = exportColumns.some(c => (c||'').trim() === 'WF2');
-    const hasHW2 = exportColumns.some(c => (c||'').trim() === 'HW2');
-
-    const f = main.fuehrung.map(p=>personNr(p.id)).filter(n=>n!=null);
-    if(hasWF2){
-      if(f.length)   A['WF']  = f.slice(0,2);
-      if(f.length>2) A['WF2'] = f.slice(2,4);
-    } else {
-      if(f.length)   A['WF']  = f;   // alle Führung → Overflow inline
-    }
-
-    const allHW = [...main.mainGuards,...main.base,...main.bootsfLeft,...(main.sick||[])]
+    const f=main.fuehrung.map(p=>personNr(p.id)).filter(n=>n!=null);
+    if(f.length)    A['WF'] =f.slice(0,2);
+    if(f.length>2)  A['WF2']=f.slice(2,4);
+    const allHW=[...main.mainGuards,...main.base,...main.bootsfLeft,...(main.sick||[])]
       .map(p=>personNr(p.id)).filter(n=>n!=null);
     if(hasHW2){
       if(allHW.length)   A['HW']  = allHW.slice(0,2);
@@ -249,70 +246,56 @@ function _patchSheetXml(xml, dayIdx){
     if(desc) x = _patchCell(x, 'C'+row, 's', desc);
   });
 
-  // ── Sequenz-Aufbau: Overflow inline, leere Slots von rechts freigeben ────────
-  // 1. Overflow-Paare direkt nach der Station einfügen (alle Folgeeinträge incl.
-  //    null-Slots rücken nach rechts).
-  // 2. Wenn seq länger als N: null-Slots von RECHTS entfernen bis seq passt.
-  //    → Datenverlust nur wenn gar keine nulls mehr übrig.
-  //    Bsp.: [78/1,9/12,'',WF,HW,'',''] + 9/12- WF- HW-Overflow (je 1 Paar)
-  //          seq = [78/1,9/12,9/12,null,WF,WF,HW,HW,null,null]  (10 für 7)
-  //          → entferne 3 nulls von rechts → [78/1,9/12,9/12,WF,WF,HW,HW] ✓
-  const A   = buildAssignments(dayIdx);
-  const N   = TEMPLATE_STATION_COLS.length;
-  const seq = [];
+  // ── Effektives Spalten-Layout ────────────────────────────────────
+  // Iteriert exportColumns der Reihe nach; leere Slots werden übersprungen.
+  // Hat eine Station >2 Personen, belegt der Überlauf die nächste Template-Spalte
+  // direkt rechts – alle nachfolgenden Stationen rücken entsprechend nach rechts.
+  const A = buildAssignments(dayIdx);
+  const effectiveCols = [];   // { col:number, code:string, nums:[nr,...] }
+  let tplIdx = 0;
 
-  for(let i = 0; i < N; i++){
-    const code = (exportColumns[i] || '').trim();
-    if(!code){ seq.push(null); continue; }
-    const allNums = A[code] || [];
-    seq.push({ code, nums: allNums.slice(0, 2) });
-    for(let j = 2; j < allNums.length; j += 2)
-      seq.push({ code, nums: allNums.slice(j, j + 2) });
-  }
+  for(const rawCode of exportColumns){
+    const code = (rawCode || '').trim();
+    if(!code) continue;
+    if(tplIdx >= TEMPLATE_STATION_COLS.length) break;
 
-  // HW-Overflow (Personen 5+ nach HW+HW2): nur wenn HW2 in exportColumns ist.
-  // Wenn HW2 NICHT konfiguriert ist, sind alle HW-Personen bereits über A['HW']
-  // inline in der Sequenz – kein doppelter Eintrag nötig.
-  const hasHW2 = exportColumns.some(c => (c||'').trim() === 'HW2');
-  const main   = lastResult.schedule[dayIdx].assign.find(s => s.kind === 'main');
-  if(main && hasHW2){
-    const allHWNrs = [...main.mainGuards,...main.base,...main.bootsfLeft,...(main.sick||[])]
-      .map(p => personNr(p.id)).filter(n => n != null);
-    const hwOv = allHWNrs.slice(4);
-    if(hwOv.length){
-      let hwPos = -1;
-      for(let j = seq.length - 1; j >= 0; j--)
-        if(seq[j]?.code === 'HW2' || seq[j]?.code === 'HW'){ hwPos = j; break; }
-      const ins = hwPos >= 0 ? hwPos + 1 : seq.length;
-      const entries = [];
-      for(let j = 0; j < hwOv.length; j += 2)
-        entries.push({ code: 'HW', nums: hwOv.slice(j, j + 2) });
-      seq.splice(ins, 0, ...entries);
+    const nums = A[code] || [];
+    effectiveCols.push({ col: TEMPLATE_STATION_COLS[tplIdx++], code, nums: nums.slice(0, 2) });
+
+    // Overflow-Spalten direkt nebeneinander (Person 3, 4, 5 … in Paaren)
+    for(let i = 2; i < nums.length; i += 2){
+      if(tplIdx >= TEMPLATE_STATION_COLS.length) break;
+      effectiveCols.push({ col: TEMPLATE_STATION_COLS[tplIdx++], code, nums: nums.slice(i, i + 2) });
     }
   }
 
-  // Zu lang → null-Slots von RECHTS entfernen (Datenverlust vermeiden)
-  if(seq.length > N){
-    let toRemove = seq.length - N;
-    for(let j = seq.length - 1; j >= 0 && toRemove > 0; j--){
-      if(seq[j] === null){ seq.splice(j, 1); toRemove--; }
-    }
-    if(seq.length > N) seq.length = N;   // letzter Ausweg: hart kürzen
-  }
-  while(seq.length < N) seq.push(null);
-  const slotMap = seq;
-
-  // Alle belegten Slots in XML schreiben; null-Slots unangetastet lassen
-  for(let i = 0; i < N; i++){
-    if(!slotMap[i]) continue;
-    const col = TEMPLATE_STATION_COLS[i];
-    const { code, nums } = slotMap[i];
+  // Stationscodes in Zeile 21 + Stundendaten schreiben
+  effectiveCols.forEach(({ col, code, nums }) => {
     x = _patchCell(x, colLetter(col)+'21', 's', code);
     FILL_HOURS.forEach(hr => {
       const [rt, rb] = HOUR_ROWS_X[hr];
       if(nums[0] != null) x = _patchCell(x, colLetter(col)+rt, 'n', nums[0]);
       if(nums[1] != null) x = _patchCell(x, colLetter(col)+rb, 'n', nums[1]);
     });
+  });
+
+  // HW-Überlauf: Personen 5+ (inkl. Kranke) → verbleibende Template-Spalten
+  const main = lastResult.schedule[dayIdx].assign.find(s => s.kind === 'main');
+  if(main){
+    const allHWNrs = [...main.mainGuards, ...main.base, ...main.bootsfLeft, ...(main.sick||[])]
+      .map(p => personNr(p.id)).filter(n => n != null);
+    const overflowHW = allHWNrs.slice(4);
+    for(let i = 0; i < overflowHW.length; i += 2){
+      if(tplIdx >= TEMPLATE_STATION_COLS.length) break;
+      const col = TEMPLATE_STATION_COLS[tplIdx++];
+      x = _patchCell(x, colLetter(col)+'21', 's', 'HW');
+      const nr1 = overflowHW[i], nr2 = overflowHW[i+1];
+      FILL_HOURS.forEach(hr => {
+        const [rt, rb] = HOUR_ROWS_X[hr];
+        if(nr1 != null) x = _patchCell(x, colLetter(col)+rt, 'n', nr1);
+        if(nr2 != null) x = _patchCell(x, colLetter(col)+rb, 'n', nr2);
+      });
+    }
   }
 
   return x;

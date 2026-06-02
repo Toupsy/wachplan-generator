@@ -382,21 +382,16 @@ HOUR_ROWS_X = { '09:00':[25,26], ... }     // Zeilen-Paare pro Stunde (oben/unte
 - `EE3` → Datum (Excel-Seriennummer via `excelSerial()`)
 - `slotNameRef(n)` → Personennamen 1–28
 - `C11,C13,C15,C17,C19` → Positionsbeschriftungen
-- Zeile 21 + Stundendaten → via `slotMap` (s. Slot-Map-Strategie unten)
-- HW-Overflow → Personen 5+ (inkl. Kranke) in verbleibende leere Slots
+- Zeile 21 + Stundendaten → via `effectiveCols` (s. Overflow-Strategie unten)
+- HW-Overflow → Personen 5+ (inkl. Kranke) in verbleibende Template-Spalten
 
-### Slot-Map-Strategie (`_patchSheetXml`)
-`slotMap[0..15]` wird beim Export berechnet; `exportColumns` bleibt unberührt:
-1. **Sequenz-Aufbau**: `exportColumns` von links nach rechts; leere Einträge → `null`; belegte Einträge → primärer Slot + Overflow-Paare direkt dahinter (alle Folgeeinträge incl. nulls rücken nach rechts)
-2. **Overflow-Beispiel**: `[78/1, 9/12, '', WF, HW, '', '']` + 9/12-Overflow + WF-Overflow + HW-Overflow → seq = `[78/1,9/12,9/12,null,WF,WF,HW,HW,null,null]` → 3 nulls von rechts entfernen → `[78/1,9/12,9/12,WF,WF,HW,HW]`
-3. **Null-Entfernung von rechts**: Ist seq länger als 16, werden null-Slots von rechts entfernt bis seq passt. Nur wenn keine nulls mehr übrig: hart kürzen (letzter Ausweg)
-4. **HW-Overflow-Splice** (nur wenn `HW2` in exportColumns): Personen 5+ per `splice` nach HW2. Wenn HW2 NICHT konfiguriert → alle allHW in `A['HW']` inline
-5. `null`-Slots → nicht in XML geschrieben → Template-Felder bleiben leer
-
-### `buildAssignments(dayIdx)` – WF/HW-Splitting
-- Wenn `WF2` in exportColumns: `A['WF'] = f.slice(0,2)`, `A['WF2'] = f.slice(2,4)` (klassisch)
-- Wenn `WF2` NICHT in exportColumns: `A['WF'] = f` (alle Führung → Overflow inline)
-- Identisch für `HW`/`HW2` mit `allHW`
+### Overflow-Strategie & effektives Layout (`_patchSheetXml`)
+`effectiveCols[]` wird beim Export berechnet, `exportColumns` bleibt unberührt:
+1. Iteriere `exportColumns` der Reihe nach; leere Slots überspringen
+2. Jede Station belegt eine Template-Spalte (primär: Personen 1–2)
+3. Hat die Station >2 Personen → Überlauf-Paare belegen die **nächste** Template-Spalte direkt rechts (adjacent, nicht am Ende)
+4. Nachfolgende Stationen rücken entsprechend nach rechts
+5. Verbleibende Template-Spalten → HW-Overflow (Personen 5+, inkl. Kranke)
 
 ### `autoFillExportColumns()` – Reihenfolge
 Pro Turm (Prio absteigend): erst zugeordnete Boote, dann Turm → Boot steht immer links von seinem Turm. Dann freie Boote, WF, WF2, HW, HW2.

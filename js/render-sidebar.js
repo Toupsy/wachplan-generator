@@ -324,7 +324,6 @@ function renderExportColumnUI(){
 
   c.innerHTML = '';
   let dragSrcIdx = null;
-  let dragMode = null; // 'swap' oder 'insert'
 
   TEMPLATE_STATION_COLS.forEach((col, i) => {
     const row = document.createElement('div');
@@ -350,52 +349,22 @@ function renderExportColumnUI(){
     });
     row.addEventListener('dragend', () => {
       row.style.opacity = '';
-      c.querySelectorAll('[data-idx]').forEach(r => {
-        r.style.background = '';
-        r.style.borderTop = '';
-      });
+      c.querySelectorAll('[data-idx]').forEach(r => r.style.background = '');
     });
     row.addEventListener('dragover', e => {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
-
-      // Y-Position prüfen: obere Hälfte = Insert, untere Hälfte = Swap
-      const rect = row.getBoundingClientRect();
-      const midpoint = rect.top + rect.height / 2;
-      const isInsertZone = e.clientY < midpoint;
-
-      if(isInsertZone) {
-        dragMode = 'insert';
-        row.style.borderTop = '3px solid var(--green)';
-        row.style.background = '';
-      } else {
-        dragMode = 'swap';
-        row.style.borderTop = '';
-        row.style.background = 'rgba(24,168,216,.18)';
-      }
+      row.style.background = 'rgba(24,168,216,.18)';
     });
-    row.addEventListener('dragleave', () => {
-      row.style.background = '';
-      row.style.borderTop = '';
-    });
+    row.addEventListener('dragleave', () => { row.style.background = ''; });
     row.addEventListener('drop', e => {
       e.preventDefault();
       row.style.background = '';
-      row.style.borderTop = '';
       if(dragSrcIdx === null || dragSrcIdx === i) return;
-
-      if(dragMode === 'swap') {
-        // Tauschen
-        [exportColumns[dragSrcIdx], exportColumns[i]] = [exportColumns[i], exportColumns[dragSrcIdx]];
-      } else {
-        // Insert
-        const item = exportColumns.splice(dragSrcIdx, 1)[0];
-        const targetIdx = dragSrcIdx < i ? i - 1 : i;
-        exportColumns.splice(targetIdx, 0, item);
-      }
-
+      const tmp = exportColumns[dragSrcIdx];
+      exportColumns[dragSrcIdx] = exportColumns[i];
+      exportColumns[i] = tmp;
       dragSrcIdx = null;
-      dragMode = null;
       renderExportColumnUI();
     });
 
