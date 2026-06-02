@@ -7,6 +7,8 @@
 
 const express = require('express');
 const router = express.Router();
+const path = require('path');
+const fs = require('fs');
 const bcryptjs = require('bcryptjs');
 const { dbRun, dbGet, dbAll } = require('../db/connection');
 
@@ -134,6 +136,39 @@ router.delete('/users/:id', async (req, res) => {
   } catch (error) {
     console.error('Delete user error:', error);
     res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// POST /api/admin/reload-config – Reload configuration file
+// ───────────────────────────────────────────────────────────
+router.post('/reload-config', express.json(), async (req, res) => {
+  try {
+    const configPath = path.join(__dirname, '..', 'config.json');
+
+    // Try to read and parse config
+    const configRaw = fs.readFileSync(configPath, 'utf-8');
+    const config = JSON.parse(configRaw);
+
+    // Validate basic structure
+    if (!config.template || !config.template.towers || !config.template.boats) {
+      return res.status(400).json({ error: 'Invalid config structure' });
+    }
+
+    res.json({
+      message: 'Configuration reloaded successfully',
+      config: {
+        towers: config.template.towers.length,
+        boats: config.template.boats.length,
+        exportColumns: config.template.exportColumns.length
+      }
+    });
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      return res.status(400).json({ error: 'Invalid JSON in config.json: ' + error.message });
+    }
+    console.error('Reload config error:', error);
+    res.status(500).json({ error: 'Failed to reload configuration' });
   }
 });
 
