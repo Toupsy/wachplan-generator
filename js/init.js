@@ -2,6 +2,8 @@
 // init.js – Event-Listener und Startsequenz
 // ============================================================
 
+document.addEventListener('DOMContentLoaded', () => {
+
 // ── Sidebar – Wachgänger ─────────────────────────────────────────
 document.getElementById('add-person').onclick = () => {
   people.push({ id:++uid, name:'', role:'E' });
@@ -231,3 +233,5 @@ if (typeof window !== 'undefined' && !document.getElementById('login-modal')) {
     await initAfterAuth();
   })();
 }
+
+}); // Ende DOMContentLoaded
