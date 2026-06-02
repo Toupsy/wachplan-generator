@@ -2,6 +2,30 @@
 // init.js – Event-Listener und Startsequenz
 // ============================================================
 
+// ── Startsequenz (nach Authentifizierung) ─────────────────────────
+// Muss VOR DOMContentLoaded definiert sein, damit es global sichtbar ist!
+async function initAfterAuth() {
+  const _restored = await autoLoad();   // gespeicherten Stand wiederherstellen (async!)
+  if(!_restored){
+    // Kein Speicherstand → Beispieldaten laden
+    seed();
+    forcedPlacements = freshForcedPlacements();
+    dayState = freshDayState();
+
+    document.getElementById('start-date').value = startDate;
+    updateSeedDisplay();
+    autoCodes();
+    renderPeople();
+    renderTowerCfg();
+    renderBoatCfg();
+    renderHWBoatSelector();
+    renderPositionDescUI();
+    autoFillExportColumns();   // Standardmäßig aus Türmen & Booten befüllen
+  }
+  _updateSaveIndicator();
+  _updateTemplateStatus();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
 
 // ── Sidebar – Wachgänger ─────────────────────────────────────────
@@ -202,29 +226,6 @@ document.getElementById('import-file-input').onchange = e => {
   e.target.value = '';
 };
 document.getElementById('btn-clear-save').onclick = clearLocalSave;
-
-// ── Startsequenz (nach Authentifizierung) ─────────────────────────
-async function initAfterAuth() {
-  const _restored = await autoLoad();   // gespeicherten Stand wiederherstellen (async!)
-  if(!_restored){
-    // Kein Speicherstand → Beispieldaten laden
-    seed();
-    forcedPlacements = freshForcedPlacements();
-    dayState = freshDayState();
-
-    document.getElementById('start-date').value = startDate;
-    updateSeedDisplay();
-    autoCodes();
-    renderPeople();
-    renderTowerCfg();
-    renderBoatCfg();
-    renderHWBoatSelector();
-    renderPositionDescUI();
-    autoFillExportColumns();   // Standardmäßig aus Türmen & Booten befüllen
-  }
-  _updateSaveIndicator();
-  _updateTemplateStatus();
-}
 
 // Wird nach erfolgreicher Authentication aufgerufen (login-modal.js)
 // Fallback für Development-Modus (kein Login-Modal):
