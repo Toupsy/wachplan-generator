@@ -9,8 +9,10 @@ services:
       - '3000:3000'
     volumes:
       - wachplan-data:/app/data
-      - .:/app
-      - /app/node_modules
+      - ./Wachplan-Generator.html:/app/Wachplan-Generator.html
+      - ./js:/app/js
+      - ./config.json:/app/config.json
+      - ./VERSION:/app/VERSION
     environment:
       MASTER_SECRET: "cNJqZimlDKRZdTSitVf4b7QllDWXE+FVGGPkhtwNbuw="
       SALT: "cpDzbABAbgU/soUiD2mKFQ=="
@@ -28,8 +30,10 @@ services:
       - '3001:3001'
     volumes:
       - wachplan-data:/app/data
-      - .:/app
-      - /app/node_modules
+      - ./Wachplan-Generator.html:/app/Wachplan-Generator.html
+      - ./js:/app/js
+      - ./config.json:/app/config.json
+      - ./VERSION:/app/VERSION
     environment:
       MASTER_SECRET: "cNJqZimlDKRZdTSitVf4b7QllDWXE+FVGGPkhtwNbuw="
       SALT: "cpDzbABAbgU/soUiD2mKFQ=="
