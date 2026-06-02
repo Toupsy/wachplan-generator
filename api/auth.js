@@ -12,14 +12,31 @@ const bcryptjs = require('bcryptjs');
 const sqlite3 = require('sqlite3');
 const path = require('path');
 
-// Database connection
+// Database connection (lazy - created on first use)
 const dbPath = path.join(__dirname, '..', 'data', 'wachplan.db');
-const db = new sqlite3.Database(dbPath);
+let db = null;
+
+function getDb() {
+  if (!db) {
+    db = new sqlite3.Database(dbPath, (err) => {
+      if (err) {
+        console.error('❌ Database connection error:', err);
+        db = null;  // Reset on error so next attempt can retry
+      }
+    });
+
+    // Handle database errors
+    db.on('error', (err) => {
+      console.error('❌ Database error:', err);
+    });
+  }
+  return db;
+}
 
 // Promisify db.run and db.get for easier async/await
 const dbRun = (query, params = []) => {
   return new Promise((resolve, reject) => {
-    db.run(query, params, function(err) {
+    getDb().run(query, params, function(err) {
       if (err) reject(err);
       else resolve({ lastID: this.lastID, changes: this.changes });
     });
@@ -28,7 +45,7 @@ const dbRun = (query, params = []) => {
 
 const dbGet = (query, params = []) => {
   return new Promise((resolve, reject) => {
-    db.get(query, params, (err, row) => {
+    getDb().get(query, params, (err, row) => {
       if (err) reject(err);
       else resolve(row);
     });
@@ -43,7 +60,7 @@ router.get('/me', (req, res) => {
     return res.status(401).json({ error: 'Not authenticated' });
   }
 
-  db.get(
+  getDb().get(
     'SELECT id, username, is_admin FROM users WHERE id = ?',
     [req.session.userId],
     (err, user) => {

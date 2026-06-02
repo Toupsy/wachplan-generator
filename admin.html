@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DLRG Wachplan - Admin Panel</title>
+  <style>
+    :root {
+      --navy:#0a1929;
+      --navy-2:#0f2438;
+      --deep:#061320;
+      --sea:#0d7ca8;
+      --sea-bright:#18a8d8;
+      --foam:#b8f3ff;
+      --coral:#e8754a;
+      --coral-deep:#c85a34;
+      --warn:#ff9800;
+      --green:#4caf50;
+      --sand:#f5f1e8;
+      --text:#f5f1e8;
+      --text-dim:#d0c9bc;
+      --line:#3a3530;
+      --line-strong:#5a5250;
+      --paper:#1a1a1a;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Spline Sans', sans-serif;
+      background: var(--navy);
+      color: var(--text);
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: var(--navy-2);
+      border-radius: 8px;
+      padding: 30px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+
+    h1 { color: var(--sea-bright); margin-bottom: 10px; }
+    h2 { color: var(--sea); margin: 30px 0 20px 0; font-size: 1.3em; }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid var(--line-strong);
+    }
+
+    .header-right {
+      display: flex;
+      gap: 10px;
+    }
+
+    button {
+      padding: 10px 20px;
+      background: var(--sea);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      background: var(--sea-bright);
+      transform: translateY(-2px);
+    }
+
+    button.danger {
+      background: var(--coral);
+    }
+
+    button.danger:hover {
+      background: var(--coral-deep);
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    select {
+      width: 100%;
+      padding: 10px;
+      background: var(--deep);
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      font-family: inherit;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--sea);
+      box-shadow: 0 0 0 2px rgba(13, 124, 168, 0.2);
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+
+    .card {
+      background: var(--deep);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      font-weight: 600;
+      color: var(--sea-bright);
+      margin-bottom: 15px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+    }
+
+    th {
+      background: var(--navy);
+      color: var(--sea-bright);
+      font-weight: 600;
+    }
+
+    tr:hover {
+      background: rgba(13, 124, 168, 0.1);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 3px;
+      font-size: 0.85em;
+      font-weight: 600;
+    }
+
+    .badge.admin {
+      background: var(--coral);
+      color: white;
+    }
+
+    .badge.user {
+      background: var(--sea);
+      color: white;
+    }
+
+    .btn-small {
+      padding: 6px 12px;
+      font-size: 0.9em;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 15px 20px;
+      background: var(--green);
+      color: white;
+      border-radius: 4px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      animation: slideIn 0.3s ease;
+    }
+
+    .toast.error {
+      background: var(--coral);
+    }
+
+    @keyframes slideIn {
+      from { transform: translateX(400px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    .loading { opacity: 0.6; pointer-events: none; }
+
+    .empty {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-dim);
+    }
+
+    .logout-btn {
+      background: var(--coral);
+    }
+
+    .logout-btn:hover {
+      background: var(--coral-deep);
+    }
+
+    .stat {
+      display: inline-block;
+      margin-right: 20px;
+    }
+
+    .stat-number {
+      font-size: 1.5em;
+      color: var(--sea-bright);
+      font-weight: bold;
+    }
+
+    .stat-label {
+      color: var(--text-dim);
+      font-size: 0.9em;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <h1>🔐 Admin Panel</h1>
+        <p style="color: var(--text-dim); margin-top: 5px;">Benutzerverwaltung für DLRG Wachplan-Generator</p>
+      </div>
+      <div class="header-right">
+        <div class="stat">
+          <div class="stat-number" id="user-count">0</div>
+          <div class="stat-label">Benutzer</div>
+        </div>
+        <button class="logout-btn" onclick="logout()">🚪 Logout</button>
+      </div>
+    </div>
+
+    <!-- User erstellen -->
+    <div class="card">
+      <div class="card-title">➕ Neuen Benutzer erstellen</div>
+      <form id="create-user-form" onsubmit="createUser(event)">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="username">Benutzername</label>
+            <input type="text" id="username" placeholder="z.B. max.mueller" required minlength="3">
+          </div>
+          <div class="form-group">
+            <label for="email">E-Mail (optional)</label>
+            <input type="email" id="email" placeholder="max@example.com">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="password">Passwort</label>
+            <input type="password" id="password" placeholder="Mindestens 8 Zeichen" required minlength="8">
+          </div>
+          <div class="form-group">
+            <label>&nbsp;</label>
+            <div class="checkbox-group">
+              <input type="checkbox" id="is-admin">
+              <label for="is-admin" style="margin: 0;">Admin-Rechte gewähren</label>
+            </div>
+          </div>
+        </div>
+        <button type="submit" style="margin-top: 10px;">✓ Benutzer erstellen</button>
+      </form>
+    </div>
+
+    <!-- Benutzerliste -->
+    <h2>👥 Alle Benutzer</h2>
+    <div class="card">
+      <table id="users-table">
+        <thead>
+          <tr>
+            <th>Benutzername</th>
+            <th>E-Mail</th>
+            <th>Rolle</th>
+            <th>Erstellt</th>
+            <th style="text-align: right;">Aktionen</th>
+          </tr>
+        </thead>
+        <tbody id="users-tbody">
+          <tr>
+            <td colspan="5" class="empty">Lädt...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    let currentUserId = null;
+
+    // Check auth on load
+    window.addEventListener('load', async () => {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (!response.ok) {
+          window.location.href = '/';
+          return;
+        }
+        const data = await response.json();
+        currentUserId = data.userId;
+        if (!data.isAdmin) {
+          alert('Admin-Zugriff erforderlich');
+          window.location.href = '/';
+          return;
+        }
+        loadUsers();
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        window.location.href = '/';
+      }
+    });
+
+    async function loadUsers() {
+      try {
+        const response = await fetch('/api/admin/users');
+        if (!response.ok) throw new Error('Failed to load users');
+
+        const data = await response.json();
+        document.getElementById('user-count').textContent = data.users.length;
+
+        const tbody = document.getElementById('users-tbody');
+        if (data.users.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" class="empty">Keine Benutzer gefunden</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = data.users.map(user => {
+          const createdAt = new Date(user.createdAt).toLocaleDateString('de-DE');
+          const badge = user.isAdmin
+            ? '<span class="badge admin">Admin</span>'
+            : '<span class="badge user">Benutzer</span>';
+
+          return `
+            <tr>
+              <td>${escapeHtml(user.username)}</td>
+              <td>${user.email ? escapeHtml(user.email) : '-'}</td>
+              <td>${badge}</td>
+              <td>${createdAt}</td>
+              <td style="text-align: right;">
+                <button class="btn-small danger" onclick="deleteUser(${user.id}, '${escapeHtml(user.username)}')">
+                  🗑️ Löschen
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch (error) {
+        console.error('Load users error:', error);
+        showToast('Fehler beim Laden der Benutzer', true);
+      }
+    }
+
+    async function createUser(event) {
+      event.preventDefault();
+
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      const email = document.getElementById('email').value;
+      const isAdmin = document.getElementById('is-admin').checked;
+
+      try {
+        const response = await fetch('/api/admin/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password, email, isAdmin })
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to create user');
+        }
+
+        showToast(`✓ Benutzer "${username}" erstellt`);
+        document.getElementById('create-user-form').reset();
+        loadUsers();
+      } catch (error) {
+        console.error('Create user error:', error);
+        showToast(error.message, true);
+      }
+    }
+
+    async function deleteUser(userId, username) {
+      if (!confirm(`Benutzer "${username}" wirklich löschen?\n\nAlle Pläne dieses Benutzers werden ebenfalls gelöscht.`)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/admin/users/${userId}`, {
+          method: 'DELETE'
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to delete user');
+        }
+
+        showToast(`✓ Benutzer "${username}" gelöscht`);
+        loadUsers();
+      } catch (error) {
+        console.error('Delete user error:', error);
+        showToast(error.message, true);
+      }
+    }
+
+    function logout() {
+      fetch('/api/auth/logout', { method: 'POST' })
+        .then(() => { window.location.href = '/'; })
+        .catch(err => console.error('Logout error:', err));
+    }
+
+    function showToast(message, isError = false) {
+      const toast = document.createElement('div');
+      toast.className = 'toast' + (isError ? ' error' : '');
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    function escapeHtml(text) {
+      const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+      };
+      return text.replace(/[&<>"']/g, m => map[m]);
+    }
+  </script>
+</body>
+</html>

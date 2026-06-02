@@ -33,15 +33,15 @@ function showLoginModal() {
   }
 }
 
-function hideLoginModal() {
+async function hideLoginModal() {
   const modal = document.getElementById('login-modal');
   if (modal) {
     modal.style.display = 'none';
   }
 
-  // Starte SPA
+  // Starte SPA (initAfterAuth ist jetzt async)
   if (typeof initAfterAuth === 'function') {
-    initAfterAuth();
+    await initAfterAuth();
   }
 }
 
@@ -72,6 +72,11 @@ async function handleLogin(e) {
 
     const data = await response.json();
     console.log('✓ Login erfolgreich:', data.username);
+
+    // Update user info
+    if (typeof updateUserInfo === 'function') {
+      updateUserInfo();
+    }
 
     // Modal schließen und SPA laden
     hideLoginModal();

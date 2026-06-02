@@ -23,8 +23,11 @@ Template-Datei: `Wachplan Template.xlsx` (DLRG-Formular, wird gepatcht).
 
 ## Dateistruktur
 
+### Frontend (Client-seitig)
 ```
 Wachplan-Generator.html   – Layout, CSS (dark theme, CSS-Variables), Script-Ladereihenfolge
+admin.html                – Admin-Panel für User-Verwaltung
+
 js/state.js               – Globale Variablen & Datenstrukturen
 js/utils.js               – escapeHtml, showToast, seededRand, Lookup-Helfer (getP/getT/getBoat)
 js/dates.js               – Datumsberechnung (lokale Arithmetik, kein UTC-Shift)
@@ -35,11 +38,35 @@ js/generate.js            – KERN-ALGORITHMUS: Wachplan berechnen (Scoring, Rot
 js/render-output.js       – Ausgabe-Panel: Tages-Karten, Steuerung, Paarungs-Matrix
 js/export.js              – XLSX- (XML-Patch via JSZip) und CSV-Export
 js/move.js                – Modal zum manuellen Verschieben von Personen (↕-Button)
-js/state-io.js            – JSON-Import/Export + localStorage Autosave
+js/state-io.js            – Server-Sync statt localStorage (autoSave via PUT /api/plans/:id)
+js/login-modal.js         – Login-Modal UI & Authentication Flow
+js/user-info.js           – User-Info Header, Admin-Panel Link, Plan-Import, Logout
 js/init.js                – Event-Listener + Startsequenz (autoLoad → seed fallback)
 ```
 
-**Script-Ladereihenfolge beachten:** state → utils → dates → autoCodes → seed → render-sidebar → generate → render-output → export → move → state-io → init
+### Backend (Server-seitig)
+```
+server.js                 – Express.js Server, Session-Setup, Route-Registration
+db/init.js                – SQLite Initialisierung, Schema Migration
+db/schema.sql             – Datenbank Schema (users, plans, sessions)
+
+api/auth.js               – Authentication Endpoints (login/logout/init/me)
+api/plans.js              – Plan CRUD API mit AES-256-GCM Verschlüsselung
+api/admin.js              – Admin-Endpoints für User-Verwaltung (Admin-only)
+api/import.js             – Plan-Import API für alte .json-Dateien
+```
+
+### Configuration
+```
+.env                      – Environment-Variablen (MASTER_SECRET, SALT, SESSION_SECRET)
+.env.example              – Template für .env
+.gitignore                – Git-Ignore (node_modules, .env, /data)
+Dockerfile                – Multi-stage Build für Production
+docker-compose.yml        – Production-Ready Docker Compose Config
+DEPLOYMENT.md             – Deployment-Anleitung für Docker
+```
+
+**Script-Ladereihenfolge beachten:** state → utils → dates → autoCodes → seed → render-sidebar → generate → render-output → export → move → state-io → user-info → login-modal → init
 
 ---
 
@@ -537,3 +564,210 @@ Dark-Theme mit CSS-Variables:
 **Performance-Baseline:** ~20 ms für 28 Personen × 14 Tage (Maximalszenario). Bei Regressionen >100 ms: Hot-Loop in `bestPair` (O(n²) über Guard-Pool pro Turm) prüfen.
 
 **Preview starten:** `.claude/launch.json` Server „wachplan" (Port 3000), dann `/Wachplan-Generator.html`. localStorage-Key `dlrg_wachplan_autosave` vor Tests löschen für sauberen Seed.
+
+---
+
+## Authentication & Encryption (Phase 2-4: New)
+
+### Architecture Overview
+
+**Multi-User System mit Encryption-at-Rest:**
+- Session-basierte Authentifizierung (HTTPOnly Cookies, 7 Tage TTL)
+- Pro-User verschlüsselte Plandaten (AES-256-GCM)
+- Admin-Panel für User-Management
+- Fallback-Import für alte localStorage-Pläne
+
+### Database Schema (SQLite)
+
+**users** – User-Accounts
+```sql
+id INTEGER PRIMARY KEY
+username TEXT UNIQUE NOT NULL      -- Login-Name
+password_hash TEXT NOT NULL        -- bcryptjs (10 Rounds)
+email TEXT                         -- Optional
+is_admin BOOLEAN DEFAULT 0         -- Admin-Rechte
+created_at DATETIME DEFAULT NOW
+updated_at DATETIME DEFAULT NOW
+```
+
+**plans** – Verschlüsselte Wachpläne
+```sql
+id INTEGER PRIMARY KEY
+user_id INTEGER NOT NULL           -- FK: users.id (CASCADE)
+name TEXT DEFAULT 'Wachplan'       -- Plan-Name
+encrypted_state BLOB NOT NULL      -- AES-256-GCM cipher
+iv BLOB NOT NULL                   -- Initialization Vector (16 Bytes)
+auth_tag BLOB NOT NULL             -- Authentication Tag (16 Bytes)
+created_at DATETIME DEFAULT NOW
+updated_at DATETIME DEFAULT NOW
+```
+
+**sessions** – Express-Session Store
+```sql
+sid TEXT PRIMARY KEY               -- Session ID
+sess TEXT NOT NULL                 -- Serialized session data
+expire DATETIME NOT NULL           -- Session expiration
+```
+
+### Encryption Details
+
+**Key Derivation (PBKDF2):**
+```javascript
+key = PBKDF2(
+  password: userId + MASTER_SECRET,
+  salt: SALT,
+  iterations: 100000,
+  keyLen: 32 bytes,
+  digest: sha256
+)
+```
+
+**Cipher (AES-256-GCM):**
+```
+- Algorithm: AES-256-GCM (Authenticated Encryption)
+- IV: 16 random bytes (generated per plan)
+- Auth Tag: 16 bytes (prevents tampering)
+- Ciphertext: Encrypted JSON state
+```
+
+**Why AES-256-GCM:**
+- ✅ Authenticated Encryption (prevents MITM)
+- ✅ Industry standard (NIST recommended)
+- ✅ No padding oracle attacks (built-in auth)
+- ✅ Fast on modern CPUs
+
+### API Endpoints
+
+#### Authentication (Public)
+```
+POST   /api/auth/login    – { username, password } → { userId, username, isAdmin }
+POST   /api/auth/logout   – Destroys session
+GET    /api/auth/me       – Returns current user or 401
+POST   /api/auth/init     – { username, password } → Create first admin
+```
+
+#### Plans (Authenticated)
+```
+GET    /api/plans         – List user's plans
+POST   /api/plans         – { name, state } → Create encrypted plan
+GET    /api/plans/:id     – Decrypt & return plan
+PUT    /api/plans/:id     – { state, name } → Update & re-encrypt
+DELETE /api/plans/:id     – Delete plan
+```
+
+#### Import (Authenticated)
+```
+POST   /api/import/plans  – { plans: [ { name, state } ] } → Bulk import
+```
+
+#### Admin (Admin-only, Authenticated)
+```
+GET    /api/admin/users   – List all users
+POST   /api/admin/users   – { username, password, email, isAdmin } → Create user
+DELETE /api/admin/users/:id – Delete user (cascade plans)
+```
+
+### Frontend Integration
+
+**state-io.js – Server Sync statt localStorage**
+```javascript
+// OLD: autoSave() → localStorage.setItem()
+// NEW: autoSave() → PUT /api/plans/:id (with retry fallback)
+
+async autoSave() {
+  if (!currentPlanId) {
+    // Create new plan: POST /api/plans
+    const { id } = await fetch('/api/plans', { method: 'POST', body: state });
+    currentPlanId = id;
+  } else {
+    // Update existing: PUT /api/plans/:id
+    await fetch(`/api/plans/${currentPlanId}`, { method: 'PUT', body: state });
+  }
+  // Fallback: localStorage wenn Server unreachable
+}
+```
+
+**login-modal.js – Authentication UI**
+- Prüft Authentifizierung bei Page-Load via GET /api/auth/me
+- Zeigt Login-Modal wenn nicht authentifiziert
+- POST /api/auth/login mit Username/Passwort
+- Ruft initAfterAuth() nach erfolgreichem Login
+
+**user-info.js – User-Management UI**
+- User-Info Header mit Benutzernamen & Logout Button
+- Admin-Panel Link (nur für Admins sichtbar)
+- Plan-Import Button für alte .json-Dateien
+- Logout Handler
+
+**admin.html – Admin-Panel**
+- User-Liste (Name, Email, Rolle, Erstellt-am)
+- Create Form (Username, Passwort, Email, Admin-Flag)
+- Delete Button pro User (mit Cascade auf Plans)
+- Nur für Admin-User zugänglich (403 sonst)
+
+### Security Considerations
+
+**In Scope (Implementiert):**
+- ✅ bcryptjs Passwort-Hashing (10 Rounds)
+- ✅ AES-256-GCM Encryption at rest
+- ✅ PBKDF2 Key Derivation (100k iterations)
+- ✅ HTTPOnly Cookies (CSRF-proof)
+- ✅ Per-User Encryption Keys
+- ✅ Session TTL (7 days)
+- ✅ Non-root Docker User
+
+**Out of Scope (Später):**
+- Rate Limiting (add later with `express-ratelimit`)
+- CSRF Tokens (HTTPOnly cookies ausreichend)
+- 2FA (optional, use TOTP library)
+- Password Reset (email integration needed)
+
+### Deployment
+
+**Docker:**
+```bash
+docker-compose up -d
+# Generiere Secrets:
+openssl rand -base64 32  # MASTER_SECRET
+openssl rand -base64 16  # SALT
+openssl rand -base64 32  # SESSION_SECRET
+# Ersetze in .env
+```
+
+**Environment-Variablen:**
+```
+NODE_ENV=production
+PORT=3000
+HOST=0.0.0.0
+MASTER_SECRET=<random-base64-32>
+SALT=<random-base64-16>
+SESSION_SECRET=<random-base64-32>
+```
+
+**Volumes:**
+- `wachplan-data:/app/data` – Persistent SQLite DB + Sessions
+
+**Health Check:**
+```
+GET /health → { status: "ok", timestamp: "..." }
+```
+
+### Testing Checklist
+
+- [ ] Login mit falschen Credentials → 401
+- [ ] Login mit korrekten Credentials → Session erstellt
+- [ ] Plan erstellen → Verschlüsselt in DB
+- [ ] Plan laden → Dekryptiert korrekt
+- [ ] Plan bearbeiten → Re-encrypted mit neuem IV/Tag
+- [ ] Admin-Panel → Nur für Admins zugänglich (403)
+- [ ] User erstellen → Passwort gehasht
+- [ ] User löschen → Cascade auf Plans
+- [ ] Plan-Import → Alte .json geladen & verschlüsselt
+- [ ] Logout → Session zerstört, /api/auth/me → 401
+
+### Known Limitations
+
+- Max. 1000 concurrent users (SQLite limit)
+- Keine Cloud-Storage Integration (lokal nur)
+- Keine End-to-End Encryption (Client↔Client unencrypted)
+- Sessions nicht cluster-repliziert (single-instance only)

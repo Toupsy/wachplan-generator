@@ -1,0 +1,189 @@
+// ============================================================
+// Admin API Routes
+// GET /api/admin/users – Alle User auflisten (Admin only)
+// POST /api/admin/users – Neuen User erstellen (Admin only)
+// DELETE /api/admin/users/:id – User löschen (Admin only)
+// ============================================================
+
+const express = require('express');
+const router = express.Router();
+const bcryptjs = require('bcryptjs');
+const sqlite3 = require('sqlite3');
+const path = require('path');
+
+// Database connection (lazy - created on first use)
+const dbPath = path.join(__dirname, '..', 'data', 'wachplan.db');
+let db = null;
+
+function getDb() {
+  if (!db) {
+    db = new sqlite3.Database(dbPath, (err) => {
+      if (err) {
+        console.error('❌ Database connection error:', err);
+        db = null;
+      }
+    });
+
+    db.on('error', (err) => {
+      console.error('❌ Database error:', err);
+    });
+  }
+  return db;
+}
+
+// Promisify db functions
+const dbRun = (query, params = []) => {
+  return new Promise((resolve, reject) => {
+    getDb().run(query, params, function(err) {
+      if (err) reject(err);
+      else resolve({ lastID: this.lastID, changes: this.changes });
+    });
+  });
+};
+
+const dbGet = (query, params = []) => {
+  return new Promise((resolve, reject) => {
+    getDb().get(query, params, (err, row) => {
+      if (err) reject(err);
+      else resolve(row);
+    });
+  });
+};
+
+const dbAll = (query, params = []) => {
+  return new Promise((resolve, reject) => {
+    getDb().all(query, params, (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows || []);
+    });
+  });
+};
+
+// ───────────────────────────────────────────────────────────
+// Admin-only Middleware
+// ───────────────────────────────────────────────────────────
+const adminMiddleware = async (req, res, next) => {
+  // Check if authenticated
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  try {
+    // Check if user is admin
+    const user = await dbGet(
+      'SELECT is_admin FROM users WHERE id = ?',
+      [req.session.userId]
+    );
+
+    if (!user || !user.is_admin) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    next();
+  } catch (error) {
+    console.error('Admin middleware error:', error);
+    res.status(500).json({ error: 'Authorization failed' });
+  }
+};
+
+router.use(adminMiddleware);
+
+// ───────────────────────────────────────────────────────────
+// GET /api/admin/users – Alle User auflisten
+// ───────────────────────────────────────────────────────────
+router.get('/users', async (req, res) => {
+  try {
+    const users = await dbAll(
+      'SELECT id, username, email, is_admin, created_at FROM users ORDER BY created_at DESC'
+    );
+
+    res.json({
+      users: users.map(u => ({
+        id: u.id,
+        username: u.username,
+        email: u.email,
+        isAdmin: u.is_admin === 1,
+        createdAt: u.created_at
+      }))
+    });
+  } catch (error) {
+    console.error('Get users error:', error);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// POST /api/admin/users – Neuen User erstellen
+// ───────────────────────────────────────────────────────────
+router.post('/users', express.json(), async (req, res) => {
+  try {
+    const { username, password, email, isAdmin } = req.body;
+
+    // Validate input
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password required' });
+    }
+
+    if (username.length < 3) {
+      return res.status(400).json({ error: 'Username must be at least 3 characters' });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
+    // Hash password
+    const passwordHash = await bcryptjs.hash(password, 10);
+
+    // Create user
+    const result = await dbRun(
+      'INSERT INTO users (username, password_hash, email, is_admin) VALUES (?, ?, ?, ?)',
+      [username, passwordHash, email || null, isAdmin ? 1 : 0]
+    );
+
+    res.status(201).json({
+      id: result.lastID,
+      username: username,
+      email: email || null,
+      isAdmin: !!isAdmin,
+      message: 'User created successfully'
+    });
+  } catch (error) {
+    if (error.message.includes('UNIQUE constraint failed')) {
+      return res.status(400).json({ error: 'Username already exists' });
+    }
+    console.error('Create user error:', error);
+    res.status(500).json({ error: 'Failed to create user' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// DELETE /api/admin/users/:id – User löschen
+// ───────────────────────────────────────────────────────────
+router.delete('/users/:id', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+
+    // Prevent deleting yourself
+    if (userId === req.session.userId) {
+      return res.status(400).json({ error: 'Cannot delete your own account' });
+    }
+
+    // Check if user exists
+    const user = await dbGet('SELECT id FROM users WHERE id = ?', [userId]);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Delete user and their plans (cascade)
+    await dbRun('DELETE FROM plans WHERE user_id = ?', [userId]);
+    await dbRun('DELETE FROM users WHERE id = ?', [userId]);
+
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
+module.exports = router;

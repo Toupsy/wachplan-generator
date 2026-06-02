@@ -1,9 +1,13 @@
 // ============================================================
-// state-io.js – Planstatus-Import / Export (Feature 7) + Lokale Persistenz
+// state-io.js – Planstatus-Import / Export (Feature 7) + Server-Sync
 // ============================================================
 
 const STATE_VERSION = 3;
-const STORAGE_KEY   = 'dlrg_wachplan_autosave';
+const STORAGE_KEY   = 'dlrg_wachplan_autosave';  // Fallback für offline
+
+// Globale Variablen für Server-Sync
+let currentPlanId = null;  // Die aktuell bearbeitete Plan-ID
+let currentPlanName = 'Wachplan';  // Name des aktuellen Plans
 
 /**
  * Serialisiert den kompletten Anwendungsstatus als JSON-Blob
@@ -121,23 +125,111 @@ function importStateJSON(json, silent = false){
     + towers.length + ' Türme, ' + boats.length + ' Boote');
 }
 
-// ── Lokale Persistenz (localStorage) ────────────────────────────
+// ── Server-Synchronisation ────────────────────────────
 
-function autoSave(){
+async function autoSave(){
+  const state = _buildStateObject();
+
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(_buildStateObject()));
+    // Wenn noch keine Plan-ID vorhanden, erstelle einen neuen Plan
+    if(!currentPlanId){
+      const response = await fetch('/api/plans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: currentPlanName, state })
+      });
+
+      if(!response.ok){
+        console.error('Failed to create plan:', response.statusText);
+        _fallbackSaveToStorage(state);
+        return;
+      }
+
+      const data = await response.json();
+      currentPlanId = data.id;
+      console.log('✓ Neuer Plan erstellt, ID:', currentPlanId);
+      _updateSaveIndicator();
+      return;
+    }
+
+    // Plan existiert bereits, aktualisiere ihn
+    const response = await fetch(`/api/plans/${currentPlanId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state, name: currentPlanName })
+    });
+
+    if(!response.ok){
+      console.error('Failed to save plan:', response.statusText);
+      _fallbackSaveToStorage(state);
+      return;
+    }
+
     _updateSaveIndicator();
+  } catch(error) {
+    console.error('autoSave error:', error);
+    _fallbackSaveToStorage(state);  // Fallback auf localStorage
+  }
+}
+
+// Fallback: Speichere auf localStorage wenn Server nicht erreichbar
+function _fallbackSaveToStorage(state){
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    console.log('⚠️ Offline-Modus: Plan lokal gespeichert');
   } catch(e) {}
 }
 
-function autoLoad(){
+async function autoLoad(){
+  try {
+    // Hole Liste aller Pläne des Users
+    const response = await fetch('/api/plans');
+    if(!response.ok) {
+      console.log('Could not fetch plans, falling back to localStorage');
+      return _autoLoadFromStorage();
+    }
+
+    const data = await response.json();
+    const plans = data.plans || [];
+
+    if(plans.length === 0) {
+      console.log('Keine Pläne gefunden');
+      return false;
+    }
+
+    // Lade den letzten bearbeiteten Plan
+    const lastPlan = plans[0];
+    const planResponse = await fetch(`/api/plans/${lastPlan.id}`);
+    if(!planResponse.ok) {
+      console.error('Failed to load plan:', planResponse.statusText);
+      return false;
+    }
+
+    const planData = await planResponse.json();
+    currentPlanId = planData.id;
+    currentPlanName = planData.name;
+
+    // Importiere die dekryptierten Daten
+    importStateJSON(JSON.stringify(planData.state), true);  // silent
+    generate();
+    showToast('♻️ Plan „' + currentPlanName + '" wiederhergestellt');
+    return true;
+
+  } catch(error) {
+    console.error('autoLoad error:', error);
+    return _autoLoadFromStorage();
+  }
+}
+
+// Fallback: Lade aus localStorage wenn Server nicht verfügbar
+function _autoLoadFromStorage(){
   let raw;
   try { raw = localStorage.getItem(STORAGE_KEY); } catch(e) { return false; }
   if(!raw) return false;
   try {
-    importStateJSON(raw, true);  // silent – eigene Toast folgt
+    importStateJSON(raw, true);
     generate();
-    showToast('♻️ Letzter Stand wiederhergestellt');
+    showToast('⚠️ Offline-Modus: Letzter Stand wiederhergestellt');
     return true;
   } catch(e) {
     try { localStorage.removeItem(STORAGE_KEY); } catch(_) {}
@@ -155,14 +247,13 @@ function _updateSaveIndicator(){
   const el = document.getElementById('autosave-indicator');
   if(!el) return;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw){
-      const s = JSON.parse(raw);
-      const ts = s.exportedAt ? new Date(s.exportedAt).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) : '';
-      el.textContent = '💾 Gespeichert ' + ts;
+    if(currentPlanId){
+      const ts = new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+      el.textContent = '💾 ' + currentPlanName + ' (' + ts + ')';
       el.style.display = '';
     } else {
-      el.style.display = 'none';
+      el.textContent = '💾 Neuer Plan...';
+      el.style.display = '';
     }
   } catch(e) { el.style.display = 'none'; }
 }

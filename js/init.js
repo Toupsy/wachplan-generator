@@ -201,8 +201,8 @@ document.getElementById('import-file-input').onchange = e => {
 document.getElementById('btn-clear-save').onclick = clearLocalSave;
 
 // ── Startsequenz (nach Authentifizierung) ─────────────────────────
-function initAfterAuth() {
-  const _restored = autoLoad();   // gespeicherten Stand wiederherstellen
+async function initAfterAuth() {
+  const _restored = await autoLoad();   // gespeicherten Stand wiederherstellen (async!)
   if(!_restored){
     // Kein Speicherstand → Beispieldaten laden
     seed();
@@ -227,5 +227,7 @@ function initAfterAuth() {
 // Wenn nicht im Browser mit Auth, kann diese Funktion manuell aufgerufen werden:
 if (typeof window !== 'undefined' && !document.getElementById('login-modal')) {
   // Kein Login-Modal vorhanden (Development-Modus), starte direkt
-  initAfterAuth();
+  (async () => {
+    await initAfterAuth();
+  })();
 }
