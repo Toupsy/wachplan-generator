@@ -246,4 +246,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+  // ── Login-Modal starten (nach init.js geladen) ─────────────────
+  // initLoginModal() wurde aus login-modal.js entfernt um Timing-Fehler zu beheben
+  // Jetzt aufgerufen NACH initAfterAuth definiert ist
+  if (document.readyState === 'loading') {
+    // Noch nicht geladen, warte auf DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', initLoginModal);
+  } else {
+    // Bereits geladen, rufe sofort auf
+    initLoginModal();
+  }
+
 }); // Ende DOMContentLoaded

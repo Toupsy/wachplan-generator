@@ -119,8 +119,5 @@ async function handleSetup(e) {
   }
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initLoginModal);
-} else {
-  initLoginModal();
-}
+// REMOVED: initLoginModal() wird jetzt von init.js aufgerufen, nachdem initAfterAuth definiert ist
+// Siehe init.js Zeile ~248 für den eigentlichen Aufruf
