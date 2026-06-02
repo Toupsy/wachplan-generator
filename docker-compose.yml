@@ -1,119 +1,35 @@
-version: '3.9'
-
-# ============================================================
-# DLRG Wachplan-Generator - Docker Compose Configuration
-#
-# ⚠️ WICHTIG: Secrets müssen vor dem Deploy generiert werden!
-#
-# Secrets generieren:
-#   MASTER_SECRET:  openssl rand -base64 32
-#   SALT:           openssl rand -base64 16
-#   SESSION_SECRET: openssl rand -base64 32
-#
-# Dann die generierten Werte unten eintragen!
-# ============================================================
+version: "3.9"
 
 services:
-  # Main Wachplan-Generator Application (Port 3000)
   wachplan:
+    container_name: dlrg-wachplan
     image: ghcr.io/toupsy/wachplan-generator:latest
-    container_name: dlrg-wachplan-generator
-    pull_policy: always
-
+    restart: unless-stopped
     ports:
       - "3000:3000"
-
-    environment:
-      # ─ Node Environment ─────────────────────────────────────
-      NODE_ENV: production
-      PORT: 3000
-      HOST: 0.0.0.0
-
-      # ─ Encryption & Security Secrets ────────────────────────
-      # ⚠️ Bitte mit echten Werten ersetzen!
-      # Generiere neue Werte mit: openssl rand -base64 32 (oder 16)
-      MASTER_SECRET: "xw41LPAHcjYtbrsGCtFAmXnNPsB6khaVAVSWiTZC+iM="
-      SALT: "D1pW2yiSDarYqLvTdx6lJA=="
-      SESSION_SECRET: "672V4yvt/7wfDVntuoAUfD8VUezCu2T/ReO9i+iOYm0="
-
-      # ─ Database ─────────────────────────────────────────────
-      DATABASE_PATH: "/app/data/wachplan.db"
-
     volumes:
       - wachplan-data:/app/data
+    environment:
+      MASTER_SECRET: "ERSETZEN_openssl_rand_-base64_32"
+      SALT: "ERSETZEN_openssl_rand_-base64_16"
+      SESSION_SECRET: "ERSETZEN_openssl_rand_-base64_32"
 
-    restart: unless-stopped
-
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-
-    networks:
-      - wachplan-network
-
-    labels:
-      com.dlrg.description: "DLRG Wachplan-Generator für Wasserrettungsdienste"
-      com.dlrg.version: "2.0.0"
-      org.opencontainers.image.title: "DLRG Wachplan-Generator"
-      org.opencontainers.image.description: "Single-Page Application für faire Wachplan-Generierung"
-      org.opencontainers.image.source: "https://github.com/Toupsy/Wachplan-Generator"
-
-  # Admin Panel (Port 3001)
   wachplan-admin:
-    image: ghcr.io/toupsy/wachplan-generator:latest
     container_name: dlrg-wachplan-admin
-    pull_policy: always
-
+    image: ghcr.io/toupsy/wachplan-generator:latest
+    restart: unless-stopped
     ports:
       - "3001:3001"
-
-    environment:
-      # ─ Node Environment ─────────────────────────────────────
-      NODE_ENV: production
-      ADMIN_PORT: 3001
-      HOST: 0.0.0.0
-
-      # ─ Encryption & Security Secrets ────────────────────────
-      # ⚠️ MUSS identisch mit wachplan service sein!
-      # Generiere neue Werte mit: openssl rand -base64 32 (oder 16)
-      MASTER_SECRET: "xw41LPAHcjYtbrsGCtFAmXnNPsB6khaVAVSWiTZC+iM="
-      SALT: "D1pW2yiSDarYqLvTdx6lJA=="
-      SESSION_SECRET: "672V4yvt/7wfDVntuoAUfD8VUezCu2T/ReO9i+iOYm0="
-
-      # ─ Database ─────────────────────────────────────────────
-      DATABASE_PATH: "/app/data/wachplan.db"
-
     volumes:
       - wachplan-data:/app/data
-
-    restart: unless-stopped
-
+    environment:
+      ADMIN_PORT: "3001"
+      MASTER_SECRET: "ERSETZEN_openssl_rand_-base64_32"
+      SALT: "ERSETZEN_openssl_rand_-base64_16"
+      SESSION_SECRET: "ERSETZEN_openssl_rand_-base64_32"
     command: node admin-server.js
-
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-
-    networks:
-      - wachplan-network
-
     depends_on:
       - wachplan
 
-    labels:
-      com.dlrg.description: "Admin Panel für DLRG Wachplan-Generator"
-      com.dlrg.component: "admin"
-
-networks:
-  wachplan-network:
-    driver: bridge
-
 volumes:
   wachplan-data:
-    driver: local
