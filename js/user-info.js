@@ -61,6 +61,12 @@ async function logout() {
   }
 
   try {
+    // Clear localStorage before logout to prevent data leakage to next user
+    try {
+      localStorage.removeItem('dlrg_wachplan_autosave');
+      console.log('✓ Local storage cleared on logout');
+    } catch(e) {}
+
     const response = await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     if (response.ok) {
       window.location.href = '/';

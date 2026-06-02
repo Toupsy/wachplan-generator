@@ -55,6 +55,11 @@ function showSetupModal() {
 async function hideLoginModal() {
   const loginModal = document.getElementById('login-modal');
   if(loginModal) loginModal.style.display = 'none';
+  // Clear localStorage when user logs in to prevent loading another user's data
+  try {
+    localStorage.removeItem('dlrg_wachplan_autosave');
+    console.log('✓ Local storage cleared on login');
+  } catch(e) {}
   if (typeof initAfterAuth === 'function') {
     await initAfterAuth();
   }
