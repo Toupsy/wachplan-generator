@@ -227,33 +227,12 @@ document.getElementById('import-file-input').onchange = e => {
 };
 document.getElementById('btn-clear-save').onclick = clearLocalSave;
 
-// Wird nach erfolgreicher Authentication aufgerufen (login-modal.js)
-// Fallback für Development-Modus (kein Login-Modal):
-if (typeof window !== 'undefined' && !document.getElementById('login-modal')) {
-  // Kein Login-Modal vorhanden, starte direkt
-  (async () => {
-    await initAfterAuth();
-  })();
+// ── Login-Modal starten (nach init.js geladen) ─────────────────
+// initAfterAuth() wird NUR von login-modal.js aufgerufen, NACH erfolgreichem Login!
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initLoginModal);
+} else {
+  initLoginModal();
 }
 
-// Safety: Stelle sicher dass initAfterAuth nach dem DOMContentLoaded aufgerufen wird
-// (falls login-modal.js aus irgendeinem Grund nicht lädt)
-document.addEventListener('DOMContentLoaded', () => {
-  if (typeof initAfterAuth === 'function' && typeof autoLoad === 'function') {
-    // Überprüfe ob bereits authentifiziert und initAfterAuth noch nicht gelaufen hat
-    if (people.length === 0 && document.getElementById('login-modal')?.style.display === 'none') {
-      initAfterAuth().catch(e => console.error('initAfterAuth fallback error:', e));
-    }
-  }
-
-  // ── Login-Modal starten (nach init.js geladen) ─────────────────
-  // initLoginModal() wurde aus login-modal.js entfernt um Timing-Fehler zu beheben
-  // Jetzt aufgerufen NACH initAfterAuth definiert ist
-  if (document.readyState === 'loading') {
-    // Noch nicht geladen, warte auf DOMContentLoaded
-    document.addEventListener('DOMContentLoaded', initLoginModal);
-  } else {
-    // Bereits geladen, rufe sofort auf
-    initLoginModal();
-  }
 }); // Ende DOMContentLoaded
