@@ -285,7 +285,10 @@
 <!-- ── Haupt-Layout ────────────────────────────────────────────── -->
 <div class="wrap">
   <header>
-    <div class="badge"><span class="dot"></span> DLRG · Wasserrettungsdienst</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px">
+      <div class="badge"><span class="dot"></span> DLRG · Wasserrettungsdienst</div>
+      <div id="version-badge" class="badge" style="background:rgba(127,212,232,.08);color:var(--text-dim);cursor:help;font-size:.75rem" title="Aktuelle Version auf dem Server">v <span id="version-text">--</span></div>
+    </div>
     <h1>Wachplan<span class="accent">·</span>Generator</h1>
     <p class="subtitle">Tagesweiser Aufbau über mehrere Tage. Faire Rotation durch akkumulierte Statistik – jeder Tag hat eigenen Krank- und Schließstatus. Personen lassen sich per ↕ manuell auf andere Positionen verschieben.</p>
   </header>
@@ -454,6 +457,32 @@
 <script src="js/user-info.js"></script>
 <script src="js/login-modal.js"></script>
 <script src="js/init.js"></script>
+
+<!-- Version tracker -->
+<script>
+(async () => {
+  try {
+    const res = await fetch('/api/version');
+    const data = await res.json();
+    if (data.version) {
+      const versionEl = document.getElementById('version-text');
+      if (versionEl) {
+        versionEl.textContent = data.version;
+        // Optional: Check for update status (green = latest, gray = unknown)
+        const badge = document.getElementById('version-badge');
+        if (badge) {
+          badge.style.color = 'var(--green)';
+          badge.title = `Version ${data.version} (aktuell)`;
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Version fetch failed:', error);
+    const versionEl = document.getElementById('version-text');
+    if (versionEl) versionEl.textContent = '?';
+  }
+})();
+</script>
 
 </body>
 </html>

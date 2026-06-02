@@ -81,6 +81,18 @@ async function start() {
     app.use('/api/plans', plansApi);
     app.use('/api/admin', adminApi);
     app.use('/api/import', importApi);
+
+    // Version endpoint (public, no auth needed)
+    app.get('/api/version', (req, res) => {
+      const versionPath = path.join(__dirname, 'VERSION');
+      try {
+        const version = fs.readFileSync(versionPath, 'utf-8').trim();
+        res.json({ version });
+      } catch (error) {
+        res.status(500).json({ error: 'Version not available' });
+      }
+    });
+
     console.log('✓ API routes registered');
 
     // Register static files and SPA routes AFTER API routes
