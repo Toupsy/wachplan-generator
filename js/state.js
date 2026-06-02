@@ -59,3 +59,30 @@ function freshDayState(){
 function freshForcedPlacements(){
   return Array.from({ length: DAYS }, () => []);
 }
+
+// Reset all global state to defaults (call on account switch)
+function resetGlobalState() {
+  DAYS = 6;
+  uid = 0;
+  randomSeed = 0;
+  people = [];
+  towers = [];
+  boats = [];
+  mainK = 2;
+  hwBoatId = null;
+  dayState = freshDayState();
+  forcedPlacements = freshForcedPlacements();
+  positionDescriptions = { 3:'', 4:'', 5:'', 6:'', 7:'' };
+  fairnessMetricsDisplay = {
+    hwBoatBalance: true,
+    towerDistribution: true,
+    boatPairingDiversity: true
+  };
+  exportColumns = [];
+  lastResult = null;
+  activeDay = 0;
+  startDate = '';
+  currentPlanId = null;
+  currentPlanName = 'Wachplan';
+  console.log('✓ Global state reset');
+}

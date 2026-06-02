@@ -60,6 +60,10 @@ async function hideLoginModal() {
     localStorage.removeItem('dlrg_wachplan_autosave');
     console.log('✓ Local storage cleared on login');
   } catch(e) {}
+  // Reset all global state to prevent data from previous user
+  if (typeof resetGlobalState === 'function') {
+    resetGlobalState();
+  }
   if (typeof initAfterAuth === 'function') {
     await initAfterAuth();
   }
