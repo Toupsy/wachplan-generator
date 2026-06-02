@@ -10,7 +10,7 @@ let currentUser = null;
  */
 async function updateUserInfo() {
   try {
-    const response = await fetch('/api/auth/me');
+    const response = await fetch('/api/auth/me', { credentials: 'include' });
     if (!response.ok) {
       hideUserInfo();
       return;
@@ -61,7 +61,7 @@ async function logout() {
   }
 
   try {
-    const response = await fetch('/api/auth/logout', { method: 'POST' });
+    const response = await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     if (response.ok) {
       window.location.href = '/';
     } else {
@@ -129,6 +129,7 @@ async function importPlans(event) {
     const response = await fetch('/api/import/plans', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ plans: plansToImport })
     });
 

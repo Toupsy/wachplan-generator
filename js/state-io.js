@@ -136,6 +136,7 @@ async function autoSave(){
       const response = await fetch('/api/plans', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ name: currentPlanName, state })
       });
 
@@ -156,6 +157,7 @@ async function autoSave(){
     const response = await fetch(`/api/plans/${currentPlanId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ state, name: currentPlanName })
     });
 
@@ -183,7 +185,7 @@ function _fallbackSaveToStorage(state){
 async function autoLoad(){
   try {
     // Hole Liste aller Pläne des Users
-    const response = await fetch('/api/plans');
+    const response = await fetch('/api/plans', { credentials: 'include' });
     if(!response.ok) {
       console.log('Could not fetch plans, falling back to localStorage');
       return _autoLoadFromStorage();
@@ -199,7 +201,7 @@ async function autoLoad(){
 
     // Lade den letzten bearbeiteten Plan
     const lastPlan = plans[0];
-    const planResponse = await fetch(`/api/plans/${lastPlan.id}`);
+    const planResponse = await fetch(`/api/plans/${lastPlan.id}`, { credentials: 'include' });
     if(!planResponse.ok) {
       console.error('Failed to load plan:', planResponse.statusText);
       return false;
