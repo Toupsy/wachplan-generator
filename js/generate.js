@@ -208,9 +208,12 @@ function generate(startDay = 0){
       && boats.some(b => b.id === hwBoatId);
 
     // ── Vorab-Schätzung der BF-Aufteilung ────────────────────────
+    // Sortierung ASC nach prio: Prio 1 = wichtigster Turm → wird ZUERST geöffnet
+    // (bleibt offen) → schließt ZULETZT bei Personalmangel. Höhere Prio-Nummern
+    // (z.B. 7) sind unwichtiger → werden zuerst geschlossen.
     const openTowersSorted = towers
       .filter(t => !ds.closed.has(t.id))
-      .slice().sort((a,b) => (b.prio-a.prio)||(a.id-b.id));
+      .slice().sort((a,b) => (a.prio-b.prio)||(a.id-b.id));
 
     let usedGpre = k;
     const tempOpen = [];
@@ -271,7 +274,7 @@ function generate(startDay = 0){
     }
     const personnelClosed = candidateTowers
       .filter(t => !openTowers.includes(t))
-      .sort((a,b) => (b.prio-a.prio)||(a.id-b.id));
+      .sort((a,b) => (a.prio-b.prio)||(a.id-b.id));
     const manualClosed = towers.filter(t => ds.closed.has(t.id));
 
     const dayAssign = [];

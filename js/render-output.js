@@ -71,36 +71,31 @@ function renderOutput(){
       }
     });
 
-    // Wende Boot-Reassignments an
+    // Wende Boot-Reassignments an (Boot-Slot wandert visuell zu anderem Turm/HW)
     dayForcedTransparent.filter(f => f.kind === 'boat-reassign').forEach(f => {
-      const boat = boats.find(b => b.id === f.boatId);
-      if(!boat) return;
+      const boatSlot = dayClone.assign.find(s => s.kind === 'boat' && s.boatId === f.boatId);
+      if(!boatSlot) return;
 
-      // Entferne Boot aus seiner aktuellen Zuweisung
-      dayClone.assign.forEach(slot => {
-        if(slot.boatId === f.boatId) {
-          slot.boatId = null;
-          slot.boat = null;
-          slot.occupants = [];
-        }
-      });
-
-      // Füge Boot zur Zielstation hinzu
       if(f.targetKind === 'tower') {
-        const targetSlot = dayClone.assign.find(s => s.kind === 'tower' && s.towerId === f.targetSlotId);
-        if(targetSlot) {
-          targetSlot.boatId = f.boatId;
-          targetSlot.boat = boat;
-          targetSlot.towerName = targetSlot.tower;
-          targetSlot.occupants = [];
-        }
-      } else if(f.targetKind === 'hwboat') {
+        // Boot dem Zielturm zuordnen (nur towerId/towerName ändern)
+        boatSlot.towerId = f.targetSlotId;
+        boatSlot.towerName = towers.find(t => t.id === f.targetSlotId)?.name || '';
+      } else if(f.targetKind === 'main' || f.targetKind === 'hwboat') {
+        // Boot zur Hauptwache: als hwBoatSlot setzen, Boot-Slot entfernen
         const mainSlot = dayClone.assign.find(s => s.kind === 'main');
         if(mainSlot) {
-          mainSlot.hwBoatSlot = { boatId: f.boatId, name: boat.name, code: boat.code, bootsf: null };
+          mainSlot.hwBoatSlot = {
+            boatId: f.boatId,
+            name: boatSlot.name,
+            code: boatSlot.code,
+            bootsf: boatSlot.occupants[0] || null
+          };
         }
+        boatSlot._movedToHW = true;  // Markiere zum Entfernen
       }
     });
+    // Entferne Boot-Slots, die zur HW verschoben wurden
+    dayClone.assign = dayClone.assign.filter(s => !s._movedToHW);
 
     return dayClone;
   });
@@ -225,8 +220,33 @@ function renderOutput(){
     if(uuToday>0) html+=`<div class="notice warn-n">⚠️ <div>${uuToday}× zwei Unerfahrene auf einem Turm.</div></div>`;
 
     // ── Karten ─────────────────────────────────────────────────
+    // Map: towerId → [Boot-Slots] (Boote werden INLINE im Turm gerendert, wie HW-Boot)
+    const boatsByTower = {};
+    d.assign.forEach(s => {
+      if(s.kind === 'boat' && s.towerId){
+        (boatsByTower[s.towerId] = boatsByTower[s.towerId] || []).push(s);
+      }
+    });
+
+    // Inline-Boot-Renderer (wie HW-Boot in der Hauptwache)
+    const renderInlineBoat = (bsList) => {
+      if(!bsList || !bsList.length) return '';
+      return bsList.map(bs => `
+        <div class="hq-divider boat-inline" draggable="true" data-boat-id="${bs.boatId}" data-boat-name="${escapeHtml(bs.name)}" data-boat-code="${escapeHtml(bs.code||'?')}" title="Ziehen um Boot auf anderen Turm/HW zu verschieben">🚤 Boot: ${escapeHtml(bs.name)} · ${escapeHtml(bs.code||'?')}</div>
+        ${bs.occupants.map(p=>`
+          <div class="occupant" draggable="true" data-person-id="${p.id}" data-source-kind="boat" data-source-slot="${bs.boatId}">
+            <i class="role-dot rd-${p.role.toLowerCase()}"></i>${escapeHtml(p.name)}
+            ${forcedIds.has(p.id)?'<span class="forced-badge" title="Manuell fixiert">🔒</span>':''}
+            <span class="o-role">Bootsführer</span>
+            <button class="move-btn" data-move-person="${p.id}" data-move-day="${di}"
+              data-move-kind="boat" data-move-slot="${bs.boatId}" title="Verschieben">↕</button>
+          </div>`).join('')}`).join('');
+    };
+
     html += `<div class="towers-grid">`;
     d.assign.forEach(slot => {
+      // Boot-Slots werden inline im Turm gerendert → hier überspringen
+      if(slot.kind === 'boat') return;
       // ─ Hauptwache ─
       if(slot.kind === 'main'){
         const occ = (p, lbl, kind, slotId) => `
@@ -251,7 +271,7 @@ function renderOutput(){
           ${slot.sick.map(p=>`<div class="occupant" style="opacity:.55"><i class="role-dot rd-${p.role.toLowerCase()}"></i><span style="text-decoration:line-through">${escapeHtml(p.name)}</span><span class="o-role" style="color:var(--coral)">krank</span></div>`).join('')}
         </div>`;
       }
-      // ─ Turm ─
+      // ─ Turm (inkl. inline Boot, falls vorhanden) ─
       else if(slot.kind === 'tower'){
         html += `<div class="tower-card" data-drop-kind="tower" data-drop-slot="${slot.towerId}">
           <div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="tower" data-card-slot="${slot.towerId}" title="Zum Sortieren ziehen"><span class="tc-name">🗼 ${escapeHtml(slot.tower)}</span><span class="tc-type normal">Turm · ${escapeHtml(slot.code||'?')} · P${slot.prio}</span></div>
@@ -264,29 +284,14 @@ function renderOutput(){
                 data-move-kind="tower" data-move-slot="${slot.towerId}" title="Verschieben">↕</button>
             </div>`).join('')}
           ${slot.warn?`<div class="warn-pair">⚠ ${slot.warn}</div>`:''}
-        </div>`;
-      }
-      // ─ Boot ─
-      else if(slot.kind === 'boat'){
-        html += `<div class="tower-card boot" data-drop-kind="boat" data-drop-slot="${slot.boatId}">
-          <div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="boat" data-card-slot="${slot.boatId}" title="Zum Sortieren ziehen"><span class="tc-name">🚤 ${escapeHtml(slot.name)}</span><span class="tc-type boot">Boot · ${escapeHtml(slot.code||'?')}</span></div>
-          <div class="boat-link" draggable="true" data-boat-id="${slot.boatId}" data-boat-name="${escapeHtml(slot.name)}" data-boat-code="${escapeHtml(slot.code||'?')}" title="Ziehen zum Turm verschieben">→ ${escapeHtml(slot.towerName)}</div>
-          ${slot.occupants.map(p=>`
-            <div class="occupant" draggable="true" data-person-id="${p.id}" data-source-kind="boat" data-source-slot="${slot.boatId}">
-              <i class="role-dot rd-${p.role.toLowerCase()}"></i>${escapeHtml(p.name)}
-              ${forcedIds.has(p.id)?'<span class="forced-badge" title="Manuell fixiert">🔒</span>':''}
-              <span class="o-role">${ROLE[p.role]}</span>
-              <button class="move-btn" data-move-person="${p.id}" data-move-day="${di}"
-                data-move-kind="boat" data-move-slot="${slot.boatId}" title="Verschieben">↕</button>
-            </div>`).join('')}
+          ${renderInlineBoat(boatsByTower[slot.towerId])}
         </div>`;
       }
     });
 
     // Geschlossene Türme & Boote (mit data-drop für Override)
-    // Sortiere personnelClosed absteigend nach Prio (höhere Prio zuerst schließen)
-    const sortedPersonnelClosed = (d.personnelClosed || []).slice().sort((a,b) => (b.prio-a.prio)||(a.id-b.id));
-    [...d.manualClosed,...sortedPersonnelClosed].forEach(t => {
+    // personnelClosed kommt bereits nach Prio sortiert aus generate.js
+    [...d.manualClosed,...d.personnelClosed].forEach(t => {
       const reason = d.manualClosed.includes(t)?'manuell geschlossen':'Personalmangel';
       html += `<div class="tower-card closed" data-drop-kind="tower" data-drop-slot="${t.id}" data-closed-override="true"><div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="tower" data-card-slot="${t.id}" title="Zum Sortieren ziehen"><span class="tc-name">🗼 ${escapeHtml(t.name)}</span><span class="tc-type closed">zu</span></div><div style="color:var(--text-dim);font-size:.82rem;padding:8px 0">${reason}</div></div>`;
     });
@@ -377,8 +382,8 @@ function renderOutput(){
       return;
     }
 
-    // Option 2: Boot drag
-    const boatLink = e.target.closest('.boat-link');
+    // Option 2: Boot drag (inline Boot-Divider)
+    const boatLink = e.target.closest('.boat-inline');
     if(boatLink && boatLink.dataset.boatId) {
       dragSrc = {
         boatId: +boatLink.dataset.boatId,
@@ -518,17 +523,34 @@ function renderOutput(){
         return;
       }
 
-      // Bestehende Zuweisung finden
+      // Effektiven aktuellen Turm bestimmen (inkl. bestehender Reassignments)
       const dayData = lastResult.schedule[activeDay];
-      const currentAssignment = dayData.assign.find(s => s.boatId === boatId);
-      const currentTowerName = currentAssignment?.towerName || '?';
+      const existingReassign = (forcedPlacements[activeDay] || []).find(f => f.kind === 'boat-reassign' && f.boatId === boatId);
+      let currentTowerId, currentTowerName;
+      if(existingReassign){
+        currentTowerId = existingReassign.targetKind === 'tower' ? existingReassign.targetSlotId : 'HW';
+        currentTowerName = currentTowerId === 'HW' ? 'Hauptwache' : (getT(currentTowerId)?.name || '?');
+      } else {
+        const boatSlot = dayData.assign.find(s => s.kind === 'boat' && s.boatId === boatId);
+        currentTowerId = boatSlot?.towerId;
+        currentTowerName = boatSlot?.towerName || '?';
+      }
+
+      // Same-Target-Guard: Boot ist bereits auf Zielstation
+      const targetIsHW = (targetKind === 'main' || targetKind === 'hwboat');
+      if((targetKind === 'tower' && currentTowerId === targetSlot) ||
+         (targetIsHW && currentTowerId === 'HW')) {
+        clearCard();
+        dragSrc = null;
+        return;
+      }
 
       // Zielname bestimmen
       let targetName = '';
       if(targetKind === 'tower') {
         const tower = getT(targetSlot);
         targetName = tower?.name || '?';
-      } else if(targetKind === 'main' || targetKind === 'hwboat') {
+      } else if(targetIsHW) {
         targetName = 'Hauptwache';
       }
 
@@ -655,7 +677,7 @@ function renderOutput(){
     const occ = e.target.closest('.occupant');
     if(occ) occ.style.opacity = '';
 
-    const boatLink = e.target.closest('.boat-link');
+    const boatLink = e.target.closest('.boat-inline');
     if(boatLink) boatLink.style.opacity = '';
 
     const head = e.target.closest('.tc-head');

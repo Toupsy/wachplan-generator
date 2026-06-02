@@ -773,40 +773,43 @@ GET /health → { status: "ok", timestamp: "..." }
 
 ---
 
-## Session Fixes v0.2.2
+## Session Fixes v0.2.3
 
-### Bugfix 5: Prioritäts-Sort-Richtung (Türme schließen in falscher Reihenfolge)
+### Bugfix 5 (KORREKT): Prioritäts-Reihenfolge bei Turm-Schließung
 **Problem**: Türme mit Priorität 1 wurden ZUERST geschlossen statt ZULETZT.
 
-**Root Cause**: `generate.js` Zeile 274 sortierte `personnelClosed` Türme aufsteigend nach Priorität `(a.prio-b.prio)` statt absteigend.
+**Semantik**: Prio 1 = wichtigster Turm → soll ZULETZT schließen (am längsten offen bleiben). Höhere Prio-Nummern (z.B. 7) = unwichtiger → schließen zuerst.
 
-**Fix**: Invert Sort-Direction auf Zeile 274:
+**Root Cause (echter)**: Die Schließ-Entscheidung passiert NICHT in der `personnelClosed`-Anzeige-Sortierung, sondern in der **Öffnungs-Schleife** (`generate.js` Zeile 266-270), die `candidateTowers` = `openTowersSorted` durchläuft. War **DESC** sortiert (`b.prio-a.prio`) → Prio 7 öffnete zuerst & blieb offen, Prio 1 schloss zuerst.
+
+**Fix**: `openTowersSorted` Sortierung auf **ASC** (`generate.js` Zeile 211-216):
 ```javascript
-// BEFORE (falsch):
-.sort((a,b) => (a.prio-b.prio)||(a.id-b.id));
-
-// AFTER (richtig):
-.sort((a,b) => (b.prio-a.prio)||(a.id-b.id));
+// Prio 1 zuerst öffnen → bleibt offen → schließt zuletzt
+.slice().sort((a,b) => (a.prio-b.prio)||(a.id-b.id));
 ```
+Öffnungs-Schleife öffnet Prio 1 zuerst (bleibt offen); bei Personalmangel bleiben nur hohe Prio-Nummern übrig → schließen zuerst.
 
-**Result**: Türme mit höherer Prio (7) schließen zuerst, Prio 1 zuletzt ✅
+**Hinweis**: Erster Versuch (v0.2.2) änderte nur Zeile 274 (`personnelClosed`-Sort) = **nur Anzeige**, nicht die Entscheidung → wirkungslos. v0.2.3 fixt die echte Quelle.
 
-### Feature 12: Boot-D&D im Schedule-Output
-**Anforderung**: Boote im rechten Feld (Schedule-Panel) sollen per D&D zwischen Türmen/HW gezogen werden können.
+**Verifiziert**: Isolierter Node-Test – 4 Türme (P1-4), Personal für 2 → P1+P2 offen, P3+P4 zu ✅
+
+### Feature 12: Boot-D&D im Schedule-Output (Inline-Darstellung)
+**Anforderung**: Boote sollen visuell ZUSAMMEN mit ihrem Turm ein Feld bilden (wie HW-Boot in der Hauptwache), nicht als separate Karte. Per D&D auf anderen Turm/HW ziehbar für tägliche Umverteilung.
 
 **Implementation** (render-output.js):
-- `.boat-link` draggable machen (Line 242) mit `data-boat-id`, `data-boat-name`, `data-boat-code`
-- dragstart handler: Boot-Drag erkennen und `dragSrc.isBoat = true` setzen
-- dragover handler: Boot-Drag mit gelbem Highlight (Warn-Farbe) zeigen
-- drop handler: Boot-Zielbestätigung mit Confirmation-Dialog, immer transparent (nur heute)
-- dragend handler: Boot-Link opacity reset
-- transparent placements: Boot-Reassignments anwenden (Boot-Positionen visuell tauschen)
-- `_applyBoatReassignment(boatId, dayIdx, kind, slotId)`: forcedPlacements mit `kind: 'boat-reassign'` schreiben
+- **Inline-Rendering**: `boatsByTower`-Map (towerId → [Boot-Slots]) vor der Render-Schleife; `renderInlineBoat()` zeichnet Boot als `.hq-divider.boat-inline` + Bootsführer-Occupant INNERHALB der Turm-Card (wie HW-Boot)
+- Separate Boot-Karten entfernt; Boot-Slots in `d.assign.forEach` übersprungen (`if(slot.kind==='boat') return`)
+- `.boat-inline` ist draggable (data-boat-id/name/code); CSS: grab-Cursor, Hover-Highlight
+- dragstart: `.boat-inline` erkennen → `dragSrc.isBoat = true`
+- dragover: gelbes Warn-Highlight für Boot-Drag auf Turm/HW-Cards
+- drop: Same-Target-Guard (Boot schon auf Ziel → skip) + Confirmation → `_applyBoatReassignment()`
+- **Transparent-Logik** (renderOutput): Boot-Reassign ändert NUR `boatSlot.towerId`/`towerName`; bei HW-Ziel → `main.hwBoatSlot` setzen + Boot-Slot via `_movedToHW` Flag entfernen
+- `_applyBoatReassignment(boatId, dayIdx, kind, slotId)`: schreibt `forcedPlacements` mit `kind:'boat-reassign'`, immer `transparent:true`
 
 **Behavior**:
-- Drop Boot auf anderen Turm → Boot wechselt zu Turm (nur diesen Tag)
-- Drop Boot auf HW → Boot zu Hauptwache (nur diesen Tag)
-- Folgetage unberührt (transparent = keine `generate()`)
-- Toast mit Boot-Name und Zielturm
+- Boot erscheint inline unter seinem Turm (🚤 Boot: Name · Code + Bootsführer)
+- Drag Boot auf anderen Turm → Boot+BF wandern visuell dorthin (nur diesen Tag)
+- Drag Boot auf HW → wird zum HW-Boot
+- Folgetage unberührt (transparent = kein `generate()`)
 
-**Result**: Schnelle tägliche Boot-Neuverteilung ohne Folgetag-Recalc ✅
+**Result**: Boote visuell mit Turm gruppiert + schnelle tägliche Umverteilung ✅
