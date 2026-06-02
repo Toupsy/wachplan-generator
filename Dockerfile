@@ -1,59 +1,33 @@
 # ============================================================
 # Dockerfile für DLRG Wachplan-Generator
-# Multi-stage build für kleine Production-Images
 # ============================================================
 
-# ─── Builder Stage ───────────────────────────────────────
 FROM node:20-alpine AS builder
-
 WORKDIR /app
-
-# Copy dependency files
 COPY package*.json ./
-
-# Install dependencies with exact versions for reproducibility
 RUN npm ci --omit=dev
 
-# ─── Runtime Stage ───────────────────────────────────────
 FROM node:20-alpine
-
-# Metadata
 LABEL maintainer="DLRG"
-LABEL description="Single-Page Application für DLRG Wachplangeneration"
-LABEL version="1.0.0"
 
-# Set working directory
 WORKDIR /app
 
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
+# su-exec: lightweight privilege-drop tool (replaces sudo/gosu on Alpine)
+RUN apk add --no-cache su-exec
 
-# Copy production dependencies from builder
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+
+# Copy deps + app code
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
-
-# Copy application code
 COPY --chown=nodejs:nodejs . .
 
-# Create data directory with correct ownership (volume mount point)
-# Without this Docker mounts the volume as root → nodejs user can't write
-RUN mkdir -p /app/data && chown nodejs:nodejs /app/data
+# Entrypoint runs as root, fixes /app/data permissions, then drops to nodejs
+COPY --chmod=755 docker-entrypoint.sh /docker-entrypoint.sh
 
-# Switch to non-root user
-USER nodejs
+ENV NODE_ENV=production PORT=3000 HOST=0.0.0.0
 
-# Expose port
 EXPOSE 3000
 
-# Environment variables
-ENV NODE_ENV=production \
-    PORT=3000 \
-    HOST=0.0.0.0
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
-
-# Start application (default: main server)
-# Can be overridden with: docker run <image> node admin-server.js
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["npm", "start"]
