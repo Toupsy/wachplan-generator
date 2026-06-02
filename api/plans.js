@@ -11,9 +11,6 @@ const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
 const { dbRun, dbGet, dbAll } = require('../db/connection');
-    });
-  });
-};
 
 // ───────────────────────────────────────────────────────────
 // Authentication Middleware
