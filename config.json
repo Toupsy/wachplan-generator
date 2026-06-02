@@ -2,34 +2,59 @@
   "template": {
     "towers": [
       {
-        "name": "Turm 78",
+        "name": "9/12",
         "prio": 1,
         "slotCount": 2
       },
       {
-        "name": "Turm 9",
+        "name": "9/13",
         "prio": 2,
+        "slotCount": 2
+      },
+      {
+        "name": "9/14",
+        "prio": 3,
+        "slotCount": 2
+      },
+      {
+        "name": "9/15",
+        "prio": 4,
+        "slotCount": 2
+      },
+      {
+        "name": "9/16",
+        "prio": 5,
+        "slotCount": 2
+      },
+      {
+        "name": "9/17",
+        "prio": 6,
+        "slotCount": 2
+      },
+      {
+        "name": "9/18",
+        "prio": 7,
         "slotCount": 2
       }
     ],
     "boats": [
       {
         "name": "Boot 78/1",
-        "towerName": "Turm 78",
+        "towerName": "9/12",
         "code": "9/12",
         "prio": 1,
         "slotCount": 1
       },
       {
         "name": "Boot 78/2",
-        "towerName": "Turm 78",
+        "towerName": "9/14",
         "code": "9/14",
         "prio": 2,
         "slotCount": 1
       },
       {
         "name": "Boot 78/3",
-        "towerName": "Turm 78",
+        "towerName": "9/17",
         "code": "9/17",
         "prio": 3,
         "slotCount": 1
