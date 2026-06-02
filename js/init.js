@@ -22,9 +22,10 @@ async function initAfterAuth() {
   const _restored = await autoLoad();   // gespeicherten Stand wiederherstellen (async!)
   if(!_restored){
     // Kein Speicherstand → Template von Konfiguration laden
-    if (typeof seedFromConfig === 'function') {
-      await seedFromConfig();
+    if (typeof seedFromConfig === 'function' && appConfig) {
+      seedFromConfig();
     } else {
+      console.log('Using fallback seed, appConfig available:', !!appConfig);
       seed();  // Fallback zu altem seed() wenn config nicht verfügbar
     }
     forcedPlacements = freshForcedPlacements();

@@ -22,7 +22,7 @@ async function loadConfig() {
 }
 
 // Initialisiere Anwendung mit Konfiguration
-async function seedFromConfig() {
+function seedFromConfig() {
   if (!appConfig || !appConfig.template) {
     console.error('No config available');
     return;
