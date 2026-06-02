@@ -123,7 +123,7 @@ function generate(startDay = 0){
   }
 
   for(let d = startDay; d < DAYS; d++){
-    const ds     = dayState[d];
+    const ds     = dayState[d] || { sick: new Set(), closed: new Set(), closedBoats: new Set() };
     const isSick = id => ds.sick.has(id);
 
     // Türme mit aktivem Boot / außer-Dienst-Boot für DIESEN Tag vorberechnen
