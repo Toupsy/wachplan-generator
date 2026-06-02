@@ -148,8 +148,7 @@ function renderTowerCfg(){
           towers.splice(targetIdx, 0, moved);
         }
 
-        // Prio aus Position ableiten (idx 0 = höchste prio = 1)
-        towers.forEach((t, idx) => t.prio = idx + 1);
+        // Priorisierung bleibt unverändert - wird manuell eingegeben
         dragSrcTower = null;
         dragMode = null;
         generate(); renderTowerCfg();
@@ -337,15 +336,20 @@ function renderHWBoatSelector(){
 
 /**
  * Befüllt exportColumns automatisch:
- * Pro Turm (Prio aufsteigend): zuerst zugeordnete Boote, dann der Turm selbst.
+ * Pro Turm (nach Turmzahl aufsteigend, z.B. 9/12, 9/13, ...): zuerst zugeordnete Boote, dann der Turm selbst.
  * Nach Turm 9/13: WF → HW.
  * Rest mit leeren Einträgen auffüllen.
  */
 function autoFillExportColumns(){
   const cols = [];
 
-  // Sortiere Türme aufsteigend nach Priorität
-  const sortedTowers = towers.slice().sort((a,b) => a.prio - b.prio);
+  // Sortiere Türme nach Turmzahl (NOT Priorisierung)
+  // Extrahiere Zahl nach "/" und sortiere numerisch (9/12, 9/13, ..., 9/18)
+  const sortedTowers = towers.slice().sort((a,b) => {
+    const numA = parseInt(a.name.split('/')[1] || a.name) || 0;
+    const numB = parseInt(b.name.split('/')[1] || b.name) || 0;
+    return numA - numB;
+  });
   console.log('DEBUG autoFillExportColumns - sortedTowers:', sortedTowers.map(t => `${t.name}(prio${t.prio})`));
 
   sortedTowers.forEach(t => {
