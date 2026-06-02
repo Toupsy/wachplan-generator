@@ -35,6 +35,10 @@ COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 # Copy application code
 COPY --chown=nodejs:nodejs . .
 
+# Create data directory with correct ownership (volume mount point)
+# Without this Docker mounts the volume as root → nodejs user can't write
+RUN mkdir -p /app/data && chown nodejs:nodejs /app/data
+
 # Switch to non-root user
 USER nodejs
 
