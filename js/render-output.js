@@ -284,7 +284,9 @@ function renderOutput(){
     });
 
     // Geschlossene Türme & Boote (mit data-drop für Override)
-    [...d.manualClosed,...d.personnelClosed].forEach(t => {
+    // Sortiere personnelClosed absteigend nach Prio (höhere Prio zuerst schließen)
+    const sortedPersonnelClosed = (d.personnelClosed || []).slice().sort((a,b) => (b.prio-a.prio)||(a.id-b.id));
+    [...d.manualClosed,...sortedPersonnelClosed].forEach(t => {
       const reason = d.manualClosed.includes(t)?'manuell geschlossen':'Personalmangel';
       html += `<div class="tower-card closed" data-drop-kind="tower" data-drop-slot="${t.id}" data-closed-override="true"><div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="tower" data-card-slot="${t.id}" title="Zum Sortieren ziehen"><span class="tc-name">🗼 ${escapeHtml(t.name)}</span><span class="tc-type closed">zu</span></div><div style="color:var(--text-dim);font-size:.82rem;padding:8px 0">${reason}</div></div>`;
     });
