@@ -187,4 +187,37 @@ router.post('/init', express.json(), async (req, res) => {
   }
 });
 
+// ───────────────────────────────────────────────────────────
+// PUT /api/auth/password – Change own password (authenticated)
+// ───────────────────────────────────────────────────────────
+router.put('/password', express.json(), async (req, res) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Current and new password required' });
+  }
+  if (newPassword.length < 8) {
+    return res.status(400).json({ error: 'New password must be at least 8 characters' });
+  }
+
+  try {
+    const user = await dbGet('SELECT password_hash FROM users WHERE id = ?', [req.session.userId]);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const valid = await bcryptjs.compare(currentPassword, user.password_hash);
+    if (!valid) return res.status(401).json({ error: 'Current password incorrect' });
+
+    const newHash = await bcryptjs.hash(newPassword, 10);
+    await dbRun('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, req.session.userId]);
+
+    res.json({ success: true, message: 'Password changed' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
 module.exports = router;

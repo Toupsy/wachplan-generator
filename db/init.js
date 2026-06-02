@@ -4,6 +4,7 @@
 // ============================================================
 
 const sqlite3 = require('sqlite3');
+const bcryptjs = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
 
@@ -85,26 +86,43 @@ function initDatabase() {
 
         console.log('✓ Database schema initialized');
 
-        // Check if admin user exists
-        db.get("SELECT COUNT(*) as count FROM users WHERE is_admin = 1", (err, row) => {
-          if (err) {
-            reject(err);
-            return;
-          }
+        // Auto-create admin if ADMIN_USERNAME + ADMIN_PASSWORD are set
+        db.get("SELECT COUNT(*) as count FROM users WHERE is_admin = 1", async (err, row) => {
+          if (err) { reject(err); return; }
 
-          if (row.count === 0) {
-            console.log('⚠ No admin user found. Create one with:');
-            console.log('  POST /api/auth/init with admin credentials');
-          }
+          const autoUser = process.env.ADMIN_USERNAME;
+          const autoPass = process.env.ADMIN_PASSWORD;
 
-          db.close((closeErr) => {
-            if (closeErr) {
-              console.error('❌ Failed to close database:', closeErr);
-              reject(closeErr);
-            } else {
-              resolve();
+          if (row.count === 0 && autoUser && autoPass) {
+            try {
+              const hash = await bcryptjs.hash(autoPass, 10);
+              db.run(
+                'INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, 1)',
+                [autoUser, hash],
+                (insertErr) => {
+                  if (insertErr && !insertErr.message.includes('UNIQUE')) {
+                    console.error('❌ Failed to create default admin:', insertErr.message);
+                  } else if (!insertErr) {
+                    console.log(`✓ Default admin created: ${autoUser}`);
+                  }
+                  closeDb();
+                }
+              );
+            } catch (hashErr) {
+              console.error('❌ Hash error:', hashErr.message);
+              closeDb();
             }
-          });
+          } else {
+            if (row.count === 0) console.log('⚠ No admin user. Set ADMIN_USERNAME + ADMIN_PASSWORD or use /api/auth/init');
+            closeDb();
+          }
+
+          function closeDb() {
+            db.close((closeErr) => {
+              if (closeErr) reject(closeErr);
+              else resolve();
+            });
+          }
         });
       });
     });

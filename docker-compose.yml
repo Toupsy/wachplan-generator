@@ -13,6 +13,8 @@ services:
       MASTER_SECRET: "cNJqZimlDKRZdTSitVf4b7QllDWXE+FVGGPkhtwNbuw="
       SALT: "cpDzbABAbgU/soUiD2mKFQ=="
       SESSION_SECRET: "u8AWjZf1bkUTgbkQXiBb/Um48gbkRJcbHImxh+skqB4="
+      ADMIN_USERNAME: "admin"
+      ADMIN_PASSWORD: "changeme"
 
   wachplan-admin:
     container_name: dlrg-wachplan-admin
