@@ -203,7 +203,14 @@ async function autoLoad(){
       return _autoLoadFromStorage();
     }
 
-    const data = await response.json();
+    let data;
+    try {
+      data = await response.json();
+    } catch (parseError) {
+      console.error('Failed to parse plans list response JSON:', parseError);
+      return _autoLoadFromStorage();
+    }
+
     const plans = data.plans || [];
 
     if(plans.length === 0) {
@@ -219,7 +226,19 @@ async function autoLoad(){
       return false;
     }
 
-    const planData = await planResponse.json();
+    let planData;
+    try {
+      planData = await planResponse.json();
+    } catch (parseError) {
+      console.error('Failed to parse plan response JSON:', parseError);
+      return false;
+    }
+
+    if (!planData.id || !planData.state) {
+      console.error('Invalid plan data structure:', planData);
+      return false;
+    }
+
     currentPlanId = planData.id;
     currentPlanName = planData.name;
 

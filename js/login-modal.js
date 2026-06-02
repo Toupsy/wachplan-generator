@@ -70,7 +70,7 @@ async function handleLogin(e) {
     }
 
     const data = await response.json();
-    if (typeof updateUserInfo === 'function') updateUserInfo();
+    if (typeof updateUserInfo === 'function') await updateUserInfo();
     hideLoginModal();
   } catch (error) {
     errorEl.textContent = 'Netzwerkfehler';
@@ -115,7 +115,7 @@ async function handleSetup(e) {
       body: JSON.stringify({ username, password })
     });
 
-    if (typeof updateUserInfo === 'function') updateUserInfo();
+    if (typeof updateUserInfo === 'function') await updateUserInfo();
     hideLoginModal();
   } catch (error) {
     errorEl.textContent = 'Netzwerkfehler';

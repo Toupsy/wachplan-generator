@@ -134,11 +134,21 @@ async function importPlans(event) {
     });
 
     if (!response.ok) {
-      const error = await response.json();
+      let error;
+      try {
+        error = await response.json();
+      } catch (parseError) {
+        throw new Error('Import fehlgeschlagen (Server error)');
+      }
       throw new Error(error.error || 'Import fehlgeschlagen');
     }
 
-    const result = await response.json();
+    let result;
+    try {
+      result = await response.json();
+    } catch (parseError) {
+      throw new Error('Ungültige Server-Response');
+    }
     showToast(`✓ ${result.imported} Plan(e) erfolgreich importiert`);
 
     // Zeige Fehler falls vorhanden
