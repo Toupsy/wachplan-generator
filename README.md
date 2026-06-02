@@ -1,308 +1,195 @@
-# DLRG Wachplan-Generator
+# 🚨 DLRG Wachplan-Generator
 
-Single-Page Application zur automatischen Generierung fairer Wachpläne für Wasserrettungsdienste der **DLRG** (Deutsche Lebens-Rettungs-Gesellschaft).
+Automatische Wachplan-Generierung für DLRG-Wasserrettungsdienste mit fairer Rotation, Admin-Panel und verschlüsselter Speicherung.
 
-Erstellt automatisch Wachpläne für **1–14 Tage** mit optimierter Fairness-Rotation und kann als offizielles **DLRG-XLSX-Formular** exportiert werden.
+**Status:** ✅ Production-ready mit Multi-User Authentication & Encryption
 
 ---
 
-## Features
+## 🎯 Features
 
 ### Core
-- ✅ Automatische Wachplangeneration (1–14 Tage)
-- ✅ Faire Rotation über Türme, Boote, Hauptwache
-- ✅ XLSX-Export (DLRG-Formular-kompatibel)
-- ✅ CSV-Export
-- ✅ Drag-and-Drop Umplatzierung mit Zukunfts-Neuberechnung
-- ✅ Transparente Zwangszuweisungen (visuell ohne Stats-Impact)
-- ✅ Effektive Zwangszuweisungen (mit Stats-Impact)
+- ✅ Automatische Wachplan-Generierung (1–14 Tage)
+- ✅ Faire Rotation mit fortgeschrittenem Fairness-Scoring
+- ✅ XLSX-Export als offizielles DLRG-Formular
+- ✅ Drag-and-Drop Wach-Verschiebung
+- ✅ Echtzeit-Statistiken & Verteilungsmetriken
 
-### Fairness-Algorithmus
-- ✅ Akkumulierte Statistiken über alle Tage
-- ✅ HW-Balance Metriken (Hauptwache vs. Tower-mit-Boot)
-- ✅ Turm-Verteilung Diversität
-- ✅ Boot-Paarungen Vielfalt
-- ✅ 2-Tage-Folge-Regel (Konsekutive Turm-Zuweisung vermeiden)
-- ✅ Metriken-Toggles (Nutzer kontrolliert, welche Stats sichtbar)
-- ✅ Pro-Person Tower-Statistik Tabelle
+### Authentifizierung & Multi-User
+- ✅ Session-basiertes Login (HTTPOnly Cookies)
+- ✅ Admin-Panel für User-Management
+- ✅ Passwort-Hashing mit bcryptjs (10 Rounds)
+- ✅ Automatische Admin-User-Erstellung
 
-### Konfigurierbarkeit
-- ✅ Variable Slot-Kapazität pro Turm (1–10 Plätze)
-- ✅ Variable Slot-Kapazität pro Boot (1–3 Plätze)
-- ✅ HW-Boot-Auswahl (welches Boot gehört zur Hauptwache)
-- ✅ Hauptwache Guard-Slots (k-Guard Kapazität)
-- ✅ XLSX-Spalten-Mapping (16 Stationen konfigurierbar)
-- ✅ Positionsbeschriftungen (Pos. 3–7 im XLSX anpassbar)
+### Verschlüsselung
+- ✅ AES-256-GCM Verschlüsselung für Plandaten
+- ✅ Per-User Encryption Keys (PBKDF2)
+- ✅ Sichere Schlüsselverwaltung
+- ✅ Authenticated Encryption (verhindert Tampering)
 
-### Deployment
-- ✅ Vanilla-JS (kein Framework, keine Build-Abhängigkeiten)
-- ✅ Docker-Support (NAS-ready)
-- ✅ Autosave zu localStorage
-- ✅ JSON-Import/Export für Backups
+### Migration & Import
+- ✅ Import alter localStorage-Pläne
+- ✅ Automatische Verschlüsselung beim Import
+- ✅ Bulk-Import mehrerer Dateien
 
 ---
 
-## Quick Start
+## 🚀 Quick Start
 
-### Lokal (Node.js)
-
+### 1. Docker (Empfohlen)
 ```bash
-# Dependencies installieren
-npm install
+git clone https://github.com/Toupsy/Wachplan-Generator.git
+cd Wachplan-Generator
 
-# Server starten (Port 3000)
-npm start
+# Konfiguriere Umgebung
+cp .env.example .env
+# Bearbeite .env mit eigenen Secrets (siehe DEPLOYMENT.md)
 
-# Browser öffnen
-http://localhost:3000
-```
-
-### Docker (NAS/Server)
-
-```bash
-# Image bauen + Container starten
+# Starte Service
 docker-compose up -d
 
-# Browser öffnen
-http://nas-ip:3000
-
-# Logs anschauen
-docker-compose logs -f wachplan
+# Admin-User erstellen
+curl -X POST http://localhost:3000/api/auth/init \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"PASSWORT"}'
 ```
 
-Siehe [DOCKER.md](./DOCKER.md) für vollständiges Setup-Guide.
-
----
-
-## Technologie-Stack
-
-| Layer | Tech |
-|-------|------|
-| **Frontend** | Vanilla-JS + HTML5 + CSS3 (Dark Theme) |
-| **Server** | Node.js + Express.js |
-| **Database** | localStorage (client-side) |
-| **Export** | JSZip (XLSX-XML-Patching) |
-| **Deploy** | Docker + docker-compose |
-
----
-
-## Dateistruktur
-
-```
-.
-├── Wachplan-Generator.html   – Main SPA + Layout + CSS
-├── js/
-│   ├── state.js              – Globale Datenstrukturen
-│   ├── utils.js              – Helfer (escapeHtml, Toast, etc.)
-│   ├── dates.js              – Datumsberechnung
-│   ├── autoCodes.js          – Auto-Stationscodes
-│   ├── seed.js               – Beispieldaten
-│   ├── generate.js           – ⭐ Kern-Algorithmus (Fairness)
-│   ├── render-sidebar.js     – Sidebar UI
-│   ├── render-output.js      – Ausgabe-Panel + Stats
-│   ├── export.js             – XLSX/CSV-Export
-│   ├── move.js               – Verschiebungs-Modal + D&D
-│   ├── state-io.js           – Import/Export/Autosave
-│   └── init.js               – Event-Listener + Startup
-├── Wachplan Template.xlsx    – DLRG-Formular (wird gepatcht)
-├── package.json              – Node.js dependencies
-├── server.js                 – Express.js Server
-├── Dockerfile                – Docker Image
-├── docker-compose.yml        – Orchestration
-└── DOCKER.md                 – Docker Setup-Guide
-```
-
----
-
-## Algorithmus-Überblick
-
-### Fairness-Metriken
-
-Jede Person wird als Punkt im 4D-Raum betrachtet:
-1. **Total Days** – Einsatztage (Fairness primary)
-2. **HW Visits** – Hauptwache-Tage (sollte ausgewogen sein)
-3. **Tower With Boat Days** – Turm-Tage mit aktivem Boot (stressig → limitieren)
-4. **Boat Captain Pairings** – Häufigkeit derselben Boot-Fahrer (Diversität fördern)
-
-### Scoring (bestPair)
-
-Beim Zuweisen von Paaren (2er Türm-Slots) zu einem Turm wird Score minimiert:
-
-```
-score += person.total                    // primary: weniger Einsätze bekommen höhere Priorität
-score += person.towerVisits * 30         // Turm-Wiederholungs-Penalty
-score += pairRepeatCount * 120           // 2er-Paare nicht zu oft zusammen
-score += consecutiveTowerPenalty * 200   // Nicht 2 Tage hintereinander gleicher Turm
-score -= hwVisits * 60                   // Bonus für Personen mit vielen HW-Tagen
-score += boatVisits * 50                 // Boot-Balance (als Penalty wenn viele Boot-Tage)
-score += surplusBFPenalty * 800          // Bootsführer-Schutz (nicht in aktive Boote)
-```
-
-**Niedrigster Score gewinnt.**
-
-### Ablauf pro Tag
-
-1. **Hauptwache** – k-Guard-Slots + Overflow-Verwaltung
-2. **Türme** – Sequenziell nach Priorität, Paare via bestPair
-3. **Boote** – Bootsführer-Zuordnung mit Fairness-Sortierung
-4. **HW-Boot** (optional) – Dedizierter Captain falls hwBoatId aktiv
-5. **Transparente Zuweisungen** – visuelle Overlays nach Algorithmus
-
-### Seed-basierte Konstellationen
-
-Verschiedene Day-1-Starts mit identischer Folge-Fairness:
+### 2. Lokal (Development)
 ```bash
-Seed 0:   Standard-Plan
-Seed 1:   Klara,Jonas,Ole,Lena,Hugo,Ida auf Türme (Tag 1)
-Seed 5:   Frieda,Lena,Klara,Emil,Hugo,Greta auf Türme (Tag 1)
-Alle:     Identische Fairness über 6 Tage (acc-stats gleichen sich aus)
+npm install
+NODE_ENV=development PORT=3000 npm start
+
+# Öffne http://localhost:3000
 ```
 
 ---
 
-## Verschiebung (Move Feature)
+## 📖 Dokumentation
 
-### Case 1: Transparent (kein Haken)
-- Person wird NUR visuell verschoben
-- Stats bleiben unverändert
-- Folgetage: komplett gleich wie Original
-
-### Case 2: Effektiv (mit Haken "Folgetage neu berechnen")
-- Tag heute: direktes Schedule-Update (kein generate)
-- Ida von 9/12 → 9/13 → 9/12 bleibt mit 1 Person, 9/13 hat 3 Personen
-- `generate(dayIdx+1)`: Folgetage mit neuen Stats frisch berechnet
-- Vorherige Tage: unverändert
+| Datei | Inhalt |
+|-------|--------|
+| [DEPLOYMENT.md](DEPLOYMENT.md) | Docker-Deployment & Production-Setup |
+| [CLAUDE.md](CLAUDE.md) | Technische Architektur & Algorithmus-Details |
+| [db/schema.sql](db/schema.sql) | Datenbankschema |
 
 ---
 
-## XLSX-Export
+## 🔐 Sicherheit
 
-### Strategie
-Template als ZIP laden (JSZip), nur `xl/worksheets/sheet1.xml` per Regex patchen → **Styles/Farben/Bilder bleiben erhalten**.
+### Implementiert
+- ✅ AES-256-GCM Verschlüsselung (at rest)
+- ✅ bcryptjs Passwort-Hashing
+- ✅ HTTPOnly Session Cookies
+- ✅ PBKDF2 Key Derivation (100k iterations)
+- ✅ Non-root Docker User
+- ✅ Per-User Encryption Keys
 
-### Was wird gepatcht
-- `EE3` → Datum (Excel-Seriennummer)
-- `slotNameRef(1..28)` → Personennamen
-- `C11,C13,C15,C17,C19` → Positionsbeschriftungen
-- Zeile 21 + Stundendaten → Slot-Map-Strategie
-- HW-Overflow → Personen 5+ (inkl. Kranke) in verbleibende Slots
-
-### 16 Stationsspalten
-- Türme (mit zugewiesenen Booten)
-- Freie Boote
-- Wachführung (WF, WF2)
-- Hauptwache (HW, HW2)
-- **Reihenfolge konfigurierbar** via Drag-and-Drop
-
----
-
-## Testing
-
-### Browser-Preview + Invarianten-Check
-
-```javascript
-// Nach generate():
-const invariants = {
-  noDuplicates: /* jede Person max 1× pro Tag pro Slot */,
-  noSick: /* kranke nicht eingeteilt */,
-  noClosedTowers: /* geschlossene Türme nicht belegt */,
-  slotCapacity: /* slotCount eingehalten */,
-};
-```
-
-### Bekannte Test-Szenarien
-
-- ✅ Baseline 6d/14d
-- ✅ 1 Tag, alle Personen, 0 Personen
-- ✅ Kranke Menschen
-- ✅ Geschlossene Türme/Boote
-- ✅ Boot außer Dienst → BF zum Turm
-- ✅ Zwangszuweisungen (transparent/effektiv)
-- ✅ Drag-and-Drop auf allen Tags
-- ✅ Fuzz-Test 100× zufällige Muster
-
----
-
-## Browser-Support
-
-| Browser | Status |
-|---------|--------|
-| Chrome/Edge | ✅ |
-| Firefox | ✅ |
-| Safari | ✅ |
-| Mobile | ⚠️ (Touch-D&D funktioniert, aber unoptimiert) |
-
----
-
-## Performance
-
-**Baseline:** ~20 ms für 28 Personen × 14 Tage (Maximalszenario)
-
-Bei Regression >100 ms: Hot-Loop in `bestPair` prüfen (O(n²) über Guard-Pool).
-
----
-
-## Bekannte Constraints
-
-- Max. **28 Personen** im XLSX-Namensblock (4 Blöcke × 7 Zeilen)
-- Max. **16 Stationsspalten** im Template
-- Paarungs-Matrix nur bei 2–18 E/U-Personen sichtbar
-- DAYS: 1–14 (veränderbar zur Laufzeit)
-- Turm slotCount: 1–10
-- Boot slotCount: 1–3
-
----
-
-## Development
-
-### Lokale Änderungen testen
-
+### Best Practices
 ```bash
-# Terminal 1: Server starten
-npm start
-
-# Terminal 2: Code editieren + Browser F5 drücken
-code Wachplan-Generator.html
-
-# Browser: http://localhost:3000
-```
-
-### CLAUDE.md aktualisieren
-
-Nach jedem Feature/Bugfix:
-```bash
-# CLAUDE.md im Projektstamm updaten
-# (wird automatisch von Claude geladen)
+# Generiere neue Secrets für Production:
+openssl rand -base64 32    # MASTER_SECRET
+openssl rand -base64 16    # SALT
+openssl rand -base64 32    # SESSION_SECRET
 ```
 
 ---
 
-## Git-Workflow
+## 📊 API Endpoints
 
-```bash
-# Feature-Branch
-git checkout -b feature/my-feature
-git commit -m "..."
-git push origin feature/my-feature
+### Public
+```
+POST   /api/auth/login              Login
+POST   /api/auth/logout             Logout
+GET    /api/auth/me                 Current User
+POST   /api/auth/init               Create First Admin
+GET    /health                      Health Check
+```
 
-# PR gegen main via gh CLI
-gh pr create --title "..." --body "..."
+### Authenticated
+```
+GET    /api/plans                   List Plans
+POST   /api/plans                   Create Plan
+GET    /api/plans/:id               Load Plan (Decrypted)
+PUT    /api/plans/:id               Save Plan (Encrypted)
+DELETE /api/plans/:id               Delete Plan
+
+POST   /api/import/plans            Import Legacy Plans
+```
+
+### Admin-Only
+```
+GET    /api/admin/users             List Users
+POST   /api/admin/users             Create User
+DELETE /api/admin/users/:id         Delete User
 ```
 
 ---
 
-## Lizenz
+## 💾 Datenspeicher
 
-MIT
+| Speicherort | Format | Verschlüsselt | Persistent |
+|-------------|--------|--------------|-----------|
+| `/app/data/wachplan.db` | SQLite | Ja (Plandaten) | Ja (Volume) |
+| Plandaten | BLOB (AES-256-GCM) | ✅ Ja | ✅ Ja |
+| User-Passwörter | Hash (bcryptjs) | ✅ Ja | ✅ Ja |
+| Sessions | Text | ❌ Nein* | ✅ Ja |
+
+\* Sessions sind HTTPOnly und können nicht via JavaScript zugegriffen werden
 
 ---
 
-## Support / Kontakt
+## 📦 Tech Stack
 
-- **Issues:** GitHub Issues
-- **Questions:** Discussion Forum
-- **NAS-Deployment:** Siehe [DOCKER.md](./DOCKER.md)
+### Frontend
+- Vanilla JavaScript (kein Framework)
+- Dark Theme (CSS Variables)
+- Responsive Design
+- Drag-and-Drop
+
+### Backend
+- Node.js + Express.js
+- SQLite3 + sqlite3
+- bcryptjs (Passwort-Hashing)
+- crypto (Node.js built-in, AES-256-GCM)
+- express-session (Authentifizierung)
+
+### DevOps
+- Docker & Docker Compose
+- GitHub Container Registry (ghcr.io)
+- GitHub Actions CI/CD
+- Health Checks & Monitoring
 
 ---
 
-**Viel Erfolg mit der DLRG Wachplangeneration! 🎯**
+## 🤝 Beitragen
+
+Contributions sind willkommen! Bitte:
+1. Forken Sie das Repository
+2. Erstellen Sie einen Feature-Branch: `git checkout -b feature/xyz`
+3. Committen Sie Ihre Änderungen
+4. Pushen Sie zum Repository
+5. Öffnen Sie einen Pull Request
+
+---
+
+## 📋 Lizenz
+
+MIT License - siehe [LICENSE](LICENSE) für Details.
+
+---
+
+## 📞 Support
+
+- **Issues:** https://github.com/Toupsy/Wachplan-Generator/issues
+- **Discussions:** https://github.com/Toupsy/Wachplan-Generator/discussions
+- **Docs:** Siehe [CLAUDE.md](CLAUDE.md) für technische Details
+
+---
+
+**Made with ❤️ for DLRG Wasserrettungsdienste**
+
+```
+Version: 2.0.0 (Production Ready)
+Last Updated: 2026-06-02
+Status: ✅ Complete with Auth & Encryption
+```
