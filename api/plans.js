@@ -146,7 +146,7 @@ router.get('/:id', async (req, res) => {
     res.json({
       id: planId,
       name: plan.name,
-      state: plainJSON  // Return as string; client will JSON.parse if needed
+      state: plainJSON  // Return as string; client will JSON.parse it
     });
   } catch (error) {
     console.error('Get plan error:', error);

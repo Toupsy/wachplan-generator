@@ -58,7 +58,14 @@ function exportStateJSON(){
  */
 function importStateJSON(json, silent = false){
   let s;
-  try { s = JSON.parse(json); }
+  try {
+    // Handle both string and object (from server or file)
+    if (typeof json === 'string') {
+      s = JSON.parse(json);
+    } else {
+      s = json;  // Already an object
+    }
+  }
   catch(e){ alert('Ungültige JSON-Datei: ' + e.message); return; }
 
   if(!s.people || !s.towers){
