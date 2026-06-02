@@ -4,6 +4,7 @@ services:
   wachplan:
     container_name: dlrg-wachplan
     image: ghcr.io/toupsy/wachplan-generator:latest
+    pull_policy: always
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -19,6 +20,7 @@ services:
   wachplan-admin:
     container_name: dlrg-wachplan-admin
     image: ghcr.io/toupsy/wachplan-generator:latest
+    pull_policy: always
     restart: unless-stopped
     ports:
       - "3001:3001"
