@@ -732,4 +732,3 @@ function _applyBoatReassignment(boatId, dayIdx, kind, slotId){
     transparent: true
   });
 }
-}
