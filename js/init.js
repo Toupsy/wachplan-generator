@@ -42,7 +42,7 @@ async function initAfterAuth() {
     renderBoatCfg();
     renderHWBoatSelector();
     renderPositionDescUI();
-    autoFillExportColumns();   // Standardmäßig aus Türmen & Booten befüllen
+    renderExportColumnUI();   // Render exportColumns (bereits von seedFromConfig() gesetzt)
 
     // Neu erstellten Plan sofort speichern
     await autoSave();
