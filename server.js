@@ -9,6 +9,7 @@ require('dotenv').config();  // Lade .env Datei
 
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const session = require('express-session');
 const SqliteStore = require('connect-sqlite3')(session);
 const { initDatabase, validateEnv } = require('./db/init');
