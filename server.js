@@ -94,6 +94,18 @@ async function start() {
       }
     });
 
+    // Config endpoint (public, no auth needed)
+    app.get('/api/config', (req, res) => {
+      const configPath = path.join(__dirname, 'config.json');
+      try {
+        const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+        res.json(config);
+      } catch (error) {
+        console.error('Config load error:', error);
+        res.status(500).json({ error: 'Config not available' });
+      }
+    });
+
     console.log('✓ API routes registered');
 
     // Register static files and SPA routes AFTER API routes

@@ -1,0 +1,89 @@
+{
+  "template": {
+    "towers": [
+      {
+        "name": "Turm 78",
+        "prio": 1,
+        "slotCount": 2
+      },
+      {
+        "name": "Turm 9",
+        "prio": 2,
+        "slotCount": 2
+      }
+    ],
+    "boats": [
+      {
+        "name": "Boot 78/1",
+        "towerName": "Turm 78",
+        "prio": 1,
+        "slotCount": 1
+      },
+      {
+        "name": "Boot 78/2",
+        "towerName": "Turm 78",
+        "prio": 2,
+        "slotCount": 1
+      },
+      {
+        "name": "Boot 9/12",
+        "towerName": "Turm 9",
+        "prio": 1,
+        "slotCount": 1
+      },
+      {
+        "name": "Boot 9/13",
+        "towerName": "Turm 9",
+        "prio": 2,
+        "slotCount": 1
+      },
+      {
+        "name": "Boot 9/14",
+        "towerName": "Turm 9",
+        "prio": 3,
+        "slotCount": 1
+      },
+      {
+        "name": "Boot 9/15",
+        "towerName": "Turm 9",
+        "prio": 4,
+        "slotCount": 1
+      },
+      {
+        "name": "Boot 9/16",
+        "towerName": "Turm 9",
+        "prio": 5,
+        "slotCount": 1
+      },
+      {
+        "name": "Boot 9/17",
+        "towerName": "Turm 9",
+        "prio": 6,
+        "slotCount": 1
+      },
+      {
+        "name": "Boot 9/18",
+        "towerName": "Turm 9",
+        "prio": 7,
+        "slotCount": 1
+      }
+    ],
+    "exportColumns": [
+      "78/1", "9/12", "9/13", "", "WF", "HW", "",
+      "78/2", "9/14", "9/15", "9/16", "78/1", "9/17", "9/18"
+    ]
+  },
+  "positions": {
+    "3": "Wachführer",
+    "4": "Bootsführer",
+    "5": "Sanitäter",
+    "6": "Beobachter",
+    "7": "Verwalter"
+  },
+  "ui": {
+    "maxPeople": 28,
+    "maxDays": 14,
+    "maxTowerSlots": 10,
+    "maxBoatSlots": 3
+  }
+}

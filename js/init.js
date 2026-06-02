@@ -21,14 +21,17 @@ function syncMetricCheckboxes(){
 async function initAfterAuth() {
   const _restored = await autoLoad();   // gespeicherten Stand wiederherstellen (async!)
   if(!_restored){
-    // Kein Speicherstand → Beispieldaten laden
-    seed();
+    // Kein Speicherstand → Template von Konfiguration laden
+    if (typeof seedFromConfig === 'function') {
+      await seedFromConfig();
+    } else {
+      seed();  // Fallback zu altem seed() wenn config nicht verfügbar
+    }
     forcedPlacements = freshForcedPlacements();
     dayState = freshDayState();
 
     document.getElementById('start-date').value = startDate;
     updateSeedDisplay();
-    autoCodes();
     renderPeople();
     renderTowerCfg();
     renderBoatCfg();

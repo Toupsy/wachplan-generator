@@ -3,6 +3,12 @@
 // ============================================================
 
 async function initLoginModal() {
+  // Load config before anything else
+  const configLoaded = await loadConfig();
+  if (!configLoaded) {
+    console.warn('⚠️ Failed to load config, will use defaults');
+  }
+
   try {
     const response = await fetch('/api/auth/me', { credentials: 'include' });
     if (response.ok) {
