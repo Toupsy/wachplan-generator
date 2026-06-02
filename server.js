@@ -46,9 +46,10 @@ async function start() {
     // THEN initialize session store
     const dbPath = path.join(__dirname, 'data', 'wachplan.db');
     const sessionStore = new SqliteStore({
-      db: dbPath,
-      mode: 0o666
+      db: dbPath
     });
+
+    console.log('📦 Session store initialized with:', dbPath);
 
     // Handle session store errors gracefully
     sessionStore.on('error', (err) => {
@@ -61,8 +62,8 @@ async function start() {
     app.use(session({
       store: sessionStore,
       secret: process.env.SESSION_SECRET,
-      resave: false,
-      saveUninitialized: false,
+      resave: true,  // Force save on every request for SQLite reliability
+      saveUninitialized: true,  // Save even uninitialized sessions
       cookie: {
         secure: false,
         httpOnly: true,
