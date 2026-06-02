@@ -5,39 +5,8 @@
 
 const express = require('express');
 const router = express.Router();
-const sqlite3 = require('sqlite3');
-const path = require('path');
 const crypto = require('crypto');
-
-// Database connection (lazy - created on first use)
-const dbPath = path.join(__dirname, '..', 'data', 'wachplan.db');
-let db = null;
-
-function getDb() {
-  if (!db) {
-    db = new sqlite3.Database(dbPath, (err) => {
-      if (err) {
-        console.error('❌ Database connection error:', err);
-        db = null;
-      }
-    });
-
-    db.on('error', (err) => {
-      console.error('❌ Database error:', err);
-    });
-  }
-  return db;
-}
-
-// Promisify db functions
-const dbRun = (query, params = []) => {
-  return new Promise((resolve, reject) => {
-    getDb().run(query, params, function(err) {
-      if (err) reject(err);
-      else resolve({ lastID: this.lastID, changes: this.changes });
-    });
-  });
-};
+const { dbRun } = require('../db/connection');
 
 // ───────────────────────────────────────────────────────────
 // Authentication Middleware
