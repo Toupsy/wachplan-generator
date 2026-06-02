@@ -57,7 +57,7 @@ function excelSerial(iso){
  * Türme: alle Besatzer (kein slice) – Überlauf >2 wird in _patchSheetXml direkt daneben platziert.
  * Kranke: werden der HW-Liste zugerechnet und erscheinen im Export bei HW.
  */
-function buildAssignments(dayIdx){
+function buildAssignments(dayIdx, hasHW2){
   const d = lastResult.schedule[dayIdx];
   const A = {};
   d.assign.forEach(slot => {
@@ -227,7 +227,7 @@ function _patchSheetXml(xml, dayIdx){
   // Hat eine Station >2 Personen, belegt der Überlauf die nächste Template-Spalte
   // direkt rechts – alle nachfolgenden Stationen rücken entsprechend nach rechts.
   const hasHW2 = exportColumns.includes('HW2');  // Nur HW2 verwenden wenn in exportColumns
-  const A = buildAssignments(dayIdx);
+  const A = buildAssignments(dayIdx, hasHW2);
   const effectiveCols = [];   // { col:number, code:string, nums:[nr,...] }
   let tplIdx = 0;
 
