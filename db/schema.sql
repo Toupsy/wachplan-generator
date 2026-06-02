@@ -27,5 +27,13 @@ CREATE TABLE IF NOT EXISTS plans (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Sessions Table (express-session mit connect-sqlite3)
+CREATE TABLE IF NOT EXISTS sessions (
+  sid TEXT PRIMARY KEY,
+  session TEXT NOT NULL,
+  expiryDate DATETIME
+);
+
 -- Indices für Performance
 CREATE INDEX IF NOT EXISTS idx_plans_user_id ON plans(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_expiryDate ON sessions(expiryDate);
