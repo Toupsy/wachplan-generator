@@ -80,7 +80,9 @@ function initDatabase() {
       db.exec(schema, (err) => {
         if (err) {
           console.error('❌ Failed to execute schema:', err);
-          reject(err);
+          db.close((closeErr) => {
+            reject(err);  // Reject with original error, not close error
+          });
           return;
         }
 
@@ -88,7 +90,12 @@ function initDatabase() {
 
         // Auto-create admin if ADMIN_USERNAME + ADMIN_PASSWORD are set
         db.get("SELECT COUNT(*) as count FROM users WHERE is_admin = 1", async (err, row) => {
-          if (err) { reject(err); return; }
+          if (err) {
+            db.close((closeErr) => {
+              reject(err);  // Reject with original error
+            });
+            return;
+          }
 
           const autoUser = process.env.ADMIN_USERNAME;
           const autoPass = process.env.ADMIN_PASSWORD;
