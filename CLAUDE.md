@@ -770,3 +770,43 @@ GET /health → { status: "ok", timestamp: "..." }
 - Keine Cloud-Storage Integration (lokal nur)
 - Keine End-to-End Encryption (Client↔Client unencrypted)
 - Sessions nicht cluster-repliziert (single-instance only)
+
+---
+
+## Session Fixes v0.2.2
+
+### Bugfix 5: Prioritäts-Sort-Richtung (Türme schließen in falscher Reihenfolge)
+**Problem**: Türme mit Priorität 1 wurden ZUERST geschlossen statt ZULETZT.
+
+**Root Cause**: `generate.js` Zeile 274 sortierte `personnelClosed` Türme aufsteigend nach Priorität `(a.prio-b.prio)` statt absteigend.
+
+**Fix**: Invert Sort-Direction auf Zeile 274:
+```javascript
+// BEFORE (falsch):
+.sort((a,b) => (a.prio-b.prio)||(a.id-b.id));
+
+// AFTER (richtig):
+.sort((a,b) => (b.prio-a.prio)||(a.id-b.id));
+```
+
+**Result**: Türme mit höherer Prio (7) schließen zuerst, Prio 1 zuletzt ✅
+
+### Feature 12: Boot-D&D im Schedule-Output
+**Anforderung**: Boote im rechten Feld (Schedule-Panel) sollen per D&D zwischen Türmen/HW gezogen werden können.
+
+**Implementation** (render-output.js):
+- `.boat-link` draggable machen (Line 242) mit `data-boat-id`, `data-boat-name`, `data-boat-code`
+- dragstart handler: Boot-Drag erkennen und `dragSrc.isBoat = true` setzen
+- dragover handler: Boot-Drag mit gelbem Highlight (Warn-Farbe) zeigen
+- drop handler: Boot-Zielbestätigung mit Confirmation-Dialog, immer transparent (nur heute)
+- dragend handler: Boot-Link opacity reset
+- transparent placements: Boot-Reassignments anwenden (Boot-Positionen visuell tauschen)
+- `_applyBoatReassignment(boatId, dayIdx, kind, slotId)`: forcedPlacements mit `kind: 'boat-reassign'` schreiben
+
+**Behavior**:
+- Drop Boot auf anderen Turm → Boot wechselt zu Turm (nur diesen Tag)
+- Drop Boot auf HW → Boot zu Hauptwache (nur diesen Tag)
+- Folgetage unberührt (transparent = keine `generate()`)
+- Toast mit Boot-Name und Zielturm
+
+**Result**: Schnelle tägliche Boot-Neuverteilung ohne Folgetag-Recalc ✅

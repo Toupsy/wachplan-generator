@@ -271,7 +271,7 @@ function generate(startDay = 0){
     }
     const personnelClosed = candidateTowers
       .filter(t => !openTowers.includes(t))
-      .sort((a,b) => (a.prio-b.prio)||(a.id-b.id));
+      .sort((a,b) => (b.prio-a.prio)||(a.id-b.id));
     const manualClosed = towers.filter(t => ds.closed.has(t.id));
 
     const dayAssign = [];

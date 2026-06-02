@@ -71,6 +71,37 @@ function renderOutput(){
       }
     });
 
+    // Wende Boot-Reassignments an
+    dayForcedTransparent.filter(f => f.kind === 'boat-reassign').forEach(f => {
+      const boat = boats.find(b => b.id === f.boatId);
+      if(!boat) return;
+
+      // Entferne Boot aus seiner aktuellen Zuweisung
+      dayClone.assign.forEach(slot => {
+        if(slot.boatId === f.boatId) {
+          slot.boatId = null;
+          slot.boat = null;
+          slot.occupants = [];
+        }
+      });
+
+      // Füge Boot zur Zielstation hinzu
+      if(f.targetKind === 'tower') {
+        const targetSlot = dayClone.assign.find(s => s.kind === 'tower' && s.towerId === f.targetSlotId);
+        if(targetSlot) {
+          targetSlot.boatId = f.boatId;
+          targetSlot.boat = boat;
+          targetSlot.towerName = targetSlot.tower;
+          targetSlot.occupants = [];
+        }
+      } else if(f.targetKind === 'hwboat') {
+        const mainSlot = dayClone.assign.find(s => s.kind === 'main');
+        if(mainSlot) {
+          mainSlot.hwBoatSlot = { boatId: f.boatId, name: boat.name, code: boat.code, bootsf: null };
+        }
+      }
+    });
+
     return dayClone;
   });
 
@@ -239,7 +270,7 @@ function renderOutput(){
       else if(slot.kind === 'boat'){
         html += `<div class="tower-card boot" data-drop-kind="boat" data-drop-slot="${slot.boatId}">
           <div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="boat" data-card-slot="${slot.boatId}" title="Zum Sortieren ziehen"><span class="tc-name">🚤 ${escapeHtml(slot.name)}</span><span class="tc-type boot">Boot · ${escapeHtml(slot.code||'?')}</span></div>
-          <div class="boat-link">→ ${escapeHtml(slot.towerName)}</div>
+          <div class="boat-link" draggable="true" data-boat-id="${slot.boatId}" data-boat-name="${escapeHtml(slot.name)}" data-boat-code="${escapeHtml(slot.code||'?')}" title="Ziehen zum Turm verschieben">→ ${escapeHtml(slot.towerName)}</div>
           ${slot.occupants.map(p=>`
             <div class="occupant" draggable="true" data-person-id="${p.id}" data-source-kind="boat" data-source-slot="${slot.boatId}">
               <i class="role-dot rd-${p.role.toLowerCase()}"></i>${escapeHtml(p.name)}
@@ -344,7 +375,22 @@ function renderOutput(){
       return;
     }
 
-    // Option 2: Card-Head drag (für Sortierung)
+    // Option 2: Boot drag
+    const boatLink = e.target.closest('.boat-link');
+    if(boatLink && boatLink.dataset.boatId) {
+      dragSrc = {
+        boatId: +boatLink.dataset.boatId,
+        boatName: boatLink.dataset.boatName,
+        boatCode: boatLink.dataset.boatCode,
+        isBoat: true
+      };
+      boatLink.style.opacity = '0.4';
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', `boat-${dragSrc.boatId}`);
+      return;
+    }
+
+    // Option 3: Card-Head drag (für Sortierung)
     const head = e.target.closest('.tc-head');
     if(head && head.dataset.cardKind) {
       dragCardSrc = {
@@ -363,8 +409,17 @@ function renderOutput(){
     const card = e.target.closest('.tower-card');
     if(!card) return;
 
+    // Wenn Boot-Drag: gelbe Highlight
+    if(dragSrc && dragSrc.isBoat && !dragCardSrc) {
+      if(!card.classList.contains('closed')) {
+        card.style.backgroundColor = 'rgba(255,179,71,0.15)';
+        card.style.borderColor = 'var(--warn)';
+      }
+      return;
+    }
+
     // Wenn Personen-Drag: einfach Highlight (closedOverride oder normal)
-    if(dragSrc && !dragCardSrc) {
+    if(dragSrc && !dragSrc.isBoat && !dragCardSrc) {
       if(card.dataset.closedOverride) {
         card.style.backgroundColor = 'rgba(255,165,0,0.15)';
         card.style.borderColor = 'var(--warn)';
@@ -439,6 +494,57 @@ function renderOutput(){
     }
 
     if(!dragSrc) return;
+
+    // Boot-Drop: Reassign Boot zu Turm/HW für heute
+    if(dragSrc.isBoat) {
+      const boatId = dragSrc.boatId;
+      const boat = boats.find(b => b.id === boatId);
+      if(!boat) {
+        clearCard();
+        dragSrc = null;
+        return;
+      }
+
+      const targetKind = card.dataset.dropKind;
+      const targetSlot = +card.dataset.dropSlot;
+      const clearCard = () => { card.style.backgroundColor = ''; card.style.borderColor = ''; };
+
+      // Validierung
+      if(!['tower', 'main', 'hwboat'].includes(targetKind)) {
+        clearCard();
+        dragSrc = null;
+        return;
+      }
+
+      // Bestehende Zuweisung finden
+      const dayData = lastResult.schedule[activeDay];
+      const currentAssignment = dayData.assign.find(s => s.boatId === boatId);
+      const currentTowerName = currentAssignment?.towerName || '?';
+
+      // Zielname bestimmen
+      let targetName = '';
+      if(targetKind === 'tower') {
+        const tower = getT(targetSlot);
+        targetName = tower?.name || '?';
+      } else if(targetKind === 'main' || targetKind === 'hwboat') {
+        targetName = 'Hauptwache';
+      }
+
+      showConfirmation(
+        `🚤 ${boat.name} (${boat.code || '?'}) von ${currentTowerName} zu ${targetName} verschieben? (nur heute)`,
+        () => {
+          _applyBoatReassignment(boatId, activeDay, targetKind, targetSlot);
+          renderOutput();
+          showToast(`✅ 🚤 ${boat.name} → ${targetName}`);
+        },
+        clearCard,
+        false
+      );
+
+      dragSrc = null;
+      clearCard();
+      return;
+    }
 
     const targetKind = card.dataset.dropKind;
     const targetSlot = +card.dataset.dropSlot;
@@ -547,6 +653,9 @@ function renderOutput(){
     const occ = e.target.closest('.occupant');
     if(occ) occ.style.opacity = '';
 
+    const boatLink = e.target.closest('.boat-link');
+    if(boatLink) boatLink.style.opacity = '';
+
     const head = e.target.closest('.tc-head');
     if(head) head.style.opacity = '';
 
@@ -605,4 +714,22 @@ function renderMatrix(){
     h += '</tr>';
   });
   return h + '</table></div>';
+}
+
+/** Wendet Boot-Reassignment an (für D&D im Schedule). */
+function _applyBoatReassignment(boatId, dayIdx, kind, slotId){
+  if(!forcedPlacements[dayIdx]) forcedPlacements[dayIdx] = [];
+
+  // Entferne bestehende Boot-Reassignment für dieses Boot
+  forcedPlacements[dayIdx] = forcedPlacements[dayIdx].filter(f => f.boatId !== boatId);
+
+  // Füge neue Boot-Reassignment hinzu (immer transparent für D&D)
+  forcedPlacements[dayIdx].push({
+    boatId,
+    kind: 'boat-reassign',
+    targetKind: kind,
+    targetSlotId: slotId,
+    transparent: true
+  });
+}
 }
