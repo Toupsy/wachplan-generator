@@ -49,26 +49,19 @@ async function start() {
       console.warn('⚠ Session store error (continuing):', err.message);
     });
 
-    // THEN configure session middleware with dynamic cookie.secure
-    app.use((req, res, next) => {
-      // Detect if request came through HTTPS proxy
-      const isSecure = req.headers['x-forwarded-proto'] === 'https' || req.protocol === 'https';
-
-      const sessionMiddleware = session({
-        store: sessionStore,
-        secret: process.env.SESSION_SECRET,
-        resave: false,
-        saveUninitialized: false,
-        cookie: {
-          secure: isSecure,
-          httpOnly: true,
-          sameSite: isSecure ? 'strict' : 'lax',
-          maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-        }
-      });
-
-      sessionMiddleware(req, res, next);
-    });
+    // Session middleware – secure:false weil der Proxy HTTPS terminiert
+    app.use(session({
+      store: sessionStore,
+      secret: process.env.SESSION_SECRET,
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        secure: false,
+        httpOnly: true,
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      }
+    }));
 
     // Register API routes AFTER session middleware
     console.log('Registering admin API routes...');
