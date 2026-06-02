@@ -58,7 +58,7 @@ function seedFromConfig() {
     boats.push({
       id: ++uid,
       name: boatCfg.name,
-      code: '',
+      code: boatCfg.code || '',
       towerId: tower.id,
       prio: boatCfg.prio,
       slotCount: boatCfg.slotCount || 1

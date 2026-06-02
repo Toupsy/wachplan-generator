@@ -16,13 +16,22 @@
       {
         "name": "Boot 78/1",
         "towerName": "Turm 78",
+        "code": "9/12",
         "prio": 1,
         "slotCount": 1
       },
       {
         "name": "Boot 78/2",
         "towerName": "Turm 78",
+        "code": "9/14",
         "prio": 2,
+        "slotCount": 1
+      },
+      {
+        "name": "Boot 78/3",
+        "towerName": "Turm 78",
+        "code": "9/17",
+        "prio": 3,
         "slotCount": 1
       },
       {
@@ -70,7 +79,7 @@
     ],
     "exportColumns": [
       "78/1", "9/12", "9/13", "", "WF", "HW", "",
-      "78/2", "9/14", "9/15", "9/16", "78/1", "9/17", "9/18"
+      "78/2", "9/14", "9/15", "9/16", "78/3", "9/17", "9/18"
     ]
   },
   "positions": {
