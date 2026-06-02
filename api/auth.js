@@ -71,12 +71,20 @@ router.post('/login', express.json(), async (req, res) => {
     req.session.userId = user.id;
     req.session.isAdmin = user.is_admin === 1;
 
-    res.json({
-      success: true,
-      userId: user.id,
-      username: username,
-      isAdmin: user.is_admin === 1,
-      message: 'Login successful'
+    // Save session to store (required for connect-sqlite3)
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+        return res.status(500).json({ error: 'Failed to save session' });
+      }
+
+      res.json({
+        success: true,
+        userId: user.id,
+        username: username,
+        isAdmin: user.is_admin === 1,
+        message: 'Login successful'
+      });
     });
   } catch (error) {
     console.error('Login error:', error);
