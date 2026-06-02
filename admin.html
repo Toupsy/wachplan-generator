@@ -366,6 +366,14 @@
       </form>
     </div>
 
+    <!-- Konfiguration -->
+    <div class="card">
+      <div class="card-title">⚙️ Konfiguration</div>
+      <p style="color: var(--text-dim); margin-bottom: 15px; font-size: 0.9em;">Laden Sie die config.json neu, um Änderungen an Türmen, Booten und Export-Spalten wirksam zu machen.</p>
+      <button type="button" onclick="reloadConfig()" style="background: var(--sea); padding: 10px 20px;">🔄 Config neu laden</button>
+      <div id="config-status" style="margin-top: 10px; font-size: 0.9em; color: var(--text-dim);"></div>
+    </div>
+
     <!-- Benutzerliste -->
     <h2>👥 Alle Benutzer</h2>
     <div class="card">
@@ -553,6 +561,27 @@
         showToast('✓ Passwort erfolgreich geändert');
         document.getElementById('change-password-form').reset();
       } catch (error) {
+        showToast(error.message, true);
+      }
+    }
+
+    async function reloadConfig() {
+      try {
+        const statusEl = document.getElementById('config-status');
+        statusEl.textContent = 'Lädt...';
+
+        const response = await fetch('/api/admin/reload-config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Fehler beim Laden');
+
+        statusEl.textContent = `✓ Config erfolgreich neu geladen! (${data.config.towers} Türme, ${data.config.boats} Boote)`;
+        showToast('✓ Konfiguration erfolgreich neu geladen');
+      } catch (error) {
+        document.getElementById('config-status').textContent = `✗ Fehler: ${error.message}`;
         showToast(error.message, true);
       }
     }
