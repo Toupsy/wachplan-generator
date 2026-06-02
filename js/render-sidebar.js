@@ -290,22 +290,31 @@ function renderHWBoatSelector(){
 
 /**
  * Befüllt exportColumns automatisch:
- * Pro Turm (Prio absteigend): zuerst zugeordnete Boote, dann der Turm selbst.
- * Boote ohne Turm-Zuordnung danach. Abschluss: WF → WF2 → HW (→ HW2 nur wenn >2 HW).
- * Nutzer kann HW2 manuell hinzufügen, wenn nötig – sonst Overflow-Handling über _patchSheetXml.
+ * Pro Turm (Prio aufsteigend): zuerst zugeordnete Boote, dann der Turm selbst.
+ * Nach Turm 9/13: WF → HW.
+ * Rest mit leeren Einträgen auffüllen.
  */
 function autoFillExportColumns(){
   const cols = [];
-  towers.slice().sort((a,b) => b.prio - a.prio).forEach(t => {
+
+  // Sortiere Türme aufsteigend nach Priorität
+  towers.slice().sort((a,b) => a.prio - b.prio).forEach(t => {
+    // Boote zu diesem Turm
     boats.filter(b => b.towerId === t.id && b.id !== hwBoatId)
          .forEach(b => { if(b.code) cols.push(b.code); });
+
+    // Turm selbst
     if(t.code) cols.push(t.code);
+
+    // Nach Turm 9/13: [leer], WF, HW, [leer]
+    if(t.name === '9/13'){
+      cols.push('');
+      cols.push('WF');
+      cols.push('HW');
+      cols.push('');
+    }
   });
-  boats.filter(b => (!b.towerId || b.towerId === 'HW') && b.id !== hwBoatId)
-       .forEach(b => { if(b.code) cols.push(b.code); });
-  cols.push('WF');
-  if(people.filter(p => p.role==='F').length > 2) cols.push('WF2');
-  cols.push('HW');
+
   while(cols.length < TEMPLATE_STATION_COLS.length) cols.push('');
   exportColumns = cols.slice(0, TEMPLATE_STATION_COLS.length);
   renderExportColumnUI();

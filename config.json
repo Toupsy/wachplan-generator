@@ -41,21 +41,21 @@
       {
         "name": "Boot 78/1",
         "towerName": "9/12",
-        "code": "9/12",
+        "code": "78/1",
         "prio": 1,
         "slotCount": 1
       },
       {
         "name": "Boot 78/2",
         "towerName": "9/14",
-        "code": "9/14",
+        "code": "78/2",
         "prio": 2,
         "slotCount": 1
       },
       {
         "name": "Boot 78/3",
         "towerName": "9/17",
-        "code": "9/17",
+        "code": "78/3",
         "prio": 3,
         "slotCount": 1
       }
@@ -64,6 +64,7 @@
       "78/1", "9/12", "9/13", "", "WF", "HW", "",
       "78/2", "9/14", "9/15", "9/16", "78/3", "9/17", "9/18"
     ]
+
   },
   "positions": {
     "3": "Wachführer",
