@@ -200,23 +200,32 @@ document.getElementById('import-file-input').onchange = e => {
 };
 document.getElementById('btn-clear-save').onclick = clearLocalSave;
 
-// ── Startsequenz ─────────────────────────────────────────────────
-const _restored = autoLoad();   // gespeicherten Stand wiederherstellen
-if(!_restored){
-  // Kein Speicherstand → Beispieldaten laden
-  seed();
-  forcedPlacements = freshForcedPlacements();
-  dayState = freshDayState();
+// ── Startsequenz (nach Authentifizierung) ─────────────────────────
+function initAfterAuth() {
+  const _restored = autoLoad();   // gespeicherten Stand wiederherstellen
+  if(!_restored){
+    // Kein Speicherstand → Beispieldaten laden
+    seed();
+    forcedPlacements = freshForcedPlacements();
+    dayState = freshDayState();
 
-  document.getElementById('start-date').value = startDate;
-  updateSeedDisplay();
-  autoCodes();
-  renderPeople();
-  renderTowerCfg();
-  renderBoatCfg();
-  renderHWBoatSelector();
-  renderPositionDescUI();
-  autoFillExportColumns();   // Standardmäßig aus Türmen & Booten befüllen
+    document.getElementById('start-date').value = startDate;
+    updateSeedDisplay();
+    autoCodes();
+    renderPeople();
+    renderTowerCfg();
+    renderBoatCfg();
+    renderHWBoatSelector();
+    renderPositionDescUI();
+    autoFillExportColumns();   // Standardmäßig aus Türmen & Booten befüllen
+  }
+  _updateSaveIndicator();
+  _updateTemplateStatus();
 }
-_updateSaveIndicator();
-_updateTemplateStatus();
+
+// Wird nach erfolgreicher Authentication aufgerufen (login-modal.js)
+// Wenn nicht im Browser mit Auth, kann diese Funktion manuell aufgerufen werden:
+if (typeof window !== 'undefined' && !document.getElementById('login-modal')) {
+  // Kein Login-Modal vorhanden (Development-Modus), starte direkt
+  initAfterAuth();
+}

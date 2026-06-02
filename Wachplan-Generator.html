@@ -91,6 +91,18 @@
   .info-box b{color:var(--foam)}
   .empty-state{text-align:center;padding:80px 20px;color:var(--text-dim)}
   .empty-state .big{font-family:'Archivo Black',sans-serif;font-size:3rem;color:var(--line-strong);margin-bottom:12px}
+  /* Login Modal */
+  #login-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;justify-content:center;align-items:center}
+  .login-modal-content{background:linear-gradient(165deg,var(--navy-2),var(--paper));border:1px solid var(--line);border-radius:16px;padding:32px;width:100%;max-width:340px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+  .login-modal-content h2{font-family:'Archivo Black',sans-serif;font-size:1.8rem;margin-bottom:8px;text-transform:uppercase}
+  .login-modal-content .subtitle{font-size:.85rem;color:var(--text-dim);margin-bottom:24px}
+  .login-form{display:flex;flex-direction:column;gap:12px}
+  .login-form input{background:var(--deep);border:1px solid var(--line-strong);border-radius:8px;padding:11px 13px;color:var(--text);font-family:'Spline Sans',sans-serif;font-size:.95rem}
+  .login-form input:focus{outline:none;border-color:var(--sea-bright);box-shadow:0 0 0 3px rgba(24,168,216,.15)}
+  .login-form input::placeholder{color:var(--text-dim)}
+  .login-form button{background:linear-gradient(135deg,var(--sea),var(--sea-bright));color:#fff;border:none;border-radius:8px;padding:12px;font-family:'Spline Sans',sans-serif;font-size:.95rem;font-weight:600;cursor:pointer;text-transform:uppercase;transition:transform .12s,box-shadow .2s;box-shadow:0 4px 12px rgba(13,124,168,.3)}
+  .login-form button:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(13,124,168,.4)}
+  #login-error{color:var(--coral);font-size:.8rem;margin-top:4px;min-height:18px}
   .out-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:18px}
   .day-tabs{display:flex;gap:6px;flex-wrap:wrap}
   .day-tab{font-family:'Spline Sans Mono',monospace;font-size:.78rem;background:var(--navy-2);border:1px solid var(--line);color:var(--text-dim);padding:9px 14px;border-radius:9px;cursor:pointer;transition:all .15s;position:relative}
@@ -198,6 +210,30 @@
 </style>
 </head>
 <body>
+
+<!-- ── Login Modal ────────────────────────────────────────────── -->
+<div id="login-modal">
+  <div class="login-modal-content">
+    <h2>🔐 Login</h2>
+    <p class="subtitle">Bitte melden Sie sich an</p>
+    <form id="login-form" class="login-form">
+      <input
+        id="login-username"
+        type="text"
+        placeholder="Username"
+        autocomplete="username"
+        required>
+      <input
+        id="login-password"
+        type="password"
+        placeholder="Passwort"
+        autocomplete="current-password"
+        required>
+      <button type="submit">Anmelden</button>
+      <div id="login-error"></div>
+    </form>
+  </div>
+</div>
 
 <!-- ── Move-Modal ─────────────────────────────────────────────── -->
 <div id="move-modal" class="modal-overlay" style="display:none">
@@ -407,6 +443,7 @@
 <script src="js/export.js"></script>
 <script src="js/move.js"></script>
 <script src="js/state-io.js"></script>
+<script src="js/login-modal.js"></script>
 <script src="js/init.js"></script>
 
 </body>

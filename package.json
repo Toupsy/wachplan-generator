@@ -16,7 +16,11 @@
   "author": "DLRG",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.18.2"
+    "bcryptjs": "^3.0.3",
+    "connect-sqlite3": "^0.9.16",
+    "express": "^4.18.2",
+    "express-session": "^1.19.0",
+    "sqlite3": "^6.0.1"
   },
   "engines": {
     "node": ">=16.0.0"

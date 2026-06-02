@@ -1,0 +1,116 @@
+// ============================================================
+// Database Initialization
+// SQLite Setup, Schema Migration, Environment Validation
+// ============================================================
+
+const sqlite3 = require('sqlite3');
+const fs = require('fs');
+const path = require('path');
+
+// Ensure /app/data directory exists
+const dataDir = path.join(__dirname, '..', 'data');
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+  console.log('✓ Created data directory:', dataDir);
+}
+
+const dbPath = path.join(dataDir, 'wachplan.db');
+
+// Validate environment variables
+function validateEnv() {
+  const required = ['MASTER_SECRET', 'SALT', 'SESSION_SECRET'];
+  const missing = required.filter(key => !process.env[key]);
+
+  if (missing.length > 0) {
+    console.error('❌ Missing required environment variables:', missing.join(', '));
+    console.error('Set them in docker-compose.yml or .env file');
+    process.exit(1);
+  }
+
+  // Validate lengths
+  if (process.env.MASTER_SECRET.length < 32) {
+    console.error('❌ MASTER_SECRET must be at least 32 characters');
+    process.exit(1);
+  }
+  if (process.env.SALT.length < 16) {
+    console.error('❌ SALT must be at least 16 characters');
+    process.exit(1);
+  }
+  if (process.env.SESSION_SECRET.length < 16) {
+    console.error('❌ SESSION_SECRET must be at least 16 characters');
+    process.exit(1);
+  }
+
+  console.log('✓ Environment variables validated');
+}
+
+// Initialize database
+function initDatabase() {
+  return new Promise((resolve, reject) => {
+    const db = new sqlite3.Database(dbPath, (err) => {
+      if (err) {
+        console.error('❌ Failed to open database:', err);
+        reject(err);
+        return;
+      }
+
+      console.log('✓ Database connection established:', dbPath);
+
+      // Read and execute schema
+      const schemaPath = path.join(__dirname, 'schema.sql');
+      const schema = fs.readFileSync(schemaPath, 'utf-8');
+
+      // Split by semicolon and execute each statement
+      db.exec(schema, (err) => {
+        if (err) {
+          console.error('❌ Failed to execute schema:', err);
+          reject(err);
+          return;
+        }
+
+        console.log('✓ Database schema initialized');
+
+        // Check if admin user exists
+        db.get("SELECT COUNT(*) as count FROM users WHERE is_admin = 1", (err, row) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+
+          if (row.count === 0) {
+            console.log('⚠ No admin user found. Create one with:');
+            console.log('  POST /api/auth/init with admin credentials');
+          }
+
+          db.close((closeErr) => {
+            if (closeErr) {
+              console.error('❌ Failed to close database:', closeErr);
+              reject(closeErr);
+            } else {
+              resolve();
+            }
+          });
+        });
+      });
+    });
+  });
+}
+
+// Main initialization
+async function main() {
+  try {
+    validateEnv();
+    await initDatabase();
+    console.log('✓ Database initialization complete');
+  } catch (error) {
+    console.error('❌ Initialization failed:', error.message);
+    process.exit(1);
+  }
+}
+
+module.exports = { initDatabase, validateEnv };
+
+// Run if called directly
+if (require.main === module) {
+  main();
+}
