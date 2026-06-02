@@ -137,6 +137,18 @@ router.post('/logout', (req, res) => {
 });
 
 // ───────────────────────────────────────────────────────────
+// GET /api/auth/needs-setup – Check if initial setup required
+// ───────────────────────────────────────────────────────────
+router.get('/needs-setup', async (req, res) => {
+  try {
+    const adminExists = await dbGet('SELECT COUNT(*) as count FROM users WHERE is_admin = 1');
+    res.json({ needsSetup: !adminExists || adminExists.count === 0 });
+  } catch (error) {
+    res.json({ needsSetup: true });
+  }
+});
+
+// ───────────────────────────────────────────────────────────
 // POST /api/auth/init – Create first admin user (one-time)
 // ───────────────────────────────────────────────────────────
 router.post('/init', express.json(), async (req, res) => {

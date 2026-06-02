@@ -1,14 +1,11 @@
 // ============================================================
 // Login Modal - Authentication UI
-// Angezeigt vor der SPA, wenn Nutzer nicht authentifiziert ist
 // ============================================================
 
 async function initLoginModal() {
-  // Prüfe aktuelle Session
   try {
     const response = await fetch('/api/auth/me');
     if (response.ok) {
-      // Nutzer ist bereits angemeldet, Modal verstecken
       hideLoginModal();
       return;
     }
@@ -16,30 +13,37 @@ async function initLoginModal() {
     console.error('Session check failed:', error);
   }
 
-  // Nutzer nicht angemeldet, Modal anzeigen
+  // Check if first-time setup is needed
+  try {
+    const setupResponse = await fetch('/api/auth/needs-setup');
+    const setupData = await setupResponse.json();
+    if (setupData.needsSetup) {
+      showSetupModal();
+      return;
+    }
+  } catch (error) {
+    console.error('Setup check failed:', error);
+  }
+
   showLoginModal();
 }
 
 function showLoginModal() {
-  const modal = document.getElementById('login-modal');
-  if (modal) {
-    modal.style.display = 'flex';
-  }
+  document.getElementById('login-modal').style.display = 'flex';
+  document.getElementById('login-view').style.display = 'block';
+  document.getElementById('setup-view').style.display = 'none';
+  document.getElementById('login-form').addEventListener('submit', handleLogin);
+}
 
-  // Event Listener für Login-Form
-  const loginForm = document.getElementById('login-form');
-  if (loginForm) {
-    loginForm.addEventListener('submit', handleLogin);
-  }
+function showSetupModal() {
+  document.getElementById('login-modal').style.display = 'flex';
+  document.getElementById('login-view').style.display = 'none';
+  document.getElementById('setup-view').style.display = 'block';
+  document.getElementById('setup-form').addEventListener('submit', handleSetup);
 }
 
 async function hideLoginModal() {
-  const modal = document.getElementById('login-modal');
-  if (modal) {
-    modal.style.display = 'none';
-  }
-
-  // Starte SPA (initAfterAuth ist jetzt async)
+  document.getElementById('login-modal').style.display = 'none';
   if (typeof initAfterAuth === 'function') {
     await initAfterAuth();
   }
@@ -47,15 +51,9 @@ async function hideLoginModal() {
 
 async function handleLogin(e) {
   e.preventDefault();
-
-  const username = document.getElementById('login-username')?.value;
-  const password = document.getElementById('login-password')?.value;
+  const username = document.getElementById('login-username').value;
+  const password = document.getElementById('login-password').value;
   const errorEl = document.getElementById('login-error');
-
-  if (!username || !password) {
-    if (errorEl) errorEl.textContent = 'Username und Passwort erforderlich';
-    return;
-  }
 
   try {
     const response = await fetch('/api/auth/login', {
@@ -66,27 +64,61 @@ async function handleLogin(e) {
 
     if (!response.ok) {
       const data = await response.json();
-      if (errorEl) errorEl.textContent = data.error || 'Login fehlgeschlagen';
+      errorEl.textContent = data.error || 'Login fehlgeschlagen';
       return;
     }
 
     const data = await response.json();
-    console.log('✓ Login erfolgreich:', data.username);
-
-    // Update user info
-    if (typeof updateUserInfo === 'function') {
-      updateUserInfo();
-    }
-
-    // Modal schließen und SPA laden
+    if (typeof updateUserInfo === 'function') updateUserInfo();
     hideLoginModal();
   } catch (error) {
-    console.error('Login error:', error);
-    if (errorEl) errorEl.textContent = 'Netzwerkfehler';
+    errorEl.textContent = 'Netzwerkfehler';
   }
 }
 
-// Auto-initialize when DOM is ready
+async function handleSetup(e) {
+  e.preventDefault();
+  const username = document.getElementById('setup-username').value;
+  const password = document.getElementById('setup-password').value;
+  const password2 = document.getElementById('setup-password2').value;
+  const errorEl = document.getElementById('setup-error');
+
+  if (password !== password2) {
+    errorEl.textContent = 'Passwörter stimmen nicht überein';
+    return;
+  }
+  if (password.length < 8) {
+    errorEl.textContent = 'Passwort muss mindestens 8 Zeichen haben';
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/auth/init', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      errorEl.textContent = data.error || 'Setup fehlgeschlagen';
+      return;
+    }
+
+    // Auto-login after setup
+    await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+
+    if (typeof updateUserInfo === 'function') updateUserInfo();
+    hideLoginModal();
+  } catch (error) {
+    errorEl.textContent = 'Netzwerkfehler';
+  }
+}
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initLoginModal);
 } else {

@@ -214,24 +214,32 @@
 <!-- ── Login Modal ────────────────────────────────────────────── -->
 <div id="login-modal">
   <div class="login-modal-content">
-    <h2>🔐 Login</h2>
-    <p class="subtitle">Bitte melden Sie sich an</p>
-    <form id="login-form" class="login-form">
-      <input
-        id="login-username"
-        type="text"
-        placeholder="Username"
-        autocomplete="username"
-        required>
-      <input
-        id="login-password"
-        type="password"
-        placeholder="Passwort"
-        autocomplete="current-password"
-        required>
-      <button type="submit">Anmelden</button>
-      <div id="login-error"></div>
-    </form>
+
+    <!-- Login View -->
+    <div id="login-view">
+      <h2>🔐 Login</h2>
+      <p class="subtitle">Bitte melden Sie sich an</p>
+      <form id="login-form" class="login-form">
+        <input id="login-username" type="text" placeholder="Username" autocomplete="username" required>
+        <input id="login-password" type="password" placeholder="Passwort" autocomplete="current-password" required>
+        <button type="submit">Anmelden</button>
+        <div id="login-error" style="color:var(--coral);font-size:.85rem;min-height:1.2em"></div>
+      </form>
+    </div>
+
+    <!-- Setup View (erster Start, kein Admin vorhanden) -->
+    <div id="setup-view" style="display:none">
+      <h2>🛡️ Ersteinrichtung</h2>
+      <p class="subtitle">Kein Admin-Account gefunden. Bitte erstellen Sie jetzt Ihren Admin-Account.</p>
+      <form id="setup-form" class="login-form">
+        <input id="setup-username" type="text" placeholder="Admin-Username" autocomplete="username" required>
+        <input id="setup-password" type="password" placeholder="Passwort (min. 8 Zeichen)" autocomplete="new-password" required>
+        <input id="setup-password2" type="password" placeholder="Passwort wiederholen" autocomplete="new-password" required>
+        <button type="submit">Admin-Account erstellen</button>
+        <div id="setup-error" style="color:var(--coral);font-size:.85rem;min-height:1.2em"></div>
+      </form>
+    </div>
+
   </div>
 </div>
 
