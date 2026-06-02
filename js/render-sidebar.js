@@ -298,13 +298,17 @@ function autoFillExportColumns(){
   const cols = [];
 
   // Sortiere Türme aufsteigend nach Priorität
-  towers.slice().sort((a,b) => a.prio - b.prio).forEach(t => {
+  const sortedTowers = towers.slice().sort((a,b) => a.prio - b.prio);
+  console.log('DEBUG autoFillExportColumns - sortedTowers:', sortedTowers.map(t => `${t.name}(prio${t.prio})`));
+
+  sortedTowers.forEach(t => {
     // Boote zu diesem Turm
     boats.filter(b => b.towerId === t.id && b.id !== hwBoatId)
          .forEach(b => { if(b.code) cols.push(b.code); });
 
     // Turm selbst
     if(t.code) cols.push(t.code);
+    else console.log('⚠️ Tower hat keinen Code:', t.name);
 
     // Nach Turm 9/13: [leer], WF, HW, [leer]
     if(t.name === '9/13'){
@@ -315,8 +319,10 @@ function autoFillExportColumns(){
     }
   });
 
+  console.log('DEBUG autoFillExportColumns - final cols:', cols);
   while(cols.length < TEMPLATE_STATION_COLS.length) cols.push('');
   exportColumns = cols.slice(0, TEMPLATE_STATION_COLS.length);
+  console.log('DEBUG autoFillExportColumns - exportColumns:', exportColumns);
   renderExportColumnUI();
 }
 
