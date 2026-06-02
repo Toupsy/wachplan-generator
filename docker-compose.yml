@@ -12,8 +12,6 @@ x-common: &common
     MASTER_SECRET: "cNJqZimlDKRZdTSitVf4b7QllDWXE+FVGGPkhtwNbuw="
     SALT: "cpDzbABAbgU/soUiD2mKFQ=="
     SESSION_SECRET: "u8AWjZf1bkUTgbkQXiBb/Um48gbkRJcbHImxh+skqB4="
-  networks:
-    - proxy
 
 services:
   wachplan:
@@ -38,10 +36,6 @@ services:
     command: node admin-server.js
     depends_on:
       - wachplan
-
-networks:
-  proxy:
-    external: true
 
 volumes:
   wachplan-data:
