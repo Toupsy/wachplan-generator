@@ -27,13 +27,5 @@ CREATE TABLE IF NOT EXISTS plans (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Sessions Table (Express-Session)
-CREATE TABLE IF NOT EXISTS sessions (
-  sid TEXT PRIMARY KEY,
-  sess TEXT NOT NULL,
-  expire DATETIME NOT NULL
-);
-
 -- Indices für Performance
 CREATE INDEX IF NOT EXISTS idx_plans_user_id ON plans(user_id);
-CREATE INDEX IF NOT EXISTS idx_sessions_expire ON sessions(expire);

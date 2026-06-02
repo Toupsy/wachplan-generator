@@ -449,26 +449,28 @@
           return;
         }
 
-        tbody.innerHTML = data.users.map(user => {
+        tbody.innerHTML = '';
+        data.users.forEach(user => {
+          const tr = document.createElement('tr');
           const createdAt = new Date(user.createdAt).toLocaleDateString('de-DE');
           const badge = user.isAdmin
             ? '<span class="badge admin">Admin</span>'
             : '<span class="badge user">Benutzer</span>';
 
-          return `
-            <tr>
-              <td>${escapeHtml(user.username)}</td>
-              <td>${user.email ? escapeHtml(user.email) : '-'}</td>
-              <td>${badge}</td>
-              <td>${createdAt}</td>
-              <td style="text-align: right;">
-                <button class="btn-small danger" onclick="deleteUser(${user.id}, '${escapeHtml(user.username)}')">
-                  🗑️ Löschen
-                </button>
-              </td>
-            </tr>
+          tr.innerHTML = `
+            <td></td>
+            <td>${user.email ? escapeHtml(user.email) : '-'}</td>
+            <td>${badge}</td>
+            <td>${createdAt}</td>
+            <td style="text-align:right;"><button class="btn-small danger">🗑️ Löschen</button></td>
           `;
-        }).join('');
+          tr.querySelector('td').textContent = user.username;
+          const btn = tr.querySelector('button');
+          btn.dataset.userId = user.id;
+          btn.dataset.username = user.username;
+          btn.addEventListener('click', () => deleteUser(user.id, user.username));
+          tbody.appendChild(tr);
+        });
       } catch (error) {
         console.error('Load users error:', error);
         showToast('Fehler beim Laden der Benutzer', true);

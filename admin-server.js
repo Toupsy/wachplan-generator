@@ -14,6 +14,7 @@ const authApi = require('./api/auth');
 const adminApi = require('./api/admin');
 
 const app = express();
+app.set('trust proxy', 1);
 const ADMIN_PORT = process.env.ADMIN_PORT || 3001;
 const HOST = process.env.HOST || '0.0.0.0';
 
