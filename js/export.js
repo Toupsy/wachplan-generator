@@ -226,6 +226,7 @@ function _patchSheetXml(xml, dayIdx){
   // Iteriert exportColumns der Reihe nach; leere Slots werden übersprungen.
   // Hat eine Station >2 Personen, belegt der Überlauf die nächste Template-Spalte
   // direkt rechts – alle nachfolgenden Stationen rücken entsprechend nach rechts.
+  const hasHW2 = exportColumns.includes('HW2');  // Nur HW2 verwenden wenn in exportColumns
   const A = buildAssignments(dayIdx);
   const effectiveCols = [];   // { col:number, code:string, nums:[nr,...] }
   let tplIdx = 0;

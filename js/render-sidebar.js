@@ -291,7 +291,8 @@ function renderHWBoatSelector(){
 /**
  * Befüllt exportColumns automatisch:
  * Pro Turm (Prio absteigend): zuerst zugeordnete Boote, dann der Turm selbst.
- * Boote ohne Turm-Zuordnung danach. Abschluss: WF → WF2 → HW → HW2.
+ * Boote ohne Turm-Zuordnung danach. Abschluss: WF → WF2 → HW (→ HW2 nur wenn >2 HW).
+ * Nutzer kann HW2 manuell hinzufügen, wenn nötig – sonst Overflow-Handling über _patchSheetXml.
  */
 function autoFillExportColumns(){
   const cols = [];
@@ -304,7 +305,7 @@ function autoFillExportColumns(){
        .forEach(b => { if(b.code) cols.push(b.code); });
   cols.push('WF');
   if(people.filter(p => p.role==='F').length > 2) cols.push('WF2');
-  cols.push('HW', 'HW2');
+  cols.push('HW');
   while(cols.length < TEMPLATE_STATION_COLS.length) cols.push('');
   exportColumns = cols.slice(0, TEMPLATE_STATION_COLS.length);
   renderExportColumnUI();
