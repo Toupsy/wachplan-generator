@@ -391,32 +391,32 @@
   <script>
     let currentUserId = null;
 
-    // Login form handler
-    document.getElementById('admin-login-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const username = document.getElementById('al-username').value;
-      const password = document.getElementById('al-password').value;
-      const errorEl  = document.getElementById('login-error');
-
-      try {
-        const res = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password })
-        });
-        const data = await res.json();
-        if (!res.ok) { errorEl.textContent = data.error || 'Login fehlgeschlagen'; return; }
-        if (!data.isAdmin) { errorEl.textContent = 'Kein Admin-Zugriff'; return; }
-        currentUserId = data.userId;
-        document.getElementById('login-overlay').classList.remove('visible');
-        loadUsers();
-      } catch (err) {
-        errorEl.textContent = 'Netzwerkfehler';
-      }
-    });
-
     // Check auth on load
     window.addEventListener('load', async () => {
+      // Login form handler
+      document.getElementById('admin-login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = document.getElementById('al-username').value;
+        const password = document.getElementById('al-password').value;
+        const errorEl  = document.getElementById('login-error');
+
+        try {
+          const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+          });
+          const data = await res.json();
+          if (!res.ok) { errorEl.textContent = data.error || 'Login fehlgeschlagen'; return; }
+          if (!data.isAdmin) { errorEl.textContent = 'Kein Admin-Zugriff'; return; }
+          currentUserId = data.userId;
+          document.getElementById('login-overlay').classList.remove('visible');
+          loadUsers();
+        } catch (err) {
+          errorEl.textContent = 'Netzwerkfehler';
+        }
+      });
+
       try {
         const response = await fetch('/api/auth/me');
         if (!response.ok) {
