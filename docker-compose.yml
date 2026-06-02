@@ -5,8 +5,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        NODE_ENV: production
 
     image: dlrg-wachplan-generator:latest
     container_name: dlrg-wachplan-generator
@@ -25,9 +23,9 @@ services:
     restart: unless-stopped
 
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
       interval: 30s
-      timeout: 3s
+      timeout: 5s
       retries: 3
       start_period: 10s
 
@@ -35,8 +33,10 @@ services:
       - wachplan-network
 
     labels:
-      description: "DLRG Wachplan-Generator für Wasserrettungsdienste"
-      version: "1.0.0"
+      com.dlrg.description: "DLRG Wachplan-Generator für Wasserrettungsdienste"
+      com.dlrg.version: "1.0.0"
+      org.opencontainers.image.title: "DLRG Wachplan-Generator"
+      org.opencontainers.image.description: "Single-Page Application für faire Wachplan-Generierung"
 
 networks:
   wachplan-network:
@@ -45,7 +45,3 @@ networks:
 volumes:
   wachplan-data:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ./data
