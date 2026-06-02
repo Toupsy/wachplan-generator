@@ -58,6 +58,11 @@
   .boat-row .bname{width:100%;background:var(--navy-2);border:1px solid rgba(24,168,216,.4);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'Spline Sans',sans-serif;font-size:.88rem}
   .boat-row .bname:focus{outline:none;border-color:var(--sea-bright);box-shadow:0 0 0 3px rgba(24,168,216,.15)}
   .boat-row .bname::placeholder{color:var(--text-dim)}
+  /* Boot-zu-Turm-Anzeige */
+  .tower-boats{display:flex;flex-direction:column;gap:4px;margin-top:6px;padding-top:6px;border-top:1px solid rgba(127,212,232,.15)}
+  .tower-boat-item{display:flex;align-items:center;gap:6px;background:rgba(78,168,216,.08);border-left:3px solid var(--sea);padding:5px 8px;border-radius:4px;font-size:.7rem;cursor:grab;user-select:none;transition:all .15s}
+  .tower-boat-item:hover{background:rgba(78,168,216,.15);border-left-color:var(--sea-bright)}
+  .tower-boat-item:active{cursor:grabbing}
   .tower-row-meta select{background:var(--navy-2);border:1px solid var(--line-strong);border-radius:7px;padding:6px 8px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.74rem;cursor:pointer;width:100%}
   .tower-row-meta select:focus{outline:none;border-color:var(--sea-bright)}
   .code-input{display:flex;align-items:center;gap:4px;background:rgba(255,179,71,.08);border:1px solid rgba(255,179,71,.3);border-radius:7px;padding:3px 6px}

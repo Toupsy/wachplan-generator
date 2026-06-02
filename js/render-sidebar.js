@@ -49,6 +49,7 @@ function renderTowerCfg(){
     row.className = 'tower-row';
     row.draggable = true;
     row.dataset.idx = i;
+    const assignedBoats = boats.filter(b => b.towerId === t.id);
     row.innerHTML = `
       <span style="color:var(--text-dim);font-size:1rem;cursor:grab;user-select:none;padding-right:4px;flex-shrink:0" title="Ziehen zum Sortieren">⠿</span>
       <input type="text" value="${escapeHtml(t.name)}" data-id="${t.id}" class="tname" placeholder="Turmname" draggable="false">
@@ -67,7 +68,8 @@ function renderTowerCfg(){
           <button class="slot-btn slot-plus" data-id="${t.id}" data-type="tower">+</button>
         </div>
         <button class="mini-btn del-t" data-id="${t.id}">×</button>
-      </div>`;
+      </div>
+      ${assignedBoats.length > 0 ? `<div class="tower-boats">${assignedBoats.map(b => `<div class="tower-boat-item" data-boat-id="${b.id}" draggable="true" data-tower-id="${t.id}" title="Zum Turm bewegen">🚤 ${escapeHtml(b.name)} (${escapeHtml(b.code||'?')})</div>`).join('')}</div>` : ''}`;
 
     row.addEventListener('dragstart', e => {
       dragSrcTower = i;
@@ -83,48 +85,75 @@ function renderTowerCfg(){
     });
     row.addEventListener('dragover', e => {
       e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
+      const boatId = e.dataTransfer.getData('boatId');
 
-      // Y-Position prüfen: obere Hälfte = Insert, untere Hälfte = Swap
-      const rect = row.getBoundingClientRect();
-      const midpoint = rect.top + rect.height / 2;
-      const isInsertZone = e.clientY < midpoint;
-
-      if(isInsertZone) {
-        dragMode = 'insert';
-        row.style.borderTop = '3px solid var(--green)';
-        row.style.background = '';
+      if(boatId){
+        // Drag von Boot - Boot zu Turm ziehen
+        e.dataTransfer.dropEffect = 'move';
+        row.style.background = 'rgba(78,168,216,.2)';
+        row.style.borderLeft = '4px solid var(--green)';
       } else {
-        dragMode = 'swap';
-        row.style.borderTop = '';
-        row.style.background = 'rgba(24,168,216,.15)';
+        // Drag von Turm - normale Tower-Reorder-Logik
+        e.dataTransfer.dropEffect = 'move';
+        const rect = row.getBoundingClientRect();
+        const midpoint = rect.top + rect.height / 2;
+        const isInsertZone = e.clientY < midpoint;
+
+        if(isInsertZone) {
+          dragMode = 'insert';
+          row.style.borderTop = '3px solid var(--green)';
+          row.style.background = '';
+        } else {
+          dragMode = 'swap';
+          row.style.borderTop = '';
+          row.style.background = 'rgba(24,168,216,.15)';
+        }
       }
     });
     row.addEventListener('dragleave', () => {
       row.style.background = '';
       row.style.borderTop = '';
+      row.style.borderLeft = '';
     });
     row.addEventListener('drop', e => {
       e.preventDefault();
       row.style.background = '';
       row.style.borderTop = '';
-      if(dragSrcTower === null || dragSrcTower === i) return;
+      row.style.borderLeft = '';
 
-      if(dragMode === 'swap') {
-        // Tauschen
-        [towers[dragSrcTower], towers[i]] = [towers[i], towers[dragSrcTower]];
-      } else {
-        // Insert
-        const moved = towers.splice(dragSrcTower, 1)[0];
-        const targetIdx = dragSrcTower < i ? i - 1 : i;
-        towers.splice(targetIdx, 0, moved);
+      const boatId = +e.dataTransfer.getData('boatId');
+      if(boatId){
+        // Boot wurde auf Turm gezogen
+        const boat = getBoat(boatId);
+        if(boat.towerId !== t.id){
+          boat.towerId = t.id;
+          // Wenn Boot war HW-Boot, clear hwBoatId
+          if(hwBoatId === boat.id){
+            hwBoatId = null;
+          }
+          renderBoatCfg();
+          renderTowerCfg();
+          renderHWBoatSelector();
+          showToast(`✅ 🚤 ${escapeHtml(boat.name)} → ${escapeHtml(t.name)}`);
+        }
+      } else if(dragSrcTower !== null && dragSrcTower !== i) {
+        // Tower wurde auf Tower gezogen
+        if(dragMode === 'swap') {
+          // Tauschen
+          [towers[dragSrcTower], towers[i]] = [towers[i], towers[dragSrcTower]];
+        } else {
+          // Insert
+          const moved = towers.splice(dragSrcTower, 1)[0];
+          const targetIdx = dragSrcTower < i ? i - 1 : i;
+          towers.splice(targetIdx, 0, moved);
+        }
+
+        // Prio aus Position ableiten (idx 0 = höchste prio = 1)
+        towers.forEach((t, idx) => t.prio = idx + 1);
+        dragSrcTower = null;
+        dragMode = null;
+        generate(); renderTowerCfg();
       }
-
-      // Prio aus Position ableiten (idx 0 = höchste prio = 1)
-      towers.forEach((t, idx) => t.prio = idx + 1);
-      dragSrcTower = null;
-      dragMode = null;
-      generate(); renderTowerCfg();
     });
 
     c.appendChild(row);
@@ -192,6 +221,8 @@ function renderBoatCfg(){
     row.addEventListener('dragstart', e => {
       dragSrcBoat = i;
       e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('boatId', b.id);
+      e.dataTransfer.setData('boatName', b.name);
       setTimeout(() => row.style.opacity = '0.4', 0);
     });
     row.addEventListener('dragend', () => {
@@ -199,6 +230,7 @@ function renderBoatCfg(){
       c.querySelectorAll('.boat-row').forEach(r => {
         r.style.background = '';
         r.style.borderTop = '';
+        r.style.borderLeft = '';
       });
     });
     row.addEventListener('dragover', e => {
@@ -255,8 +287,13 @@ function renderBoatCfg(){
     i.oninput = e => { getBoat(+e.target.dataset.id).code = e.target.value.trim(); });
   c.querySelectorAll('.bassign').forEach(s =>
     s.onchange = e => {
+      const boat = getBoat(+e.target.dataset.id);
       const val = e.target.value;
-      getBoat(+e.target.dataset.id).towerId = val === 'HW' ? 'HW' : (+val || null);
+      boat.towerId = val === 'HW' ? 'HW' : (+val || null);
+      // Wenn Boot die HW-Boot war und jetzt nicht mehr zur HW zugeordnet ist, hwBoatId clearen
+      if(hwBoatId === boat.id && val !== 'HW'){
+        hwBoatId = null;
+      }
       renderHWBoatSelector();
     });
   c.querySelectorAll('.slot-minus[data-type="boat"]').forEach(b =>
@@ -277,15 +314,25 @@ function renderBoatCfg(){
     });
 }
 
-/** Feature 6: Dropdown zur HW-Boot-Auswahl */
+/** Feature 6: Dropdown zur HW-Boot-Auswahl (nur Boote die zur HW zugeordnet sind) */
 function renderHWBoatSelector(){
   const c = document.getElementById('hw-boat-select');
   if(!c) return;
+  // Nur Boote filtern die zur HW zugeordnet sind (towerId === 'HW')
   const opts = ['<option value="">— kein HW-Boot —</option>'].concat(
-    boats.map(b => `<option value="${b.id}" ${hwBoatId===b.id?'selected':''}>${escapeHtml(b.name)} (${escapeHtml(b.code||'?')})</option>`)
+    boats.filter(b => b.towerId === 'HW').map(b => `<option value="${b.id}" ${hwBoatId===b.id?'selected':''}>${escapeHtml(b.name)} (${escapeHtml(b.code||'?')})</option>`)
   ).join('');
   c.innerHTML = opts;
-  c.onchange = e => { hwBoatId = +e.target.value || null; };
+  c.onchange = e => {
+    const boatId = +e.target.value || null;
+    // Validierung: Boot muss zur HW zugeordnet sein
+    if(boatId && getBoat(boatId).towerId !== 'HW'){
+      showToast('⚠️ Boot muss erst zur Hauptwache zugeordnet werden');
+      e.target.value = hwBoatId || '';
+      return;
+    }
+    hwBoatId = boatId;
+  };
 }
 
 /**
