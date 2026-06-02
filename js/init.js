@@ -40,7 +40,6 @@ async function initAfterAuth() {
     await autoSave();
   }
   _updateSaveIndicator();
-  _updateTemplateStatus();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -147,14 +146,6 @@ function applySeedConstraints(seed){
   showToast(`🎲 Seed ${seed}: ${forcedPlacements[0].length} Personen fixiert für Tag 1`);
 };
 
-// Randomize-Button: würfle neuen Seed
-document.getElementById('randomize').onclick = () => {
-  const newSeed = Math.floor(Math.random() * 1000) + 1;
-  document.getElementById('seed-input').value = newSeed;
-  const badge = document.getElementById('seed-display');
-  badge.textContent = `Seed: ${newSeed}`;
-  badge.style.display = 'inline-block';
-};
 
 // ── Sidebar – Tageanzahl ─────────────────────────────────────────
 document.getElementById('num-days').oninput = e => {
@@ -169,11 +160,6 @@ document.getElementById('num-days').oninput = e => {
   if(activeDay >= DAYS) activeDay = 0;
   if(lastResult) generate();
 };
-document.getElementById('randomize').onclick   = () => {
-  randomSeed = Math.floor(Math.random()*999998)+1;
-  updateSeedDisplay();
-  showToast('🎲 Neuer Seed: '+randomSeed+' – nächste Generierung verwendet ihn für Tag 1');
-};
 
 // ── Move-Modal ────────────────────────────────────────────────────
 document.getElementById('move-modal-close-btn').onclick = closeMoveModal;
@@ -181,24 +167,6 @@ document.getElementById('move-modal').addEventListener('click', e => {
   if(e.target === e.currentTarget) closeMoveModal();  // Klick außerhalb schließt Modal
 });
 
-// ── XLSX-Template laden ───────────────────────────────────────────
-document.getElementById('btn-load-template').onclick = () => {
-  document.getElementById('template-file-input').click();
-};
-document.getElementById('template-file-input').onchange = async e => {
-  const file = e.target.files[0];
-  if(!file) return;
-  const arr = new Uint8Array(await file.arrayBuffer());
-  _cacheTemplate(arr);
-  showToast('✅ Template gespeichert: ' + file.name);
-  e.target.value = '';
-  // Falls ein Export-Aufruf ausstehend war, jetzt ausführen
-  if(_pendingExportDay !== null){
-    const d = _pendingExportDay;
-    _pendingExportDay = null;
-    _doExport(arr, d);
-  }
-};
 
 // ── XLSX-Stationsspalten ──────────────────────────────────────────
 document.getElementById('btn-auto-export-cols').onclick = () => {

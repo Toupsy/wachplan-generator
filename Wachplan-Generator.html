@@ -82,9 +82,6 @@
   .seed-badge{font-family:'Spline Sans Mono',monospace;font-size:.65rem;color:rgba(160,120,255,.7);border:1px solid rgba(160,120,255,.25);border-radius:6px;padding:2px 8px;letter-spacing:.05em}
   button.generate{width:100%;margin-top:20px;background:linear-gradient(135deg,var(--coral),var(--coral-deep));color:#fff;border:none;border-radius:11px;padding:15px;font-family:'Spline Sans',sans-serif;font-size:1rem;font-weight:700;letter-spacing:.02em;cursor:pointer;text-transform:uppercase;transition:transform .12s,box-shadow .2s;box-shadow:0 8px 24px rgba(216,57,44,.3)}
   button.generate:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(216,57,44,.45)}
-  button.randomize{background:linear-gradient(135deg,#7b3fc4,#5a2d91);color:#fff;border:none;border-radius:11px;padding:15px 18px;font-size:1.4rem;cursor:pointer;transition:transform .12s,box-shadow .2s;box-shadow:0 8px 24px rgba(90,45,145,.35)}
-  button.randomize:hover{transform:translateY(-2px) rotate(20deg);box-shadow:0 12px 28px rgba(90,45,145,.5)}
-  button.randomize:active{transform:translateY(0) rotate(180deg)}
   .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:rgba(30,40,60,.97);color:#e8eaf6;border:1px solid rgba(127,212,232,.3);border-radius:10px;padding:10px 20px;font-size:.85rem;z-index:9999;max-width:90vw;text-align:center;animation:toastIn .3s ease}
   @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(12px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
   .info-box{background:rgba(24,168,216,.07);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:.78rem;color:var(--text-dim);margin-bottom:14px}
@@ -407,20 +404,11 @@
 
         <div class="gen-row">
           <button class="generate" id="generate">⚓ Plan generieren</button>
-          <button class="randomize" id="randomize" title="Neuen Seed würfeln">🎲</button>
         </div>
         <div style="text-align:center;margin-top:5px;min-height:18px">
           <span id="seed-display" class="seed-badge" style="display:none"></span>
         </div>
 
-        <!-- XLSX-Template -->
-        <div class="section-label" style="margin-top:24px;">XLSX-Template</div>
-        <div class="info-box">Beim ersten Export <b>"Wachplan Template.xlsx"</b> auswählen. Die Datei wird automatisch gespeichert und danach direkt verwendet.</div>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
-          <span id="template-status" style="font-family:'Spline Sans Mono',monospace;font-size:.72rem;color:var(--warn)">⚠️ Kein Template – bitte laden</span>
-          <button class="ghost-btn" id="btn-load-template" style="font-size:.75rem;padding:7px 12px">📎 Template wählen</button>
-        </div>
-        <input type="file" id="template-file-input" accept=".xlsx" style="display:none">
 
         <!-- Planstatus Import/Export (Feature 7) -->
         <div class="section-label" style="margin-top:18px;">Planstatus</div>

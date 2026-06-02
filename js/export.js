@@ -94,15 +94,11 @@ function buildAssignments(dayIdx){
 const TEMPLATE_LS_KEY = 'dlrg_wachplan_template_b64';
 
 async function _loadTemplate(){
-  try {
-    const r = await fetch('Wachplan Template.xlsx');
-    if(r.ok){
-      const arr = new Uint8Array(await r.arrayBuffer());
-      _cacheTemplate(arr);
-      return arr;
-    }
-  } catch(_){}
-  return _templateFromCache();
+  const r = await fetch('Wachplan Template.xlsx');
+  if(!r.ok) throw new Error('Template nicht verfügbar');
+  const arr = new Uint8Array(await r.arrayBuffer());
+  _cacheTemplate(arr);
+  return arr;
 }
 
 function _cacheTemplate(arr){
@@ -112,28 +108,8 @@ function _cacheTemplate(arr){
     for(let i = 0; i < arr.length; i += chunk)
       b64 += btoa(String.fromCharCode(...arr.subarray(i, i + chunk)));
     localStorage.setItem(TEMPLATE_LS_KEY, b64);
-    _updateTemplateStatus();
   } catch(_){}
 }
-
-function _templateFromCache(){
-  const b64 = localStorage.getItem(TEMPLATE_LS_KEY);
-  if(!b64) return null;
-  const s = atob(b64);
-  const arr = new Uint8Array(s.length);
-  for(let i = 0; i < s.length; i++) arr[i] = s.charCodeAt(i);
-  return arr;
-}
-
-function _updateTemplateStatus(){
-  const el = document.getElementById('template-status');
-  if(!el) return;
-  const cached = !!localStorage.getItem(TEMPLATE_LS_KEY);
-  el.textContent = cached ? '✅ Template geladen' : '⚠️ Kein Template – bitte laden';
-  el.style.color  = cached ? 'var(--green)' : 'var(--warn)';
-}
-
-let _pendingExportDay = null;
 
 // ── XML-Patch-Logik ───────────────────────────────────────────────
 // Wir patchen ausschließlich die sheet1.xml im ZIP.
@@ -306,19 +282,13 @@ function _patchSheetXml(xml, dayIdx){
 async function exportOfficial(dayIdx){
   if(!lastResult){ alert('Bitte zuerst Plan generieren.'); return; }
 
-  const arr = await _loadTemplate();
-  if(!arr){
-    showToast('⚠️ Template nicht gefunden – bitte "Wachplan Template.xlsx" auswählen');
-    document.getElementById('template-file-input').click();
-    _pendingExportDay = dayIdx;
-    return;
-  }
   if(typeof JSZip === 'undefined'){
     alert('JSZip lädt noch – bitte kurz warten.');
     return;
   }
 
   try {
+    const arr = await _loadTemplate();
     const zip  = await JSZip.loadAsync(arr);
 
     // Sheet-Pfad ermitteln (i.d.R. sheet1.xml)
