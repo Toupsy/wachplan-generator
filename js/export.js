@@ -56,8 +56,9 @@ function excelSerial(iso){
  * Besetzungsdaten für einen Tag aufbereiten.
  * Türme: alle Besatzer (kein slice) – Überlauf >2 wird in _patchSheetXml direkt daneben platziert.
  * Kranke: werden der HW-Liste zugerechnet und erscheinen im Export bei HW.
+ * HW-Overflow: wird automatisch über adjacent columns in _patchSheetXml gehandelt (keine HW2 nötig).
  */
-function buildAssignments(dayIdx, hasHW2){
+function buildAssignments(dayIdx){
   const d = lastResult.schedule[dayIdx];
   const A = {};
   d.assign.forEach(slot => {
@@ -75,12 +76,7 @@ function buildAssignments(dayIdx, hasHW2){
     if(f.length>2)  A['WF2']=f.slice(2,4);
     const allHW=[...main.mainGuards,...main.base,...main.bootsfLeft,...(main.sick||[])]
       .map(p=>personNr(p.id)).filter(n=>n!=null);
-    if(hasHW2){
-      if(allHW.length)   A['HW']  = allHW.slice(0,2);
-      if(allHW.length>2) A['HW2'] = allHW.slice(2,4);
-    } else {
-      if(allHW.length)   A['HW']  = allHW; // alle HW → Overflow inline
-    }
+    if(allHW.length)   A['HW']  = allHW; // alle HW → Overflow inline via _patchSheetXml
 
     if(main.hwBoatSlot?.bootsf){
       const boCode = getBoat(main.hwBoatSlot.boatId)?.code;
@@ -226,8 +222,7 @@ function _patchSheetXml(xml, dayIdx){
   // Iteriert exportColumns der Reihe nach; leere Slots werden übersprungen.
   // Hat eine Station >2 Personen, belegt der Überlauf die nächste Template-Spalte
   // direkt rechts – alle nachfolgenden Stationen rücken entsprechend nach rechts.
-  const hasHW2 = exportColumns.includes('HW2');  // Nur HW2 verwenden wenn in exportColumns
-  const A = buildAssignments(dayIdx, hasHW2);
+  const A = buildAssignments(dayIdx);
   const effectiveCols = [];   // { col:number, code:string, nums:[nr,...] }
   let tplIdx = 0;
 
