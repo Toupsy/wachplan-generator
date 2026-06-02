@@ -36,4 +36,3 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 -- Indices für Performance
 CREATE INDEX IF NOT EXISTS idx_plans_user_id ON plans(user_id);
-CREATE INDEX IF NOT EXISTS idx_sessions_expiryDate ON sessions(expiryDate);
