@@ -15,7 +15,15 @@ function getDb() {
       if (err) {
         console.error('❌ Database connection error:', err);
         db = null;
+        return;
       }
+      // Enable WAL mode for better concurrency
+      db.run('PRAGMA journal_mode = WAL', (err) => {
+        if (err) console.warn('⚠ WAL mode error:', err.message);
+      });
+      db.run('PRAGMA busy_timeout = 5000', (err) => {
+        if (err) console.warn('⚠ Busy timeout error:', err.message);
+      });
     });
 
     db.on('error', (err) => {

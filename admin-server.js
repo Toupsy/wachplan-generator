@@ -39,7 +39,10 @@ async function start() {
 
     // THEN initialize session store
     const dbPath = path.join(__dirname, 'data', 'wachplan.db');
-    const sessionStore = new SqliteStore({ db: dbPath });
+    const sessionStore = new SqliteStore({
+      db: dbPath,
+      mode: 0o666
+    });
 
     // Handle session store errors gracefully
     sessionStore.on('error', (err) => {
