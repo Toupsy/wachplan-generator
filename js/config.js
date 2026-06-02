@@ -66,8 +66,8 @@ function seedFromConfig() {
     });
   });
 
-  // Setze Export-Spalten
-  exportColumns = [...(config.exportColumns || [])];
+  // Setze Export-Spalten (aus config.template.exportColumns)
+  exportColumns = [...(appConfig.template?.exportColumns || [])];
 
   // Setze Positionsbeschriftungen
   if (appConfig.positions) {
