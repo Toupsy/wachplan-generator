@@ -2,7 +2,7 @@
 
 > **Wichtig für Claude:** Diese Datei nach jeder Änderung am Projekt aktualisieren
 > (neue Features, geänderte Funktionen, neue Dateien, Bugfixes).
-> **Versioning:** Nach jedem Commit die VERSION Datei um 1 erhöhen (z.B. 0.1000 → 0.1001)
+> **Versioning:** Nach jedem Commit die VERSION Datei um 1 erhöhen (z.B. 0.1002 → 0.1003)
 
 ## Git-Workflow
 
@@ -417,15 +417,16 @@ HOUR_ROWS_X = { '09:00':[25,26], ... }     // Zeilen-Paare pro Stunde (oben/unte
 4. Nachfolgende Stationen rücken entsprechend nach rechts
 5. Verbleibende Template-Spalten → HW-Overflow (Personen 5+, inkl. Kranke)
 
-### `autoFillExportColumns()` – Reihenfolge
-Pro Turm (Prio absteigend): erst zugeordnete Boote, dann Turm → Boot steht immer links von seinem Turm. Dann freie Boote, WF, WF2, HW, HW2.
+### `autoFillExportColumns()` – Reihenfolge (ab v0.1002)
+Pro Turm (Prio absteigend): erst zugeordnete Boote, dann Turm → Boot steht immer links von seinem Turm. Dann freie Boote, WF (→ WF2 nur wenn >2 Führungspersonen), HW (→ HW2 nur manuell hinzufügen falls nötig). HW-Overflow wird automatisch via _patchSheetXml zu benachbarten Spalten verteilt.
 
 ### `renderExportColumnUI()` – Drag & Drop
 Jede Zeile hat `draggable="true"` + ⠿-Handle. dragstart speichert Quell-Index; drop tauscht `exportColumns[src]` ↔ `exportColumns[dst]` und re-rendert. Input hat `draggable="false"`.
 
-### `buildAssignments(dayIdx)` → `{ code: [Nr, ...] }`
+### `buildAssignments(dayIdx)` → `{ code: [Nr, ...] }` (ab v0.1002)
 - Türme: **alle** Besatzer (kein slice); Überlauf >2 → adjacent via `effectiveCols`
-- HW: `mainGuards + base + bootsfLeft + sick` → WF/WF2 (Führung), HW/HW2 (Rest inkl. Kranke)
+- HW: `mainGuards + base + bootsfLeft + sick` → WF/WF2 (Führung), HW (Rest inkl. Kranke), optional HW2 falls in exportColumns
+- **hasHW2-Logik:** Prüft zur Export-Zeit, ob 'HW2' in exportColumns vorhanden ist; wenn nein, wird HW-Overflow inline via adjacent columns gehandelt
 
 ### Template-Caching (ab v0.1001)
 - **Auto-Load:** `fetch('Wachplan Template.xlsx')` (aus Projektordner) – kein manueller Upload nötig
@@ -455,7 +456,7 @@ Jede Zeile hat `draggable="true"` + ⠿-Handle. dragstart speichert Quell-Index;
 | `renderTowerCfg()` | Turm-Zeilen (Name / CODE / PRIO / **Slot-Spinner ±** / ×); Spinner ändert `slotCount` (1–10) + generate(); beim Löschen: verknüpfte Boote trennen |
 | `renderBoatCfg()` | Boot-Zeilen (Name / CODE / Turm-Dropdown / **Slot-Spinner ±** / ×); Spinner ändert `slotCount` (1–3) |
 | `renderHWBoatSelector()` | Dropdown: welches Boot ist HW-Boot? |
-| `autoFillExportColumns()` | Füllt exportColumns: Boote → Türme (Prio↓) → WF → WF2 → HW → HW2 |
+| `autoFillExportColumns()` | Füllt exportColumns: Boote → Türme (Prio↓) → WF → WF2 → HW (nur wenn nötig HW2) – nur HW2 wenn Nutzer es manuell hinzufügt (Overflow sonst via _patchSheetXml) |
 | `renderExportColumnUI()` | 16 Felder für manuelles Stationscode-Mapping |
 | `renderPositionDescUI()` | 5 Felder für XLSX-Positionsbeschriftungen (Pos. 3–7) mit aussagekräftigen Placeholders (z.B. „Wachführer", „Bootsführer", „Sanitäter") |
 
