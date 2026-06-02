@@ -33,48 +33,6 @@
         "code": "9/17",
         "prio": 3,
         "slotCount": 1
-      },
-      {
-        "name": "Boot 9/12",
-        "towerName": "Turm 9",
-        "prio": 1,
-        "slotCount": 1
-      },
-      {
-        "name": "Boot 9/13",
-        "towerName": "Turm 9",
-        "prio": 2,
-        "slotCount": 1
-      },
-      {
-        "name": "Boot 9/14",
-        "towerName": "Turm 9",
-        "prio": 3,
-        "slotCount": 1
-      },
-      {
-        "name": "Boot 9/15",
-        "towerName": "Turm 9",
-        "prio": 4,
-        "slotCount": 1
-      },
-      {
-        "name": "Boot 9/16",
-        "towerName": "Turm 9",
-        "prio": 5,
-        "slotCount": 1
-      },
-      {
-        "name": "Boot 9/17",
-        "towerName": "Turm 9",
-        "prio": 6,
-        "slotCount": 1
-      },
-      {
-        "name": "Boot 9/18",
-        "towerName": "Turm 9",
-        "prio": 7,
-        "slotCount": 1
       }
     ],
     "exportColumns": [
