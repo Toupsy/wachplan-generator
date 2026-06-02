@@ -196,7 +196,7 @@ function renderOutput(){
               data-move-kind="${kind}" data-move-slot="${slotId||''}" title="Verschieben">↕</button>
           </div>`;
         html += `<div class="tower-card main" style="grid-column:span 2;" data-drop-kind="main" data-drop-slot="${MAIN_ID}">
-          <div class="tc-head"><span class="tc-name">⛱ ${slot.tower}</span><span class="tc-type main">Zentrale · k=${slot.k}</span></div>
+          <div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="main" data-card-slot="${MAIN_ID}" title="Zum Sortieren ziehen"><span class="tc-name">⛱ ${slot.tower}</span><span class="tc-type main">Zentrale · k=${slot.k}</span></div>
           ${slot.fuehrung.map(p=>occ(p,'Führung','main',MAIN_ID)).join('')}
           ${slot.mainGuards.map(p=>occ(p,p.role==='E'?'Erfahren · HW':'Unerf. · HW','main',MAIN_ID)).join('')}
           ${slot.base.map(p=>occ(p,p.role==='E'?'Erfahren · HW':'Unerf. · HW','main',MAIN_ID)).join('')}
@@ -243,11 +243,11 @@ function renderOutput(){
     // Geschlossene Türme & Boote (mit data-drop für Override)
     [...d.manualClosed,...d.personnelClosed].forEach(t => {
       const reason = d.manualClosed.includes(t)?'manuell geschlossen':'Personalmangel';
-      html += `<div class="tower-card closed" data-drop-kind="tower" data-drop-slot="${t.id}" data-closed-override="true"><div class="tc-head"><span class="tc-name">🗼 ${escapeHtml(t.name)}</span><span class="tc-type closed">zu</span></div><div style="color:var(--text-dim);font-size:.82rem;padding:8px 0">${reason}</div></div>`;
+      html += `<div class="tower-card closed" data-drop-kind="tower" data-drop-slot="${t.id}" data-closed-override="true"><div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="tower" data-card-slot="${t.id}" title="Zum Sortieren ziehen"><span class="tc-name">🗼 ${escapeHtml(t.name)}</span><span class="tc-type closed">zu</span></div><div style="color:var(--text-dim);font-size:.82rem;padding:8px 0">${reason}</div></div>`;
     });
     [...d.boatsManualClosed,...d.boatsClosedTower,...d.boatsNoBootsf].forEach(b => {
       const reason = d.boatsManualClosed.includes(b)?'manuell außer Dienst':d.boatsClosedTower.includes(b)?'Turm zu':'kein Bootsführer';
-      html += `<div class="tower-card closed boot"><div class="tc-head"><span class="tc-name">🚤 ${escapeHtml(b.name)}</span><span class="tc-type closed">zu</span></div><div style="color:var(--text-dim);font-size:.82rem;padding:8px 0">${reason}</div></div>`;
+      html += `<div class="tower-card closed boot"><div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="boat" data-card-slot="${b.id}" title="Zum Sortieren ziehen"><span class="tc-name">🚤 ${escapeHtml(b.name)}</span><span class="tc-type closed">zu</span></div><div style="color:var(--text-dim);font-size:.82rem;padding:8px 0">${reason}</div></div>`;
     });
 
     html += `</div></div>`;
@@ -350,13 +350,36 @@ function renderOutput(){
     e.dataTransfer.dropEffect = 'move';
     const card = e.target.closest('.tower-card');
     if(!card) return;
-    if(card.dataset.closedOverride) {
-      // Geschlossener Turm: orange Highlight als Hinweis auf Override
-      card.style.backgroundColor = 'rgba(255,165,0,0.15)';
-      card.style.borderColor = 'var(--warn)';
-    } else if(!card.classList.contains('closed')) {
-      card.style.backgroundColor = 'rgba(24,168,216,0.15)';
-      card.style.borderColor = 'var(--sea-bright)';
+
+    // Wenn Personen-Drag: einfach Highlight (closedOverride oder normal)
+    if(dragSrc && !dragCardSrc) {
+      if(card.dataset.closedOverride) {
+        card.style.backgroundColor = 'rgba(255,165,0,0.15)';
+        card.style.borderColor = 'var(--warn)';
+      } else if(!card.classList.contains('closed')) {
+        card.style.backgroundColor = 'rgba(24,168,216,0.15)';
+        card.style.borderColor = 'var(--sea-bright)';
+      }
+      return;
+    }
+
+    // Wenn Card-Drag: Y-Position prüfen für Insert vs Swap
+    if(dragCardSrc && dragCardSrc.kind) {
+      const rect = card.getBoundingClientRect();
+      const midpoint = rect.top + rect.height / 2;
+      const isInsertZone = e.clientY < midpoint;
+
+      if(isInsertZone) {
+        cardDragMode = 'insert';
+        card.style.borderTop = '3px solid var(--green)';
+        card.style.backgroundColor = '';
+        card.style.borderColor = '';
+      } else {
+        cardDragMode = 'swap';
+        card.style.borderTop = '';
+        card.style.backgroundColor = 'rgba(24,168,216,0.15)';
+        card.style.borderColor = 'var(--sea-bright)';
+      }
     }
   });
 
@@ -365,6 +388,7 @@ function renderOutput(){
     if(card) {
       card.style.backgroundColor = '';
       card.style.borderColor = '';
+      card.style.borderTop = '';
     }
   });
 
@@ -374,16 +398,31 @@ function renderOutput(){
     if(!card) return;
 
     // Prüfe ob Card-Sortierung (nur wenn dragCardSrc gesetzt, nicht dragSrc)
-    if(dragCardSrc && dragCardSrc.kind && dragCardSrc.kind === card.dataset.dropKind) {
-      // Card-Sortierung: DOM-Reordering (Insert vor Ziel-Card)
+    // Jeder Karten-Typ kann mit jedem anderen getauscht werden
+    if(dragCardSrc && dragCardSrc.kind) {
+      // Card-Sortierung: DOM-Reordering mit Insert/Swap
       const srcCard = grid.querySelector(`[data-card-slot="${dragCardSrc.slot}"]`)?.closest('.tower-card');
       if(srcCard && srcCard !== card) {
-        // Entferne srcCard aus DOM und füge vor card ein
-        srcCard.remove();
-        card.parentNode.insertBefore(srcCard, card);
+        if(cardDragMode === 'swap') {
+          // Tauschen: card und srcCard ihren Platz tauschen
+          const temp = document.createElement('div');
+          srcCard.parentNode.insertBefore(temp, srcCard);
+          card.parentNode.insertBefore(srcCard, card);
+          temp.parentNode.insertBefore(card, temp);
+          temp.remove();
+        } else {
+          // Insert: srcCard vor card einfügen
+          srcCard.remove();
+          card.parentNode.insertBefore(srcCard, card);
+        }
       }
       dragCardSrc = null;
-      grid.querySelectorAll('.tower-card').forEach(c => { c.style.backgroundColor = ''; c.style.borderColor = ''; });
+      cardDragMode = null;
+      grid.querySelectorAll('.tower-card').forEach(c => {
+        c.style.backgroundColor = '';
+        c.style.borderColor = '';
+        c.style.borderTop = '';
+      });
       return;
     }
 

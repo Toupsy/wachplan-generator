@@ -42,6 +42,7 @@ function renderTowerCfg(){
   const c = document.getElementById('tower-cfg');
   c.innerHTML = '';
   let dragSrcTower = null;
+  let dragMode = null; // 'swap' oder 'insert'
 
   towers.forEach((t, i) => {
     const row = document.createElement('div');
@@ -75,25 +76,54 @@ function renderTowerCfg(){
     });
     row.addEventListener('dragend', () => {
       row.style.opacity = '';
-      c.querySelectorAll('.tower-row').forEach(r => r.style.background = '');
+      c.querySelectorAll('.tower-row').forEach(r => {
+        r.style.background = '';
+        r.style.borderTop = '';
+      });
     });
     row.addEventListener('dragover', e => {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
-      row.style.background = 'rgba(24,168,216,.15)';
+
+      // Y-Position prüfen: obere Hälfte = Insert, untere Hälfte = Swap
+      const rect = row.getBoundingClientRect();
+      const midpoint = rect.top + rect.height / 2;
+      const isInsertZone = e.clientY < midpoint;
+
+      if(isInsertZone) {
+        dragMode = 'insert';
+        row.style.borderTop = '3px solid var(--green)';
+        row.style.background = '';
+      } else {
+        dragMode = 'swap';
+        row.style.borderTop = '';
+        row.style.background = 'rgba(24,168,216,.15)';
+      }
     });
-    row.addEventListener('dragleave', () => row.style.background = '');
+    row.addEventListener('dragleave', () => {
+      row.style.background = '';
+      row.style.borderTop = '';
+    });
     row.addEventListener('drop', e => {
       e.preventDefault();
       row.style.background = '';
+      row.style.borderTop = '';
       if(dragSrcTower === null || dragSrcTower === i) return;
-      // Insert: splice source raus, insert vor/nach target
-      const moved = towers.splice(dragSrcTower, 1)[0];
-      const targetIdx = dragSrcTower < i ? i - 1 : i;
-      towers.splice(targetIdx, 0, moved);
-      // Prio aus Position ableiten: oben = höchste Prio
+
+      if(dragMode === 'swap') {
+        // Tauschen
+        [towers[dragSrcTower], towers[i]] = [towers[i], towers[dragSrcTower]];
+      } else {
+        // Insert
+        const moved = towers.splice(dragSrcTower, 1)[0];
+        const targetIdx = dragSrcTower < i ? i - 1 : i;
+        towers.splice(targetIdx, 0, moved);
+      }
+
+      // Prio aus Position ableiten
       towers.forEach((t, idx) => t.prio = towers.length - idx);
       dragSrcTower = null;
+      dragMode = null;
       generate(); renderTowerCfg();
     });
 
@@ -129,6 +159,7 @@ function renderBoatCfg(){
   if(!c) return;
   c.innerHTML = '';
   let dragSrcBoat = null;
+  let dragMode = null; // 'swap' oder 'insert'
 
   boats.forEach((b, i) => {
     const row = document.createElement('div');
@@ -165,23 +196,52 @@ function renderBoatCfg(){
     });
     row.addEventListener('dragend', () => {
       row.style.opacity = '';
-      c.querySelectorAll('.boat-row').forEach(r => r.style.background = '');
+      c.querySelectorAll('.boat-row').forEach(r => {
+        r.style.background = '';
+        r.style.borderTop = '';
+      });
     });
     row.addEventListener('dragover', e => {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
-      row.style.background = 'rgba(24,168,216,.15)';
+
+      // Y-Position prüfen: obere Hälfte = Insert, untere Hälfte = Swap
+      const rect = row.getBoundingClientRect();
+      const midpoint = rect.top + rect.height / 2;
+      const isInsertZone = e.clientY < midpoint;
+
+      if(isInsertZone) {
+        dragMode = 'insert';
+        row.style.borderTop = '3px solid var(--green)';
+        row.style.background = '';
+      } else {
+        dragMode = 'swap';
+        row.style.borderTop = '';
+        row.style.background = 'rgba(24,168,216,.15)';
+      }
     });
-    row.addEventListener('dragleave', () => row.style.background = '');
+    row.addEventListener('dragleave', () => {
+      row.style.background = '';
+      row.style.borderTop = '';
+    });
     row.addEventListener('drop', e => {
       e.preventDefault();
       row.style.background = '';
+      row.style.borderTop = '';
       if(dragSrcBoat === null || dragSrcBoat === i) return;
-      // Insert: splice source raus, insert vor/nach target
-      const moved = boats.splice(dragSrcBoat, 1)[0];
-      const targetIdx = dragSrcBoat < i ? i - 1 : i;
-      boats.splice(targetIdx, 0, moved);
+
+      if(dragMode === 'swap') {
+        // Tauschen
+        [boats[dragSrcBoat], boats[i]] = [boats[i], boats[dragSrcBoat]];
+      } else {
+        // Insert
+        const moved = boats.splice(dragSrcBoat, 1)[0];
+        const targetIdx = dragSrcBoat < i ? i - 1 : i;
+        boats.splice(targetIdx, 0, moved);
+      }
+
       dragSrcBoat = null;
+      dragMode = null;
       generate(); renderBoatCfg();
     });
 
@@ -264,6 +324,7 @@ function renderExportColumnUI(){
 
   c.innerHTML = '';
   let dragSrcIdx = null;
+  let dragMode = null; // 'swap' oder 'insert'
 
   TEMPLATE_STATION_COLS.forEach((col, i) => {
     const row = document.createElement('div');
@@ -289,23 +350,52 @@ function renderExportColumnUI(){
     });
     row.addEventListener('dragend', () => {
       row.style.opacity = '';
-      c.querySelectorAll('[data-idx]').forEach(r => r.style.background = '');
+      c.querySelectorAll('[data-idx]').forEach(r => {
+        r.style.background = '';
+        r.style.borderTop = '';
+      });
     });
     row.addEventListener('dragover', e => {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
-      row.style.background = 'rgba(24,168,216,.18)';
+
+      // Y-Position prüfen: obere Hälfte = Insert, untere Hälfte = Swap
+      const rect = row.getBoundingClientRect();
+      const midpoint = rect.top + rect.height / 2;
+      const isInsertZone = e.clientY < midpoint;
+
+      if(isInsertZone) {
+        dragMode = 'insert';
+        row.style.borderTop = '3px solid var(--green)';
+        row.style.background = '';
+      } else {
+        dragMode = 'swap';
+        row.style.borderTop = '';
+        row.style.background = 'rgba(24,168,216,.18)';
+      }
     });
-    row.addEventListener('dragleave', () => { row.style.background = ''; });
+    row.addEventListener('dragleave', () => {
+      row.style.background = '';
+      row.style.borderTop = '';
+    });
     row.addEventListener('drop', e => {
       e.preventDefault();
       row.style.background = '';
+      row.style.borderTop = '';
       if(dragSrcIdx === null || dragSrcIdx === i) return;
-      // Insert statt Swap: splice source raus, insert vor target
-      const item = exportColumns.splice(dragSrcIdx, 1)[0];
-      const targetIdx = dragSrcIdx < i ? i - 1 : i;
-      exportColumns.splice(targetIdx, 0, item);
+
+      if(dragMode === 'swap') {
+        // Tauschen
+        [exportColumns[dragSrcIdx], exportColumns[i]] = [exportColumns[i], exportColumns[dragSrcIdx]];
+      } else {
+        // Insert
+        const item = exportColumns.splice(dragSrcIdx, 1)[0];
+        const targetIdx = dragSrcIdx < i ? i - 1 : i;
+        exportColumns.splice(targetIdx, 0, item);
+      }
+
       dragSrcIdx = null;
+      dragMode = null;
       renderExportColumnUI();
     });
 
