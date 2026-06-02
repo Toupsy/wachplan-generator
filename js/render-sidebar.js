@@ -298,7 +298,7 @@ function autoFillExportColumns(){
   const cols = [];
 
   // Sortiere Türme aufsteigend nach Priorität
-  const sortedTowers = towers.slice().sort((a,b) => a.prio - b.prio);
+  const sortedTowers = towers.slice().sort((a,b) => b.prio - a.prio);
   console.log('DEBUG autoFillExportColumns - sortedTowers:', sortedTowers.map(t => `${t.name}(prio${t.prio})`));
 
   sortedTowers.forEach(t => {
