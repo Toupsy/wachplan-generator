@@ -4,7 +4,7 @@
 # ============================================================
 
 # ─── Builder Stage ───────────────────────────────────────
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -12,10 +12,10 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies with exact versions for reproducibility
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 # ─── Runtime Stage ───────────────────────────────────────
-FROM node:18-alpine
+FROM node:20-alpine
 
 # Metadata
 LABEL maintainer="DLRG"
