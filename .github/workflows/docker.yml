@@ -10,7 +10,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build-and-push:
@@ -19,9 +18,21 @@ jobs:
       contents: read
       packages: write
 
+    env:
+      IMAGE_NAME: ${{ github.repository }}
+
+    outputs:
+      image_name: ${{ steps.image.outputs.image_name }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set up lowercase image name
+        id: image
+        run: |
+          IMAGE_NAME_LOWER=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
+          echo "image_name=$IMAGE_NAME_LOWER" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -37,7 +48,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.image_name }}
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
@@ -60,7 +71,7 @@ jobs:
 
     services:
       wachplan:
-        image: ghcr.io/${{ github.repository }}:${{ github.sha }}
+        image: ghcr.io/${{ needs.build-and-push.outputs.image_name }}:${{ github.sha }}
         env:
           NODE_ENV: test
           PORT: 3000
