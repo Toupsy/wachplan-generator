@@ -247,9 +247,57 @@
       color: var(--text-dim);
       font-size: 0.9em;
     }
+  #login-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--navy);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+  }
+  #login-overlay.visible { display: flex; }
+  .login-box {
+    background: var(--navy-2);
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+    padding: 36px;
+    width: 100%;
+    max-width: 360px;
+  }
+  .login-box h2 { color: var(--sea-bright); margin-bottom: 6px; }
+  .login-box p { color: var(--text-dim); font-size: .85rem; margin-bottom: 24px; }
+  .login-box input {
+    width: 100%;
+    background: var(--deep);
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    padding: 11px 13px;
+    color: var(--text);
+    font-size: .95rem;
+    margin-bottom: 12px;
+  }
+  .login-box input:focus { outline: none; border-color: var(--sea-bright); }
+  .login-box button { width: 100%; margin-top: 4px; }
+  #login-error { color: var(--coral); font-size: .85rem; min-height: 1.2em; margin-top: 8px; }
   </style>
 </head>
 <body>
+
+  <!-- Login Overlay (shown when not authenticated) -->
+  <div id="login-overlay">
+    <div class="login-box">
+      <h2>🔐 Admin Login</h2>
+      <p>Bitte melden Sie sich an</p>
+      <form id="admin-login-form">
+        <input id="al-username" type="text" placeholder="Username" autocomplete="username" required>
+        <input id="al-password" type="password" placeholder="Passwort" autocomplete="current-password" required>
+        <button type="submit">Anmelden</button>
+        <div id="login-error"></div>
+      </form>
+    </div>
+  </div>
+
   <div class="container">
     <div class="header">
       <div>
@@ -343,25 +391,47 @@
   <script>
     let currentUserId = null;
 
+    // Login form handler
+    document.getElementById('admin-login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('al-username').value;
+      const password = document.getElementById('al-password').value;
+      const errorEl  = document.getElementById('login-error');
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (!res.ok) { errorEl.textContent = data.error || 'Login fehlgeschlagen'; return; }
+        if (!data.isAdmin) { errorEl.textContent = 'Kein Admin-Zugriff'; return; }
+        currentUserId = data.userId;
+        document.getElementById('login-overlay').classList.remove('visible');
+        loadUsers();
+      } catch (err) {
+        errorEl.textContent = 'Netzwerkfehler';
+      }
+    });
+
     // Check auth on load
     window.addEventListener('load', async () => {
       try {
         const response = await fetch('/api/auth/me');
         if (!response.ok) {
-          window.location.href = '/';
+          document.getElementById('login-overlay').classList.add('visible');
           return;
         }
         const data = await response.json();
-        currentUserId = data.userId;
         if (!data.isAdmin) {
-          alert('Admin-Zugriff erforderlich');
-          window.location.href = '/';
+          document.getElementById('login-overlay').classList.add('visible');
           return;
         }
+        currentUserId = data.userId;
         loadUsers();
       } catch (error) {
-        console.error('Auth check failed:', error);
-        window.location.href = '/';
+        document.getElementById('login-overlay').classList.add('visible');
       }
     });
 
