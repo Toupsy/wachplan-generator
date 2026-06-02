@@ -244,7 +244,6 @@ document.addEventListener('DOMContentLoaded', () => {
       initAfterAuth().catch(e => console.error('initAfterAuth fallback error:', e));
     }
   }
-});
 
   // ── Login-Modal starten (nach init.js geladen) ─────────────────
   // initLoginModal() wurde aus login-modal.js entfernt um Timing-Fehler zu beheben
@@ -256,5 +255,4 @@ document.addEventListener('DOMContentLoaded', () => {
     // Bereits geladen, rufe sofort auf
     initLoginModal();
   }
-
 }); // Ende DOMContentLoaded
