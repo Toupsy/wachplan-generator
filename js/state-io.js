@@ -66,10 +66,15 @@ function importStateJSON(json, silent = false){
       s = json;  // Already an object
     }
   }
-  catch(e){ alert('Ungültige JSON-Datei: ' + e.message); return; }
+  catch(e){
+    if(!silent) alert('Ungültige JSON-Datei: ' + e.message);
+    else console.error('importStateJSON parse error:', e);
+    return;
+  }
 
   if(!s.people || !s.towers){
-    alert('Die Datei enthält keinen gültigen Wachplan-Status.');
+    if(!silent) alert('Die Datei enthält keinen gültigen Wachplan-Status.');
+    else console.error('importStateJSON invalid schema: missing people or towers');
     return;
   }
 
