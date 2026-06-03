@@ -17,6 +17,10 @@ function renderPeople(){
         <option value="E" ${p.role==='E'?'selected':''}>Erfahren</option>
         <option value="U" ${p.role==='U'?'selected':''}>Unerfahren</option>
       </select>
+      ${p.role==='B' ? `<select data-id="${p.id}" class="bf-level" title="BF Erfahrungslevel">
+        <option value="E" ${p.bfLevel==='E'?'selected':''}>BF-E</option>
+        <option value="U" ${p.bfLevel==='U'?'selected':''}>BF-U</option>
+      </select>` : ''}
       <button class="mini-btn del-p" data-id="${p.id}">×</button>`;
     c.appendChild(row);
   });
@@ -24,6 +28,8 @@ function renderPeople(){
     i.oninput = e => { getP(+e.target.dataset.id).name = e.target.value; });
   c.querySelectorAll('.prole').forEach(s =>
     s.onchange = e => { getP(+e.target.dataset.id).role = e.target.value; renderPeople(); });
+  c.querySelectorAll('.bf-level').forEach(s =>
+    s.onchange = e => { getP(+e.target.dataset.id).bfLevel = e.target.value; });
   c.querySelectorAll('.del-p').forEach(b =>
     b.onclick = e => {
       const id = +e.target.dataset.id;

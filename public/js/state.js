@@ -10,7 +10,7 @@ let uid = 0;
 let randomSeed = 0;
 
 // Stammdaten
-let people   = [];   // [{ id, name, role }]
+let people   = [];   // [{ id, name, role, bfLevel?:'E'|'U' }] (bfLevel nur wenn role='B')
 let towers   = [];   // [{ id, name, prio, code, slotCount, leaderCount }]
 let boats    = [];   // [{ id, name, code, towerId, prio, slotCount }]
 
