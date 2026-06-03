@@ -253,28 +253,32 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 **Effekt:** Nutzer können pro Turm festlegen, dass Führungskräfte dort bevorzugt eingeplant werden (soft scoring, keine harte Erzwingung)
 
 ### Feature 13: Bootsführer-Erfahrungslevel (BF-E vs BF-U)
-**Problem:** Bootsführer hatten keine Unterteilung in erfahren/unerfahren; kein Weg, kompetente BF zu bevorzugen.  
+**Problem:** Bootsführer hatten keine Unterteilung in erfahren/unerfahren; kein Weg, Turm-Pairing nach BF-Kompetenz zu differenzieren.  
 **Lösung:**
 - Neues Feld `bfLevel: 'E'|'U'` bei people mit role='B'
 - UI in `render-sidebar.js`: Wenn role='B' gewählt → zusätzliches Dropdown (BF-E/BF-U)
 - Default: BF-E (falls nicht gesetzt)
-- Scoring in `generate.js`: BF-E bekommen -50 Bonus beim Boot-Zuweisen, BF-U bekommen +50 Penalty
 - surplusBF-Logik (Feature 5) bleibt erhalten: BF ohne Boot → +800 Penalty auf Boot-Türmen
 
 **Algorithmus-Behandlung:**
-- Boot-Zuweisen: BF-E bevorzugt (soft scoring)
-- Turm-Zuweisen (falls BF übrig): Normale BF-Logik (Paar-Bildung, Fairness)
-- Keine harte Erzwingung: Bei Knappheit auch BF-U zulässig
+- **Boot-Zuweisen:** bfLevel hat KEINE Auswirkung (alle BF werden fair rotiert)
+- **Turm-Zuweisen (wenn BF nicht auf Boot):** bfLevel wird berücksichtigt!
+  - BF-E wird wie 'E' (erfahren) in bestPair() behandelt
+  - BF-U wird wie 'U' (unerfahren) in bestPair() behandelt
+  - Zwei BF-U zusammen → UU-Scoring (höhere Penalty)
+  - Verhindert, dass zwei unerfahrene BF zusammen auf Turm kommen
 
 **Umsetzung:**
 - state.js: people-Struktur kommentiert
 - state-io.js: bfLevel exportieren/importieren (default 'E')
 - render-sidebar.js: Conditional Dropdown BF-E/BF-U bei role='B'
-- generate.js: Boot-Scoring angepasst (±50 Points)
+- generate.js: `getEffectiveRole()` Funktion in bestPair() für Turm-Pairing
+  - Boot-Rotation: bfLevel ignoriert (normale fairness)
+  - Turm-Pairing: bfLevel verwendet (E/U-Logik angewendet)
 
-**Effekt:** Nutzer können Bootsführer nach Kompetenz unterscheiden; erfahrene BF werden bevorzugt auf Boote eingeteilt
+**Effekt:** BF-Erfahrung beeinflusst nur Turm-Besatzung, nicht Boot-Rotation. Verhindert unerfahrene BF-Paare auf Türmen.
 
-**Notiz:** Boot-Priorisierung war bereits implementiert (line 455, `.sort((a,b) => (b.prio-a.prio))`); surplusBF-Logik (Feature 5) verhindert schon, dass BF ohne Boot auf Boot-Türme kommen.
+**Notiz:** Boot-Priorisierung war bereits implementiert (line 455, `.sort((a,b) => (b.prio-a.prio))`)
 
 ---
 

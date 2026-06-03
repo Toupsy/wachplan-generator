@@ -300,6 +300,11 @@ function generate(startDay = 0){
       const cand   = getGuardPool();
       const isMain = t.id === MAIN_ID;
       let best = null, bestScore = Infinity;
+      // Feature 13: BF mit bfLevel wird als E/U behandelt (nur für Türm-Zuweisen)
+      const getEffectiveRole = (person) => {
+        if(person.role === 'B' && person.bfLevel) return person.bfLevel;  // 'E' oder 'U'
+        return person.role;
+      };
       // Feature 8: Personen die GESTERN auf diesem Turm waren einmalig vorberechnen
       // (statt pro Paar erneut den Vortag zu durchsuchen → O(n²·m) ⇒ O(m + n²))
       let prevTowerSet = null;
@@ -309,7 +314,7 @@ function generate(startDay = 0){
       }
       for(let i = 0; i < cand.length; i++){
         for(let j = i + 1; j < cand.length; j++){
-          const A = cand[i], B = cand[j], roles = A.role + B.role;
+          const A = cand[i], B = cand[j], roles = getEffectiveRole(A) + getEffectiveRole(B);
           const sA = ensure(A.id), sB = ensure(B.id);
           let score = 0;
           if(requireMix){
@@ -510,11 +515,7 @@ function generate(startDay = 0){
         scoreB += (sb.boatVisits[bo.id] || 0) * 50;
         scoreA -= (sa.hwVisits || 0) * 10;
         scoreB -= (sb.hwVisits || 0) * 10;
-        // Feature 13: BF-E bevorzugt, BF-U disfavored
-        if(a.bfLevel === 'E') scoreA -= 50;
-        else if(a.bfLevel === 'U') scoreA += 50;
-        if(b.bfLevel === 'E') scoreB -= 50;
-        else if(b.bfLevel === 'U') scoreB += 50;
+        // Feature 13: bfLevel hat KEINE Auswirkung auf Boot-Rotation (nur auf Turm-Zuweisen)
         return scoreA - scoreB || (a.id - b.id);
       });
 
