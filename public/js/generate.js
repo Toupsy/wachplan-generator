@@ -323,6 +323,12 @@ function generate(startDay = 0){
           score += vB >= 2 ? 300 : vB * 30;
           score += (sA.total + sB.total) * 5;
           score += surplusBFPenalty(A, t) + surplusBFPenalty(B, t);
+          // Feature 12: Bevorzuge Führungskräfte auf Türmen mit leaderCount > 0
+          const needsLeader = t.leaderCount && t.leaderCount > 0;
+          if(!isMain && needsLeader){
+            if(A.role === 'F') score -= 100;
+            if(B.role === 'F') score -= 100;
+          }
           if(!isMain){
             // Feature 8: Konsekutive Tage auf gleichem Turm bestrafen (+200 pro Person)
             if(prevTowerSet){
@@ -403,7 +409,8 @@ function generate(startDay = 0){
       pre.forEach(p => { commitPerson(p, t); slot.occupants.push(p); });
 
       // Algorithmus füllt verbleibende Plätze (variable Slot-Anzahl)
-      const totalSlots = t.slotCount || 2;
+      // Feature 12: leaderCount ZUSÄTZLICH zu slotCount
+      const totalSlots = (t.slotCount || 2) + (t.leaderCount || 0);
       let need = totalSlots - slot.occupants.length;
       const wasEmpty = slot.occupants.length === 0;
       let pairsAdded = 0;

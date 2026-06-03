@@ -37,7 +37,7 @@ function _buildStateObject(){
     fairnessMetricsDisplay: { ...fairnessMetricsDisplay },
     exportColumns:        [...exportColumns],
     people:               people.map(p => ({ ...p })),
-    towers:               towers.map(t => ({ ...t, slotCount: t.slotCount || 2 })),
+    towers:               towers.map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0 })),
     boats:                boats.map(b => ({ ...b, slotCount: b.slotCount || 1 })),
     dayState: dayState.map(d => ({
       sick:        [...d.sick],

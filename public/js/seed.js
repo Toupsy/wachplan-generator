@@ -12,8 +12,8 @@ function seed(){
   uid = 0;
 
   // Türme
-  const t78 = { id: ++uid, name: 'Turm 78', prio: 1, code: '', slotCount: 2 };
-  const t9 = { id: ++uid, name: 'Turm 9', prio: 2, code: '', slotCount: 2 };
+  const t78 = { id: ++uid, name: 'Turm 78', prio: 1, code: '', slotCount: 2, leaderCount: 0 };
+  const t9 = { id: ++uid, name: 'Turm 9', prio: 2, code: '', slotCount: 2, leaderCount: 0 };
   towers.push(t78, t9);
 
   // Boote für Turm 78

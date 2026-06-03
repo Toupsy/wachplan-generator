@@ -88,7 +88,7 @@ Weitere Frontend-Dateien: `public/js/share.js` (Teilen), `public/js/realtime.js`
 
 ```js
 people[]           // { id, name, role:'F'|'B'|'E'|'U' }
-towers[]           // { id, name, prio:number, code:string, slotCount:number (Default 2, 1–10) }
+towers[]           // { id, name, prio:number, code:string, slotCount:number (Default 2, 1–10), leaderCount:number (Default 0, 0–3) }
 boats[]            // { id, name, code, towerId:number|'HW'|null, prio, slotCount:number (Default 1, 1–3) }
 dayState[]         // Array[DAYS]: { sick:Set, closed:Set, closedBoats:Set }
 forcedPlacements[] // Array[DAYS]: [{ personId, kind:'tower'|'boat'|'main'|'hwboat', slotId, transparent:bool }]
@@ -233,6 +233,24 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 - Wird nach der Paarungs-Matrix angezeigt
 
 **Effekt:** Transparenz über Tower-Verteilung pro Person
+
+### Feature 12: Pro-Turm Führungskräfte-Einstellung
+**Problem:** Kein Weg, pro Turm festzulegen, dass Führungskräfte (role='F') dort eingesetzt werden sollen.  
+**Lösung:**
+- Neues Feld `leaderCount` pro Tower (0–3, Default 0)
+- UI in `render-sidebar.js`: Spinner neben `slotCount` (Label 👔)
+- `leaderCount` ZUSÄTZLICH zu `slotCount`: Tower mit `slotCount=2, leaderCount=1` → 3 Personen total (1 F + 2 andere)
+- Scoring in `generate.js` `bestPair()`: Führungskräfte bekommen -100 Bonus wenn Turm `leaderCount > 0` hat
+- Totale Slots: `(t.slotCount || 2) + (t.leaderCount || 0)` → wird mit normaler Logik gefüllt
+
+**Umsetzung:**
+- state.js: Tower-Kommentar updated
+- state-io.js: leaderCount exportieren/importieren (default 0)
+- seed.js: leaderCount initialisiert
+- generate.js: Scoring-Bonus + Slot-Berechnung angepasst
+- render-sidebar.js: Leader-Spinner mit +/− Buttons (0–3)
+
+**Effekt:** Nutzer können pro Turm festlegen, dass Führungskräfte dort bevorzugt eingeplant werden (soft scoring, keine harte Erzwingung)
 
 ---
 
