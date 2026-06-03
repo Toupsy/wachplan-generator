@@ -78,7 +78,9 @@ server/api/import.js      – Plan-Import für alte .json-Dateien
 
 **Pfad-Konvention:** Backend liegt in `server/`, daher zeigen Daten/Public-Pfade via `..` nach Root (`server/server.js` → `../public`, `../data`, `../VERSION`; `server/db/*` → `../../data`). Interne `require('./api/…')`/`require('./db/…')` bleiben relativ.
 
-**Script-Ladereihenfolge beachten:** state → utils → dates → autoCodes → seed → render-sidebar → generate → render-output → export → move → state-io → user-info → login-modal → init
+**Script-Ladereihenfolge beachten:** state → utils → dates → autoCodes → seed → render-sidebar → generate → render-output → export → move → state-io → user-info → share → realtime → plans-ui → login-modal → init
+
+Weitere Frontend-Dateien: `public/js/share.js` (Teilen), `public/js/realtime.js` (Live-Update-Client), `public/js/plans-ui.js` (Plan-Manager). Backend-Ergänzungen: `server/realtime.js` (WebSocket), `server/db/access.js` (`getPlanAccess` zentral).
 
 ---
 
@@ -694,6 +696,14 @@ DELETE /api/plans/:id/share/:userId – Mitbearbeiter entfernen (nur Owner)
 ```
 
 **Plan-Sharing (v0.2.11):** Tabelle `plan_shares(plan_id, user_id, role)`. Zugriff = Owner ODER `plan_shares`-Eintrag. **Verschlüsselung immer mit dem Owner-Key** (`plans.user_id` → `deriveKey`), serverseitig ableitbar → kein Re-Encrypt beim Teilen; `getPlanAccess()` gated. Auswahl per **exaktem Benutzernamen** (privacy: keine User-Enumeration). UI: `public/js/share.js` + `#share-modal` (👥 Plan teilen). Rollen: `edit` (Default) / `view` (PUT → 403, `canEdit:false`).
+
+**Plan-Manager (v0.3.0):** Mehrere benannte Pläne. UI `public/js/plans-ui.js` + `#plans-modal` (📋 Meine Pläne): umbenennen, „➕ Neuer Plan", Liste eigener + geteilter Pläne (Öffnen/Wechseln; Löschen nur eigene). Kern-Funktionen in `state-io.js`: `fetchPlansList/loadPlanById/createNewPlan/renameCurrentPlan/deletePlanById`. `currentPlanId` wechselt → `realtimeJoin()`.
+
+**Live-Update / Echtzeit-Kollaboration (v0.3.0):** WebSocket auf **`/ws`** (Dependency `ws`).
+- Backend: `server/realtime.js` – `setupRealtime(server, sessionMiddleware)` (in server.js an `app.listen` gehängt), Räume pro `planId`, Auth beim Upgrade via Express-Session, Zugriffsprüfung beim `join` über `getPlanAccess` (zentral in `server/db/access.js`). `broadcastPlanUpdate(planId, exceptUserId)` wird in `PUT /api/plans/:id` nach dem Speichern aufgerufen.
+- Frontend: `public/js/realtime.js` – verbindet nach Login (`realtimeConnect`), tritt dem Plan-Raum bei (`realtimeJoin`, bei Laden/Wechsel/Erstellen), bei `{type:'plan-updated'}` → `applyRemotePlanState()` (Re-Fetch + `importStateJSON` + `generate`, **Echo-Schutz** via `_suppressAutoSave`). Auto-Reconnect (3 s).
+- Speichernder bekommt kein Echo (per `userId` ausgeschlossen). Nur-Lese-Mitbearbeiter speichern nicht (`currentPlanCanEdit`).
+- Verifiziert: End-to-End mit 2 echten Usern über WebSocket (A→B, B→A, kein Selbst-Echo, Owner-Key-Entschlüsselung übergreifend).
 
 **Druckansicht (v0.2.11):** `@media print` (A4 landscape) – jeder Tag = genau eine Seite (`.day-panel { page-break-after:always; break-inside:avoid }`), hell/kompakt; Sidebar/Tabs/Stats/Matrix (`.out-extras`)/Banner/Steuerung ausgeblendet, Tages-Kopf (`.dc-head`: Datum) bleibt.
 

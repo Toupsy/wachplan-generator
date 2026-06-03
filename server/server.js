@@ -55,7 +55,9 @@ async function start() {
 
     // Session middleware (SQLite-Store, zentral in db/session.js).
     // resave/saveUninitialized=true für SQLite-Reliability.
-    app.use(createSessionMiddleware({ resave: true, saveUninitialized: true }));
+    // Referenz behalten → wird vom WebSocket-Upgrade (Realtime) zur Auth genutzt.
+    const sessionMiddleware = createSessionMiddleware({ resave: true, saveUninitialized: true });
+    app.use(sessionMiddleware);
 
     // Register API routes AFTER session middleware
     console.log('Registering API routes...');
@@ -115,6 +117,10 @@ async function start() {
       console.log(`   Authentifizierung: ENABLED`);
       console.log(`   Datenbank: ${dbPath}`);
     });
+
+    // Realtime/Live-Update (WebSocket auf /ws) an den HTTP-Server hängen
+    const { setupRealtime } = require('./realtime');
+    setupRealtime(server, sessionMiddleware);
 
     // Graceful shutdown
     process.on('SIGTERM', () => {

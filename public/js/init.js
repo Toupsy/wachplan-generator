@@ -48,6 +48,9 @@ async function initAfterAuth() {
     await autoSave();
   }
   _updateSaveIndicator();
+  // Live-Update-Verbindung aufbauen (Session ist jetzt vorhanden)
+  if(typeof realtimeConnect === 'function') realtimeConnect();
+  if(typeof currentPlanId !== 'undefined' && currentPlanId != null && typeof realtimeJoin === 'function') realtimeJoin(currentPlanId);
 }
 
 document.addEventListener('DOMContentLoaded', () => {

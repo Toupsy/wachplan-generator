@@ -11,6 +11,8 @@ const express = require('express');
 const router = express.Router();
 const { dbRun, dbGet, dbAll } = require('../db/connection');
 const { encryptPlanState, decryptPlanState } = require('../db/crypto');
+const { getPlanAccess } = require('../db/access');
+const { broadcastPlanUpdate } = require('../realtime');
 
 // ───────────────────────────────────────────────────────────
 // Authentication Middleware
@@ -28,18 +30,7 @@ router.use(authMiddleware);
 // WICHTIG: Ent-/Verschlüsselt wird IMMER mit dem Key des PLAN-OWNERS (plans.user_id),
 // nicht dem des Anfragenden. So können Mitbearbeiter denselben Plan lesen/schreiben,
 // ohne dass neu verschlüsselt werden muss. Zugriff wird über plan_shares gegated.
-
-// Zugriff prüfen → { ownerId, role:'owner'|'collaborator' } | null (404) | false (403)
-async function getPlanAccess(planId, userId) {
-  const plan = await dbGet('SELECT user_id FROM plans WHERE id = ?', [planId]);
-  if (!plan) return null;
-  if (plan.user_id === userId) return { ownerId: plan.user_id, role: 'owner' };
-  const share = await dbGet(
-    'SELECT role FROM plan_shares WHERE plan_id = ? AND user_id = ?',
-    [planId, userId]
-  );
-  return share ? { ownerId: plan.user_id, role: 'collaborator', shareRole: share.role || 'edit' } : false;
-}
+// getPlanAccess() liegt zentral in db/access.js (auch von realtime.js genutzt).
 
 // ───────────────────────────────────────────────────────────
 // GET /api/plans – Alle Pläne des Users auflisten
@@ -182,6 +173,10 @@ router.put('/:id', express.json(), async (req, res) => {
         ? [encrypted, iv, authTag, name, planId]
         : [encrypted, iv, authTag, planId]
     );
+
+    // Live-Update: andere verbundene Mitbearbeiter dieses Plans benachrichtigen
+    // (außer dem Speichernden selbst).
+    broadcastPlanUpdate(planId, req.session.userId);
 
     res.json({
       id: planId,

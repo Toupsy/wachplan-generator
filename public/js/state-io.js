@@ -9,11 +9,12 @@ const STORAGE_KEY   = 'dlrg_wachplan_autosave';  // Fallback für offline
 let currentPlanId = null;  // Die aktuell bearbeitete Plan-ID
 let currentPlanName = 'Wachplan';  // Name des aktuellen Plans
 let currentPlanCanEdit = true;     // false = Nur-Lese (view-Mitbearbeiter) → kein Speichern
+let _suppressAutoSave = false;     // true während Laden/Remote-Apply → kein Speicher-Echo
 
 // Debounced Autosave: bei jeder Änderung aufrufen, speichert gebündelt nach kurzer Pause.
 let _autoSaveTimer = null;
 function scheduleAutoSave(delay = 1200){
-  if(currentPlanCanEdit === false) return;
+  if(currentPlanCanEdit === false || _suppressAutoSave) return;
   if(_autoSaveTimer) clearTimeout(_autoSaveTimer);
   _autoSaveTimer = setTimeout(() => { _autoSaveTimer = null; autoSave(); }, delay);
 }
@@ -150,7 +151,7 @@ function importStateJSON(json, silent = false){
 
 let _saving = false, _saveQueued = false;
 async function autoSave(){
-  if(currentPlanCanEdit === false) return;   // Nur-Lese-Zugriff: nicht speichern
+  if(currentPlanCanEdit === false || _suppressAutoSave) return; // Nur-Lese / Remote-Apply: nicht speichern
   if(_saving){ _saveQueued = true; return; } // Läuft schon → einen Nachlauf einplanen
   _saving = true;
   const state = _buildStateObject();
@@ -174,6 +175,7 @@ async function autoSave(){
       const data = await response.json();
       currentPlanId = data.id;
       console.log('✓ Neuer Plan erstellt, ID:', currentPlanId);
+      if(typeof realtimeJoin === 'function') realtimeJoin(currentPlanId);  // Live-Update beitreten
       _updateSaveIndicator();
       return;
     }
@@ -258,6 +260,7 @@ async function autoLoad(){
     currentPlanId = planData.id;
     currentPlanName = planData.name;
     currentPlanCanEdit = planData.canEdit !== false;  // view-Mitbearbeiter: nur lesen
+    if(typeof realtimeJoin === 'function') realtimeJoin(currentPlanId);  // Live-Update beitreten
 
     // Importiere die dekryptierten Daten
     // Note: planData.state ist bereits ein String (JSON) von der API
@@ -300,11 +303,109 @@ function _updateSaveIndicator(){
   try {
     if(currentPlanId){
       const ts = new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
-      el.textContent = '💾 ' + currentPlanName + ' (' + ts + ')';
+      el.textContent = (currentPlanCanEdit ? '💾 ' : '👁 ') + currentPlanName + ' (' + ts + ')';
       el.style.display = '';
     } else {
       el.textContent = '💾 Neuer Plan...';
       el.style.display = '';
     }
   } catch(e) { el.style.display = 'none'; }
+}
+
+// ── Mehrere benannte Pläne: Verwaltung ───────────────────────
+
+/** Liste aller Pläne (eigene + geteilte). */
+async function fetchPlansList(){
+  const res = await fetch('/api/plans', { credentials:'include' });
+  if(!res.ok) return [];
+  const data = await res.json().catch(()=>({}));
+  return data.plans || [];
+}
+
+/** UI komplett aus aktuellem State neu aufbauen (nach Import/Load/New). */
+function _rebuildAllUI(){
+  const sd = document.getElementById('start-date'); if(sd) sd.value = startDate || '';
+  const mk = document.getElementById('main-k');     if(mk) mk.value = mainK;
+  if(typeof updateSeedDisplay === 'function') updateSeedDisplay();
+  autoCodes();
+  renderPeople(); renderTowerCfg(); renderBoatCfg();
+  renderHWBoatSelector(); renderPositionDescUI(); renderExportColumnUI();
+}
+
+/** Einen bestimmten Plan laden (ohne Speicher-Echo). */
+async function loadPlanById(id){
+  try {
+    const res = await fetch(`/api/plans/${id}`, { credentials:'include' });
+    if(!res.ok){ showToast('Plan konnte nicht geladen werden', true); return false; }
+    const data = await res.json().catch(()=>({}));
+    if(!data.state){ showToast('Plan ist leer/ungültig', true); return false; }
+    currentPlanId = data.id;
+    currentPlanName = data.name;
+    currentPlanCanEdit = data.canEdit !== false;
+    _suppressAutoSave = true;
+    try { importStateJSON(data.state, true); generate(); }
+    finally { _suppressAutoSave = false; }
+    if(typeof realtimeJoin === 'function') realtimeJoin(currentPlanId);
+    _updateSaveIndicator();
+    showToast('📂 „' + currentPlanName + '" geladen' + (currentPlanCanEdit ? '' : ' (nur Ansicht)'));
+    return true;
+  } catch(e){ console.error('loadPlanById', e); return false; }
+}
+
+/** Neuen, leeren Plan aus der Config-Vorlage erstellen (wird beim ersten Speichern angelegt). */
+function createNewPlan(name){
+  currentPlanId = null;             // → autoSave POST erstellt neuen Plan
+  currentPlanName = (name||'').trim() || 'Wachplan';
+  currentPlanCanEdit = true;
+  if(typeof seedFromConfig === 'function') seedFromConfig();
+  forcedPlacements = freshForcedPlacements();
+  dayState = freshDayState();
+  _rebuildAllUI();
+  generate();                       // ruft autoSave → POST → setzt currentPlanId + realtimeJoin
+  _updateSaveIndicator();
+  showToast('➕ Neuer Plan „' + currentPlanName + '"');
+}
+
+/** Aktuellen Plan umbenennen (wird per Autosave/PUT gespeichert). */
+function renameCurrentPlan(name){
+  const n = (name||'').trim();
+  if(!n) return;
+  currentPlanName = n;
+  _updateSaveIndicator();
+  scheduleAutoSave(200);
+}
+
+/** Plan löschen. Wenn es der aktuelle ist → auf einen anderen wechseln oder neuen anlegen. */
+async function deletePlanById(id){
+  try {
+    const res = await fetch(`/api/plans/${id}`, { method:'DELETE', credentials:'include' });
+    if(!res.ok){ const d=await res.json().catch(()=>({})); showToast(d.error||'Löschen fehlgeschlagen', true); return false; }
+    showToast('🗑️ Plan gelöscht');
+    if(id === currentPlanId){
+      const rest = (await fetchPlansList()).filter(p => p.isOwner);
+      if(rest.length){ await loadPlanById(rest[0].id); }
+      else { createNewPlan('Wachplan'); }
+    }
+    return true;
+  } catch(e){ console.error('deletePlanById', e); return false; }
+}
+
+/** Von realtime.js bei { type:'plan-updated' } aufgerufen: aktuellen Plan neu laden, ohne Echo. */
+async function applyRemotePlanState(){
+  if(currentPlanId == null) return;
+  try {
+    const res = await fetch(`/api/plans/${currentPlanId}`, { credentials:'include' });
+    if(!res.ok) return;
+    const data = await res.json().catch(()=>({}));
+    if(!data.state) return;
+    _suppressAutoSave = true;
+    try {
+      currentPlanCanEdit = data.canEdit !== false;
+      currentPlanName = data.name;
+      importStateJSON(data.state, true);
+      generate();
+    } finally { _suppressAutoSave = false; }
+    _updateSaveIndicator();
+    showToast('🔄 Aktualisiert von Mitbearbeiter');
+  } catch(e){ console.error('applyRemotePlanState', e); }
 }
