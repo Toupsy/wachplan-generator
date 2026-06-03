@@ -282,6 +282,42 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 
 ---
 
+### Feature 14: UI Tabs (Einstellungen / Wachplan)
+
+**Problem:** Layout mit Sidebar + Output-Panel nebeneinander war visuell gequetscht (380px + 1fr Grid), nutzte verfügbaren Platz suboptimal, besonders auf Tablets/kleineren Desktops.
+
+**Lösung:**
+- Neuer `.main-tabs` Container oben mit zwei Tabs: "⚙️ Einstellungen" und "📋 Wachplan"
+- Sidebar in `.main-panel-0` (Einstellungen-Tab)
+- Output-Panel in `.main-panel-1` (Wachplan-Tab)
+- Tab-Umschaltung mit JavaScript Event-Listenern
+- Jedes Panel erhält volle verfügbare Breite, wenn aktiv
+- Print-Modus zeigt nur Wachplan-Panel
+
+**Umsetzung:**
+- **public/Wachplan-Generator.html:**
+  - Neue CSS-Regeln für `.main-tabs` (flex, gap:0, border-bottom) und `.main-panels` (grid, display:none/block)
+  - `.main-tab.active` mit blauer Unterlinie (border-bottom-color: var(--sea))
+  - HTML-Struktur: `.main-tabs` mit zwei `.main-tab` Buttons (data-main-tab="0"/"1"), `.main-panels` mit zwei `.main-panel` Divs
+  - Print Media Query: `.main-tabs` und `.main-panel-0` versteckt, `.main-panel-1` angezeigt
+  - Alt `.layout` Grid entfernt (war `grid-template-columns: 380px 1fr`)
+
+- **public/js/init.js:**
+  - Globale Variable `activeMainTab = 0`
+  - Event-Listener für `.main-tab` Buttons mit `onclick` Handler
+  - Tab-Umschaltung: `.active` Klasse auf Tabs + Panels toggen
+  - Keine State-Verwaltung: Nur aktuelle Sichtbarkeit verwalten
+
+**Effekt:** 
+- Bessere visuelle Klarheit durch Tab-Trennung: Eine Aufgabe pro View
+- Jedes Panel nutzt 100% verfügbare Breite → lesbarere Einstellungen, weniger Scrolling
+- Reduzierte kognitive Last: Nutzer sehen nicht gleichzeitig Config + Output
+- Responsive: Tabs funktionieren identisch auf allen Bildschirmgrößen
+- Print: Nur Wachplan sichtbar, alle Tage auf mehreren Seiten
+- Non-breaking: Alle existierenden Funktionen (Day-Tabs, D&D, Move-Modal) funktionieren unverändert
+
+---
+
 ## Session Bugfixes & Improvements
 
 ### Bugfix 1: HW-Fairness (Person 3 Tage in Folge an der Hauptwache)
