@@ -20,15 +20,18 @@ function renderOutput(){
   let { schedule } = lastResult;
 
   // ── Wende transparent placements visuell an (ohne generate()) ────
-  // Für Case 1: Personen VISUELL verschieben, aber Plan bleibt unverändert
+  // Für Case 1: Personen VISUELL verschieben, aber Plan bleibt unverändert.
+  // Zusätzlich: dediziertes hwBoatSlot → uniformer Boot-Slot (towerId='HW'),
+  // damit ALLE Boote gleich behandelt werden (Inline-Render + D&D in beide Richtungen).
   schedule = schedule.map((day, dayIdx) => {
     const dayForcedTransparent = (forcedPlacements[dayIdx] || []).filter(f => f.transparent);
-    if(dayForcedTransparent.length === 0) return day;
 
-    // Kopiere den Day, damit original unverändert bleibt
+    // Immer klonen (auch ohne Placements) für die HW-Boot-Normalisierung.
     const dayClone = JSON.parse(JSON.stringify(day));
 
+    // 1) Personen-Transparent-Placements
     dayForcedTransparent.forEach(f => {
+      if(f.kind === 'boat-reassign') return;  // Boote separat (Schritt 3)
       const person = people.find(p => p.id === f.personId);
       if(!person) return;
 
@@ -71,31 +74,31 @@ function renderOutput(){
       }
     });
 
-    // Wende Boot-Reassignments an (Boot-Slot wandert visuell zu anderem Turm/HW)
+    // 2) Normalisiere dediziertes hwBoatSlot → Boot-Slot mit towerId='HW'
+    const mainSlot = dayClone.assign.find(s => s.kind === 'main');
+    if(mainSlot && mainSlot.hwBoatSlot){
+      const hb = mainSlot.hwBoatSlot;
+      const bObj = boats.find(b => b.id === hb.boatId);
+      dayClone.assign.push({
+        kind:'boat', boatId:hb.boatId, name:hb.name, code:hb.code,
+        prio: bObj?.prio ?? 0, towerId:'HW', towerName:'Hauptwache',
+        occupants: hb.bootsf ? [hb.bootsf] : [], bootsf: hb.bootsf || null
+      });
+      mainSlot.hwBoatSlot = null;
+    }
+
+    // 3) Boot-Reassignments (uniform: nur towerId ändern; 'HW' für Hauptwache)
     dayForcedTransparent.filter(f => f.kind === 'boat-reassign').forEach(f => {
       const boatSlot = dayClone.assign.find(s => s.kind === 'boat' && s.boatId === f.boatId);
       if(!boatSlot) return;
-
       if(f.targetKind === 'tower') {
-        // Boot dem Zielturm zuordnen (nur towerId/towerName ändern)
         boatSlot.towerId = f.targetSlotId;
         boatSlot.towerName = towers.find(t => t.id === f.targetSlotId)?.name || '';
       } else if(f.targetKind === 'main' || f.targetKind === 'hwboat') {
-        // Boot zur Hauptwache: als hwBoatSlot setzen, Boot-Slot entfernen
-        const mainSlot = dayClone.assign.find(s => s.kind === 'main');
-        if(mainSlot) {
-          mainSlot.hwBoatSlot = {
-            boatId: f.boatId,
-            name: boatSlot.name,
-            code: boatSlot.code,
-            bootsf: boatSlot.occupants[0] || null
-          };
-        }
-        boatSlot._movedToHW = true;  // Markiere zum Entfernen
+        boatSlot.towerId = 'HW';
+        boatSlot.towerName = 'Hauptwache';
       }
     });
-    // Entferne Boot-Slots, die zur HW verschoben wurden
-    dayClone.assign = dayClone.assign.filter(s => !s._movedToHW);
 
     return dayClone;
   });
@@ -233,14 +236,14 @@ function renderOutput(){
       if(!bsList || !bsList.length) return '';
       return bsList.map(bs => `
         <div class="hq-divider boat-inline" draggable="true" data-boat-id="${bs.boatId}" data-boat-name="${escapeHtml(bs.name)}" data-boat-code="${escapeHtml(bs.code||'?')}" title="Ziehen um Boot auf anderen Turm/HW zu verschieben">🚤 Boot: ${escapeHtml(bs.name)} · ${escapeHtml(bs.code||'?')}</div>
-        ${bs.occupants.map(p=>`
+        ${(bs.occupants && bs.occupants.length) ? bs.occupants.map(p=>`
           <div class="occupant" draggable="true" data-person-id="${p.id}" data-source-kind="boat" data-source-slot="${bs.boatId}">
             <i class="role-dot rd-${p.role.toLowerCase()}"></i>${escapeHtml(p.name)}
             ${forcedIds.has(p.id)?'<span class="forced-badge" title="Manuell fixiert">🔒</span>':''}
             <span class="o-role">Bootsführer</span>
             <button class="move-btn" data-move-person="${p.id}" data-move-day="${di}"
               data-move-kind="boat" data-move-slot="${bs.boatId}" title="Verschieben">↕</button>
-          </div>`).join('')}`).join('');
+          </div>`).join('') : '<div style="color:var(--coral);font-size:.78rem;padding:6px 0">⚠ Kein Bootsführer verfügbar</div>'}`).join('');
     };
 
     html += `<div class="towers-grid">`;
@@ -264,10 +267,7 @@ function renderOutput(){
           ${slot.mainGuards.map(p=>occ(p,p.role==='E'?'Erfahren · HW':'Unerf. · HW','main',MAIN_ID)).join('')}
           ${slot.base.map(p=>occ(p,p.role==='E'?'Erfahren · HW':'Unerf. · HW','main',MAIN_ID)).join('')}
           ${slot.bootsfLeft.map(p=>occ(p,'Bootsführer · HW','main',MAIN_ID)).join('')}
-          ${slot.hwBoatSlot ? `
-            <div class="hq-divider">🚤 HW-Boot: ${escapeHtml(slot.hwBoatSlot.name)}</div>
-            ${slot.hwBoatSlot.bootsf ? occ(slot.hwBoatSlot.bootsf,'Bootsführer','hwboat',slot.hwBoatSlot.boatId) : '<div style="color:var(--coral);font-size:.78rem;padding:6px 0">⚠ Kein Bootsführer verfügbar</div>'}
-          ` : ''}
+          ${renderInlineBoat(boatsByTower['HW'])}
           ${slot.sick.map(p=>`<div class="occupant" style="opacity:.55"><i class="role-dot rd-${p.role.toLowerCase()}"></i><span style="text-decoration:line-through">${escapeHtml(p.name)}</span><span class="o-role" style="color:var(--coral)">krank</span></div>`).join('')}
         </div>`;
       }
@@ -532,8 +532,14 @@ function renderOutput(){
         currentTowerName = currentTowerId === 'HW' ? 'Hauptwache' : (getT(currentTowerId)?.name || '?');
       } else {
         const boatSlot = dayData.assign.find(s => s.kind === 'boat' && s.boatId === boatId);
-        currentTowerId = boatSlot?.towerId;
-        currentTowerName = boatSlot?.towerName || '?';
+        if(boatSlot){
+          currentTowerId = boatSlot.towerId;
+          currentTowerName = boatSlot.towerName || '?';
+        } else if(boatId === hwBoatId){
+          // Dediziertes HW-Boot (als hwBoatSlot gespeichert, kein Boot-Slot)
+          currentTowerId = 'HW';
+          currentTowerName = 'Hauptwache';
+        }
       }
 
       // Same-Target-Guard: Boot ist bereits auf Zielstation

@@ -773,6 +773,27 @@ GET /health → { status: "ok", timestamp: "..." }
 
 ---
 
+## Session Fixes v0.2.4
+
+### Bugfix 6: HW-Boote – uniformes Boot-Modell (mehrere Boote + Wegziehen)
+**Probleme**:
+1. Boot verschwand, wenn ein zweites Boot der HW zugeordnet wurde (`hwBoatSlot` ist ein einzelnes Objekt → wurde überschrieben).
+2. Ein der HW zugeordnetes Boot ließ sich nicht wieder wegziehen (HW-Boot war kein draggable Boot-Slot, sondern nur `main.hwBoatSlot`).
+
+**Root Cause**: HW-Boote wurden als einzelnes `main.hwBoatSlot`-Objekt gespeichert (Feature 6), reguläre Boote als `kind:'boat'`-Slots mit `towerId`. Zwei verschiedene Modelle → Überschreiben + nicht ziehbar.
+
+**Fix (render-output.js, reine Display-Schicht)**: Im Render-Clone das dedizierte `hwBoatSlot` in einen **uniformen Boot-Slot mit `towerId='HW'`** normalisieren. Dadurch:
+- `boatsByTower['HW']` sammelt ALLE HW-Boote (Array) → mehrere Boote möglich, keins überschrieben
+- HW-Boote werden via `renderInlineBoat()` als draggable `.boat-inline` in der Main-Card gerendert → wegziehbar
+- Boot-Reassign-Logik vereinheitlicht: setzt nur noch `boatSlot.towerId` (Turm-ID oder `'HW'`)
+- Jeder Tag wird jetzt immer geklont (für die Normalisierung), nicht nur bei Transparent-Placements
+- Drop-Handler erkennt dediziertes HW-Boot via `boatId === hwBoatId` für korrekte Current-Tower-Anzeige
+- `generate.js`/`export.js` unberührt (arbeiten weiter mit `lastResult.schedule` Original inkl. `hwBoatSlot`)
+
+**Verifiziert (Live-Browser)**: 2 Boote an HW sichtbar (keins verschwindet) ✅; dediziertes HW-Boot zu Turm gezogen inkl. Bootsführer ✅.
+
+---
+
 ## Session Fixes v0.2.3
 
 ### Bugfix 5 (KORREKT): Prioritäts-Reihenfolge bei Turm-Schließung
