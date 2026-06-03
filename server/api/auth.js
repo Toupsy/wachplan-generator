@@ -41,9 +41,28 @@ router.get('/me', async (req, res) => {
 });
 
 // ───────────────────────────────────────────────────────────
+// Einfacher In-Memory-Brute-Force-Schutz pro IP (Single-Instance).
+// ───────────────────────────────────────────────────────────
+const _loginAttempts = new Map();             // ip → { count, first }
+const LOGIN_MAX = 10, LOGIN_WINDOW_MS = 15 * 60 * 1000;
+function _attemptEntry(ip) {
+  const now = Date.now();
+  let e = _loginAttempts.get(ip);
+  if (!e || now - e.first > LOGIN_WINDOW_MS) { e = { count: 0, first: now }; _loginAttempts.set(ip, e); }
+  return e;
+}
+const _isRateLimited = ip => _attemptEntry(ip).count >= LOGIN_MAX;
+const _recordFail    = ip => { _attemptEntry(ip).count++; };
+const _resetAttempts = ip => { _loginAttempts.delete(ip); };
+
+// ───────────────────────────────────────────────────────────
 // POST /api/auth/login – Authenticate with username/password
 // ───────────────────────────────────────────────────────────
 router.post('/login', express.json(), async (req, res) => {
+  const ip = req.ip || 'unknown';
+  if (_isRateLimited(ip)) {
+    return res.status(429).json({ error: 'Zu viele Login-Versuche. Bitte später erneut versuchen.' });
+  }
   try {
     const { username, password } = req.body;
 
@@ -57,33 +76,41 @@ router.post('/login', express.json(), async (req, res) => {
       [username]
     );
 
+    // Generische Fehlermeldung (keine User-Enumeration). Fehlversuch zählt.
     if (!user) {
+      _recordFail(ip);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Compare password
     const validPassword = await bcryptjs.compare(password, user.password_hash);
     if (!validPassword) {
+      _recordFail(ip);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Create session
-    req.session.userId = user.id;
-    req.session.isAdmin = user.is_admin === 1;
+    _resetAttempts(ip);
 
-    // Save session to store (required for connect-sqlite3)
-    req.session.save((err) => {
-      if (err) {
-        console.error('Session save error:', err);
-        return res.status(500).json({ error: 'Failed to save session' });
+    // Session-Fixation verhindern: neue Session-ID NACH erfolgreichem Login
+    req.session.regenerate((regenErr) => {
+      if (regenErr) {
+        console.error('Session regenerate error:', regenErr);
+        return res.status(500).json({ error: 'Failed to start session' });
       }
+      req.session.userId = user.id;
+      req.session.isAdmin = user.is_admin === 1;
 
-      res.json({
-        success: true,
-        userId: user.id,
-        username: username,
-        isAdmin: user.is_admin === 1,
-        message: 'Login successful'
+      req.session.save((err) => {
+        if (err) {
+          console.error('Session save error:', err);
+          return res.status(500).json({ error: 'Failed to save session' });
+        }
+        res.json({
+          success: true,
+          userId: user.id,
+          username: username,
+          isAdmin: user.is_admin === 1,
+          message: 'Login successful'
+        });
       });
     });
   } catch (error) {

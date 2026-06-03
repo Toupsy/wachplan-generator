@@ -195,8 +195,8 @@ function renderOutput(){
         <div class="toggle-grid">
           ${dayForced.map(f=>{
             const p=getP(f.personId); if(!p) return '';
-            let dest = f.kind==='tower' ? `🗼 ${getT(f.slotId)?.name||'?'}` :
-                       f.kind==='boat'  ? `🚤 ${getBoat(f.slotId)?.name||'?'}` : '⛱ HW';
+            let dest = f.kind==='tower' ? `🗼 ${escapeHtml(getT(f.slotId)?.name||'?')}` :
+                       f.kind==='boat'  ? `🚤 ${escapeHtml(getBoat(f.slotId)?.name||'?')}` : '⛱ HW';
             return `<span class="toggle-chip" style="border-color:var(--warn)">
               🔒 ${escapeHtml(p.name)} → ${dest}
               <span class="x" data-clear-forced="${f.personId}" data-clear-day="${di}" style="cursor:pointer">✕</span>

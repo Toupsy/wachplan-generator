@@ -29,6 +29,14 @@ validateEnv();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// ── Basis-Security-Header ──────────────────────────────────────
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');           // Clickjacking-Schutz
+  res.setHeader('Referrer-Policy', 'same-origin');
+  next();
+});
+
 // ── Health-Check (für Docker/K8s) ──────────────────────────────
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

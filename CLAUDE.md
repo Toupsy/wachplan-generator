@@ -587,6 +587,22 @@ Dark-Theme mit CSS-Variables:
 - Admin-Panel für User-Management
 - Fallback-Import für alte localStorage-Pläne
 
+### Security-Review (v0.2.13)
+
+**Behoben:**
+- **Stored-XSS** (durch Sharing relevant): Turm-/Boot-Name in den Zwangszuweisungs-Chips (`render-output.js`) wurde unescaped in `innerHTML` interpoliert → jetzt `escapeHtml`. (Alle anderen Senken nutzen `escapeHtml` bzw. `textContent`: `addOpt`, `showToast`, `showConfirmation`, Export-Spalten, Positionsbeschriftungen, Admin-User-Liste.)
+- **Login-Brute-Force**: In-Memory-Rate-Limit pro IP (`auth.js`, 10 Fehlversuche / 15 min → 429).
+- **Session-Fixation**: `req.session.regenerate()` nach erfolgreichem Login.
+- **Security-Header** (server.js + admin-server.js): `X-Content-Type-Options:nosniff`, `X-Frame-Options:SAMEORIGIN`, `Referrer-Policy:same-origin`.
+
+**Geprüft & ok:** SQL durchgehend parametrisiert (keine Injection); Authz `getPlanAccess()` (Owner/Share, kein IDOR; DELETE/Share-Verwaltung Owner-only); bcrypt(10); `sameSite:lax` (CSRF-Grundschutz); Admin-Middleware prüft `is_admin`.
+
+**Empfehlungen (Infra, NICHT im Code):**
+- Cookie `secure:true` + `trust proxy` in Produktion (aktuell `secure:false` wegen TLS-terminierendem Proxy → bei direktem HTTP-Zugriff Cookie im Klartext).
+- Geleakte Secrets aus der Git-Historie rotieren (s.u. Rotations-Caveat).
+- Optional: CSP-Header (derzeit nicht gesetzt, da viele Inline-`style=`/Inline-Handler in admin.html).
+- Minimale User-Enumeration beim Teilen („Benutzer nicht gefunden") – bewusst, da nur authentifiziert + Usability.
+
 ### Konfiguration & Secrets (ab v0.2.7)
 
 - **Alle Secrets liegen in `.env`** (gitignored), NICHT in `docker-compose.yml`. Vorlage: **`.env.example`** im Repo-Root.
