@@ -226,6 +226,10 @@ function renderBoatCfg(){
           <label>CODE</label>
           <input type="text" value="${escapeHtml(b.code||'')}" data-id="${b.id}" class="bcode" placeholder="78/x" draggable="false">
         </span>
+        <span class="prio-input">
+          <label>PRIO</label>
+          <input type="number" min="1" value="${b.prio}" data-id="${b.id}" class="bprio" draggable="false">
+        </span>
         <select class="bassign" data-id="${b.id}" style="flex:1;min-width:0" draggable="false">${towerOpts}</select>
         <div class="slot-spinner">
           <button class="slot-btn slot-minus" data-id="${b.id}" data-type="boat">−</button>
@@ -302,6 +306,8 @@ function renderBoatCfg(){
   });
   c.querySelectorAll('.bcode').forEach(i =>
     i.oninput = e => { getBoat(+e.target.dataset.id).code = e.target.value.trim(); });
+  c.querySelectorAll('.bprio').forEach(i =>
+    i.oninput = e => { getBoat(+e.target.dataset.id).prio = Math.max(1, +e.target.value||1); });
   c.querySelectorAll('.bassign').forEach(s =>
     s.onchange = e => {
       const boat = getBoat(+e.target.dataset.id);
