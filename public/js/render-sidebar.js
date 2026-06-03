@@ -68,6 +68,12 @@ function renderTowerCfg(){
           <span class="slot-display">${t.slotCount||2}</span>
           <button class="slot-btn slot-plus" data-id="${t.id}" data-type="tower">+</button>
         </div>
+        <div class="leader-spinner" title="Führungskräfte die eingeplant werden sollen">
+          <label title="Führungskräfte">👔</label>
+          <button class="slot-btn leader-minus" data-id="${t.id}">−</button>
+          <span class="slot-display">${t.leaderCount||0}</span>
+          <button class="slot-btn leader-plus" data-id="${t.id}">+</button>
+        </div>
         <button class="mini-btn del-t" data-id="${t.id}">×</button>
       </div>
       ${assignedBoats.length > 0 ? `<div class="tower-boats">${assignedBoats.map(b => `<div class="tower-boat-item" data-boat-id="${b.id}" draggable="true" data-tower-id="${t.id}" title="Zum Turm bewegen">🚤 ${escapeHtml(b.name)} (${escapeHtml(b.code||'?')})</div>`).join('')}</div>` : ''}`;
@@ -168,6 +174,10 @@ function renderTowerCfg(){
     b.onclick = e => { const t = getT(+e.target.dataset.id); if(t.slotCount > 1) { t.slotCount--; generate(); renderTowerCfg(); } });
   c.querySelectorAll('.slot-plus[data-type="tower"]').forEach(b =>
     b.onclick = e => { const t = getT(+e.target.dataset.id); if(t.slotCount < 10) { t.slotCount++; generate(); renderTowerCfg(); } });
+  c.querySelectorAll('.leader-minus').forEach(b =>
+    b.onclick = e => { const t = getT(+e.target.dataset.id); if((t.leaderCount||0) > 0) { t.leaderCount--; generate(); renderTowerCfg(); } });
+  c.querySelectorAll('.leader-plus').forEach(b =>
+    b.onclick = e => { const t = getT(+e.target.dataset.id); if((t.leaderCount||0) < 3) { t.leaderCount++; generate(); renderTowerCfg(); } });
   c.querySelectorAll('.del-t').forEach(b =>
     b.onclick = e => {
       const id = +e.target.dataset.id;
