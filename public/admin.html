@@ -470,13 +470,14 @@
             <td>${user.email ? escapeHtml(user.email) : '-'}</td>
             <td>${badge}</td>
             <td>${createdAt}</td>
-            <td style="text-align:right;"><button class="btn-small danger">🗑️ Löschen</button></td>
+            <td style="text-align:right;white-space:nowrap;">
+              <button class="btn-small btn-setpw">🔑 Passwort</button>
+              <button class="btn-small danger btn-del">🗑️ Löschen</button>
+            </td>
           `;
           tr.querySelector('td').textContent = user.username;
-          const btn = tr.querySelector('button');
-          btn.dataset.userId = user.id;
-          btn.dataset.username = user.username;
-          btn.addEventListener('click', () => deleteUser(user.id, user.username));
+          tr.querySelector('.btn-del').addEventListener('click', () => deleteUser(user.id, user.username));
+          tr.querySelector('.btn-setpw').addEventListener('click', () => adminSetPassword(user.id, user.username));
           tbody.appendChild(tr);
         });
       } catch (error) {
@@ -510,6 +511,27 @@
         loadUsers();
       } catch (error) {
         console.error('Create user error:', error);
+        showToast(error.message, true);
+      }
+    }
+
+    async function adminSetPassword(userId, username) {
+      const newPw = prompt(`Neues Passwort für "${username}" (mindestens 8 Zeichen):`);
+      if (newPw === null) return;  // abgebrochen
+      if (newPw.length < 8) {
+        showToast('Passwort muss mindestens 8 Zeichen haben', true);
+        return;
+      }
+      try {
+        const response = await fetch(`/api/admin/users/${userId}/password`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ newPassword: newPw })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || 'Fehler');
+        showToast(`✓ Passwort für "${username}" geändert`);
+      } catch (error) {
         showToast(error.message, true);
       }
     }

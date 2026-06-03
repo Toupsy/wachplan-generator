@@ -173,6 +173,59 @@ async function importPlans(event) {
 }
 
 /**
+ * Passwort-ändern-Modal öffnen/schließen
+ */
+function openPwModal() {
+  ['pw-current', 'pw-new', 'pw-new2'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  _setPwMsg('');
+  const m = document.getElementById('pw-modal');
+  if (m) m.style.display = 'flex';
+  const cur = document.getElementById('pw-current');
+  if (cur) cur.focus();
+}
+function closePwModal() {
+  const m = document.getElementById('pw-modal');
+  if (m) m.style.display = 'none';
+}
+function _setPwMsg(text, ok) {
+  const el = document.getElementById('pw-modal-msg');
+  if (el) { el.textContent = text || ''; el.style.color = ok ? 'var(--green)' : 'var(--coral)'; }
+}
+
+/**
+ * Eigenes Passwort ändern → PUT /api/auth/password
+ */
+async function submitPasswordChange() {
+  const current = document.getElementById('pw-current').value;
+  const next = document.getElementById('pw-new').value;
+  const next2 = document.getElementById('pw-new2').value;
+
+  if (!current || !next) { _setPwMsg('Bitte alle Felder ausfüllen.'); return; }
+  if (next.length < 8) { _setPwMsg('Neues Passwort: mindestens 8 Zeichen.'); return; }
+  if (next !== next2) { _setPwMsg('Die neuen Passwörter stimmen nicht überein.'); return; }
+
+  const btn = document.getElementById('pw-modal-confirm');
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch('/api/auth/password', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ currentPassword: current, newPassword: next })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { _setPwMsg(data.error || 'Änderung fehlgeschlagen.'); return; }
+    _setPwMsg('✓ Passwort geändert.', true);
+    if (typeof showToast === 'function') showToast('✓ Passwort geändert');
+    setTimeout(closePwModal, 900);
+  } catch (e) {
+    _setPwMsg('Netzwerkfehler.');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+/**
  * Initialisiere User-Info Funktionalität
  */
 document.addEventListener('DOMContentLoaded', () => {
@@ -184,6 +237,18 @@ document.addEventListener('DOMContentLoaded', () => {
   if (logoutBtn) {
     logoutBtn.onclick = logout;
   }
+
+  // Passwort-ändern Button + Modal
+  const changePwBtn = document.getElementById('btn-change-password');
+  if (changePwBtn) changePwBtn.onclick = openPwModal;
+  const pwCloseBtn = document.getElementById('pw-modal-close-btn');
+  if (pwCloseBtn) pwCloseBtn.onclick = closePwModal;
+  const pwConfirmBtn = document.getElementById('pw-modal-confirm');
+  if (pwConfirmBtn) pwConfirmBtn.onclick = submitPasswordChange;
+  const pwModal = document.getElementById('pw-modal');
+  if (pwModal) pwModal.addEventListener('click', e => { if (e.target === pwModal) closePwModal(); });
+  const pwNew2 = document.getElementById('pw-new2');
+  if (pwNew2) pwNew2.addEventListener('keydown', e => { if (e.key === 'Enter') submitPasswordChange(); });
 
   // Admin Panel Button
   const adminBtn = document.getElementById('btn-admin-panel');

@@ -140,6 +140,34 @@ router.delete('/users/:id', async (req, res) => {
 });
 
 // ───────────────────────────────────────────────────────────
+// PUT /api/admin/users/:id/password – Passwort eines Users setzen
+// (Admin braucht das aktuelle Passwort NICHT)
+// ───────────────────────────────────────────────────────────
+router.put('/users/:id/password', express.json(), async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const { newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({ error: 'New password must be at least 8 characters' });
+    }
+
+    const user = await dbGet('SELECT id FROM users WHERE id = ?', [userId]);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const passwordHash = await bcryptjs.hash(newPassword, 10);
+    await dbRun('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, userId]);
+
+    res.json({ success: true, message: 'Password updated' });
+  } catch (error) {
+    console.error('Admin set password error:', error);
+    res.status(500).json({ error: 'Failed to update password' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────
 // POST /api/admin/reload-config – Reload configuration file
 // ───────────────────────────────────────────────────────────
 router.post('/reload-config', express.json(), async (req, res) => {

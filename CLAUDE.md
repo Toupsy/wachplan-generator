@@ -656,12 +656,13 @@ key = PBKDF2(
 
 ### API Endpoints
 
-#### Authentication (Public)
+#### Authentication
 ```
-POST   /api/auth/login    – { username, password } → { userId, username, isAdmin }
+POST   /api/auth/login    – { username, password } → { userId, username, isAdmin }  (public)
 POST   /api/auth/logout   – Destroys session
 GET    /api/auth/me       – Returns current user or 401
-POST   /api/auth/init     – { username, password } → Create first admin
+POST   /api/auth/init     – { username, password } → Create first admin  (public, one-time)
+PUT    /api/auth/password – { currentPassword, newPassword } → eigenes PW ändern (auth, newPW ≥8)
 ```
 
 #### Plans (Authenticated)
@@ -680,10 +681,15 @@ POST   /api/import/plans  – { plans: [ { name, state } ] } → Bulk import
 
 #### Admin (Admin-only, Authenticated)
 ```
-GET    /api/admin/users   – List all users
-POST   /api/admin/users   – { username, password, email, isAdmin } → Create user
-DELETE /api/admin/users/:id – Delete user (cascade plans)
+GET    /api/admin/users            – List all users
+POST   /api/admin/users            – { username, password, email, isAdmin } → Create user
+DELETE /api/admin/users/:id        – Delete user (cascade plans)
+PUT    /api/admin/users/:id/password – { newPassword } → fremdes PW setzen (kein currentPW, ≥8)
 ```
+
+**Passwort-UI (v0.2.9):**
+- User: 🔑-Button im User-Header (`public/Wachplan-Generator.html`) → Modal `#pw-modal` → `submitPasswordChange()` in `user-info.js` → `PUT /api/auth/password` (current + new + Wiederholung, Client-Validierung).
+- Admin: `public/admin.html` – eigenes PW via Formular (`changePassword` → `/api/auth/password`); fremde PW via 🔑-Button pro User-Zeile (`adminSetPassword` → `PUT /api/admin/users/:id/password`, prompt).
 
 ### Frontend Integration
 

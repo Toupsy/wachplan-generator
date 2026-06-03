@@ -290,6 +290,23 @@
   </div>
 </div>
 
+<!-- ── Passwort-ändern-Modal ───────────────────────────────────── -->
+<div id="pw-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box" style="max-width:420px">
+    <button class="modal-close-btn" id="pw-modal-close-btn">×</button>
+    <div class="modal-title">Passwort ändern</div>
+    <div class="modal-sub">Neues Passwort: mindestens 8 Zeichen.</div>
+    <input type="password" id="pw-current" placeholder="Aktuelles Passwort" autocomplete="current-password"
+      style="width:100%;box-sizing:border-box;padding:10px;background:var(--navy);border:1px solid var(--line);border-radius:6px;color:var(--text);margin-bottom:10px">
+    <input type="password" id="pw-new" placeholder="Neues Passwort" autocomplete="new-password"
+      style="width:100%;box-sizing:border-box;padding:10px;background:var(--navy);border:1px solid var(--line);border-radius:6px;color:var(--text);margin-bottom:10px">
+    <input type="password" id="pw-new2" placeholder="Neues Passwort wiederholen" autocomplete="new-password"
+      style="width:100%;box-sizing:border-box;padding:10px;background:var(--navy);border:1px solid var(--line);border-radius:6px;color:var(--text);margin-bottom:12px">
+    <div id="pw-modal-msg" style="font-size:.78rem;min-height:1.1em;margin-bottom:12px"></div>
+    <button id="pw-modal-confirm" class="modal-confirm">Passwort ändern</button>
+  </div>
+</div>
+
 <!-- ── Haupt-Layout ────────────────────────────────────────────── -->
 <div class="wrap">
   <header>
@@ -313,6 +330,7 @@
             <button id="btn-admin-panel" class="ghost-btn" style="border-color:var(--warn);color:var(--warn);font-size:.75rem;padding:6px;display:none">⚙️ Admin</button>
             <button id="btn-logout" class="ghost-btn" style="border-color:var(--coral);color:var(--coral);font-size:.75rem;padding:6px">🚪 Logout</button>
           </div>
+          <button id="btn-change-password" class="ghost-btn" style="width:100%;margin-top:8px;border-color:var(--sea-bright);color:var(--sea-bright);font-size:.75rem;padding:6px">🔑 Passwort ändern</button>
         </div>
 
         <!-- Wachgänger -->
