@@ -1,42 +1,52 @@
-version: "3.9"
+# ============================================================
+# DLRG Wachplan-Generator – Docker Compose
+#
+# Secrets stehen NICHT in dieser Datei, sondern in einer .env neben
+# docker-compose.yml (gitignored). Vorlage: .env.example
+#   cp .env.example .env   →   Werte eintragen   →   docker compose up -d
+# ============================================================
+
+# Gemeinsame Service-Konfiguration (YAML-Anchor) – DRY für beide Services.
+x-wachplan-base: &wachplan-base
+  image: ghcr.io/toupsy/wachplan-generator:latest
+  restart: unless-stopped
+  env_file: .env                       # MASTER_SECRET, SALT, SESSION_SECRET, ADMIN_* …
+  volumes:
+    - wachplan-data:/app/data
+  networks:
+    - proxy
 
 services:
+  # Haupt-App (Wachplan-Generator) auf Port 3000
   wachplan:
+    <<: *wachplan-base
     container_name: dlrg-wachplan
-    image: ghcr.io/toupsy/wachplan-generator:latest
-    restart: unless-stopped
     ports:
       - "3000:3000"
-    volumes:
-      - wachplan-data:/app/data
-    environment:
-      MASTER_SECRET: "cNJqZimlDKRZdTSitVf4b7QllDWXE+FVGGPkhtwNbuw="
-      SALT: "cpDzbABAbgU/soUiD2mKFQ=="
-      SESSION_SECRET: "u8AWjZf1bkUTgbkQXiBb/Um48gbkRJcbHImxh+skqB4="
-      ADMIN_USERNAME: "admin"
-      ADMIN_PASSWORD: "changeme"
-    networks:
-      - proxy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
+  # Admin-Panel auf Port 3001 (gleiches Image, anderer Entry-Point)
   wachplan-admin:
+    <<: *wachplan-base
     container_name: dlrg-wachplan-admin
-    image: ghcr.io/toupsy/wachplan-generator:latest
-    restart: unless-stopped
+    command: node admin-server.js
+    environment:
+      ADMIN_PORT: "3001"               # service-spezifisch, kein Secret
     ports:
       - "3001:3001"
-    volumes:
-      - wachplan-data:/app/data
-    environment:
-      ADMIN_PORT: "3001"
-      MASTER_SECRET: "cNJqZimlDKRZdTSitVf4b7QllDWXE+FVGGPkhtwNbuw="
-      SALT: "cpDzbABAbgU/soUiD2mKFQ=="
-      SESSION_SECRET: "u8AWjZf1bkUTgbkQXiBb/Um48gbkRJcbHImxh+skqB4="
-      COOKIE_SECURE: "true"
-    command: node admin-server.js
     depends_on:
       - wachplan
-    networks:
-      - proxy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 networks:
   proxy:

@@ -576,6 +576,14 @@ Dark-Theme mit CSS-Variables:
 - Admin-Panel für User-Management
 - Fallback-Import für alte localStorage-Pläne
 
+### Konfiguration & Secrets (ab v0.2.7)
+
+- **Alle Secrets liegen in `.env`** (gitignored), NICHT in `docker-compose.yml`. Vorlage: **`.env.example`** im Repo-Root.
+- Pflicht-Variablen (von `db/init.js` `validateEnv()` geprüft): `MASTER_SECRET` (≥32), `SALT` (≥16), `SESSION_SECRET` (≥16). Optional: `ADMIN_USERNAME`/`ADMIN_PASSWORD` (Erst-Admin-Seed), `ADMIN_PORT`, `NODE_ENV`/`PORT`/`HOST`, `DATABASE_PATH`.
+- `docker-compose.yml`: beide Services teilen Konfig per **YAML-Anchor** (`x-wachplan-base`) und laden Secrets via **`env_file: .env`**. Healthchecks gegen `/health`. `version:`-Key und tote `COOKIE_SECURE`-Variable entfernt.
+- Deployment-Host braucht eigene `.env` (`cp .env.example .env`) mit den **Produktions**-Secrets (≠ lokale Dev-Secrets, da getrennte DBs).
+- ⚠ **Rotations-Caveat**: `MASTER_SECRET` + `SALT` gehen in `deriveKey` (db/crypto.js) ein → Änderung macht bestehende verschlüsselte Pläne unlesbar. Nur mit Re-Encryption-Migration rotieren. `SESSION_SECRET`/`ADMIN_PASSWORD` sind gefahrlos rotierbar.
+
 ### Database Schema (SQLite)
 
 **users** – User-Accounts
