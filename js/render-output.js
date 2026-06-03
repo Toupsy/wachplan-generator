@@ -356,16 +356,12 @@ function renderOutput(){
       generate();
     });
 
-  // ── Card-Sortierung (kosmetisch) ──────────────────────────────────────
-  // Stores die aktuelle Anzeige-Reihenfolge pro Tag (visuell nur, ändert nichts an Daten)
-  const cardSortOrder = {}; // cardSortOrder[dayIdx] = [idx0, idx1, ...]
-  if(!lastResult) window.cardSortOrder = cardSortOrder;
-
   // ── Drag-and-Drop Event Handler ───────────────────────────────────
   // Wichtig: AKTIVES Panel-Grid nehmen, nicht das erste im DOM (das wäre Tag 1)
   const grid = panel.querySelector(`.day-panel[data-panel="${activeDay}"] .towers-grid`);
   let dragSrc = null;
   let dragCardSrc = null;  // Für Card-zu-Card Sortierung
+  let cardDragMode = null; // 'insert' | 'swap' (vorher impliziter Global)
 
   grid.addEventListener('dragstart', e => {
     // Option 1: Person drag

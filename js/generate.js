@@ -109,7 +109,7 @@ function generate(startDay = 0){
     };
     return stats[id];
   };
-  const pairKey   = (a,b) => [a,b].sort((x,y)=>x-y).join('|');
+  const pairKey   = (a,b) => a < b ? a + '|' + b : b + '|' + a;
 
   const schedule = [];
   const k = Math.max(0, mainK | 0);
@@ -252,12 +252,16 @@ function generate(startDay = 0){
     let poolU   = [...availU];
     let poolSBF = [...surplusBF];
     let poolB   = [...activeBF];
+    // O(1)-Lookup für surplusBF (Hot-Loop in bestPair); wird in removeAll synchron gehalten
+    const poolSBFIds = new Set(poolSBF.map(p => p.id));
 
-    const getGuardPool = () => [...poolE, ...poolU, ...poolSBF];
+    const getGuardPool  = () => [...poolE, ...poolU, ...poolSBF];
+    const guardPoolSize = () => poolE.length + poolU.length + poolSBF.length;
     const removeAll    = p  => {
       poolE   = poolE.filter(x   => x.id !== p.id);
       poolU   = poolU.filter(x   => x.id !== p.id);
       poolSBF = poolSBF.filter(x => x.id !== p.id);
+      poolSBFIds.delete(p.id);
     };
 
     // Wenn forcedForMain bereits k Guard-Slots füllt, müssen wir weniger aus dem
@@ -270,7 +274,7 @@ function generate(startDay = 0){
       const preCount = (forcedByTower[t.id] || []).length;
       const need     = Math.max(0, (t.slotCount || 2) - preCount);
       // need===0: Turm ist voll vorbelegt → immer öffnen (kein Pool nötig)
-      if(need === 0 || usedG + need <= getGuardPool().length){ openTowers.push(t); usedG += need; }
+      if(need === 0 || usedG + need <= guardPoolSize()){ openTowers.push(t); usedG += need; }
     }
     const personnelClosed = candidateTowers
       .filter(t => !openTowers.includes(t))
@@ -287,7 +291,7 @@ function generate(startDay = 0){
      * @returns {number} Zusatzstrafe
      */
     function surplusBFPenalty(candidate, tower){
-      if(!poolSBF.some(x => x.id === candidate.id)) return 0;
+      if(!poolSBFIds.has(candidate.id)) return 0;
       if(!tower || tower.id === MAIN_ID) return 0;
       return towerHasActiveBoat(tower.id) ? 800 : 0;
     }
@@ -332,8 +336,8 @@ function generate(startDay = 0){
             score -= sB.hwVisits * 60;
             // Boot außer Dienst: surplusBF bevorzugt zum Turm des außer-Dienst-Boots
             if(closedBoatTowers.has(t.id)){
-              if(poolSBF.some(x => x.id === A.id)) score -= 350;
-              if(poolSBF.some(x => x.id === B.id)) score -= 350;
+              if(poolSBFIds.has(A.id)) score -= 350;
+              if(poolSBFIds.has(B.id)) score -= 350;
             }
           } else {
             // HW k-Slot-Auswahl: Personen mit vielen HW-Tagen NICHT nochmal auf HW
@@ -371,9 +375,9 @@ function generate(startDay = 0){
       mainGuards.push(p);
     });
 
-    while(mainGuards.length < k && getGuardPool().length > 0){
+    while(mainGuards.length < k && guardPoolSize() > 0){
       const remaining = k - mainGuards.length;
-      if(remaining >= 2 && getGuardPool().length >= 2){
+      if(remaining >= 2 && guardPoolSize() >= 2){
         const pair = bestPair(mainPseudo, false, d);
         if(!pair) break;
         const [A, B] = pair;

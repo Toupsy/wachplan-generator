@@ -511,7 +511,7 @@ _updateSaveIndicator()
 | Timezone-Bug | Lokale Datumsarithmetik statt toISOString() → kein UTC-Off-by-one |
 | Template-Auto-Load | fetch('Wachplan Template.xlsx') → localStorage cache (kein Nutzer-Upload) – ab v0.1001 |
 | `personNr()` | NUR in utils.js definiert (utils lädt vor export) – nicht duplizieren |
-| Perf-Optimierungen | `activeBoatTowers`-Set pro Tag; `prevTowerSet` + `ensure()`-Caching in bestPair → ~20ms für 28 Pers./14 Tage |
+| Perf-Optimierungen | `activeBoatTowers`-Set pro Tag; `prevTowerSet` + `ensure()`-Caching in bestPair; `poolSBFIds`-Set (O(1) statt `.some()` im Hot-Loop); `guardPoolSize()` statt `getGuardPool().length`; `pairKey` ohne Array-Sort → ~15ms für 20 Pers./14 Tage |
 
 ---
 
@@ -770,6 +770,26 @@ GET /health → { status: "ok", timestamp: "..." }
 - Keine Cloud-Storage Integration (lokal nur)
 - Keine End-to-End Encryption (Client↔Client unencrypted)
 - Sessions nicht cluster-repliziert (single-instance only)
+
+---
+
+## Session Fixes v0.2.5 (Code-Optimierung, verhaltens-äquivalent)
+
+Reine Performance-/Qualitäts-Optimierungen ohne Verhaltensänderung. Verifiziert: Invarianten-Check (0 Fehler) + Fuzz-Test (100 Szenarien, 0 Crashes, 0 Fehler), ~15ms für 20 Pers./14 Tage.
+
+**generate.js (Hot-Loop `bestPair`):**
+- `poolSBFIds` (Set) ersetzt `poolSBF.some(x=>x.id===…)` an 3 Stellen → O(n³) wird O(n²); Set wird in `removeAll` synchron gehalten
+- `guardPoolSize()` (Summe der Längen) statt `getGuardPool().length` → keine Array-Allokation in Öffnungs-Schleife + HW-while-Loop
+- `pairKey(a,b)` = `a<b ? a+'|'+b : b+'|'+a` statt `[a,b].sort().join('|')` → keine Array-Allokation/Sort pro Paar (identische Keys für Zahlen)
+
+**render-output.js (Code-Qualität):**
+- `cardDragMode` jetzt korrekt mit `let` deklariert (war impliziter Global)
+- Totes `cardSortOrder`-Objekt entfernt
+
+**Bewusst NICHT geändert (Empfehlungen):**
+- `api/plans.js` `deriveKey()`: PBKDF2 100k pro Save/Load (autoSave nach jedem generate). Cachebar pro userId (Memory-Map), aber Security-relevant → Nutzer-Entscheidung
+- render-output.js Occupant-Markup ~4× dupliziert → könnte in einen Helper; bewusst nicht angefasst, da D&D gerade frisch stabilisiert
+- `admin-server.js` dupliziert viel von `server.js` (eigener Entry-Point via `npm run start:admin`)
 
 ---
 
