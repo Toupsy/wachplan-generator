@@ -17,55 +17,66 @@
 
 Single-Page-Application (reines Vanilla-JS, kein Framework) für die **DLRG (Deutsche Lebens-Rettungs-Gesellschaft)**. Sie erstellt automatisch Wachpläne für Wasserrettungsdienste über **1–14 Tage**. Der Plan weist Personen fair rotierend auf Türme, Boote und die Hauptwache zu und kann als offizielles **DLRG-XLSX-Formular** exportiert werden.
 
-Einstiegspunkt: `Wachplan-Generator.html` (früher `index.html`).
-Template-Datei: `Wachplan Template.xlsx` (DLRG-Formular, wird gepatcht).
+Einstiegspunkt: `public/Wachplan-Generator.html` (Server serviert `public/` statisch).
+Template-Datei: `public/Wachplan Template.xlsx` (DLRG-Formular, wird gepatcht).
+Backend-Start: `npm start` → `server/server.js`.
 
 ---
 
 ## Dateistruktur
 
-### Frontend (Client-seitig)
-```
-Wachplan-Generator.html   – Layout, CSS (dark theme, CSS-Variables), Script-Ladereihenfolge
-admin.html                – Admin-Panel für User-Verwaltung
+Seit v0.2.8 zweigeteilt: **`public/`** (Frontend, statisch serviert) und **`server/`** (Backend). Root enthält nur noch Pflicht-/Deployment-Dateien.
 
-js/state.js               – Globale Variablen & Datenstrukturen
-js/utils.js               – escapeHtml, showToast, seededRand, Lookup-Helfer (getP/getT/getBoat)
-js/dates.js               – Datumsberechnung (lokale Arithmetik, kein UTC-Shift)
-js/autoCodes.js           – Automatische Stationscodes für Türme/Boote + freshDayState()
-js/seed.js                – Beispieldatensatz (wird beim ersten Start ohne Autosave geladen)
-js/render-sidebar.js      – Sidebar-UI: Personen, Türme, Boote, HW-Boot, XLSX-Spalten-Konfig
-js/generate.js            – KERN-ALGORITHMUS: Wachplan berechnen (Scoring, Rotation)
-js/render-output.js       – Ausgabe-Panel: Tages-Karten, Steuerung, Paarungs-Matrix
-js/export.js              – XLSX- (XML-Patch via JSZip) und CSV-Export
-js/move.js                – Modal zum manuellen Verschieben von Personen (↕-Button)
-js/state-io.js            – Server-Sync statt localStorage (autoSave via PUT /api/plans/:id)
-js/login-modal.js         – Login-Modal UI & Authentication Flow
-js/user-info.js           – User-Info Header, Admin-Panel Link, Plan-Import, Logout
-js/init.js                – Event-Listener + Startsequenz (autoLoad → seed fallback)
+### Root
+```
+package.json / package-lock.json   – Deps + Scripts (start → server/server.js)
+Dockerfile / docker-compose.yml    – Container-Build + Compose (env_file, Anchors, Healthchecks)
+.env.example                       – Env-Vorlage (Secrets via .env, gitignored)
+.gitignore / .dockerignore
+README.md / CLAUDE.md / VERSION
+data/                              – SQLite-DB zur Laufzeit (gitignored)
+docs/                              – DEPLOYMENT.md, PORTAINER.md
+public/  server/                   – Frontend / Backend (s.u.)
 ```
 
-### Backend (Server-seitig)
+### Frontend – `public/`
 ```
-server.js                 – Express.js Server, Session-Setup, Route-Registration
-db/init.js                – SQLite Initialisierung, Schema Migration
-db/schema.sql             – Datenbank Schema (users, plans, sessions)
+public/Wachplan-Generator.html  – Layout, CSS (dark theme), Script-Ladereihenfolge
+public/admin.html               – Admin-Panel UI
+public/Wachplan Template.xlsx   – DLRG-XLSX-Vorlage (per fetch geladen)
+public/js/state.js              – Globale Variablen & Datenstrukturen
+public/js/utils.js              – escapeHtml, showToast, seededRand, Lookup-Helfer
+public/js/dates.js              – Datumsberechnung (lokale Arithmetik, kein UTC-Shift)
+public/js/autoCodes.js          – Automatische Stationscodes + freshDayState()
+public/js/seed.js               – Beispieldatensatz (Fallback ohne Autosave)
+public/js/render-sidebar.js     – Sidebar-UI: Personen, Türme, Boote, HW-Boot, XLSX-Config
+public/js/generate.js           – KERN-ALGORITHMUS: Wachplan berechnen (Scoring, Rotation)
+public/js/render-output.js      – Ausgabe-Panel: Tages-Karten, Steuerung, Matrix
+public/js/export.js             – XLSX- (XML-Patch via JSZip) und CSV-Export
+public/js/move.js               – Modal zum manuellen Verschieben (↕-Button)
+public/js/state-io.js           – Server-Sync (autoSave via PUT /api/plans/:id)
+public/js/login-modal.js        – Login-Modal UI & Auth-Flow
+public/js/user-info.js          – User-Info Header, Admin-Link, Plan-Import, Logout
+public/js/init.js               – Event-Listener + Startsequenz (autoLoad → seed fallback)
+```
 
-api/auth.js               – Authentication Endpoints (login/logout/init/me)
-api/plans.js              – Plan CRUD API mit AES-256-GCM Verschlüsselung
-api/admin.js              – Admin-Endpoints für User-Verwaltung (Admin-only)
-api/import.js             – Plan-Import API für alte .json-Dateien
+### Backend – `server/`
+```
+server/server.js          – Express-Server (Port 3000), Static aus ../public, Route-Registration
+server/admin-server.js    – Admin-Server (Port 3001), gleiches Image, anderer Entry-Point
+server/config.json        – Template-Config (Türme/Boote/exportColumns) → GET /api/config
+server/db/connection.js   – Zentrale SQLite-Verbindung (dbPath → ../../data)
+server/db/init.js         – SQLite-Init, Schema-Migration, Admin-Seed
+server/db/schema.sql      – Schema (users, plans, sessions)
+server/db/crypto.js       – AES-256-GCM + deriveKey (mit Key-Cache pro userId)
+server/db/session.js      – createSessionMiddleware (SQLite-Store, DRY für beide Server)
+server/api/auth.js        – Auth-Endpoints (login/logout/init/me)
+server/api/plans.js       – Plan-CRUD mit Verschlüsselung
+server/api/admin.js       – Admin-Endpoints (Admin-only)
+server/api/import.js      – Plan-Import für alte .json-Dateien
 ```
 
-### Configuration
-```
-.env                      – Environment-Variablen (MASTER_SECRET, SALT, SESSION_SECRET)
-.env.example              – Template für .env
-.gitignore                – Git-Ignore (node_modules, .env, /data)
-Dockerfile                – Multi-stage Build für Production
-docker-compose.yml        – Production-Ready Docker Compose Config
-DEPLOYMENT.md             – Deployment-Anleitung für Docker
-```
+**Pfad-Konvention:** Backend liegt in `server/`, daher zeigen Daten/Public-Pfade via `..` nach Root (`server/server.js` → `../public`, `../data`, `../VERSION`; `server/db/*` → `../../data`). Interne `require('./api/…')`/`require('./db/…')` bleiben relativ.
 
 **Script-Ladereihenfolge beachten:** state → utils → dates → autoCodes → seed → render-sidebar → generate → render-output → export → move → state-io → user-info → login-modal → init
 

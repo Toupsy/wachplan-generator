@@ -6,7 +6,7 @@
 const sqlite3 = require('sqlite3');
 const path = require('path');
 
-const dbPath = path.join(__dirname, '..', 'data', 'wachplan.db');
+const dbPath = path.join(__dirname, '..', '..', 'data', 'wachplan.db');
 let db = null;
 
 function getDb() {

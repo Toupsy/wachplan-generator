@@ -11,7 +11,7 @@ const path = require('path');
 // Ensure data directory exists
 const dataDir = process.env.DATABASE_PATH
   ? path.dirname(process.env.DATABASE_PATH)
-  : path.join(__dirname, '..', 'data');
+  : path.join(__dirname, '..', '..', 'data');
 
 console.log('📂 __dirname:', __dirname);
 console.log('📂 dataDir:', dataDir);

@@ -34,7 +34,7 @@ services:
   wachplan-admin:
     <<: *wachplan-base
     container_name: dlrg-wachplan-admin
-    command: node admin-server.js
+    command: node server/admin-server.js
     environment:
       ADMIN_PORT: "3001"               # service-spezifisch, kein Secret
     ports:

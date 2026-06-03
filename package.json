@@ -2,12 +2,12 @@
   "name": "dlrg-wachplan-generator",
   "version": "2.0.0",
   "description": "Single-Page Application für automatische DLRG Wachplangeneration",
-  "main": "server.js",
+  "main": "server/server.js",
   "scripts": {
-    "start": "node server.js",
-    "start:admin": "node admin-server.js",
-    "dev": "node server.js",
-    "dev:admin": "node admin-server.js"
+    "start": "node server/server.js",
+    "start:admin": "node server/admin-server.js",
+    "dev": "node server/server.js",
+    "dev:admin": "node server/admin-server.js"
   },
   "keywords": [
     "DLRG",

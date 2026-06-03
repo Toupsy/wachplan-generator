@@ -37,7 +37,7 @@ async function start() {
     console.log('✓ Database ready');
 
     // Session middleware (SQLite-Store, zentral in db/session.js)
-    const dbPath = path.join(__dirname, 'data', 'wachplan.db');  // für Log unten
+    const dbPath = path.join(__dirname, '..', 'data', 'wachplan.db');  // für Log unten
     app.use(createSessionMiddleware({ resave: false, saveUninitialized: false }));
 
     // Register API routes AFTER session middleware
@@ -47,11 +47,11 @@ async function start() {
     console.log('✓ Admin API routes registered');
 
     // Admin Panel UI (Static)
-    app.use(express.static(path.join(__dirname, '.')));
+    app.use(express.static(path.join(__dirname, '..', 'public')));
 
     // Admin Panel Route
     app.get('/', (req, res) => {
-      res.sendFile(path.join(__dirname, 'admin.html'));
+      res.sendFile(path.join(__dirname, '..', 'public', 'admin.html'));
     });
 
     // Redirect /admin.html to root

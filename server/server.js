@@ -39,7 +39,7 @@ app.get('/health', (req, res) => {
 // ── Server starten ────────────────────────────────────────────
 async function start() {
   try {
-    const dbPath = path.join(__dirname, 'data', 'wachplan.db');
+    const dbPath = path.join(__dirname, '..', 'data', 'wachplan.db');
 
     // Initialize database FIRST
     await initDatabase();
@@ -58,7 +58,7 @@ async function start() {
 
     // Version endpoint (public, no auth needed)
     app.get('/api/version', (req, res) => {
-      const versionPath = path.join(__dirname, 'VERSION');
+      const versionPath = path.join(__dirname, '..', 'VERSION');
       try {
         const version = fs.readFileSync(versionPath, 'utf-8').trim();
         res.json({ version });
@@ -82,11 +82,11 @@ async function start() {
     console.log('✓ API routes registered');
 
     // Register static files and SPA routes AFTER API routes
-    app.use(express.static(path.join(__dirname, '.')));
+    app.use(express.static(path.join(__dirname, '..', 'public')));
 
     // SPA-Route: Immer index/main servieren
     app.get('/', (req, res) => {
-      res.sendFile(path.join(__dirname, 'Wachplan-Generator.html'));
+      res.sendFile(path.join(__dirname, '..', 'public', 'Wachplan-Generator.html'));
     });
 
     // 404 Handler (NACH all anderen routes)
