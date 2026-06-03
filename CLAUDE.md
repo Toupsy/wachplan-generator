@@ -786,10 +786,29 @@ Reine Performance-/Qualitäts-Optimierungen ohne Verhaltensänderung. Verifizier
 - `cardDragMode` jetzt korrekt mit `let` deklariert (war impliziter Global)
 - Totes `cardSortOrder`-Objekt entfernt
 
-**Bewusst NICHT geändert (Empfehlungen):**
-- `api/plans.js` `deriveKey()`: PBKDF2 100k pro Save/Load (autoSave nach jedem generate). Cachebar pro userId (Memory-Map), aber Security-relevant → Nutzer-Entscheidung
-- render-output.js Occupant-Markup ~4× dupliziert → könnte in einen Helper; bewusst nicht angefasst, da D&D gerade frisch stabilisiert
-- `admin-server.js` dupliziert viel von `server.js` (eigener Entry-Point via `npm run start:admin`)
+Die drei in dieser Version offen gelassenen Empfehlungen (PBKDF2-Cache, Backend-Dedup, Occupant-Helper) wurden in **v0.2.6** umgesetzt.
+
+---
+
+## Session Fixes v0.2.6 (Backend-Dedup + Crypto-Cache + Occupant-Helper)
+
+Umsetzung der drei in v0.2.5 offen gelassenen Empfehlungen. Alle verhaltens-erhaltend, verifiziert.
+
+**1. Crypto zentralisiert + Key-Caching → [db/crypto.js](db/crypto.js) (neu):**
+- `deriveKey`/`encryptPlanState`/`decryptPlanState` waren **byte-identisch dupliziert** in `api/plans.js` + `api/import.js` → jetzt zentral importiert
+- `deriveKey` cached den abgeleiteten Key pro userId (`_keyCache` Map). PBKDF2 100k läuft sonst bei JEDEM Save/Load (autoSave nach jedem generate). **Messung: 15.83ms → 0.00014ms (~109.000×)** nach dem ersten Aufruf pro User
+- Security unkritisch: MASTER_SECRET/SALT liegen ohnehin im Prozessspeicher (env); max ~32 B/User
+- Verifiziert: Roundtrip identisch (inkl. Unicode), falscher User → Entschlüsselung schlägt fehl (Auth-Tag)
+
+**2. Session-Setup zentralisiert → [db/session.js](db/session.js) (neu):**
+- `createSessionMiddleware({resave, saveUninitialized})` ersetzt dupliziertes SqliteStore+Session-Setup in `server.js` (true/true) und `admin-server.js` (false/false)
+- `dbPath` aus `db/connection.js` wiederverwendet statt 3× `path.join(...)`
+- Verifiziert: beide Server booten korrekt (`node server.js` + `node admin-server.js`)
+
+**3. Occupant-Markup dedupliziert (render-output.js):**
+- `renderOccupant(p, label, kind, slotId)` ersetzt 3 nahezu identische `.occupant`-HTML-Blöcke (main-`occ`, Turm, `renderInlineBoat`)
+- Alle D&D-/Move-Attribute exakt erhalten (inkl. main `data-move-slot=''` bei `slotId=MAIN_ID`)
+- 764 → 751 Zeilen; verifiziert: alle Occupants draggable, Move-Buttons + Boot-D&D + Inline-Boote funktional, 0 Invarianten-Fehler
 
 ---
 

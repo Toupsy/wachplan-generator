@@ -7,8 +7,7 @@ require('dotenv').config();
 
 const express = require('express');
 const path = require('path');
-const session = require('express-session');
-const SqliteStore = require('connect-sqlite3')(session);
+const { createSessionMiddleware } = require('./db/session');
 const { initDatabase, validateEnv } = require('./db/init');
 const authApi = require('./api/auth');
 const adminApi = require('./api/admin');
@@ -37,31 +36,9 @@ async function start() {
     await initDatabase();
     console.log('✓ Database ready');
 
-    // THEN initialize session store
-    const dbPath = path.join(__dirname, 'data', 'wachplan.db');
-    const sessionStore = new SqliteStore({
-      db: dbPath,
-      mode: 0o666
-    });
-
-    // Handle session store errors gracefully
-    sessionStore.on('error', (err) => {
-      console.warn('⚠ Session store error (continuing):', err.message);
-    });
-
-    // Session middleware – secure:false weil der Proxy HTTPS terminiert
-    app.use(session({
-      store: sessionStore,
-      secret: process.env.SESSION_SECRET,
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        secure: false,
-        httpOnly: true,
-        sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-      }
-    }));
+    // Session middleware (SQLite-Store, zentral in db/session.js)
+    const dbPath = path.join(__dirname, 'data', 'wachplan.db');  // für Log unten
+    app.use(createSessionMiddleware({ resave: false, saveUninitialized: false }));
 
     // Register API routes AFTER session middleware
     console.log('Registering admin API routes...');

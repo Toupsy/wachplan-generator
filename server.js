@@ -10,8 +10,7 @@ require('dotenv').config();  // Lade .env Datei
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const session = require('express-session');
-const SqliteStore = require('connect-sqlite3')(session);
+const { createSessionMiddleware } = require('./db/session');
 const { initDatabase, validateEnv } = require('./db/init');
 const authApi = require('./api/auth');
 const plansApi = require('./api/plans');
@@ -46,35 +45,9 @@ async function start() {
     await initDatabase();
     console.log('✓ Database ready');
 
-    // THEN initialize session store - use same path
-    // NOTE: sqlite3 handles concurrent connections via WAL mode
-    const sessionStore = new SqliteStore({
-      db: dbPath,
-      mode: parseInt('0666', 8)  // rw-rw-rw- permissions
-    });
-
-    console.log('📦 Session store initialized with:', dbPath);
-
-    // Handle session store errors gracefully
-    sessionStore.on('error', (err) => {
-      console.warn('⚠ Session store error (continuing):', err.message);
-    });
-
-    // Session middleware – secure:false weil der Proxy HTTPS terminiert
-    // und intern über HTTP weiterleitet. Cookies funktionieren trotzdem
-    // unter HTTPS, da der Secure-Flag nur HTTPS→HTTP verhindert.
-    app.use(session({
-      store: sessionStore,
-      secret: process.env.SESSION_SECRET,
-      resave: true,  // Force save on every request for SQLite reliability
-      saveUninitialized: true,  // Save even uninitialized sessions
-      cookie: {
-        secure: false,
-        httpOnly: true,
-        sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-      }
-    }));
+    // Session middleware (SQLite-Store, zentral in db/session.js).
+    // resave/saveUninitialized=true für SQLite-Reliability.
+    app.use(createSessionMiddleware({ resave: true, saveUninitialized: true }));
 
     // Register API routes AFTER session middleware
     console.log('Registering API routes...');

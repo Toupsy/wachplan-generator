@@ -5,8 +5,8 @@
 
 const express = require('express');
 const router = express.Router();
-const crypto = require('crypto');
 const { dbRun } = require('../db/connection');
+const { encryptPlanState } = require('../db/crypto');
 
 // ───────────────────────────────────────────────────────────
 // Authentication Middleware
@@ -20,35 +20,7 @@ const authMiddleware = (req, res, next) => {
 
 router.use(authMiddleware);
 
-// ───────────────────────────────────────────────────────────
-// Encryption Helpers (same as api/plans.js)
-// ───────────────────────────────────────────────────────────
-function deriveKey(userId) {
-  return crypto.pbkdf2Sync(
-    userId + process.env.MASTER_SECRET,
-    process.env.SALT,
-    100000,
-    32,
-    'sha256'
-  );
-}
-
-function encryptPlanState(plainJSON, userId) {
-  const key = deriveKey(userId);
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-
-  const encrypted = Buffer.concat([
-    cipher.update(plainJSON, 'utf8'),
-    cipher.final()
-  ]);
-
-  return {
-    encrypted,
-    iv,
-    authTag: cipher.getAuthTag()
-  };
-}
+// Verschlüsselung: siehe db/crypto.js (zentral, mit Key-Caching)
 
 // ───────────────────────────────────────────────────────────
 // POST /api/import/plans – Alte JSON-Pläne importieren

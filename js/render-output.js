@@ -231,19 +231,26 @@ function renderOutput(){
       }
     });
 
+    // Einheitlicher Occupant-Renderer (Turm, Boot, Hauptwache).
+    // label=null → Standardrolle ROLE[p.role]. data-move-slot nutzt slotId||''
+    // (MAIN_ID=0 → '' wie zuvor; Move-Modal behandelt HW gesondert).
+    const renderOccupant = (p, label, kind, slotId) => `
+          <div class="occupant" draggable="true" data-person-id="${p.id}" data-source-kind="${kind}" data-source-slot="${slotId}">
+            <i class="role-dot rd-${p.role.toLowerCase()}"></i>${escapeHtml(p.name)}
+            ${forcedIds.has(p.id)?'<span class="forced-badge" title="Manuell fixiert">🔒</span>':''}
+            <span class="o-role">${label||ROLE[p.role]}</span>
+            <button class="move-btn" data-move-person="${p.id}" data-move-day="${di}"
+              data-move-kind="${kind}" data-move-slot="${slotId||''}" title="Verschieben">↕</button>
+          </div>`;
+
     // Inline-Boot-Renderer (wie HW-Boot in der Hauptwache)
     const renderInlineBoat = (bsList) => {
       if(!bsList || !bsList.length) return '';
       return bsList.map(bs => `
         <div class="hq-divider boat-inline" draggable="true" data-boat-id="${bs.boatId}" data-boat-name="${escapeHtml(bs.name)}" data-boat-code="${escapeHtml(bs.code||'?')}" title="Ziehen um Boot auf anderen Turm/HW zu verschieben">🚤 Boot: ${escapeHtml(bs.name)} · ${escapeHtml(bs.code||'?')}</div>
-        ${(bs.occupants && bs.occupants.length) ? bs.occupants.map(p=>`
-          <div class="occupant" draggable="true" data-person-id="${p.id}" data-source-kind="boat" data-source-slot="${bs.boatId}">
-            <i class="role-dot rd-${p.role.toLowerCase()}"></i>${escapeHtml(p.name)}
-            ${forcedIds.has(p.id)?'<span class="forced-badge" title="Manuell fixiert">🔒</span>':''}
-            <span class="o-role">Bootsführer</span>
-            <button class="move-btn" data-move-person="${p.id}" data-move-day="${di}"
-              data-move-kind="boat" data-move-slot="${bs.boatId}" title="Verschieben">↕</button>
-          </div>`).join('') : '<div style="color:var(--coral);font-size:.78rem;padding:6px 0">⚠ Kein Bootsführer verfügbar</div>'}`).join('');
+        ${(bs.occupants && bs.occupants.length)
+          ? bs.occupants.map(p => renderOccupant(p, 'Bootsführer', 'boat', bs.boatId)).join('')
+          : '<div style="color:var(--coral);font-size:.78rem;padding:6px 0">⚠ Kein Bootsführer verfügbar</div>'}`).join('');
     };
 
     html += `<div class="towers-grid">`;
@@ -252,21 +259,12 @@ function renderOutput(){
       if(slot.kind === 'boat') return;
       // ─ Hauptwache ─
       if(slot.kind === 'main'){
-        const occ = (p, lbl, kind, slotId) => `
-          <div class="occupant" draggable="true" data-person-id="${p.id}" data-source-kind="${kind}" data-source-slot="${slotId}">
-            <i class="role-dot rd-${p.role.toLowerCase()}"></i>
-            ${escapeHtml(p.name)}
-            ${forcedIds.has(p.id)?'<span class="forced-badge" title="Manuell fixiert">🔒</span>':''}
-            <span class="o-role">${lbl||ROLE[p.role]}</span>
-            <button class="move-btn" data-move-person="${p.id}" data-move-day="${di}"
-              data-move-kind="${kind}" data-move-slot="${slotId||''}" title="Verschieben">↕</button>
-          </div>`;
         html += `<div class="tower-card main" style="grid-column:span 2;" data-drop-kind="main" data-drop-slot="${MAIN_ID}">
           <div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="main" data-card-slot="${MAIN_ID}" title="Zum Sortieren ziehen"><span class="tc-name">⛱ ${slot.tower}</span><span class="tc-type main">Zentrale · k=${slot.k}</span></div>
-          ${slot.fuehrung.map(p=>occ(p,'Führung','main',MAIN_ID)).join('')}
-          ${slot.mainGuards.map(p=>occ(p,p.role==='E'?'Erfahren · HW':'Unerf. · HW','main',MAIN_ID)).join('')}
-          ${slot.base.map(p=>occ(p,p.role==='E'?'Erfahren · HW':'Unerf. · HW','main',MAIN_ID)).join('')}
-          ${slot.bootsfLeft.map(p=>occ(p,'Bootsführer · HW','main',MAIN_ID)).join('')}
+          ${slot.fuehrung.map(p=>renderOccupant(p,'Führung','main',MAIN_ID)).join('')}
+          ${slot.mainGuards.map(p=>renderOccupant(p,p.role==='E'?'Erfahren · HW':'Unerf. · HW','main',MAIN_ID)).join('')}
+          ${slot.base.map(p=>renderOccupant(p,p.role==='E'?'Erfahren · HW':'Unerf. · HW','main',MAIN_ID)).join('')}
+          ${slot.bootsfLeft.map(p=>renderOccupant(p,'Bootsführer · HW','main',MAIN_ID)).join('')}
           ${renderInlineBoat(boatsByTower['HW'])}
           ${slot.sick.map(p=>`<div class="occupant" style="opacity:.55"><i class="role-dot rd-${p.role.toLowerCase()}"></i><span style="text-decoration:line-through">${escapeHtml(p.name)}</span><span class="o-role" style="color:var(--coral)">krank</span></div>`).join('')}
         </div>`;
@@ -275,14 +273,7 @@ function renderOutput(){
       else if(slot.kind === 'tower'){
         html += `<div class="tower-card" data-drop-kind="tower" data-drop-slot="${slot.towerId}">
           <div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="tower" data-card-slot="${slot.towerId}" title="Zum Sortieren ziehen"><span class="tc-name">🗼 ${escapeHtml(slot.tower)}</span><span class="tc-type normal">Turm · ${escapeHtml(slot.code||'?')} · P${slot.prio}</span></div>
-          ${slot.occupants.map(p=>`
-            <div class="occupant" draggable="true" data-person-id="${p.id}" data-source-kind="tower" data-source-slot="${slot.towerId}">
-              <i class="role-dot rd-${p.role.toLowerCase()}"></i>${escapeHtml(p.name)}
-              ${forcedIds.has(p.id)?'<span class="forced-badge" title="Manuell fixiert">🔒</span>':''}
-              <span class="o-role">${ROLE[p.role]}</span>
-              <button class="move-btn" data-move-person="${p.id}" data-move-day="${di}"
-                data-move-kind="tower" data-move-slot="${slot.towerId}" title="Verschieben">↕</button>
-            </div>`).join('')}
+          ${slot.occupants.map(p=>renderOccupant(p, null, 'tower', slot.towerId)).join('')}
           ${slot.warn?`<div class="warn-pair">⚠ ${slot.warn}</div>`:''}
           ${renderInlineBoat(boatsByTower[slot.towerId])}
         </div>`;

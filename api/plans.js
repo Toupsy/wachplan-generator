@@ -9,8 +9,8 @@
 
 const express = require('express');
 const router = express.Router();
-const crypto = require('crypto');
 const { dbRun, dbGet, dbAll } = require('../db/connection');
+const { encryptPlanState, decryptPlanState } = require('../db/crypto');
 
 // ───────────────────────────────────────────────────────────
 // Authentication Middleware
@@ -24,43 +24,7 @@ const authMiddleware = (req, res, next) => {
 
 router.use(authMiddleware);
 
-// ───────────────────────────────────────────────────────────
-// Encryption Helpers
-// ───────────────────────────────────────────────────────────
-function deriveKey(userId) {
-  return crypto.pbkdf2Sync(
-    userId + process.env.MASTER_SECRET,
-    process.env.SALT,
-    100000,
-    32,
-    'sha256'
-  );
-}
-
-function encryptPlanState(plainJSON, userId) {
-  const key = deriveKey(userId);
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-
-  const encrypted = Buffer.concat([
-    cipher.update(plainJSON, 'utf8'),
-    cipher.final()
-  ]);
-
-  return {
-    encrypted,
-    iv,
-    authTag: cipher.getAuthTag()
-  };
-}
-
-function decryptPlanState(encrypted, iv, authTag, userId) {
-  const key = deriveKey(userId);
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-  decipher.setAuthTag(authTag);
-
-  return decipher.update(encrypted) + decipher.final('utf8');
-}
+// Verschlüsselung: siehe db/crypto.js (zentral, mit Key-Caching)
 
 // ───────────────────────────────────────────────────────────
 // GET /api/plans – Alle Pläne des Users auflisten
