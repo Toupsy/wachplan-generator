@@ -300,6 +300,11 @@ function generate(startDay = 0){
       const cand   = getGuardPool();
       const isMain = t.id === MAIN_ID;
       let best = null, bestScore = Infinity;
+      // Feature 13: BF mit bfLevel wird als E/U behandelt (nur für Türm-Zuweisen)
+      const getEffectiveRole = (person) => {
+        if(person.role === 'B' && person.bfLevel) return person.bfLevel;  // 'E' oder 'U'
+        return person.role;
+      };
       // Feature 8: Personen die GESTERN auf diesem Turm waren einmalig vorberechnen
       // (statt pro Paar erneut den Vortag zu durchsuchen → O(n²·m) ⇒ O(m + n²))
       let prevTowerSet = null;
@@ -309,7 +314,7 @@ function generate(startDay = 0){
       }
       for(let i = 0; i < cand.length; i++){
         for(let j = i + 1; j < cand.length; j++){
-          const A = cand[i], B = cand[j], roles = A.role + B.role;
+          const A = cand[i], B = cand[j], roles = getEffectiveRole(A) + getEffectiveRole(B);
           const sA = ensure(A.id), sB = ensure(B.id);
           let score = 0;
           if(requireMix){
@@ -434,9 +439,20 @@ function generate(startDay = 0){
           pairsAdded++;
         } else {
           const cand = getGuardPool().sort((a,b) => {
-            let s = (ensure(a.id).total - ensure(b.id).total);
-            s += surplusBFPenalty(a, t) - surplusBFPenalty(b, t);
-            return s;
+            const getEffectiveRole = (p) => p.role === 'B' && p.bfLevel ? p.bfLevel : p.role;
+            let scoreA = ensure(a.id).total + surplusBFPenalty(a, t);
+            let scoreB = ensure(b.id).total + surplusBFPenalty(b, t);
+            // Feature 13a: Wenn bereits zwei Unerfahrene auf Turm → BF-U Penalty, BF-E Bonus
+            const occupantRoles = slot.occupants.map(occ => getEffectiveRole(occ)).join('');
+            if(occupantRoles === 'UU'){
+              const aEffRole = getEffectiveRole(a);
+              const bEffRole = getEffectiveRole(b);
+              if(aEffRole === 'U') scoreA += 500;  // BF-U mit zwei U = 500 Penalty
+              if(aEffRole === 'E') scoreA -= 200; // BF-E mit zwei U = 200 Bonus (gleicht aus)
+              if(bEffRole === 'U') scoreB += 500;
+              if(bEffRole === 'E') scoreB -= 200;
+            }
+            return scoreA - scoreB;
           });
           if(!cand[0]) break;
           slot.occupants.push(cand[0]);
@@ -510,11 +526,7 @@ function generate(startDay = 0){
         scoreB += (sb.boatVisits[bo.id] || 0) * 50;
         scoreA -= (sa.hwVisits || 0) * 10;
         scoreB -= (sb.hwVisits || 0) * 10;
-        // Feature 13: BF-E bevorzugt, BF-U disfavored
-        if(a.bfLevel === 'E') scoreA -= 50;
-        else if(a.bfLevel === 'U') scoreA += 50;
-        if(b.bfLevel === 'E') scoreB -= 50;
-        else if(b.bfLevel === 'U') scoreB += 50;
+        // Feature 13: bfLevel hat KEINE Auswirkung auf Boot-Rotation (nur auf Turm-Zuweisen)
         return scoreA - scoreB || (a.id - b.id);
       });
 
