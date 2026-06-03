@@ -57,9 +57,10 @@ const addPersonBtn = document.getElementById('add-person');
 if(addPersonBtn) addPersonBtn.onclick = () => {
   people.push({ id:++uid, name:'', role:'E' });
   renderPeople();
+  scheduleAutoSave();
 };
 document.querySelectorAll('.quick-add button').forEach(b =>
-  b.onclick = () => { people.push({ id:++uid, name:'', role:b.dataset.role }); renderPeople(); });
+  b.onclick = () => { people.push({ id:++uid, name:'', role:b.dataset.role }); renderPeople(); scheduleAutoSave(); });
 
 // ── Sidebar – Türme & Boote ──────────────────────────────────────
 const addTowerBtn = document.getElementById('add-tower');
@@ -67,13 +68,23 @@ if(addTowerBtn) addTowerBtn.onclick = () => {
   const minP = towers.length ? Math.min(...towers.map(t=>t.prio)) : 1;
   towers.push({ id:++uid, name:`Turm ${towers.length+1}`, prio:Math.max(1,minP), code:'' });
   renderTowerCfg(); renderBoatCfg(); renderPositionDescUI(); renderHWBoatSelector();
+  scheduleAutoSave();
 };
 const addBoatBtn = document.getElementById('add-boat');
 if(addBoatBtn) addBoatBtn.onclick = () => {
   const minP = boats.length ? Math.min(...boats.map(b=>b.prio)) : (towers[0]?.prio||1);
   boats.push({ id:++uid, name:`Boot ${boats.length+1}`, code:'', towerId:towers[0]?.id||null, prio:minP });
   renderBoatCfg(); renderHWBoatSelector();
+  scheduleAutoSave();
 };
+
+// ── Autosave bei JEDER Sidebar-Eingabe (Namen, Rollen, Codes, Prios, k, Tage, …) ──
+// Programmatisches Setzen von .value löst kein input/change aus → nur echte Nutzer-Edits.
+const _sidebarEl = document.querySelector('.sidebar');
+if(_sidebarEl){
+  _sidebarEl.addEventListener('input',  () => scheduleAutoSave());
+  _sidebarEl.addEventListener('change', () => scheduleAutoSave());
+}
 
 // ── Sidebar – Hauptwache ─────────────────────────────────────────
 const mainKInput = document.getElementById('main-k');

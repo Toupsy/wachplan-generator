@@ -34,6 +34,7 @@ function renderPeople(){
         if(idx >= 0) fp.splice(idx, 1);
       });
       renderPeople();
+      scheduleAutoSave();
     });
 }
 
@@ -178,6 +179,7 @@ function renderTowerCfg(){
         toRemove.forEach(f => fp.splice(fp.indexOf(f), 1));
       });
       renderTowerCfg(); renderBoatCfg(); renderPositionDescUI(); renderHWBoatSelector();
+      scheduleAutoSave();
     });
 }
 
@@ -310,6 +312,7 @@ function renderBoatCfg(){
         toRemove.forEach(f => fp.splice(fp.indexOf(f), 1));
       });
       renderBoatCfg(); renderHWBoatSelector();
+      scheduleAutoSave();
     });
 }
 

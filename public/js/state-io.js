@@ -8,6 +8,15 @@ const STORAGE_KEY   = 'dlrg_wachplan_autosave';  // Fallback für offline
 // Globale Variablen für Server-Sync
 let currentPlanId = null;  // Die aktuell bearbeitete Plan-ID
 let currentPlanName = 'Wachplan';  // Name des aktuellen Plans
+let currentPlanCanEdit = true;     // false = Nur-Lese (view-Mitbearbeiter) → kein Speichern
+
+// Debounced Autosave: bei jeder Änderung aufrufen, speichert gebündelt nach kurzer Pause.
+let _autoSaveTimer = null;
+function scheduleAutoSave(delay = 1200){
+  if(currentPlanCanEdit === false) return;
+  if(_autoSaveTimer) clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(() => { _autoSaveTimer = null; autoSave(); }, delay);
+}
 
 /**
  * Serialisiert den kompletten Anwendungsstatus als JSON-Blob
@@ -139,7 +148,11 @@ function importStateJSON(json, silent = false){
 
 // ── Server-Synchronisation ────────────────────────────
 
+let _saving = false, _saveQueued = false;
 async function autoSave(){
+  if(currentPlanCanEdit === false) return;   // Nur-Lese-Zugriff: nicht speichern
+  if(_saving){ _saveQueued = true; return; } // Läuft schon → einen Nachlauf einplanen
+  _saving = true;
   const state = _buildStateObject();
 
   try {
@@ -183,6 +196,9 @@ async function autoSave(){
   } catch(error) {
     console.error('autoSave error:', error);
     _fallbackSaveToStorage(state);  // Fallback auf localStorage
+  } finally {
+    _saving = false;
+    if(_saveQueued){ _saveQueued = false; scheduleAutoSave(50); }  // zwischenzeitliche Änderung nachspeichern
   }
 }
 
@@ -241,6 +257,7 @@ async function autoLoad(){
 
     currentPlanId = planData.id;
     currentPlanName = planData.name;
+    currentPlanCanEdit = planData.canEdit !== false;  // view-Mitbearbeiter: nur lesen
 
     // Importiere die dekryptierten Daten
     // Note: planData.state ist bereits ein String (JSON) von der API
