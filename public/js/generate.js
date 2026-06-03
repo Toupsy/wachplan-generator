@@ -439,9 +439,20 @@ function generate(startDay = 0){
           pairsAdded++;
         } else {
           const cand = getGuardPool().sort((a,b) => {
-            let s = (ensure(a.id).total - ensure(b.id).total);
-            s += surplusBFPenalty(a, t) - surplusBFPenalty(b, t);
-            return s;
+            const getEffectiveRole = (p) => p.role === 'B' && p.bfLevel ? p.bfLevel : p.role;
+            let scoreA = ensure(a.id).total + surplusBFPenalty(a, t);
+            let scoreB = ensure(b.id).total + surplusBFPenalty(b, t);
+            // Feature 13a: Wenn bereits zwei Unerfahrene auf Turm → BF-U Penalty, BF-E Bonus
+            const occupantRoles = slot.occupants.map(occ => getEffectiveRole(occ)).join('');
+            if(occupantRoles === 'UU'){
+              const aEffRole = getEffectiveRole(a);
+              const bEffRole = getEffectiveRole(b);
+              if(aEffRole === 'U') scoreA += 500;  // BF-U mit zwei U = 500 Penalty
+              if(aEffRole === 'E') scoreA -= 200; // BF-E mit zwei U = 200 Bonus (gleicht aus)
+              if(bEffRole === 'U') scoreB += 500;
+              if(bEffRole === 'E') scoreB -= 200;
+            }
+            return scoreA - scoreB;
           });
           if(!cand[0]) break;
           slot.occupants.push(cand[0]);
