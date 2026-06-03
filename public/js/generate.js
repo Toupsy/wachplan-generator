@@ -510,6 +510,11 @@ function generate(startDay = 0){
         scoreB += (sb.boatVisits[bo.id] || 0) * 50;
         scoreA -= (sa.hwVisits || 0) * 10;
         scoreB -= (sb.hwVisits || 0) * 10;
+        // Feature 13: BF-E bevorzugt, BF-U disfavored
+        if(a.bfLevel === 'E') scoreA -= 50;
+        else if(a.bfLevel === 'U') scoreA += 50;
+        if(b.bfLevel === 'E') scoreB -= 50;
+        else if(b.bfLevel === 'U') scoreB += 50;
         return scoreA - scoreB || (a.id - b.id);
       });
 

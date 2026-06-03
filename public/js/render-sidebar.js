@@ -17,6 +17,10 @@ function renderPeople(){
         <option value="E" ${p.role==='E'?'selected':''}>Erfahren</option>
         <option value="U" ${p.role==='U'?'selected':''}>Unerfahren</option>
       </select>
+      ${p.role==='B' ? `<select data-id="${p.id}" class="bf-level" title="BF Erfahrungslevel">
+        <option value="E" ${p.bfLevel==='E'?'selected':''}>BF-E</option>
+        <option value="U" ${p.bfLevel==='U'?'selected':''}>BF-U</option>
+      </select>` : ''}
       <button class="mini-btn del-p" data-id="${p.id}">×</button>`;
     c.appendChild(row);
   });
@@ -24,6 +28,8 @@ function renderPeople(){
     i.oninput = e => { getP(+e.target.dataset.id).name = e.target.value; });
   c.querySelectorAll('.prole').forEach(s =>
     s.onchange = e => { getP(+e.target.dataset.id).role = e.target.value; renderPeople(); });
+  c.querySelectorAll('.bf-level').forEach(s =>
+    s.onchange = e => { getP(+e.target.dataset.id).bfLevel = e.target.value; });
   c.querySelectorAll('.del-p').forEach(b =>
     b.onclick = e => {
       const id = +e.target.dataset.id;
@@ -220,6 +226,10 @@ function renderBoatCfg(){
           <label>CODE</label>
           <input type="text" value="${escapeHtml(b.code||'')}" data-id="${b.id}" class="bcode" placeholder="78/x" draggable="false">
         </span>
+        <span class="prio-input">
+          <label>PRIO</label>
+          <input type="number" min="1" value="${b.prio}" data-id="${b.id}" class="bprio" draggable="false">
+        </span>
         <select class="bassign" data-id="${b.id}" style="flex:1;min-width:0" draggable="false">${towerOpts}</select>
         <div class="slot-spinner">
           <button class="slot-btn slot-minus" data-id="${b.id}" data-type="boat">−</button>
@@ -296,6 +306,8 @@ function renderBoatCfg(){
   });
   c.querySelectorAll('.bcode').forEach(i =>
     i.oninput = e => { getBoat(+e.target.dataset.id).code = e.target.value.trim(); });
+  c.querySelectorAll('.bprio').forEach(i =>
+    i.oninput = e => { getBoat(+e.target.dataset.id).prio = Math.max(1, +e.target.value||1); });
   c.querySelectorAll('.bassign').forEach(s =>
     s.onchange = e => {
       const boat = getBoat(+e.target.dataset.id);

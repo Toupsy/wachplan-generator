@@ -36,7 +36,11 @@ function _buildStateObject(){
     positionDescriptions: { ...positionDescriptions },
     fairnessMetricsDisplay: { ...fairnessMetricsDisplay },
     exportColumns:        [...exportColumns],
-    people:               people.map(p => ({ ...p })),
+    people:               people.map(p => {
+      const obj = { ...p };
+      if(p.role === 'B' && !obj.bfLevel) obj.bfLevel = 'E';  // Default BF-E
+      return obj;
+    }),
     towers:               towers.map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0 })),
     boats:                boats.map(b => ({ ...b, slotCount: b.slotCount || 1 })),
     dayState: dayState.map(d => ({
