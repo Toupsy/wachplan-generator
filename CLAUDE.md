@@ -667,12 +667,19 @@ PUT    /api/auth/password – { currentPassword, newPassword } → eigenes PW ä
 
 #### Plans (Authenticated)
 ```
-GET    /api/plans         – List user's plans
-POST   /api/plans         – { name, state } → Create encrypted plan
-GET    /api/plans/:id     – Decrypt & return plan
-PUT    /api/plans/:id     – { state, name } → Update & re-encrypt
-DELETE /api/plans/:id     – Delete plan
+GET    /api/plans                  – Eigene + geteilte Pläne (isOwner, ownerName)
+POST   /api/plans                  – { name, state } → Create encrypted plan
+GET    /api/plans/:id              – Decrypt & return (role, canEdit) – Owner ODER Mitbearbeiter
+PUT    /api/plans/:id              – { state, name } → Update (Owner/edit-Mitbearbeiter; view → 403)
+DELETE /api/plans/:id              – Delete plan (nur Owner)
+GET    /api/plans/:id/shares       – Mitbearbeiter auflisten (Owner/Mitbearbeiter)
+POST   /api/plans/:id/share        – { username, role:'edit'|'view' } → teilen (nur Owner, upsert)
+DELETE /api/plans/:id/share/:userId – Mitbearbeiter entfernen (nur Owner)
 ```
+
+**Plan-Sharing (v0.2.11):** Tabelle `plan_shares(plan_id, user_id, role)`. Zugriff = Owner ODER `plan_shares`-Eintrag. **Verschlüsselung immer mit dem Owner-Key** (`plans.user_id` → `deriveKey`), serverseitig ableitbar → kein Re-Encrypt beim Teilen; `getPlanAccess()` gated. Auswahl per **exaktem Benutzernamen** (privacy: keine User-Enumeration). UI: `public/js/share.js` + `#share-modal` (👥 Plan teilen). Rollen: `edit` (Default) / `view` (PUT → 403, `canEdit:false`).
+
+**Druckansicht (v0.2.11):** `@media print` (A4 landscape) – jeder Tag = genau eine Seite (`.day-panel { page-break-after:always; break-inside:avoid }`), hell/kompakt; Sidebar/Tabs/Stats/Matrix (`.out-extras`)/Banner/Steuerung ausgeblendet, Tages-Kopf (`.dc-head`: Datum) bleibt.
 
 #### Import (Authenticated)
 ```

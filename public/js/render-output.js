@@ -294,8 +294,8 @@ function renderOutput(){
     html += `</div></div>`;
   });
 
-  html += renderTowerStatsPerPerson();
-  html += renderMatrix();
+  // Zusatz-Auswertungen (im Druck ausgeblendet via .out-extras)
+  html += `<div class="out-extras">${renderTowerStatsPerPerson()}${renderMatrix()}</div>`;
   panel.innerHTML = html;
 
   // ── Event-Listener ─────────────────────────────────────────────

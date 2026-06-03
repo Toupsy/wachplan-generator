@@ -24,16 +24,37 @@ const authMiddleware = (req, res, next) => {
 
 router.use(authMiddleware);
 
-// Verschlüsselung: siehe db/crypto.js (zentral, mit Key-Caching)
+// Verschlüsselung: siehe db/crypto.js (zentral, mit Key-Caching).
+// WICHTIG: Ent-/Verschlüsselt wird IMMER mit dem Key des PLAN-OWNERS (plans.user_id),
+// nicht dem des Anfragenden. So können Mitbearbeiter denselben Plan lesen/schreiben,
+// ohne dass neu verschlüsselt werden muss. Zugriff wird über plan_shares gegated.
+
+// Zugriff prüfen → { ownerId, role:'owner'|'collaborator' } | null (404) | false (403)
+async function getPlanAccess(planId, userId) {
+  const plan = await dbGet('SELECT user_id FROM plans WHERE id = ?', [planId]);
+  if (!plan) return null;
+  if (plan.user_id === userId) return { ownerId: plan.user_id, role: 'owner' };
+  const share = await dbGet(
+    'SELECT role FROM plan_shares WHERE plan_id = ? AND user_id = ?',
+    [planId, userId]
+  );
+  return share ? { ownerId: plan.user_id, role: 'collaborator', shareRole: share.role || 'edit' } : false;
+}
 
 // ───────────────────────────────────────────────────────────
 // GET /api/plans – Alle Pläne des Users auflisten
 // ───────────────────────────────────────────────────────────
 router.get('/', async (req, res) => {
   try {
+    // Eigene Pläne + Pläne, die mit dem User geteilt wurden (mit Owner-Name).
     const plans = await dbAll(
-      'SELECT id, name, created_at, updated_at FROM plans WHERE user_id = ? ORDER BY updated_at DESC',
-      [req.session.userId]
+      `SELECT p.id, p.name, p.user_id, p.created_at, p.updated_at, u.username AS owner_name
+         FROM plans p
+         JOIN users u ON u.id = p.user_id
+         LEFT JOIN plan_shares s ON s.plan_id = p.id AND s.user_id = ?
+        WHERE p.user_id = ? OR s.user_id IS NOT NULL
+        ORDER BY p.updated_at DESC`,
+      [req.session.userId, req.session.userId]
     );
 
     res.json({
@@ -41,7 +62,9 @@ router.get('/', async (req, res) => {
         id: p.id,
         name: p.name,
         created_at: p.created_at,
-        updated_at: p.updated_at
+        updated_at: p.updated_at,
+        isOwner: p.user_id === req.session.userId,
+        ownerName: p.owner_name
       }))
     });
   } catch (error) {
@@ -90,27 +113,30 @@ router.get('/:id', async (req, res) => {
   try {
     const planId = parseInt(req.params.id);
 
+    const access = await getPlanAccess(planId, req.session.userId);
+    if (access === null) return res.status(404).json({ error: 'Plan not found' });
+    if (access === false) return res.status(403).json({ error: 'No access to this plan' });
+
     const plan = await dbGet(
-      'SELECT encrypted_state, iv, auth_tag, name FROM plans WHERE id = ? AND user_id = ?',
-      [planId, req.session.userId]
+      'SELECT encrypted_state, iv, auth_tag, name FROM plans WHERE id = ?',
+      [planId]
     );
+    if (!plan) return res.status(404).json({ error: 'Plan not found' });
 
-    if (!plan) {
-      return res.status(404).json({ error: 'Plan not found' });
-    }
-
-    // Decrypt state
+    // Entschlüsseln mit dem OWNER-Key (access.ownerId), nicht dem Anfragenden
     const plainJSON = decryptPlanState(
       plan.encrypted_state,
       plan.iv,
       plan.auth_tag,
-      req.session.userId
+      access.ownerId
     );
 
     res.json({
       id: planId,
       name: plan.name,
-      state: plainJSON  // Return as string; client will JSON.parse it
+      state: plainJSON,  // Return as string; client will JSON.parse it
+      role: access.role,
+      canEdit: !(access.role === 'collaborator' && access.shareRole === 'view')
     });
   } catch (error) {
     console.error('Get plan error:', error);
@@ -133,19 +159,18 @@ router.put('/:id', express.json(), async (req, res) => {
       return res.status(400).json({ error: 'State data required' });
     }
 
-    // Verify plan belongs to user
-    const plan = await dbGet(
-      'SELECT id FROM plans WHERE id = ? AND user_id = ?',
-      [planId, req.session.userId]
-    );
-
-    if (!plan) {
-      return res.status(404).json({ error: 'Plan not found' });
+    // Zugriff prüfen (Owner oder Mitbearbeiter)
+    const access = await getPlanAccess(planId, req.session.userId);
+    if (access === null) return res.status(404).json({ error: 'Plan not found' });
+    if (access === false) return res.status(403).json({ error: 'No access to this plan' });
+    // Nur-Lese-Mitbearbeiter dürfen nicht schreiben
+    if (access.role === 'collaborator' && access.shareRole === 'view') {
+      return res.status(403).json({ error: 'Nur-Lese-Zugriff – Speichern nicht erlaubt' });
     }
 
-    // Encrypt state
+    // Verschlüsseln mit dem OWNER-Key (damit alle Berechtigten lesen können)
     const plainJSON = JSON.stringify(state);
-    const { encrypted, iv, authTag } = encryptPlanState(plainJSON, req.session.userId);
+    const { encrypted, iv, authTag } = encryptPlanState(plainJSON, access.ownerId);
 
     // Update in database
     await dbRun(
@@ -195,6 +220,87 @@ router.delete('/:id', async (req, res) => {
   } catch (error) {
     console.error('Delete plan error:', error);
     res.status(500).json({ error: 'Failed to delete plan' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// GET /api/plans/:id/shares – Mitbearbeiter auflisten (Owner oder Mitbearbeiter)
+// ───────────────────────────────────────────────────────────
+router.get('/:id/shares', async (req, res) => {
+  try {
+    const planId = parseInt(req.params.id);
+    const access = await getPlanAccess(planId, req.session.userId);
+    if (access === null) return res.status(404).json({ error: 'Plan not found' });
+    if (access === false) return res.status(403).json({ error: 'No access to this plan' });
+
+    const owner = await dbGet('SELECT username FROM users WHERE id = ?', [access.ownerId]);
+    const collaborators = await dbAll(
+      `SELECT u.id AS userId, u.username, s.role
+         FROM plan_shares s JOIN users u ON u.id = s.user_id
+        WHERE s.plan_id = ? ORDER BY u.username`,
+      [planId]
+    );
+
+    res.json({
+      ownerId: access.ownerId,
+      ownerName: owner ? owner.username : '?',
+      isOwner: access.role === 'owner',
+      collaborators
+    });
+  } catch (error) {
+    console.error('List shares error:', error);
+    res.status(500).json({ error: 'Failed to list collaborators' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// POST /api/plans/:id/share – { username } → Mitbearbeiter hinzufügen (nur Owner)
+// ───────────────────────────────────────────────────────────
+router.post('/:id/share', express.json(), async (req, res) => {
+  try {
+    const planId = parseInt(req.params.id);
+    const username = (req.body.username || '').trim();
+    const role = req.body.role === 'view' ? 'view' : 'edit';
+    if (!username) return res.status(400).json({ error: 'Username required' });
+
+    const access = await getPlanAccess(planId, req.session.userId);
+    if (access === null) return res.status(404).json({ error: 'Plan not found' });
+    if (access.role !== 'owner') return res.status(403).json({ error: 'Only the owner can share this plan' });
+
+    const target = await dbGet('SELECT id FROM users WHERE username = ?', [username]);
+    if (!target) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+    if (target.id === access.ownerId) return res.status(400).json({ error: 'Das ist der Eigentümer' });
+
+    // INSERT or UPDATE (Rolle ändern, falls bereits geteilt)
+    await dbRun(
+      `INSERT INTO plan_shares (plan_id, user_id, role) VALUES (?, ?, ?)
+       ON CONFLICT(plan_id, user_id) DO UPDATE SET role = excluded.role`,
+      [planId, target.id, role]
+    );
+    res.status(201).json({ success: true, userId: target.id, username, role, message: 'Geteilt' });
+  } catch (error) {
+    console.error('Share plan error:', error);
+    res.status(500).json({ error: 'Failed to share plan' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// DELETE /api/plans/:id/share/:userId – Mitbearbeiter entfernen (nur Owner)
+// ───────────────────────────────────────────────────────────
+router.delete('/:id/share/:userId', async (req, res) => {
+  try {
+    const planId = parseInt(req.params.id);
+    const userId = parseInt(req.params.userId);
+
+    const access = await getPlanAccess(planId, req.session.userId);
+    if (access === null) return res.status(404).json({ error: 'Plan not found' });
+    if (access.role !== 'owner') return res.status(403).json({ error: 'Only the owner can manage sharing' });
+
+    await dbRun('DELETE FROM plan_shares WHERE plan_id = ? AND user_id = ?', [planId, userId]);
+    res.json({ success: true, message: 'Mitbearbeiter entfernt' });
+  } catch (error) {
+    console.error('Unshare plan error:', error);
+    res.status(500).json({ error: 'Failed to remove collaborator' });
   }
 });
 

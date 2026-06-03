@@ -34,5 +34,20 @@ CREATE TABLE IF NOT EXISTS sessions (
   expiryDate DATETIME
 );
 
+-- Plan-Freigaben (Mitbearbeiter eines Plans). Zugriff = Owner ODER Eintrag hier.
+-- Verschlüsselung bleibt mit dem Owner-Key (server-seitig aus plans.user_id ableitbar),
+-- daher kein Re-Encrypt beim Teilen nötig.
+CREATE TABLE IF NOT EXISTS plan_shares (
+  plan_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  role TEXT NOT NULL DEFAULT 'edit',     -- 'edit' | 'view' (nur ansehen)
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (plan_id, user_id),
+  FOREIGN KEY (plan_id) REFERENCES plans(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- Indices für Performance
 CREATE INDEX IF NOT EXISTS idx_plans_user_id ON plans(user_id);
+CREATE INDEX IF NOT EXISTS idx_plan_shares_user ON plan_shares(user_id);
+CREATE INDEX IF NOT EXISTS idx_plan_shares_plan ON plan_shares(plan_id);
