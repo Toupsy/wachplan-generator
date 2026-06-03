@@ -89,6 +89,25 @@ if(_sidebarEl){
   _sidebarEl.addEventListener('change', () => scheduleAutoSave());
 }
 
+// ── Main Tabs (Einstellungen / Wachplan) ─────────────────────────
+let activeMainTab = 0;  // 0 = Einstellungen, 1 = Wachplan
+document.querySelectorAll('.main-tab').forEach(tab => {
+  tab.onclick = (e) => {
+    const newTab = +e.target.dataset.mainTab;
+    if(newTab === activeMainTab) return;  // Bereits aktiv
+
+    activeMainTab = newTab;
+
+    // Update tab styling
+    document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector(`.main-tab-${activeMainTab}`).classList.add('active');
+
+    // Update panel visibility
+    document.querySelectorAll('.main-panel').forEach(p => p.classList.remove('active'));
+    document.querySelector(`.main-panel-${activeMainTab}`).classList.add('active');
+  };
+});
+
 // ── Sidebar – Hauptwache ─────────────────────────────────────────
 const mainKInput = document.getElementById('main-k');
 if(mainKInput) mainKInput.oninput = e => {
