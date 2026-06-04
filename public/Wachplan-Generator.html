@@ -213,15 +213,7 @@
   .slot-btn:active{transform:scale(0.95)}
   .slot-btn:disabled{opacity:.4;cursor:not-allowed}
 
-  /* ── Main Tabs (Hidden in grid layout) ── */
-  .main-tabs {
-    display: none;
-  }
-
-  .main-tab {
-    display: none;
-  }
-
+  /* ── Main Panels: Side-by-side layout with independent scrolling ── */
   .main-panels {
     display: grid;
     grid-template-columns: 380px 1fr;
@@ -235,14 +227,6 @@
     display: block;
     overflow: hidden;
     min-height: 0;
-  }
-
-  .main-panel-0 {
-    order: -1;
-  }
-
-  .main-panel-1 {
-    order: 0;
   }
 
   #output-panel {
@@ -259,25 +243,13 @@
     border-radius: 4px;
   }
 
-  @media(max-width: 1280px) {
+  /* ── Responsive: Stack at <1040px ── */
+  @media(max-width: 1040px) {
     .main-panels {
       grid-template-columns: 1fr;
       height: auto;
       gap: 20px;
       flex: 0;
-    }
-
-    .main-panel {
-      overflow: visible;
-      min-height: 0;
-    }
-
-    .main-panel-0 {
-      order: -1;
-    }
-
-    .main-panel-1 {
-      order: 0;
     }
 
     aside {
@@ -289,10 +261,11 @@
       position: relative;
       flex: none;
       max-height: none;
+      overflow-y: auto;
     }
 
     #output-panel {
-      overflow-y: visible;
+      overflow-y: auto;
     }
   }
 
@@ -303,9 +276,8 @@
     /* Nur der Plan: alles andere ausblenden */
     .wrap>header,.sidebar,.export-row,.day-tabs,.stats-bar,.out-header,.out-extras,
     #autosave-indicator,#user-info-header,.modal-overlay,
-    .day-controls .dc-section,.move-btn,.notice,.main-tabs,.main-panel-0,.main-panels{display:none !important}
-    .wrap,.panel,#output-panel,.layout{display:block !important;max-width:none !important;width:auto !important;margin:0 !important;padding:0 !important;background:#fff !important;border:none !important;box-shadow:none !important;grid-template-columns:none !important;height:auto !important}
-    .main-panel-1{display:block !important}
+    .day-controls .dc-section,.move-btn,.notice{display:none !important}
+    .wrap,.panel,#output-panel,.layout,.main-panels{display:block !important;max-width:none !important;width:auto !important;margin:0 !important;padding:0 !important;background:#fff !important;border:none !important;box-shadow:none !important;grid-template-columns:none !important;height:auto !important}
     /* Jeder Tag genau eine Seite */
     .day-panel{display:block !important;page-break-after:always;break-after:page;break-inside:avoid;padding:0 !important;margin:0 !important}
     .day-panel:last-child{page-break-after:avoid;break-after:auto}
@@ -496,13 +468,7 @@
     <p class="subtitle">Tagesweiser Aufbau über mehrere Tage. Faire Rotation durch akkumulierte Statistik – jeder Tag hat eigenen Krank- und Schließstatus. Personen lassen sich per ↕ manuell auf andere Positionen verschieben.</p>
   </header>
 
-  <!-- Main Tabs: Einstellungen / Wachplan -->
-  <div class="main-tabs">
-    <button class="main-tab main-tab-0 active" data-main-tab="0">⚙️ Einstellungen</button>
-    <button class="main-tab main-tab-1" data-main-tab="1">📋 Wachplan</button>
-  </div>
-
-  <!-- Main Panels: Sidebar / Output -->
+  <!-- Main Panels: Sidebar / Output (Grid Layout) -->
   <div class="main-panels">
     <!-- Panel 0: Einstellungen (Sidebar) -->
     <div class="main-panel main-panel-0 active" data-panel="0">
