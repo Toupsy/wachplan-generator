@@ -460,21 +460,37 @@ Dark-Theme mit CSS-Variables:
 
 ## Testing & Performance
 
-**Test-Strategie:** Browser-Preview + `preview_eval`-Harness statt Unit-Tests (kein Build-Setup nötig).
+**Test-Strategie:** Zwei-Ebenen-Ansatz: headless Node.js-Suite für Algorithmus-Invarianten, Browser-Preview für Rendering/UX.
 
-**Invarianten-Validator** (via eval im Page-Context) prüft nach jedem `generate()`:
-- Keine Person doppelt eingeteilt am selben Tag
-- Keine kranke Person eingeteilt
-- Kein geschlossener Turm / außer-Dienst-Boot belegt
-- `slotCount` eingehalten (Ausnahme: transparenter Overlay)
+### Automatisierte Test-Suite (Node.js, CI/CD)
+**Laufzeit:** `npm test` → ~175ms für 9 Test-Szenarien (davon 100 Fuzz-Durchläufe).
 
-**Bewährte Test-Szenarien:** baseline 6d · 14d · 1d · kranke Personen · geschlossener Turm/Boot · Boot außer Dienst · 0/1 Personen · alle krank · alle Türme zu · Zwangszuweisung effektiv/transparent · Fuzz-Test (100× zufällige sick/closed/forced-Muster).
+**Aufbau:**
+- `test/harness.js` – vm.Context-Loader für Browser-Globals (`state.js` → `utils.js` → `dates.js` → `autoCodes.js` → `generate.js`); `setupScenario()` Helper für deterministisches Setup
+- `test/invariants.test.js` – Node.js TAP-Tests mit 4 Invarianten über 9 Szenarien + 100 Fuzz-Iterationen
 
-**Konsekutiv-Regel-Messung:** Verstöße/Gelegenheiten zählen → normal 0%, unter Extremdruck ~2,4%.
+**Invarianten-Tests nach `generate()`:**
+1. Keine Person doppelt eingeteilt am selben Tag (alle Slots: towers, boats, main)
+2. Keine kranke Person in aktiven Slots (nur main.sick erlaubt)
+3. Kein geschlossener Turm/Boot belegt
+4. `slotCount` eingehalten pro Turm (`occupants.length ≤ slotCount + leaderCount`)
+
+**Test-Szenarien (8 deterministisch + 1 Fuzzing):**
+- Baseline 6-Tage (20 Personen, 7 Türme, 3 Boote)
+- 14-Tage (lange Planungshorizonte)
+- 1-Tag (minimal)
+- Kranke Personen (3 fixed)
+- Geschlossener Turm (2 fixed)
+- Geschlossenes Boot (2 fixed)
+- Minimal crew (1 Person)
+- Alle krank (Extremfall)
+- Fuzz-Test (100 Iterationen: 8–27 Personen, 3–8 Türme, 1–4 Boote, 1–6 Tage, random sick/closed/mainK)
+
+**CI-Integration:** `.github/workflows/test.yml` (GitHub Actions) triggert auf `push` / `pull_request`, Node 20.
+
+**Browser-Preview (manuell):** `.claude/launch.json` Server „wachplan" (Port 3000), dann `/Wachplan-Generator.html`. localStorage-Key `dlrg_wachplan_autosave` vor manuellen Tests löschen für sauberen Seed.
 
 **Performance-Baseline:** ~20 ms für 28 Personen × 14 Tage. Bei Regressionen >100 ms: Hot-Loop in `bestPair` (O(n²) über Guard-Pool pro Turm) prüfen.
-
-**Preview starten:** `.claude/launch.json` Server „wachplan" (Port 3000), dann `/Wachplan-Generator.html`. localStorage-Key `dlrg_wachplan_autosave` vor Tests löschen für sauberen Seed.
 
 ---
 
