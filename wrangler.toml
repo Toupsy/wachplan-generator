@@ -23,6 +23,7 @@ routes = [
 
 [env.production.vars]
 ENVIRONMENT = "production"
+ORIGIN_SERVER = "https://wachplan-generator.de"
 
 # ================================================================================
 # Development Environment
@@ -31,6 +32,7 @@ ENVIRONMENT = "production"
 
 [env.development.vars]
 ENVIRONMENT = "development"
+DEV_ORIGIN_SERVER = "http://localhost:3000"
 
 # ================================================================================
 # Preview Environment (for Pull Requests)
