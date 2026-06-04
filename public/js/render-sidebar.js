@@ -21,7 +21,7 @@ function renderPeople(){
       ${p.role==='B' ? `<select data-id="${p.id}" class="bf-level" title="BF Erfahrungslevel">
         <option value="E" ${p.bfLevel==='E'?'selected':''}>BF-E</option>
         <option value="U" ${p.bfLevel==='U'?'selected':''}>BF-U</option>
-      </select>` : ''}
+      </select>` : `<div class="bf-level-placeholder"></div>`}
       <label class="label-toggle" title="Labels bearbeiten">
         <input type="checkbox" data-id="${p.id}" class="labels-checkbox" ${hasLabels ? 'checked' : ''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0">
         <span style="font-size:0.7rem;color:var(--text-dim)">🏷️</span>
