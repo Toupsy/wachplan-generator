@@ -2,7 +2,7 @@
 // state-io.js – Planstatus-Import / Export (Feature 7) + Server-Sync
 // ============================================================
 
-const STATE_VERSION = 3;
+const STATE_VERSION = 4;
 const STORAGE_KEY   = 'dlrg_wachplan_autosave';  // Fallback für offline
 
 // Globale Variablen für Server-Sync
@@ -32,6 +32,8 @@ function _buildStateObject(){
     startDate,
     mainK,
     hwBoatId,
+    serviceStartHour,
+    serviceEndHour,
     days:                 DAYS,
     positionDescriptions: { ...positionDescriptions },
     fairnessMetricsDisplay: { ...fairnessMetricsDisplay },
@@ -97,6 +99,8 @@ function importStateJSON(json, silent = false){
   startDate         = s.startDate         ?? '';
   mainK             = s.mainK             ?? 2;
   hwBoatId          = s.hwBoatId          ?? null;
+  serviceStartHour  = s.serviceStartHour  ?? 9;
+  serviceEndHour    = s.serviceEndHour    ?? 17;
   DAYS              = s.days              ?? 6;
   positionDescriptions = Object.assign({ 3:'',4:'',5:'',6:'',7:'' },
                                        s.positionDescriptions || {});
@@ -135,6 +139,8 @@ function importStateJSON(json, silent = false){
   // UI neu aufbauen
   document.getElementById('start-date').value = startDate;
   document.getElementById('main-k').value     = mainK;
+  document.getElementById('service-start-hour').value = serviceStartHour;
+  document.getElementById('service-end-hour').value   = serviceEndHour;
   updateSeedDisplay();
   autoCodes();
   renderPeople();
