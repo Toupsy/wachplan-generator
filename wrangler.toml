@@ -4,9 +4,9 @@
 
 name = "wachplan-generator"
 main = "src/worker.js"
-type = "javascript"
 account_id = "c305b2e473befd23d3a8cab94cb3483f"
 workers_dev = true
+compatibility_date = "2026-06-04"
 
 # Asset directory (static files from public/)
 [assets]
