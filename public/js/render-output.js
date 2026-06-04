@@ -237,10 +237,12 @@ function renderOutput(){
     // label=null → Standardrolle ROLE[p.role]. data-move-slot nutzt slotId||''
     // (MAIN_ID=0 → '' wie zuvor; Move-Modal behandelt HW gesondert).
     const renderOccupant = (p, label, kind, slotId) => {
-      const labels = (p.labels||'').trim()
-        .split(',')
-        .map(l => l.trim())
-        .filter(l => l);
+      const labels = (p.enableLabels && (p.labels||'').trim().length > 0)
+        ? (p.labels||'').trim()
+          .split(',')
+          .map(l => l.trim())
+          .filter(l => l)
+        : [];
       const labelText = labels.length > 0 ? ' - <span class="person-labels">' + labels.map(l => `<span class="label-tag">${escapeHtml(l)}</span>`).join(' ') + '</span>' : '';
       return `
           <div class="occupant" draggable="true" data-person-id="${p.id}" data-source-kind="${kind}" data-source-slot="${slotId}">

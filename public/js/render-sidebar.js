@@ -42,10 +42,14 @@ function renderPeople(){
   c.querySelectorAll('.labels-checkbox').forEach(checkbox => {
     checkbox.onchange = e => {
       const personId = +e.target.dataset.id;
+      const p = getP(personId);
+      p.enableLabels = e.target.checked;
       const labelsRow = Array.from(c.querySelectorAll('.person-labels-row')).find(row => +row.getAttribute('data-id') === personId);
       if (labelsRow) {
         labelsRow.style.display = e.target.checked ? 'grid' : 'none';
       }
+      scheduleAutoSave();
+      renderOutput();
     };
   });
   c.querySelectorAll('.pname').forEach(i =>
