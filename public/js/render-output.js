@@ -157,8 +157,9 @@ function renderOutput(){
   schedule.forEach((d, di) => {
     const dayForced = forcedPlacements[di] || [];
     const forcedIds = new Set(dayForced.map(f => f.personId));
+    const dayLabelTxt = dayLabel(di);
 
-    html += `<div class="day-panel" style="display:${di===activeDay?'block':'none'}" data-panel="${di}">`;
+    html += `<div class="day-panel" id="day-panel-${di}" style="display:${di===activeDay?'block':'none'}" data-panel="${di}" data-panel-name="Tag ${di + 1} - ${dayLabelTxt}" data-day-index="${di}">`;
 
     // Tages-Steuerung
     html += `<div class="day-controls">
@@ -248,7 +249,7 @@ function renderOutput(){
     const renderInlineBoat = (bsList) => {
       if(!bsList || !bsList.length) return '';
       return bsList.map(bs => `
-        <div class="hq-divider boat-inline" draggable="true" data-boat-id="${bs.boatId}" data-boat-name="${escapeHtml(bs.name)}" data-boat-code="${escapeHtml(bs.code||'?')}" title="Ziehen um Boot auf anderen Turm/HW zu verschieben">🚤 Boot: ${escapeHtml(bs.name)} · ${escapeHtml(bs.code||'?')}</div>
+        <div class="hq-divider boat-inline" id="boat-inline-${di}-${bs.boatId}" draggable="true" data-boat-id="${bs.boatId}" data-boat-name="${escapeHtml(bs.name)}" data-boat-code="${escapeHtml(bs.code||'?')}" data-panel-name="Boot: ${escapeHtml(bs.name)}" title="Ziehen um Boot auf anderen Turm/HW zu verschieben">🚤 Boot: ${escapeHtml(bs.name)} · ${escapeHtml(bs.code||'?')}</div>
         ${(bs.occupants && bs.occupants.length)
           ? bs.occupants.map(p => renderOccupant(p, 'Bootsführer', 'boat', bs.boatId)).join('')
           : '<div style="color:var(--coral);font-size:.78rem;padding:6px 0">⚠ Kein Bootsführer verfügbar</div>'}`).join('');
@@ -260,7 +261,7 @@ function renderOutput(){
       if(slot.kind === 'boat') return;
       // ─ Hauptwache ─
       if(slot.kind === 'main'){
-        html += `<div class="tower-card main" style="grid-column:span 2;" data-drop-kind="main" data-drop-slot="${MAIN_ID}">
+        html += `<div class="tower-card main" id="card-main-${di}" style="grid-column:span 2;" data-drop-kind="main" data-drop-slot="${MAIN_ID}" data-panel-name="Hauptwache" data-card-type="main">
           <div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="main" data-card-slot="${MAIN_ID}" title="Zum Sortieren ziehen"><span class="tc-name">⛱ ${slot.tower}</span><span class="tc-type main">Zentrale · k=${slot.k}</span></div>
           ${slot.fuehrung.map(p=>renderOccupant(p,'Führung','main',MAIN_ID)).join('')}
           ${slot.mainGuards.map(p=>renderOccupant(p,p.role==='E'?'Erfahren · HW':'Unerf. · HW','main',MAIN_ID)).join('')}
@@ -272,7 +273,7 @@ function renderOutput(){
       }
       // ─ Turm (inkl. inline Boot, falls vorhanden) ─
       else if(slot.kind === 'tower'){
-        html += `<div class="tower-card" data-drop-kind="tower" data-drop-slot="${slot.towerId}">
+        html += `<div class="tower-card" id="card-tower-${di}-${slot.towerId}" data-drop-kind="tower" data-drop-slot="${slot.towerId}" data-panel-name="Turm: ${escapeHtml(slot.tower)}" data-card-type="tower" data-tower-id="${slot.towerId}">
           <div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="tower" data-card-slot="${slot.towerId}" title="Zum Sortieren ziehen"><span class="tc-name">🗼 ${escapeHtml(slot.tower)}</span><span class="tc-type normal">Turm · ${escapeHtml(slot.code||'?')} · P${slot.prio}</span></div>
           ${slot.occupants.map(p=>renderOccupant(p, null, 'tower', slot.towerId)).join('')}
           ${slot.warn?`<div class="warn-pair">⚠ ${slot.warn}</div>`:''}
@@ -285,11 +286,11 @@ function renderOutput(){
     // personnelClosed kommt bereits nach Prio sortiert aus generate.js
     [...d.manualClosed,...d.personnelClosed].forEach(t => {
       const reason = d.manualClosed.includes(t)?'manuell geschlossen':'Personalmangel';
-      html += `<div class="tower-card closed" data-drop-kind="tower" data-drop-slot="${t.id}" data-closed-override="true"><div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="tower" data-card-slot="${t.id}" title="Zum Sortieren ziehen"><span class="tc-name">🗼 ${escapeHtml(t.name)}</span><span class="tc-type closed">zu</span></div><div style="color:var(--text-dim);font-size:.82rem;padding:8px 0">${reason}</div></div>`;
+      html += `<div class="tower-card closed" id="card-tower-closed-${di}-${t.id}" data-drop-kind="tower" data-drop-slot="${t.id}" data-closed-override="true" data-panel-name="Turm: ${escapeHtml(t.name)} (geschlossen)" data-card-type="tower-closed" data-tower-id="${t.id}"><div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="tower" data-card-slot="${t.id}" title="Zum Sortieren ziehen"><span class="tc-name">🗼 ${escapeHtml(t.name)}</span><span class="tc-type closed">zu</span></div><div style="color:var(--text-dim);font-size:.82rem;padding:8px 0">${reason}</div></div>`;
     });
     [...d.boatsManualClosed,...d.boatsClosedTower,...d.boatsNoBootsf].forEach(b => {
       const reason = d.boatsManualClosed.includes(b)?'manuell außer Dienst':d.boatsClosedTower.includes(b)?'Turm zu':'kein Bootsführer';
-      html += `<div class="tower-card closed boot"><div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="boat" data-card-slot="${b.id}" title="Zum Sortieren ziehen"><span class="tc-name">🚤 ${escapeHtml(b.name)}</span><span class="tc-type closed">zu</span></div><div style="color:var(--text-dim);font-size:.82rem;padding:8px 0">${reason}</div></div>`;
+      html += `<div class="tower-card closed boot" id="card-boat-closed-${di}-${b.id}" data-panel-name="Boot: ${escapeHtml(b.name)} (außer Dienst)" data-card-type="boat-closed" data-boat-id="${b.id}"><div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="boat" data-card-slot="${b.id}" title="Zum Sortieren ziehen"><span class="tc-name">🚤 ${escapeHtml(b.name)}</span><span class="tc-type closed">zu</span></div><div style="color:var(--text-dim);font-size:.82rem;padding:8px 0">${reason}</div></div>`;
     });
 
     html += `</div></div>`;

@@ -321,7 +321,7 @@
 <body>
 
 <!-- ── Login Modal ────────────────────────────────────────────── -->
-<div id="login-modal">
+<div id="login-modal" class="panel panel-login" data-panel-name="Login / Setup">
   <div class="login-modal-content">
 
     <!-- Login View -->
@@ -353,7 +353,7 @@
 </div>
 
 <!-- ── Move-Modal ─────────────────────────────────────────────── -->
-<div id="move-modal" class="modal-overlay" style="display:none">
+<div id="move-modal" class="modal panel panel-move-modal" data-panel-name="Wachgänger verschieben" style="display:none">
   <div class="modal-box">
     <button class="modal-close-btn" id="move-modal-close-btn">×</button>
     <div class="modal-title" id="move-modal-title">Person verschieben</div>
@@ -373,7 +373,7 @@
 </div>
 
 <!-- ── Confirmation-Modal ──────────────────────────────────────── -->
-<div id="confirm-modal" class="modal-overlay" style="display:none">
+<div id="confirm-modal" class="modal panel panel-confirm-modal" data-panel-name="Regel überschreiben" style="display:none">
   <div class="modal-box" style="max-width:420px">
     <button class="modal-close-btn" id="confirm-modal-close-btn">×</button>
     <div class="modal-title">Regel überschreiben?</div>
@@ -395,7 +395,7 @@
 </div>
 
 <!-- ── Passwort-ändern-Modal ───────────────────────────────────── -->
-<div id="pw-modal" class="modal-overlay" style="display:none">
+<div id="pw-modal" class="modal panel panel-password-modal" data-panel-name="Passwort ändern" style="display:none">
   <div class="modal-box" style="max-width:420px">
     <button class="modal-close-btn" id="pw-modal-close-btn">×</button>
     <div class="modal-title">Passwort ändern</div>
@@ -412,7 +412,7 @@
 </div>
 
 <!-- ── Plan-teilen-Modal ───────────────────────────────────────── -->
-<div id="share-modal" class="modal-overlay" style="display:none">
+<div id="share-modal" class="modal panel panel-share-modal" data-panel-name="Plan teilen" style="display:none">
   <div class="modal-box" style="max-width:460px">
     <button class="modal-close-btn" id="share-modal-close-btn">×</button>
     <div class="modal-title">Plan teilen</div>
@@ -434,7 +434,7 @@
 </div>
 
 <!-- ── Pläne-Verwalten-Modal ───────────────────────────────────── -->
-<div id="plans-modal" class="modal-overlay" style="display:none">
+<div id="plans-modal" class="modal panel panel-plans-modal" data-panel-name="Meine Pläne" style="display:none">
   <div class="modal-box" style="max-width:520px">
     <button class="modal-close-btn" id="plans-modal-close-btn">×</button>
     <div class="modal-title">Meine Pläne</div>
@@ -466,10 +466,10 @@
     <!-- Panel 0: Einstellungen (Sidebar) -->
     <div class="main-panel main-panel-0 active" data-panel="0" id="sidebar-panel" class="panel panel-sidebar" data-panel-name="Wachgänger & Konfiguration">
       <aside class="sidebar">
-        <div class="panel">
+        <div class="panel" id="sidebar-inner-panel" data-panel-name="Wachgänger & Konfiguration (Inhalt)">
 
           <!-- User Info & Admin Panel -->
-          <div id="user-info-header" style="background:var(--deep);border:1px solid var(--line);border-radius:6px;padding:12px;margin-bottom:20px;display:none">
+          <div id="user-info-header" class="section section-user-info" data-panel-name="Benutzerinfo & Admin" style="background:var(--deep);border:1px solid var(--line);border-radius:6px;padding:12px;margin-bottom:20px;display:none">
             <div style="font-size:.85em;color:var(--text-dim);margin-bottom:8px">Angemeldet als</div>
             <div id="user-info-username" style="font-weight:600;color:var(--sea-bright);margin-bottom:12px">-</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
