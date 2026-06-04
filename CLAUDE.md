@@ -58,7 +58,7 @@ public/js/state-io.js           – Server-Sync (autoSave via PUT /api/plans/:id
 public/js/login-modal.js        – Login-Modal UI & Auth-Flow
 public/js/user-info.js          – User-Info Header, Admin-Link, Plan-Import, Logout
 public/js/share.js              – Plan-Teilen-Modal (👥)
-public/js/realtime.js           – Live-Update-Client (WebSocket)
+public/js/realtime.js           – Live-Update-Client (WebSocket); deaktiviert in Preview-Umgebungen (.workers.dev)
 public/js/plans-ui.js           – Plan-Manager (📋 Meine Pläne)
 public/js/init.js               – Event-Listener + Startsequenz (autoLoad → seed fallback)
 ```
@@ -568,6 +568,7 @@ PUT    /api/admin/users/:id/password – Fremdes Passwort setzen (≥8)
 - Backend: `server/realtime.js` – Räume pro planId, Auth beim Upgrade via Session, `broadcastPlanUpdate()` nach jedem PUT
 - Frontend: `public/js/realtime.js` – `realtimeConnect` nach Login, `realtimeJoin` bei Plan-Wechsel; bei `{type:'plan-updated'}` → Re-Fetch + `importStateJSON` + `generate`
 - Echo-Schutz: Speichernder User bekommt kein Broadcast; Auto-Reconnect (3 s)
+- **Preview-Umgebung:** WebSocket automatisch deaktiviert in Cloudflare Workers (`.workers.dev` Host), graceful degradation ohne Console-Fehler
 
 **Druckansicht:** `@media print` (A4 landscape) – jeder Tag = eine Seite; Sidebar/Tabs/Stats/Matrix ausgeblendet.
 
