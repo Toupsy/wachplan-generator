@@ -27,7 +27,7 @@
   aside{display:flex;flex-direction:column;height:auto;overflow:visible;min-height:0}
   .panel{background:linear-gradient(165deg,var(--navy-2),var(--paper));border:1px solid var(--line);border-radius:16px;padding:24px;position:relative;overflow:visible;height:auto}
   .panel::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--sea),var(--foam),transparent);opacity:.5}
-  .sidebar{position:relative;flex:none;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent;min-height:0;max-height:80vh}
+  .sidebar{position:relative;flex:none;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:rgba(127,212,232,.4) transparent;min-height:0;max-height:80vh}
   .sidebar .panel{overflow:visible;height:auto}
   /* ── Panel & Section Naming ── */
   .panel-sidebar{grid-column:1;align-self:start;height:auto}
@@ -38,10 +38,10 @@
   .panel-output::-webkit-scrollbar-thumb:hover{background:var(--sea-bright)}
   .section{position:relative;display:block}
   .section-people,.section-towers,.section-boats,.section-hw-boat,.section-positions,.section-export-columns,.section-fairness-metrics,.section-schedule,.section-import-export{position:relative;display:block;width:100%}
-  .sidebar::-webkit-scrollbar{width:8px}
+  .sidebar::-webkit-scrollbar{width:12px}
   .sidebar::-webkit-scrollbar-track{background:transparent}
-  .sidebar::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:4px}
-  .sidebar::-webkit-scrollbar-thumb:hover{background:var(--sea-bright)}
+  .sidebar::-webkit-scrollbar-thumb{background:rgba(127,212,232,.35);border-radius:6px;border:3px solid transparent;background-clip:padding-box}
+  .sidebar::-webkit-scrollbar-thumb:hover{background:rgba(24,168,216,.6);background-clip:padding-box}
   .section-label{font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--foam);margin-bottom:18px;margin-top:24px;display:flex;align-items:center;gap:10px}
   .section-label::before{content:'';width:18px;height:2px;background:var(--sea-bright)}
   .person-edit{display:grid;grid-template-columns:22px 1fr minmax(70px,1fr) minmax(70px,1fr) 28px;gap:8px;align-items:center;margin-bottom:10px}
