@@ -7,21 +7,35 @@
  * 3. HTML fallback for SPA (single-page-application)
  */
 
-const ORIGIN_SERVER = 'https://wachplan-generator.de'; // Change to your actual origin
-
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const pathname = url.pathname;
 
+    // Determine origin server based on environment
+    const originServer = getOriginServer(url, env);
+
     // API requests: proxy to origin server
     if (pathname.startsWith('/api/')) {
-      return proxyToOrigin(request, url);
+      if (!originServer) {
+        // Preview environment with no backend: return mock 404 for API
+        return new Response(JSON.stringify({ error: 'API not available in preview' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return proxyToOrigin(request, url, originServer);
     }
 
     // WebSocket requests: proxy to origin
     if (pathname === '/ws') {
-      return proxyToOrigin(request, url);
+      if (!originServer) {
+        return new Response(JSON.stringify({ error: 'WebSocket not available in preview' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return proxyToOrigin(request, url, originServer);
     }
 
     // Static assets: serve from Cloudflare Assets
@@ -87,10 +101,32 @@ function shouldServeAsset(pathname) {
 }
 
 /**
+ * Determine origin server URL based on environment
+ * Returns null for preview environment (no backend)
+ */
+function getOriginServer(url, env) {
+  const hostname = url.hostname;
+  const environment = env.ENVIRONMENT || 'production';
+
+  // Preview environment: no backend (uses localStorage/offline mode)
+  if (environment === 'preview' || hostname.includes('preview') || hostname.includes('pr-')) {
+    return null;
+  }
+
+  // Development: localhost backend
+  if (environment === 'development') {
+    return env.DEV_ORIGIN_SERVER || 'http://localhost:3000';
+  }
+
+  // Production: use configured origin server
+  return env.ORIGIN_SERVER || 'https://wachplan-generator.de';
+}
+
+/**
  * Proxy request to origin server
  */
-function proxyToOrigin(request, url) {
-  const originUrl = new URL(url.pathname + url.search, ORIGIN_SERVER);
+function proxyToOrigin(request, url, originServer) {
+  const originUrl = new URL(url.pathname + url.search, originServer);
 
   return fetch(new Request(originUrl, {
     method: request.method,
