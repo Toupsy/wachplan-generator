@@ -293,6 +293,15 @@ Flexibles Stundenraster für XLSX-Export; ersetzt hardcoded `09:00–17:00`:
 - Guard: Toast-Hinweis wenn `lastResult?.stats` nicht verfügbar
 - UTF-8 mit BOM für Excel-Kompatibilität; Dateiname: `wachplan-statistik.csv`
 
+### Feature 17: Reset aller manuellen Zuweisungen
+Button „↺ Manuelle Zuweisungen zurücksetzen" in der Export-Row (neben XLSX/CSV/Print-Buttons):
+- `countForced()` – zählt alle aktiven Zwangszuweisungen über alle Tage
+- `clearAllForced()` – leert `forcedPlacements` komplett und generiert Plan neu
+- Button zeigt Anzahl: `↺ Manuelle Zuweisungen zurücksetzen (n)` oder `↺ Keine manuellen Zuweisungen` wenn leer
+- Button ist disabled wenn keine Fixierungen existieren
+- Klick öffnet Bestätigungsdialog (ohne Recalc-Checkbox, da global wirksam)
+- Autosave erfolgt automatisch via `generate()` → bestehender Hook
+
 ---
 
 ## Manuelles Verschieben & Drag-and-Drop (move.js, render-output.js)

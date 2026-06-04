@@ -176,6 +176,22 @@ function clearForced(personId, fromDay, scope){
 }
 
 /**
+ * Zählt alle aktiven manuellen Zwangszuweisungen über alle Tage.
+ */
+function countForced(){
+  return (forcedPlacements || []).reduce((n, day) => n + (day?.length || 0), 0);
+}
+
+/**
+ * Entfernt ALLE manuellen Zwangszuweisungen und generiert den Plan neu.
+ */
+function clearAllForced(){
+  forcedPlacements = freshForcedPlacements();
+  generate();
+  showToast('Alle manuellen Zuweisungen zurückgesetzt');
+}
+
+/**
  * Bestätigungs-Modal für D&D-Tausch (Drag-and-Drop).
  * Öffnet Modal mit optionaler Checkbox für "Folgetage neu berechnen".
  *
