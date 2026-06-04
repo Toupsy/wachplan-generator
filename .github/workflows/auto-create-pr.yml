@@ -1,0 +1,88 @@
+name: Auto-Create PR for Claude Issues
+
+on:
+  push:
+    branches:
+      - 'claude/issue-*'
+      - 'feature/*'
+      - 'fix/*'
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract issue number and title
+        id: issue
+        run: |
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          
+          # Extract issue number from branch name (e.g., claude/issue-43-20260604-1234 -> 43)
+          if [[ $BRANCH_NAME =~ claude/issue-([0-9]+) ]]; then
+            ISSUE_NUM="${BASH_REMATCH[1]}"
+            echo "issue_number=$ISSUE_NUM" >> $GITHUB_OUTPUT
+            echo "is_claude_issue=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_claude_issue=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get issue title from GitHub API
+        if: steps.issue.outputs.is_claude_issue == 'true'
+        id: get-title
+        run: |
+          ISSUE_NUM="${{ steps.issue.outputs.issue_number }}"
+          RESPONSE=$(gh issue view "$ISSUE_NUM" --json title,body --repo "${{ github.repository }}")
+          TITLE=$(echo "$RESPONSE" | jq -r '.title')
+          BODY=$(echo "$RESPONSE" | jq -r '.body')
+          
+          echo "issue_title=$TITLE" >> $GITHUB_OUTPUT
+          echo "issue_body=$BODY" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create PR from Claude issue
+        if: steps.issue.outputs.is_claude_issue == 'true'
+        run: |
+          BRANCH="${{ steps.issue.outputs.branch_name }}"
+          ISSUE_NUM="${{ steps.issue.outputs.issue_number }}"
+          TITLE="${{ steps.get-title.outputs.issue_title }}"
+          BODY="${{ steps.get-title.outputs.issue_body }}"
+          
+          # Check if PR already exists
+          EXISTING_PR=$(gh pr list --head "$BRANCH" --state open --json number --repo "${{ github.repository }}" | jq length)
+          
+          if [ "$EXISTING_PR" -eq 0 ]; then
+            # Create PR with issue reference
+            gh pr create \
+              --title "Resolve: $TITLE (#$ISSUE_NUM)" \
+              --body "Resolves #$ISSUE_NUM
+
+$BODY
+
+---
+🤖 Auto-created PR from Claude issue workflow" \
+              --head "$BRANCH" \
+              --base main \
+              --repo "${{ github.repository }}" || echo "⚠ PR creation failed or already exists"
+          else
+            echo "✓ PR already exists for this branch"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log result
+        run: |
+          echo "✓ Auto-PR workflow completed"
+          echo "Branch: ${{ steps.issue.outputs.branch_name }}"
+          if [ "${{ steps.issue.outputs.is_claude_issue }}" = "true" ]; then
+            echo "Issue: #${{ steps.issue.outputs.issue_number }}"
+          fi
