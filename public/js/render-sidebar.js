@@ -77,7 +77,7 @@ function renderTowerCfg(){
           <span style="font-size:.65rem;color:var(--text-dim)">Wachgänger</span>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
-          <input type="checkbox" class="leader-checkbox" data-id="${t.id}" ${(t.leaderCount||0)>0?'checked':''} title="Führungskräfte einschalten" style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0">
+          <input type="checkbox" class="leader-checkbox" data-id="${t.id}" ${(t.leaderCount||0)>0?'checked':''} title="Bestimmt, ob Führungskräfte für diesen Turm erforderlich sind" style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0">
           <div class="leader-spinner" title="Anzahl benötigter Führungskräfte" style="flex:1;min-width:180px;display:${(t.leaderCount||0)>0?'flex':'none'}">
             <label style="font-size:.75rem;flex-shrink:0;color:var(--text-dim)">👔</label>
             <button class="slot-btn leader-minus" data-id="${t.id}">−</button>
