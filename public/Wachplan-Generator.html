@@ -260,6 +260,11 @@
 
   /* ── Responsive: Mobile & Tablet (<1040px) – Stacked Layout ── */
   @media(max-width: 1040px) {
+    .layout {
+      height: 100%;
+      min-height: 0;
+    }
+
     .main-panels {
       grid-template-columns: 1fr;
       gap: 20px;
@@ -275,15 +280,16 @@
 
     .sidebar {
       position: relative;
-      flex: none;
-      max-height: 50vh;
+      flex: 1;
       overflow-y: auto;
+      min-height: 0;
     }
 
     .panel-output {
-      max-height: 50vh;
+      flex: 1;
       overflow-y: auto;
       grid-column: auto;
+      min-height: 0;
     }
   }
 
