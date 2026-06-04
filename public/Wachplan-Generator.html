@@ -299,21 +299,25 @@
     body{background:#fff !important;color:#000 !important}
     /* Nur der Plan: alles andere ausblenden */
     .wrap>header,.sidebar,.export-row,.day-tabs,.stats-bar,.out-header,.out-extras,
-    #autosave-indicator,#user-info-header,.modal-overlay,
-    .day-controls .dc-section,.move-btn,.notice{display:none !important}
+    #autosave-indicator,#user-info-header,.modal-overlay,.modal,#login-modal,
+    #move-modal,#confirm-modal,#pw-modal,#share-modal,#plans-modal,
+    .day-controls .dc-section,.move-btn{display:none !important}
+    .notice:not(.bad):not(.warn-n){display:none !important}
     .wrap,.panel,#output-panel,.layout,.main-panels{display:block !important;max-width:none !important;width:auto !important;margin:0 !important;padding:0 !important;background:#fff !important;border:none !important;box-shadow:none !important;grid-template-columns:none !important;height:auto !important}
     /* Jeder Tag genau eine Seite */
     .day-panel{display:block !important;page-break-after:always;break-after:page;break-inside:avoid;padding:0 !important;margin:0 !important}
     .day-panel:last-child{page-break-after:avoid;break-after:auto}
     /* Tages-Kopf kompakt behalten (Titel + Datum) */
-    .day-controls{border:none !important;background:none !important;padding:0 !important;margin:0 0 4mm !important}
+    .day-controls{border:none !important;background:none !important;padding:0 !important;margin:0 0 2mm !important;break-inside:avoid !important}
     .dc-head{margin:0 !important;display:flex;justify-content:space-between}
     .dc-title{color:#000 !important;font-size:14pt}
     .dc-sub{display:none !important}
     .date-pick label{color:#000 !important}
     .date-pick input{border:none !important;background:none !important;color:#000 !important}
+    /* Notices: kompakt, nicht über Seiten umbrechen */
+    .notice.bad,.notice.warn-n{break-inside:avoid !important;margin:2mm 0 !important;padding:6px 8px !important;font-size:9pt !important}
     /* Karten hell, kompakt, nicht über Seiten umbrechen */
-    .towers-grid{gap:4mm !important}
+    .towers-grid{gap:4mm !important;break-inside:avoid !important}
     .tower-card{break-inside:avoid;background:#fff !important;border:1px solid #888 !important;color:#000 !important;box-shadow:none !important;padding:8px 10px !important}
     .tower-card.main{background:#f7f7f7 !important}
     .tower-card::before{display:none !important}
