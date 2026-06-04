@@ -15,18 +15,19 @@
   *{margin:0;padding:0;box-sizing:border-box}
   body{font-family:'Spline Sans',sans-serif;background:radial-gradient(ellipse 80% 60% at 20% -10%,rgba(13,124,168,.22),transparent 60%),radial-gradient(ellipse 70% 50% at 90% 0%,rgba(255,90,77,.1),transparent 55%),linear-gradient(180deg,var(--deep) 0%,var(--navy) 40%,var(--deep) 100%);background-attachment:fixed;color:var(--text);min-height:100vh;line-height:1.5;-webkit-font-smoothing:antialiased}
   body::before{content:'';position:fixed;inset:0;background-image:repeating-linear-gradient(0deg,transparent,transparent 38px,rgba(127,212,232,.018) 38px,rgba(127,212,232,.018) 39px);pointer-events:none;z-index:0}
-  .wrap{position:relative;z-index:1;max-width:1320px;margin:0 auto;padding:0 20px 80px}
-  header{padding:38px 0 28px;border-bottom:1px solid var(--line);margin-bottom:32px}
+  .wrap{position:relative;z-index:1;width:100%;max-width:100%;margin:0;padding:0 20px;display:flex;flex-direction:column;height:100vh;min-height:100vh}
+  header{padding:38px 0 28px;border-bottom:1px solid var(--line);margin-bottom:32px;flex-shrink:0}
   .badge{display:inline-flex;align-items:center;gap:8px;font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--foam);background:rgba(24,168,216,.08);border:1px solid var(--line-strong);padding:6px 13px;border-radius:100px;margin-bottom:18px}
   .badge .dot{width:7px;height:7px;border-radius:50%;background:var(--coral);box-shadow:0 0 10px var(--coral)}
   h1{font-family:'Archivo Black',sans-serif;font-size:clamp(2.1rem,5.5vw,3.6rem);line-height:.95;letter-spacing:-.02em;text-transform:uppercase}
   h1 .accent{color:var(--sea-bright)}
   .subtitle{color:var(--text-dim);margin-top:12px;font-size:.98rem;max-width:640px}
   .layout{display:grid;grid-template-columns:380px 1fr;gap:28px;align-items:start}
-  @media(max-width:1040px){.layout{grid-template-columns:1fr}}
-  .panel{background:linear-gradient(165deg,var(--navy-2),var(--paper));border:1px solid var(--line);border-radius:16px;padding:24px;position:relative;overflow:hidden}
+  main{display:flex;flex-direction:column;height:100%;overflow:hidden}
+  aside{display:flex;flex-direction:column;height:100%;overflow:hidden}
+  .panel{background:linear-gradient(165deg,var(--navy-2),var(--paper));border:1px solid var(--line);border-radius:16px;padding:24px;position:relative;overflow:hidden;height:100%}
   .panel::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--sea),var(--foam),transparent);opacity:.5}
-  .sidebar{position:sticky;top:20px;max-height:calc(100vh - 40px);overflow-y:auto}
+  .sidebar{position:relative;flex:1;overflow-y:auto;overflow-x:hidden}
   .sidebar::-webkit-scrollbar{width:8px}.sidebar::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:4px}
   .section-label{font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--foam);margin-bottom:18px;margin-top:24px;display:flex;align-items:center;gap:10px}
   .section-label::before{content:'';width:18px;height:2px;background:var(--sea-bright)}
@@ -212,54 +213,59 @@
   .slot-btn:active{transform:scale(0.95)}
   .slot-btn:disabled{opacity:.4;cursor:not-allowed}
 
-  /* ── Main Tabs (Einstellungen / Wachplan) ── */
-  .main-tabs {
-    display: flex;
-    gap: 0;
-    margin-bottom: 20px;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .main-tab {
-    padding: 12px 20px;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    font-size: 0.95rem;
-    font-family: 'Spline Sans Mono', monospace;
-    color: var(--text-dim);
-    border-bottom: 3px solid transparent;
-    transition: all 0.15s;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-weight: 500;
-  }
-
-  .main-tab:hover {
-    color: var(--text);
-  }
-
-  .main-tab.active {
-    color: var(--sea);
-    border-bottom-color: var(--sea);
-  }
-
+  /* ── Main Panels: Side-by-side layout with independent scrolling ── */
   .main-panels {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: 380px 1fr;
+    gap: 28px;
+    flex: 1;
+    min-height: 0;
+    max-width: 100%;
   }
 
   .main-panel {
-    display: none;
-  }
-
-  .main-panel.active {
     display: block;
+    overflow: hidden;
+    min-height: 0;
   }
 
+  #output-panel {
+    overflow-y: auto;
+    padding-bottom: 40px;
+  }
+
+  #output-panel::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  #output-panel::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border-radius: 4px;
+  }
+
+  /* ── Responsive: Stack at <1040px ── */
   @media(max-width: 1040px) {
-    .main-panel.active {
-      display: block;
+    .main-panels {
+      grid-template-columns: 1fr;
+      height: auto;
+      gap: 20px;
+      flex: 0;
+    }
+
+    aside {
+      height: auto;
+      overflow: visible;
+    }
+
+    .sidebar {
+      position: relative;
+      flex: none;
+      max-height: none;
+      overflow-y: auto;
+    }
+
+    #output-panel {
+      overflow-y: auto;
     }
   }
 
@@ -270,8 +276,8 @@
     /* Nur der Plan: alles andere ausblenden */
     .wrap>header,.sidebar,.export-row,.day-tabs,.stats-bar,.out-header,.out-extras,
     #autosave-indicator,#user-info-header,.modal-overlay,
-    .day-controls .dc-section,.move-btn,.notice,.main-tabs,.main-panel-0{display:none !important}
-    .wrap,.panel,#output-panel,.layout,.main-panel-1{display:block !important;max-width:none !important;width:auto !important;margin:0 !important;padding:0 !important;background:#fff !important;border:none !important;box-shadow:none !important;grid-template-columns:none !important}
+    .day-controls .dc-section,.move-btn,.notice{display:none !important}
+    .wrap,.panel,#output-panel,.layout,.main-panels{display:block !important;max-width:none !important;width:auto !important;margin:0 !important;padding:0 !important;background:#fff !important;border:none !important;box-shadow:none !important;grid-template-columns:none !important;height:auto !important}
     /* Jeder Tag genau eine Seite */
     .day-panel{display:block !important;page-break-after:always;break-after:page;break-inside:avoid;padding:0 !important;margin:0 !important}
     .day-panel:last-child{page-break-after:avoid;break-after:auto}
@@ -296,6 +302,26 @@
     .hq-divider,.boat-inline{color:#333 !important;border-color:#aaa !important}
     .role-dot{border:1px solid #888}
     .forced-badge,.warn-pair{color:#a11 !important}
+
+    /* Single-day print mode: verstecke alle anderen Tage */
+    body.print-single-day .day-panel{display:none !important}
+    body.print-single-day .day-panel.active{display:block !important}
+    body.print-single-day .day-tabs{display:flex !important;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+    body.print-single-day .day-tab{display:inline-block !important;font-family:'Spline Sans Mono',monospace;font-size:9pt;background:#f0f0f0 !important;border:1px solid #888 !important;color:#000 !important;padding:6px 10px;border-radius:6px}
+    body.print-single-day .day-tab.active{background:#d0d0d0 !important;font-weight:600}
+    body.print-single-day .stats-bar{display:grid !important;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px;margin-bottom:12px;margin-top:12px}
+    body.print-single-day .stat{background:#f5f5f5 !important;border:1px solid #888 !important;border-radius:8px;padding:10px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+    body.print-single-day .stat .num{font-size:1.2rem;color:#333 !important;font-weight:600}
+    body.print-single-day .stat .lbl{font-size:8pt;color:#666 !important;margin-top:4px;text-align:center}
+    body.print-single-day .matrix-wrap{display:block !important;margin-top:12px}
+    body.print-single-day table.matrix{border-collapse:collapse;font-size:8pt;font-family:monospace}
+    body.print-single-day table.matrix td,
+    body.print-single-day table.matrix th{padding:3px 5px;text-align:center;border:1px solid #ccc;white-space:nowrap;color:#000 !important}
+    body.print-single-day table.matrix th{background:#e8e8e8 !important;font-weight:600;color:#333 !important}
+    body.print-single-day table.matrix td.zero{color:#999}
+    body.print-single-day table.matrix td.one{color:#333;font-weight:600}
+    body.print-single-day table.matrix td.multi{color:#a11;font-weight:600}
+    body.print-single-day table.matrix td.self{background:#d0d0d0}
   }
 </style>
 </head>
@@ -442,13 +468,7 @@
     <p class="subtitle">Tagesweiser Aufbau über mehrere Tage. Faire Rotation durch akkumulierte Statistik – jeder Tag hat eigenen Krank- und Schließstatus. Personen lassen sich per ↕ manuell auf andere Positionen verschieben.</p>
   </header>
 
-  <!-- Main Tabs: Einstellungen / Wachplan -->
-  <div class="main-tabs">
-    <button class="main-tab main-tab-0 active" data-main-tab="0">⚙️ Einstellungen</button>
-    <button class="main-tab main-tab-1" data-main-tab="1">📋 Wachplan</button>
-  </div>
-
-  <!-- Main Panels: Sidebar / Output -->
+  <!-- Main Panels: Sidebar / Output (Grid Layout) -->
   <div class="main-panels">
     <!-- Panel 0: Einstellungen (Sidebar) -->
     <div class="main-panel main-panel-0 active" data-panel="0">
@@ -655,3 +675,4 @@
 
 </body>
 </html>
+<!-- Test: Preview without login -->

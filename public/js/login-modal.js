@@ -9,6 +9,17 @@ async function initLoginModal() {
     console.warn('⚠️ Failed to load config, will use defaults');
   }
 
+  // Check if running in preview environment (skip login)
+  const environment = window.WORKER_ENVIRONMENT || 'production';
+  if (environment === 'preview') {
+    console.log('ℹ️ Running in preview mode - skipping authentication');
+    hideLoginModal();
+    if (typeof initAfterAuth === 'function') {
+      await initAfterAuth();
+    }
+    return;
+  }
+
   try {
     const response = await fetch('/api/auth/me', { credentials: 'include' });
     if (response.ok) {

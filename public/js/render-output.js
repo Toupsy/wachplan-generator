@@ -139,7 +139,8 @@ function renderOutput(){
       <div class="export-row">
         <button class="ghost-btn" id="btn-official" style="border-color:var(--warn);color:var(--warn)">📋 XLSX (${dayLabel(activeDay)})</button>
         <button class="ghost-btn" id="btn-csv">↓ CSV</button>
-        <button class="ghost-btn" id="btn-print">⎙ Drucken</button>
+        <button class="ghost-btn" id="btn-print-all">🖨️ Alle Tage drucken</button>
+        <button class="ghost-btn" id="btn-print-day">🖨️ Diesen Tag drucken</button>
       </div>
     </div>
     <div class="stats-bar">
@@ -681,7 +682,27 @@ function renderOutput(){
   });
 
   document.getElementById('btn-csv').onclick   = exportCSV;
-  document.getElementById('btn-print').onclick = () => window.print();
+
+  // Print button handlers - two modes: all days vs. single day
+  const btnPrintAll = document.getElementById('btn-print-all');
+  const btnPrintDay = document.getElementById('btn-print-day');
+
+  if(btnPrintAll) {
+    btnPrintAll.onclick = () => {
+      document.body.classList.remove('print-single-day');
+      window.print();
+    };
+  }
+
+  if(btnPrintDay) {
+    btnPrintDay.onclick = () => {
+      document.body.classList.add('print-single-day');
+      window.print();
+      // Remove class after print dialog closes (user may cancel)
+      setTimeout(() => document.body.classList.remove('print-single-day'), 100);
+    };
+  }
+
   const bo = document.getElementById('btn-official');
   if(bo) bo.onclick = () => exportOfficial(activeDay);
 }
