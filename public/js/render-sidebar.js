@@ -76,16 +76,15 @@ function renderTowerCfg(){
           <button class="slot-btn slot-plus" data-id="${t.id}" data-type="tower">+</button>
           <span style="font-size:.65rem;color:var(--text-dim)">Wachgänger</span>
         </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <input type="checkbox" class="leader-checkbox" data-id="${t.id}" ${(t.leaderCount||0)>0?'checked':''} title="Bestimmt, ob Führungskräfte für diesen Turm erforderlich sind" style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0">
-          <div class="leader-spinner" title="Anzahl benötigter Führungskräfte" style="flex:1;min-width:180px;display:${(t.leaderCount||0)>0?'flex':'none'}">
-            <label style="font-size:.75rem;flex-shrink:0;color:var(--text-dim)">👔</label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1">
+          <input type="checkbox" class="leader-checkbox" data-id="${t.id}" ${(t.leaderCount||0)>0?'checked':''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0">
+          <span style="font-size:.75rem;color:var(--text-dim);flex-shrink:0">👔 Führungskräfte</span>
+          <div class="leader-spinner" title="Anzahl benötigter Führungskräfte" style="flex:1;min-width:180px;display:${(t.leaderCount||0)>0?'flex':'none'};margin-left:auto">
             <button class="slot-btn leader-minus" data-id="${t.id}">−</button>
             <span class="leader-display">${t.leaderCount||0}</span>
             <button class="slot-btn leader-plus" data-id="${t.id}">+</button>
-            <span style="font-size:.65rem;color:var(--text-dim)">Führungskräfte</span>
           </div>
-        </div>
+        </label>
         <button class="mini-btn del-t" data-id="${t.id}">×</button>
       </div>
       ${assignedBoats.length > 0 ? `<div class="tower-boats">${assignedBoats.map(b => `<div class="tower-boat-item" data-boat-id="${b.id}" draggable="true" data-tower-id="${t.id}" title="Zum Turm bewegen">🚤 ${escapeHtml(b.name)} (${escapeHtml(b.code||'?')})</div>`).join('')}</div>` : ''}`;
