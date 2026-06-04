@@ -70,15 +70,21 @@ function renderTowerCfg(){
           <input type="number" min="1" value="${t.prio}" data-id="${t.id}" class="tprio" draggable="false">
         </span>
         <div class="slot-spinner">
+          <label style="font-size:.75rem;flex-shrink:0;color:var(--text-dim)">👥</label>
           <button class="slot-btn slot-minus" data-id="${t.id}" data-type="tower">−</button>
           <span class="slot-display">${t.slotCount||2}</span>
           <button class="slot-btn slot-plus" data-id="${t.id}" data-type="tower">+</button>
+          <span style="font-size:.65rem;color:var(--text-dim)">Wachgänger</span>
         </div>
-        <div class="leader-spinner" title="Führungskräfte die eingeplant werden sollen">
-          <label style="font-size:.75rem;flex-shrink:0">👔</label>
-          <button class="slot-btn leader-minus" data-id="${t.id}">−</button>
-          <span class="leader-display">${t.leaderCount||0}</span>
-          <button class="slot-btn leader-plus" data-id="${t.id}">+</button>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" class="leader-checkbox" data-id="${t.id}" ${(t.leaderCount||0)>0?'checked':''} title="Führungskräfte einschalten" style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0">
+          <div class="leader-spinner" title="Anzahl benötigter Führungskräfte" style="flex:1;min-width:180px">
+            <label style="font-size:.75rem;flex-shrink:0;color:var(--text-dim)">👔</label>
+            <button class="slot-btn leader-minus" data-id="${t.id}" ${(t.leaderCount||0)===0?'disabled':''}>−</button>
+            <span class="leader-display">${t.leaderCount||0}</span>
+            <button class="slot-btn leader-plus" data-id="${t.id}" ${(t.leaderCount||0)>=3?'disabled':''}>+</button>
+            <span style="font-size:.65rem;color:var(--text-dim)">Führungskräfte</span>
+          </div>
         </div>
         <button class="mini-btn del-t" data-id="${t.id}">×</button>
       </div>
@@ -180,10 +186,12 @@ function renderTowerCfg(){
     b.onclick = e => { const t = getT(+e.target.dataset.id); if(t.slotCount > 1) { t.slotCount--; generate(); renderTowerCfg(); } });
   c.querySelectorAll('.slot-plus[data-type="tower"]').forEach(b =>
     b.onclick = e => { const t = getT(+e.target.dataset.id); if(t.slotCount < 10) { t.slotCount++; generate(); renderTowerCfg(); } });
+  c.querySelectorAll('.leader-checkbox').forEach(cb =>
+    cb.onchange = e => { const t = getT(+e.target.dataset.id); if(!e.target.checked) { t.leaderCount = 0; } else if((t.leaderCount||0) === 0) { t.leaderCount = 1; } generate(); renderTowerCfg(); scheduleAutoSave(); });
   c.querySelectorAll('.leader-minus').forEach(b =>
-    b.onclick = e => { const t = getT(+e.target.dataset.id); if((t.leaderCount||0) > 0) { t.leaderCount--; generate(); renderTowerCfg(); } });
+    b.onclick = e => { const t = getT(+e.target.dataset.id); if((t.leaderCount||0) > 0) { t.leaderCount--; if(t.leaderCount === 0) { const cb = e.target.closest('.tower-row-meta').querySelector('.leader-checkbox'); if(cb) cb.checked = false; } generate(); renderTowerCfg(); } });
   c.querySelectorAll('.leader-plus').forEach(b =>
-    b.onclick = e => { const t = getT(+e.target.dataset.id); if((t.leaderCount||0) < 3) { t.leaderCount++; generate(); renderTowerCfg(); } });
+    b.onclick = e => { const t = getT(+e.target.dataset.id); if((t.leaderCount||0) < 3) { t.leaderCount++; const cb = e.target.closest('.tower-row-meta').querySelector('.leader-checkbox'); if(cb) cb.checked = true; generate(); renderTowerCfg(); } });
   c.querySelectorAll('.del-t').forEach(b =>
     b.onclick = e => {
       const id = +e.target.dataset.id;

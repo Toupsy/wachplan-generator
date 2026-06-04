@@ -213,9 +213,12 @@
   .slot-spinner, .leader-spinner{display:flex;align-items:center;gap:8px;background:rgba(127,212,232,.08);border:1px solid var(--line-strong);border-radius:8px;padding:6px 8px}
   .slot-display, .leader-display{font-family:'Spline Sans Mono',monospace;font-size:.9rem;color:var(--sea-bright);font-weight:600;min-width:28px;text-align:center}
   .slot-btn{background:rgba(24,168,216,.1);border:1px solid var(--sea-bright);color:var(--sea-bright);width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:all .15s}
-  .slot-btn:hover{background:rgba(24,168,216,.2);transform:scale(1.1)}
-  .slot-btn:active{transform:scale(0.95)}
+  .slot-btn:hover:not(:disabled){background:rgba(24,168,216,.2);transform:scale(1.1)}
+  .slot-btn:active:not(:disabled){transform:scale(0.95)}
   .slot-btn:disabled{opacity:.4;cursor:not-allowed}
+
+  .leader-checkbox-wrapper{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .leader-checkbox-wrapper input[type=checkbox]{cursor:pointer;accent-color:var(--sea-bright)}
 
   /* ── Main Panels: Side-by-side layout with independent scrolling ── */
   .main-panels {
