@@ -31,11 +31,13 @@
   .sidebar .panel{overflow:visible;height:auto;width:100%}
   /* ── Panel & Section Naming ── */
   .panel-sidebar{grid-column:1;align-self:start;height:auto}
-  .panel-output{grid-column:2;overflow-y:auto;overflow-x:hidden;padding-bottom:40px;scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent;height:100%;min-height:0}
-  .panel-output::-webkit-scrollbar{width:8px}
+  .panel-output{grid-column:2;overflow-y:auto;overflow-x:hidden;padding-bottom:40px;scrollbar-width:thin;scrollbar-color:rgba(127,212,232,0.6) transparent;height:100%;min-height:0;max-height:100%;display:flex;flex-direction:column}
+  .panel-output::-webkit-scrollbar{width:10px}
   .panel-output::-webkit-scrollbar-track{background:transparent}
-  .panel-output::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:4px}
+  .panel-output::-webkit-scrollbar-thumb{background:rgba(127,212,232,0.6);border-radius:6px}
   .panel-output::-webkit-scrollbar-thumb:hover{background:var(--sea-bright)}
+  /* Force panel-output to fill available height */
+  #output-panel{height:100% !important;display:flex !important;flex-direction:column !important;overflow-y:auto !important;overflow-x:hidden !important}
   .section{position:relative;display:block}
   .section-people,.section-towers,.section-boats,.section-hw-boat,.section-positions,.section-export-columns,.section-fairness-metrics,.section-schedule,.section-import-export{position:relative;display:block;width:100%}
   .sidebar::-webkit-scrollbar{width:12px}
@@ -244,7 +246,7 @@
 
   .main-panel {
     display: block;
-    overflow: hidden;
+    overflow: visible;
     min-height: 0;
     height: 100%;
   }
@@ -641,7 +643,7 @@
     </div>
 
     <!-- Panel 1: Wachplan (Output) -->
-    <div class="main-panel main-panel-1" data-panel="1" id="output-panel" class="panel panel-output" data-panel-name="Tages-Wachplan">
+    <div class="main-panel main-panel-1 panel panel-output" data-panel="1" id="output-panel" data-panel-name="Tages-Wachplan">
       <div class="empty-state">
         <div class="big">⚓</div>
         <p>Wachgänger benennen, Türme festlegen, dann <strong style="color:var(--foam)">Plan generieren</strong>.</p>
