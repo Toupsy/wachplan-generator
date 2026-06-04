@@ -217,8 +217,13 @@ function generate(startDay = 0){
 
     let usedGpre = k;
     const tempOpen = [];
+    // Verfügbare Turm-"Körper" für die Schätzung: E + U + alle BF. surplusBF ist
+    // hier noch nicht bekannt (es wird erst aus dieser Schätzung abgeleitet) →
+    // availB als Obergrenze, da überzählige BF real ebenfalls Turmplätze besetzen.
+    const availBodiesPre = availE.length + availU.length + availB.length;
     for(const t of openTowersSorted){
-      if(usedGpre + 2 <= availE.length + availU.length){ tempOpen.push(t); usedGpre += 2; }
+      const totalSlots = (t.slotCount || 2) + (t.leaderCount || 0);
+      if(usedGpre + totalSlots <= availBodiesPre){ tempOpen.push(t); usedGpre += totalSlots; }
     }
     // Boote, für die BF benötigt werden (ohne HW-Boot)
     const towersWithPreOpen = new Set(tempOpen.map(t => t.id));
