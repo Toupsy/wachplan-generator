@@ -251,16 +251,18 @@ function generate(startDay = 0){
     let poolE   = [...availE];
     let poolU   = [...availU];
     let poolSBF = [...surplusBF];
+    let poolF   = [...availF];
     let poolB   = [...activeBF];
     // O(1)-Lookup für surplusBF (Hot-Loop in bestPair); wird in removeAll synchron gehalten
     const poolSBFIds = new Set(poolSBF.map(p => p.id));
 
-    const getGuardPool  = () => [...poolE, ...poolU, ...poolSBF];
-    const guardPoolSize = () => poolE.length + poolU.length + poolSBF.length;
+    const getGuardPool  = () => [...poolE, ...poolU, ...poolSBF, ...poolF];
+    const guardPoolSize = () => poolE.length + poolU.length + poolSBF.length + poolF.length;
     const removeAll    = p  => {
       poolE   = poolE.filter(x   => x.id !== p.id);
       poolU   = poolU.filter(x   => x.id !== p.id);
       poolSBF = poolSBF.filter(x => x.id !== p.id);
+      poolF   = poolF.filter(x   => x.id !== p.id);
       poolSBFIds.delete(p.id);
     };
 
@@ -272,7 +274,8 @@ function generate(startDay = 0){
     // Vorabbelegte Türme brauchen ggf. weniger Pool-Personen
     for(const t of candidateTowers){
       const preCount = (forcedByTower[t.id] || []).length;
-      const need     = Math.max(0, (t.slotCount || 2) - preCount);
+      const totalSlots = (t.slotCount || 2) + (t.leaderCount || 0);
+      const need     = Math.max(0, totalSlots - preCount);
       // need===0: Turm ist voll vorbelegt → immer öffnen (kein Pool nötig)
       if(need === 0 || usedG + need <= guardPoolSize()){ openTowers.push(t); usedG += need; }
     }
@@ -442,6 +445,12 @@ function generate(startDay = 0){
             const getEffectiveRole = (p) => p.role === 'B' && p.bfLevel ? p.bfLevel : p.role;
             let scoreA = ensure(a.id).total + surplusBFPenalty(a, t);
             let scoreB = ensure(b.id).total + surplusBFPenalty(b, t);
+            // Feature 12: Bevorzuge Führungskräfte auf Türmen mit leaderCount > 0
+            const needsLeader = t.leaderCount && t.leaderCount > 0;
+            if(needsLeader){
+              if(a.role === 'F') scoreA -= 100;
+              if(b.role === 'F') scoreB -= 100;
+            }
             // Feature 13a: Wenn bereits zwei Unerfahrene auf Turm → BF-U Penalty, BF-E Bonus
             const occupantRoles = slot.occupants.map(occ => getEffectiveRole(occ)).join('');
             if(occupantRoles === 'UU'){
@@ -603,17 +612,18 @@ function generate(startDay = 0){
     const leftovers = [...poolE, ...poolU, ...poolSBF];
     dayAssign.push({
       kind:'main', main:true, tower:'Hauptwache',
-      fuehrung:availF, mainGuards, base:leftovers,
+      fuehrung:poolF, mainGuards, base:leftovers,
       bootsfLeft:poolB, hwBoatSlot,
       sick:sickToday, k,
     });
 
-    // HW-Besuche für ALLE passiven HW-Personen (Overflow + übrige BF) tracken.
+    // HW-Besuche für ALLE passiven HW-Personen (Overflow + übrige BF + übrige F) tracken.
     // mainGuards bekommen hwVisits bereits via commitPerson.
     // Ohne dieses Tracking denkt der Algorithmus, Overflow-Personen waren nie an HW
     // → sie häufen sich immer in der Overflow-Liste an statt zu rotieren.
     leftovers.forEach(p => ensure(p.id).hwVisits++);
     poolB.forEach(p => ensure(p.id).hwVisits++);
+    poolF.forEach(p => ensure(p.id).hwVisits++);
 
     // ── 6) TRANSPARENTE Zuweisungen: visueller Tausch NACH dem Algorithmus ──
     // Person bleibt im Pool → Statistik identisch zum Originalplan.
