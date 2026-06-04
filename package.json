@@ -4,6 +4,7 @@
   "description": "Single-Page Application für automatische DLRG Wachplangeneration",
   "main": "server/server.js",
   "scripts": {
+    "test": "node --test test/*.test.js",
     "start": "node server/server.js",
     "start:admin": "node server/admin-server.js",
     "dev": "node server/server.js",
