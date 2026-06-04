@@ -9,6 +9,10 @@ async function loadConfig() {
   try {
     const response = await fetch('/api/config');
     if (!response.ok) {
+      if (response.status === 503) {
+        console.warn('⚠️ API not available (preview mode) – using offline mode');
+        return false;
+      }
       console.error('Failed to load config:', response.statusText);
       return false;
     }
@@ -17,6 +21,7 @@ async function loadConfig() {
     return true;
   } catch (error) {
     console.error('Config load error:', error);
+    console.log('⚠️ Falling back to offline mode (no API backend available)');
     return false;
   }
 }

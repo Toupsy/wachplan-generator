@@ -171,7 +171,11 @@ async function autoSave(){
       });
 
       if(!response.ok){
-        console.error('Failed to create plan:', response.statusText);
+        if (response.status === 503) {
+          console.log('⚠️ API unavailable (preview mode) – saving to localStorage');
+        } else {
+          console.error('Failed to create plan:', response.statusText);
+        }
         _fallbackSaveToStorage(state);
         return;
       }
@@ -193,7 +197,11 @@ async function autoSave(){
     });
 
     if(!response.ok){
-      console.error('Failed to save plan:', response.statusText);
+      if (response.status === 503) {
+        console.log('⚠️ API unavailable (preview mode) – saving to localStorage');
+      } else {
+        console.error('Failed to save plan:', response.statusText);
+      }
       _fallbackSaveToStorage(state);
       return;
     }
@@ -221,7 +229,11 @@ async function autoLoad(){
     // Hole Liste aller Pläne des Users
     const response = await fetch('/api/plans', { credentials: 'include' });
     if(!response.ok) {
-      console.log('Could not fetch plans, falling back to localStorage');
+      if (response.status === 503) {
+        console.log('⚠️ API not available (preview mode) – using offline localStorage');
+      } else {
+        console.log('Could not fetch plans, falling back to localStorage');
+      }
       return _autoLoadFromStorage();
     }
 
