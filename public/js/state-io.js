@@ -110,7 +110,7 @@ function importStateJSON(json, silent = false){
   const daysInput = document.getElementById('num-days');
   if(daysInput) daysInput.value = DAYS;
 
-  people = (s.people || []).map(p => ({ ...p }));
+  people = (s.people || []).map(p => ({ ...p, labels: p.labels || '' }));
   towers = (s.towers || []).map(t => ({ ...t, slotCount: t.slotCount || 2 }));
   boats  = (s.boats  || []).map(b => ({ ...b, slotCount: b.slotCount || 1 }));
 
