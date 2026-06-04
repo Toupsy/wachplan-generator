@@ -78,7 +78,7 @@ function renderTowerCfg(){
         </div>
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1">
           <input type="checkbox" class="leader-checkbox" data-id="${t.id}" ${(t.leaderCount||0)>0?'checked':''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0">
-          <span style="font-size:.75rem;color:var(--text-dim);flex-shrink:0">👔 Führungskräfte</span>
+          <span style="font-size:.75rem;color:var(--text-dim);flex-shrink:0">👔</span>
           <div class="leader-spinner" title="Anzahl benötigter Führungskräfte" style="flex:1;min-width:180px;display:${(t.leaderCount||0)>0?'flex':'none'};margin-left:auto">
             <button class="slot-btn leader-minus" data-id="${t.id}">−</button>
             <span class="leader-display">${t.leaderCount||0}</span>
