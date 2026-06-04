@@ -314,26 +314,26 @@ async function exportOfficial(dayIdx){
 
 function exportCSV(){
   const {schedule}=lastResult;
-  const rows=[['Tag','Standort','Code','Typ','Position','Person','Rolle']];
+  const rows=[['Tag','Standort','Code','Typ','Position','Person','Rolle','Labels']];
   schedule.forEach(d=>{
     const dn=dayLabel(d.day);
     d.assign.forEach(slot=>{
       if(slot.kind==='main'){
-        slot.fuehrung.forEach(p   =>rows.push([dn,slot.tower,'','Zentrale','Führung',p.name,ROLE[p.role]]));
-        slot.mainGuards.forEach(p =>rows.push([dn,slot.tower,'','Zentrale','HW-Wache',p.name,ROLE[p.role]]));
-        slot.base.forEach(p       =>rows.push([dn,slot.tower,'','Zentrale','HW',p.name,ROLE[p.role]]));
-        slot.bootsfLeft.forEach(p =>rows.push([dn,slot.tower,'','Zentrale','Bootsf. HW',p.name,ROLE[p.role]]));
+        slot.fuehrung.forEach(p   =>rows.push([dn,slot.tower,'','Zentrale','Führung',p.name,ROLE[p.role],p.labels||'']));
+        slot.mainGuards.forEach(p =>rows.push([dn,slot.tower,'','Zentrale','HW-Wache',p.name,ROLE[p.role],p.labels||'']));
+        slot.base.forEach(p       =>rows.push([dn,slot.tower,'','Zentrale','HW',p.name,ROLE[p.role],p.labels||'']));
+        slot.bootsfLeft.forEach(p =>rows.push([dn,slot.tower,'','Zentrale','Bootsf. HW',p.name,ROLE[p.role],p.labels||'']));
         if(slot.hwBoatSlot?.bootsf)
-          rows.push([dn,slot.hwBoatSlot.name,getBoat(slot.hwBoatSlot.boatId)?.code||'','HW-Boot','Bootsführer',slot.hwBoatSlot.bootsf.name,ROLE[slot.hwBoatSlot.bootsf.role]]);
-        slot.sick.forEach(p       =>rows.push([dn,slot.tower,'','Zentrale','KRANK',p.name,ROLE[p.role]]));
+          rows.push([dn,slot.hwBoatSlot.name,getBoat(slot.hwBoatSlot.boatId)?.code||'','HW-Boot','Bootsführer',slot.hwBoatSlot.bootsf.name,ROLE[slot.hwBoatSlot.bootsf.role],slot.hwBoatSlot.bootsf.labels||'']);
+        slot.sick.forEach(p       =>rows.push([dn,slot.tower,'','Zentrale','KRANK',p.name,ROLE[p.role],p.labels||'']));
       } else if(slot.kind==='tower'){
-        slot.occupants.forEach(p  =>rows.push([dn,slot.tower,slot.code||'','Turm','Wachgänger',p.name,ROLE[p.role]]));
+        slot.occupants.forEach(p  =>rows.push([dn,slot.tower,slot.code||'','Turm','Wachgänger',p.name,ROLE[p.role],p.labels||'']));
       } else if(slot.kind==='boat' && slot.occupants && slot.occupants.length > 0){
-        slot.occupants.forEach(p  =>rows.push([dn,slot.name,slot.code||'','Boot','Bootsführer',p.name,ROLE[p.role]]));
+        slot.occupants.forEach(p  =>rows.push([dn,slot.name,slot.code||'','Boot','Bootsführer',p.name,ROLE[p.role],p.labels||'']));
       }
     });
-    [...d.manualClosed,...d.personnelClosed].forEach(t=>rows.push([dn,t.name,t.code||'','Turm','GESCHLOSSEN','','']));
-    [...d.boatsManualClosed,...d.boatsClosedTower,...d.boatsNoBootsf].forEach(b=>rows.push([dn,b.name,b.code||'','Boot','GESCHLOSSEN','','']));
+    [...d.manualClosed,...d.personnelClosed].forEach(t=>rows.push([dn,t.name,t.code||'','Turm','GESCHLOSSEN','','','']));
+    [...d.boatsManualClosed,...d.boatsClosedTower,...d.boatsNoBootsf].forEach(b=>rows.push([dn,b.name,b.code||'','Boot','GESCHLOSSEN','','','']));
   });
   const csv =rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});

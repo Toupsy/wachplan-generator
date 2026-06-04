@@ -21,11 +21,14 @@ function renderPeople(){
         <option value="E" ${p.bfLevel==='E'?'selected':''}>BF-E</option>
         <option value="U" ${p.bfLevel==='U'?'selected':''}>BF-U</option>
       </select>` : ''}
+      <input type="text" value="${escapeHtml(p.labels||'')}" data-id="${p.id}" class="plabels" placeholder="Labels (z.B. Sanitäter)" title="Komma-getrennt">
       <button class="mini-btn del-p" data-id="${p.id}">×</button>`;
     c.appendChild(row);
   });
   c.querySelectorAll('.pname').forEach(i =>
     i.oninput = e => { getP(+e.target.dataset.id).name = e.target.value; });
+  c.querySelectorAll('.plabels').forEach(i =>
+    i.oninput = e => { getP(+e.target.dataset.id).labels = e.target.value; });
   c.querySelectorAll('.prole').forEach(s =>
     s.onchange = e => { getP(+e.target.dataset.id).role = e.target.value; renderPeople(); });
   c.querySelectorAll('.bf-level').forEach(s =>
