@@ -75,9 +75,9 @@ function renderTowerCfg(){
           <button class="slot-btn slot-plus" data-id="${t.id}" data-type="tower">+</button>
         </div>
         <div class="leader-spinner" title="Führungskräfte die eingeplant werden sollen">
-          <label title="Führungskräfte">👔</label>
+          <label style="font-size:.75rem;flex-shrink:0">👔</label>
           <button class="slot-btn leader-minus" data-id="${t.id}">−</button>
-          <span class="slot-display">${t.leaderCount||0}</span>
+          <span class="leader-display">${t.leaderCount||0}</span>
           <button class="slot-btn leader-plus" data-id="${t.id}">+</button>
         </div>
         <button class="mini-btn del-t" data-id="${t.id}">×</button>
@@ -231,11 +231,6 @@ function renderBoatCfg(){
           <input type="number" min="1" value="${b.prio}" data-id="${b.id}" class="bprio" draggable="false">
         </span>
         <select class="bassign" data-id="${b.id}" style="flex:1;min-width:0" draggable="false">${towerOpts}</select>
-        <div class="slot-spinner">
-          <button class="slot-btn slot-minus" data-id="${b.id}" data-type="boat">−</button>
-          <span class="slot-display">${b.slotCount||1}</span>
-          <button class="slot-btn slot-plus" data-id="${b.id}" data-type="boat">+</button>
-        </div>
         <button class="mini-btn del-b" data-id="${b.id}">×</button>
       </div>`;
 
@@ -319,10 +314,6 @@ function renderBoatCfg(){
       }
       renderHWBoatSelector();
     });
-  c.querySelectorAll('.slot-minus[data-type="boat"]').forEach(b =>
-    b.onclick = e => { const bo = getBoat(+e.target.dataset.id); if(bo.slotCount > 1) { bo.slotCount--; generate(); renderBoatCfg(); } });
-  c.querySelectorAll('.slot-plus[data-type="boat"]').forEach(b =>
-    b.onclick = e => { const bo = getBoat(+e.target.dataset.id); if(bo.slotCount < 3) { bo.slotCount++; generate(); renderBoatCfg(); } });
   c.querySelectorAll('.del-b').forEach(b =>
     b.onclick = e => {
       const id = +e.target.dataset.id;
