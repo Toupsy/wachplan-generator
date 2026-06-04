@@ -1,7 +1,7 @@
 name = "dlrg-wachplan-generator"
 main = "src/worker.js"
 type = "javascript"
-account_id = ""
+account_id = "c305b2e473befd23d3a8cab94cb3483f"
 workers_dev = true
 
 # Asset directory configuration
@@ -38,9 +38,6 @@ preview_id = ""
 # Preview Environment (Pull Request previews)
 # ─────────────────────────────────────────────────────────────────
 [env.preview]
-routes = [
-  { pattern = "*.wachplan-generator-preview.workers.dev/*", zone_name = "" }
-]
 vars = { ENVIRONMENT = "preview" }
 
 [[env.preview.kv_namespaces]]
