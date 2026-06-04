@@ -274,6 +274,14 @@ Sidebar (Einstellungen) und Output-Panel (Wachplan) auf einer Seite nebeneinande
 - Beide Panels scrollen unabhängig (kein synchronisiertes Scrolling)
 - Print-Modus (`@media print`): Nur Output-Panel angezeigt, Sidebar ausgeblendet
 
+### Feature 15: CSV-Export Pro-Person Fairness-Statistik
+`exportStatsCSV()` in `export.js` exportiert aggregierte Fairness-Kennzahlen pro Person als CSV:
+- Spalten: Nr | Person | Rolle | Einsätze gesamt | HW-Tage | Türme (unique) | Turmbesuche gesamt | Boot-Tage | Tage Turm+Boot
+- Zahlen exakt wie in `renderTowerStatsPerPerson()` (render-output.js Zeile 720) berechnet
+- Button `#btn-export-stats-csv` („📊 Statistik (CSV)") in Export-Zeile neben regulärem CSV-Button
+- Guard: Toast-Hinweis wenn `lastResult?.stats` nicht verfügbar
+- UTF-8 mit BOM für Excel-Kompatibilität; Dateiname: `wachplan-statistik.csv`
+
 ---
 
 ## Manuelles Verschieben & Drag-and-Drop (move.js, render-output.js)
