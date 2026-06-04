@@ -261,7 +261,10 @@ Stats-Bar zeigt `avgHwVisits | avgTowerWithBoatDays` (z.B. `0.9 | 0.9`) + Boot-P
 ### Feature 12: Pro-Turm Führungskräfte-Einstellung
 - `leaderCount` pro Tower (0–3, Default 0) – zusätzlich zu `slotCount`
 - Tower mit `slotCount=2, leaderCount=1` → 3 Personen total (1 F + 2 andere)
-- Scoring: Führungskräfte bekommen -100 Bonus wenn Turm `leaderCount > 0` (soft scoring)
+- **Platzierung:** Führungskräfte liegen in einem **separaten** `poolF` (NICHT im allgemeinen `getGuardPool`). Pro offenem Turm werden `leaderCount`-Slots gezielt mit F aus `poolF` vorbesetzt (faire Auswahl: wenig `total`, dann wenig `towerVisits[t]`), bevor die restlichen Slots regulär per `bestPair` gefüllt werden.
+- **HW behält Führung:** Nur so viele F wie Leader-Slots verlassen die HW; übrige F bleiben `fuehrung:poolF` an der Hauptwache. Ohne `leaderCount`-Türme bleiben alle F an der HW.
+- Reichen die F nicht für alle Leader-Slots, werden die übrigen regulär besetzt (Turm bleibt voll).
+- Führung an der HW zählt als aktiver Dienst (`total++ + hwVisits++`, konsistent mit `_reAccumulateDayStats`) → faire Leader-Rotation über die Tage.
 - UI: Spinner in Sidebar neben slotCount (Label 👔); Export/Import via `state-io.js`
 
 ### Feature 13: Bootsführer-Erfahrungslevel (BF-E vs BF-U)
