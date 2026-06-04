@@ -237,16 +237,14 @@ function renderOutput(){
     // label=null → Standardrolle ROLE[p.role]. data-move-slot nutzt slotId||''
     // (MAIN_ID=0 → '' wie zuvor; Move-Modal behandelt HW gesondert).
     const renderOccupant = (p, label, kind, slotId) => {
-      const labelBadges = (p.labels||'').trim()
+      const labels = (p.labels||'').trim()
         .split(',')
         .map(l => l.trim())
-        .filter(l => l)
-        .map(l => `<span class="label-badge">${escapeHtml(l)}</span>`)
-        .join('');
+        .filter(l => l);
+      const labelText = labels.length > 0 ? ' - <span class="person-labels">' + labels.map(l => `<span class="label-tag">${escapeHtml(l)}</span>`).join(' ') + '</span>' : '';
       return `
           <div class="occupant" draggable="true" data-person-id="${p.id}" data-source-kind="${kind}" data-source-slot="${slotId}">
-            <i class="role-dot rd-${p.role.toLowerCase()}"></i>${escapeHtml(p.name)}
-            ${labelBadges}
+            <i class="role-dot rd-${p.role.toLowerCase()}"></i>${escapeHtml(p.name)}${labelText}
             ${forcedIds.has(p.id)?'<span class="forced-badge" title="Manuell fixiert">🔒</span>':''}
             <span class="o-role">${label||ROLE[p.role]}</span>
             <button class="move-btn" data-move-person="${p.id}" data-move-day="${di}"

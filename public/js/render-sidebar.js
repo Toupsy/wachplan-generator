@@ -21,9 +21,16 @@ function renderPeople(){
         <option value="E" ${p.bfLevel==='E'?'selected':''}>BF-E</option>
         <option value="U" ${p.bfLevel==='U'?'selected':''}>BF-U</option>
       </select>` : ''}
-      <input type="text" value="${escapeHtml(p.labels||'')}" data-id="${p.id}" class="plabels" placeholder="Labels (z.B. Sanitäter)" title="Komma-getrennt">
       <button class="mini-btn del-p" data-id="${p.id}">×</button>`;
     c.appendChild(row);
+
+    // Labels in separate row for better visibility
+    if (p.labels || true) { // Always show labels row
+      const labelsRow = document.createElement('div');
+      labelsRow.className = 'person-labels-row';
+      labelsRow.innerHTML = `<input type="text" value="${escapeHtml(p.labels||'')}" data-id="${p.id}" class="plabels" placeholder="Labels (z.B. Sanitäter, Rettungsschwimmer)">`;
+      c.appendChild(labelsRow);
+    }
   });
   c.querySelectorAll('.pname').forEach(i =>
     i.oninput = e => { getP(+e.target.dataset.id).name = e.target.value; });
