@@ -9,6 +9,28 @@ let currentUser = null;
  * Aktualisiere User-Info Header nach Login
  */
 async function updateUserInfo() {
+  const environment = window.WORKER_ENVIRONMENT || 'production';
+  const isPreview = environment === 'preview';
+
+  if (isPreview) {
+    // Zeige Preview-Mode Indicator statt Login-Header
+    const header = document.getElementById('user-info-header');
+    if (header) {
+      header.style.display = '';
+      const username = document.getElementById('user-info-username');
+      if (username) {
+        username.innerHTML = '<span style="color:var(--warn)">🔧 Preview Mode</span> – API deaktiviert';
+      }
+
+      // Verstecke Admin/Import-Buttons in Preview
+      const adminBtn = document.getElementById('btn-admin-panel');
+      if (adminBtn) adminBtn.style.display = 'none';
+      const importPlansBtn = document.getElementById('btn-import-plans');
+      if (importPlansBtn) importPlansBtn.style.display = 'none';
+    }
+    return;
+  }
+
   try {
     const response = await fetch('/api/auth/me', { credentials: 'include' });
     if (!response.ok) {

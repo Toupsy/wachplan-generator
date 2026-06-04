@@ -14,8 +14,15 @@ export default {
     const url = new URL(request.url);
     const pathname = url.pathname;
 
-    // API requests: proxy to origin server
+    // API requests: proxy to origin server (with config fallback for preview)
     if (pathname.startsWith('/api/')) {
+      // Special handling for /api/config in preview mode
+      if (pathname === '/api/config' && isPreviewEnvironment(url.hostname)) {
+        return new Response(JSON.stringify(getPreviewConfig()), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
       return proxyToOrigin(request, url);
     }
 
@@ -84,6 +91,56 @@ function shouldServeAsset(pathname) {
   ];
 
   return assetExtensions.some(ext => pathname.endsWith(ext));
+}
+
+/**
+ * Determine if this is a preview environment based on hostname
+ */
+function isPreviewEnvironment(hostname) {
+  return hostname.includes('preview') ||
+         hostname.includes('pr-') ||
+         /^[a-f0-9]{8}-/.test(hostname);
+}
+
+/**
+ * Get default preview configuration (fallback for /api/config)
+ */
+function getPreviewConfig() {
+  return {
+    template: {
+      towers: [
+        { name: "9/12", prio: 1, slotCount: 2 },
+        { name: "9/13", prio: 2, slotCount: 2 },
+        { name: "9/14", prio: 3, slotCount: 2 },
+        { name: "9/15", prio: 4, slotCount: 2 },
+        { name: "9/16", prio: 5, slotCount: 2 },
+        { name: "9/17", prio: 6, slotCount: 2 },
+        { name: "9/18", prio: 7, slotCount: 2 }
+      ],
+      boats: [
+        { name: "Boot 78/1", towerName: "9/12", code: "78/1", prio: 1, slotCount: 1 },
+        { name: "Boot 78/2", towerName: "9/14", code: "78/2", prio: 2, slotCount: 1 },
+        { name: "Boot 78/3", towerName: "9/17", code: "78/3", prio: 3, slotCount: 1 }
+      ],
+      exportColumns: [
+        "78/1", "9/12", "9/13", "", "WF", "HW", "",
+        "78/2", "9/14", "9/15", "9/16", "78/3", "9/17", "9/18"
+      ]
+    },
+    positions: {
+      "3": "Wachführer",
+      "4": "Bootsführer",
+      "5": "Sanitäter",
+      "6": "Beobachter",
+      "7": "Verwalter"
+    },
+    ui: {
+      maxPeople: 28,
+      maxDays: 14,
+      maxTowerSlots: 10,
+      maxBoatSlots: 3
+    }
+  };
 }
 
 /**
