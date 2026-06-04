@@ -243,6 +243,15 @@
     border-radius: 4px;
   }
 
+  /* ── Day Panel Display Logic ── */
+  .day-panel {
+    display: none;  /* Verstecke alle Tage standardmäßig */
+  }
+
+  .day-panel.active {
+    display: block;  /* Zeige nur den aktiven Tag */
+  }
+
   /* ── Responsive: Stack at <1040px ── */
   @media(max-width: 1040px) {
     .main-panels {
