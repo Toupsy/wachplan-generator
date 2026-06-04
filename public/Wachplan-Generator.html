@@ -250,8 +250,16 @@
   }
 
 
-  /* ── Responsive: Stack at <1120px ── */
-  @media(max-width: 1120px) {
+  /* ── Responsive: Tablet (800px–1200px) – Narrower Sidebar, Still Side-by-Side ── */
+  @media(max-width: 1200px) {
+    .main-panels {
+      grid-template-columns: 320px 1fr;
+      gap: 20px;
+    }
+  }
+
+  /* ── Responsive: Mobile (<800px) – Stacked Layout ── */
+  @media(max-width: 799px) {
     .main-panels {
       grid-template-columns: 1fr;
       height: auto;
@@ -267,8 +275,8 @@
     .sidebar {
       position: relative;
       flex: none;
-      max-height: none;
-      overflow-y: visible;
+      max-height: 60vh;
+      overflow-y: auto;
     }
 
     #output-panel {
