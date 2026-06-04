@@ -159,7 +159,7 @@ function renderOutput(){
     const forcedIds = new Set(dayForced.map(f => f.personId));
     const dayLabelTxt = dayLabel(di);
 
-    html += `<div class="day-panel" id="day-panel-${di}" style="display:${di===activeDay?'block':'none'}" data-panel="${di}" data-panel-name="Tag ${di + 1} - ${dayLabelTxt}" data-day-index="${di}">`;
+    html += `<div class="day-panel ${di===activeDay ? "active" : ""}" id="day-panel-${di}" style="display:${di===activeDay?'block':'none'}" data-panel="${di}" data-panel-name="Tag ${di + 1} - ${dayLabelTxt}" data-day-index="${di}">`;
 
     // Tages-Steuerung
     html += `<div class="day-controls">
