@@ -2,7 +2,7 @@
 # Cloudflare Workers Configuration
 # ================================================================================
 
-name = "dlrg-wachplan-generator"
+name = "wachplan-generator"
 main = "src/worker.js"
 type = "javascript"
 account_id = "c305b2e473befd23d3a8cab94cb3483f"
