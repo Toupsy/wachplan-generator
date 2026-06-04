@@ -1,46 +1,41 @@
+# ================================================================================
+# Cloudflare Workers Configuration
+# ================================================================================
+
 name = "dlrg-wachplan-generator"
 main = "src/worker.js"
 type = "javascript"
 account_id = "c305b2e473befd23d3a8cab94cb3483f"
 workers_dev = true
 
-# Asset directory configuration
+# Asset directory (static files from public/)
 [assets]
 directory = "public/"
 binding = "ASSETS"
 
-# ─────────────────────────────────────────────────────────────────
+# ================================================================================
 # Production Environment
-# ─────────────────────────────────────────────────────────────────
+# ================================================================================
 [env.production]
 routes = [
   { pattern = "wachplan-generator.de/*", zone_name = "wachplan-generator.de" }
 ]
-vars = { ENVIRONMENT = "production" }
 
-[[env.production.kv_namespaces]]
-binding = "PLANS_KV"
-id = ""
-preview_id = ""
+[env.production.vars]
+ENVIRONMENT = "production"
 
-# ─────────────────────────────────────────────────────────────────
-# Development Environment (local testing)
-# ─────────────────────────────────────────────────────────────────
+# ================================================================================
+# Development Environment
+# ================================================================================
 [env.development]
-vars = { ENVIRONMENT = "development" }
 
-[[env.development.kv_namespaces]]
-binding = "PLANS_KV"
-id = ""
-preview_id = ""
+[env.development.vars]
+ENVIRONMENT = "development"
 
-# ─────────────────────────────────────────────────────────────────
-# Preview Environment (Pull Request previews)
-# ─────────────────────────────────────────────────────────────────
+# ================================================================================
+# Preview Environment (for Pull Requests)
+# ================================================================================
 [env.preview]
-vars = { ENVIRONMENT = "preview" }
 
-[[env.preview.kv_namespaces]]
-binding = "PLANS_KV"
-id = ""
-preview_id = ""
+[env.preview.vars]
+ENVIRONMENT = "preview"
