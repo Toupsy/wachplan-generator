@@ -252,6 +252,10 @@ function generate(startDay = 0){
     let poolU   = [...availU];
     let poolSBF = [...surplusBF];
     let poolB   = [...activeBF];
+    // Feature 12: Führungskräfte. BEWUSST NICHT im allgemeinen Guard-Pool
+    // (getGuardPool), sondern separat – sie besetzen gezielt nur leaderCount-Slots.
+    // Übrige F bleiben Führung an der HW (siehe HW-finalize: fuehrung:poolF).
+    let poolF   = [...availF];
     // O(1)-Lookup für surplusBF (Hot-Loop in bestPair); wird in removeAll synchron gehalten
     const poolSBFIds = new Set(poolSBF.map(p => p.id));
 
@@ -418,6 +422,25 @@ function generate(startDay = 0){
       const totalSlots = (t.slotCount || 2) + (t.leaderCount || 0);
       let need = totalSlots - slot.occupants.length;
       const wasEmpty = slot.occupants.length === 0;
+
+      // Feature 12: leaderCount-Slots bevorzugt mit Führungskräften besetzen.
+      // Es verlassen nur so viele F die Hauptwache wie es Leader-Slots gibt –
+      // die übrigen F bleiben Führung an der HW (kein Leerziehen wie in PR #99).
+      // Faire Rotation: F mit wenig Gesamteinsätzen / wenig Besuchen dieses Turms zuerst.
+      let leadersToPlace = Math.min(t.leaderCount || 0, need, poolF.length);
+      for(let li = 0; li < leadersToPlace; li++){
+        poolF.sort((a,b) => {
+          const sa = ensure(a.id), sb = ensure(b.id);
+          return (sa.total - sb.total)
+              || ((sa.towerVisits[t.id] || 0) - (sb.towerVisits[t.id] || 0))
+              || (a.id - b.id);
+        });
+        const leader = poolF.shift();
+        slot.occupants.push(leader);
+        commitPerson(leader, t);
+        need--;
+      }
+
       let pairsAdded = 0;
       while(need > 0){
         // Wenn bereits 1 forcierte Person vorhanden: NUR einzelne Person hinzufügen (nicht Paar)
@@ -603,17 +626,21 @@ function generate(startDay = 0){
     const leftovers = [...poolE, ...poolU, ...poolSBF];
     dayAssign.push({
       kind:'main', main:true, tower:'Hauptwache',
-      fuehrung:availF, mainGuards, base:leftovers,
+      fuehrung:poolF, mainGuards, base:leftovers,
       bootsfLeft:poolB, hwBoatSlot,
       sick:sickToday, k,
     });
 
-    // HW-Besuche für ALLE passiven HW-Personen (Overflow + übrige BF) tracken.
+    // HW-Besuche für ALLE passiven HW-Personen (Overflow + übrige BF + übrige Führung) tracken.
     // mainGuards bekommen hwVisits bereits via commitPerson.
     // Ohne dieses Tracking denkt der Algorithmus, Overflow-Personen waren nie an HW
     // → sie häufen sich immer in der Overflow-Liste an statt zu rotieren.
     leftovers.forEach(p => ensure(p.id).hwVisits++);
     poolB.forEach(p => ensure(p.id).hwVisits++);
+    // Führung an der HW gilt als aktiver Dienst (wie mainGuards) → total++ + hwVisits++.
+    // Konsistent mit _reAccumulateDayStats (zählt slot.fuehrung ebenso) → faire
+    // Leader-Rotation auch nach Teil-Neuberechnung (generate(startDay>0)).
+    poolF.forEach(p => { const s = ensure(p.id); s.total++; s.hwVisits++; });
 
     // ── 6) TRANSPARENTE Zuweisungen: visueller Tausch NACH dem Algorithmus ──
     // Person bleibt im Pool → Statistik identisch zum Originalplan.
