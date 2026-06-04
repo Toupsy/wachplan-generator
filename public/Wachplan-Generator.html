@@ -29,6 +29,15 @@
   .panel::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--sea),var(--foam),transparent);opacity:.5}
   .sidebar{position:relative;flex:1;overflow-y:scroll;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent;min-height:0}
   .sidebar .panel{overflow:visible}
+  /* ── Panel & Section Naming ── */
+  .panel-sidebar{grid-column:1;align-self:start}
+  .panel-output{grid-column:2;overflow-y:scroll;padding-bottom:40px;scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
+  .panel-output::-webkit-scrollbar{width:8px}
+  .panel-output::-webkit-scrollbar-track{background:transparent}
+  .panel-output::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:4px}
+  .panel-output::-webkit-scrollbar-thumb:hover{background:var(--sea-bright)}
+  .section{position:relative;display:block}
+  .section-people,.section-towers,.section-boats,.section-hw-boat,.section-positions,.section-export-columns,.section-fairness-metrics,.section-schedule,.section-import-export{position:relative;display:block;width:100%}
   .sidebar::-webkit-scrollbar{width:8px}
   .sidebar::-webkit-scrollbar-track{background:transparent}
   .sidebar::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:4px}
@@ -235,29 +244,6 @@
     min-height: 0;
   }
 
-  #output-panel {
-    overflow-y: scroll;
-    padding-bottom: 40px;
-    scrollbar-width: thin;
-    scrollbar-color: var(--line-strong) transparent;
-  }
-
-  #output-panel::-webkit-scrollbar {
-    width: 8px;
-  }
-
-  #output-panel::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  #output-panel::-webkit-scrollbar-thumb {
-    background: var(--line-strong);
-    border-radius: 4px;
-  }
-
-  #output-panel::-webkit-scrollbar-thumb:hover {
-    background: var(--sea-bright);
-  }
 
   /* ── Responsive: Stack at <1120px ── */
   @media(max-width: 1120px) {
@@ -487,7 +473,7 @@
   <!-- Main Panels: Sidebar / Output (Grid Layout) -->
   <div class="main-panels">
     <!-- Panel 0: Einstellungen (Sidebar) -->
-    <div class="main-panel main-panel-0 active" data-panel="0">
+    <div class="main-panel main-panel-0 active" data-panel="0" id="sidebar-panel" class="panel panel-sidebar" data-panel-name="Wachgänger & Konfiguration">
       <aside class="sidebar">
         <div class="panel">
 
@@ -505,15 +491,17 @@
           </div>
 
           <!-- Wachgänger -->
-          <div class="section-label">Wachgänger</div>
-          <div class="info-box">Namen eintippen, Rolle wählen. <b>F</b>ührung · <b>B</b>ootsführer · <b>E</b>rfahren · <b>U</b>nerfahren.</div>
-          <div class="legend">
-            <span><i class="role-dot rd-f"></i>Führung</span>
-            <span><i class="role-dot rd-b"></i>Bootsf.</span>
-            <span><i class="role-dot rd-e"></i>Erfahren</span>
-            <span><i class="role-dot rd-u"></i>Unerfahren</span>
+          <div id="section-people" class="section section-people">
+            <div class="section-label">Wachgänger</div>
+            <div class="info-box">Namen eintippen, Rolle wählen. <b>F</b>ührung · <b>B</b>ootsführer · <b>E</b>rfahren · <b>U</b>nerfahren.</div>
+            <div class="legend">
+              <span><i class="role-dot rd-f"></i>Führung</span>
+              <span><i class="role-dot rd-b"></i>Bootsf.</span>
+              <span><i class="role-dot rd-e"></i>Erfahren</span>
+              <span><i class="role-dot rd-u"></i>Unerfahren</span>
+            </div>
+            <div id="people-edit" style="margin-top:14px;"></div>
           </div>
-          <div id="people-edit" style="margin-top:14px;"></div>
           <button class="add-btn" id="add-person">+ Wachgänger hinzufügen</button>
           <div class="quick-add">
             <button data-role="F">+ Führung</button>
@@ -523,43 +511,54 @@
           </div>
 
           <!-- Türme -->
-          <div class="section-label" style="margin-top:26px;">Türme &amp; Priorität</div>
-          <div class="info-box">Bei Personalmangel schließen Türme mit <b>niedrigster Priorität</b> zuerst.</div>
-          <div class="main-cfg">
-            <div class="mc-label">⛱ Hauptwache · Guard-Slots
-              <span class="sub">zusätzliche Wachgänger (k) neben der Führung</span>
+          <div id="section-towers" class="section section-towers">
+            <div class="section-label" style="margin-top:26px;">Türme &amp; Priorität</div>
+            <div class="info-box">Bei Personalmangel schließen Türme mit <b>niedrigster Priorität</b> zuerst.</div>
+            <div class="main-cfg">
+              <div class="mc-label">⛱ Hauptwache · Guard-Slots
+                <span class="sub">zusätzliche Wachgänger (k) neben der Führung</span>
+              </div>
+              <input type="number" id="main-k" min="0" value="2">
             </div>
-            <input type="number" id="main-k" min="0" value="2">
+            <div id="tower-cfg"></div>
           </div>
-          <div id="tower-cfg"></div>
           <button class="add-btn" id="add-tower">+ Turm hinzufügen</button>
 
           <!-- Boote -->
-          <div class="section-label" style="margin-top:26px;">Boote</div>
-          <div class="info-box">Boote können einem <b>Turm</b> oder der <b>Hauptwache</b> zugeordnet werden. Jedes Boot benötigt 1 Bootsführer. Überzählige BF meiden Türme mit aktivem Boot.</div>
-          <div id="boat-cfg"></div>
+          <div id="section-boats" class="section section-boats">
+            <div class="section-label" style="margin-top:26px;">Boote</div>
+            <div class="info-box">Boote können einem <b>Turm</b> oder der <b>Hauptwache</b> zugeordnet werden. Jedes Boot benötigt 1 Bootsführer. Überzählige BF meiden Türme mit aktivem Boot.</div>
+            <div id="boat-cfg"></div>
+          </div>
           <button class="add-btn" id="add-boat">+ Boot hinzufügen</button>
 
           <!-- HW-Boot (Feature 6) -->
-          <div class="section-label" style="margin-top:18px;">HW-Boot</div>
-          <div class="info-box">Ein Boot das der <b>Hauptwache direkt</b> zugeordnet wird. Der Bootsführer erscheint im HW-Feld und zählt nicht als Turm-Guard.</div>
-          <select id="hw-boat-select" class="full-select"></select>
+          <div id="section-hw-boat" class="section section-hw-boat">
+            <div class="section-label" style="margin-top:18px;">HW-Boot</div>
+            <div class="info-box">Ein Boot das der <b>Hauptwache direkt</b> zugeordnet wird. Der Bootsführer erscheint im HW-Feld und zählt nicht als Turm-Guard.</div>
+            <select id="hw-boat-select" class="full-select"></select>
+          </div>
 
           <!-- Positionsbeschriftungen (Feature 2) -->
-          <div class="section-label" style="margin-top:18px;">Zusatzbezeichnungen für Personalpositionen</div>
-          <div class="info-box">Optionale Bezeichnungen für die Positionen 3–7 im DLRG-Formular (z.B. „Wachführer", „Bootsführer", „Sanitäter" etc.).</div>
-          <div id="pos-desc-fields"></div>
+          <div id="section-positions" class="section section-positions">
+            <div class="section-label" style="margin-top:18px;">Zusatzbezeichnungen für Personalpositionen</div>
+            <div class="info-box">Optionale Bezeichnungen für die Positionen 3–7 im DLRG-Formular (z.B. „Wachführer", „Bootsführer", „Sanitäter" etc.).</div>
+            <div id="pos-desc-fields"></div>
+          </div>
 
           <!-- XLSX-Stationsspalten -->
-          <div class="section-label" style="margin-top:18px;">XLSX · Stationsspalten</div>
-          <div class="info-box">Lege fest welcher Stationscode in welcher Template-Spalte steht (Zeile 21). Trage z.B. <b>78/1</b>, <b>9/12</b>, <b>WF</b>, <b>HW</b> ein oder lasse das Feld leer.</div>
-          <button class="add-btn" id="btn-auto-export-cols" style="margin-bottom:8px">↺ Automatisch aus Türmen &amp; Booten befüllen</button>
-          <div id="export-col-fields"></div>
+          <div id="section-export-columns" class="section section-export-columns">
+            <div class="section-label" style="margin-top:18px;">XLSX · Stationsspalten</div>
+            <div class="info-box">Lege fest welcher Stationscode in welcher Template-Spalte steht (Zeile 21). Trage z.B. <b>78/1</b>, <b>9/12</b>, <b>WF</b>, <b>HW</b> ein oder lasse das Feld leer.</div>
+            <button class="add-btn" id="btn-auto-export-cols" style="margin-bottom:8px">↺ Automatisch aus Türmen &amp; Booten befüllen</button>
+            <div id="export-col-fields"></div>
+          </div>
 
           <!-- Fairness-Metriken Anzeige -->
-          <div class="section-label" style="margin-top:18px;">Fairness-Metriken</div>
-          <div class="info-box">Wähle welche Balance-Metriken in der Statistik angezeigt werden.</div>
-          <div style="display:flex;flex-direction:column;gap:8px;padding:8px">
+          <div id="section-fairness-metrics" class="section section-fairness-metrics">
+            <div class="section-label" style="margin-top:18px;">Fairness-Metriken</div>
+            <div class="info-box">Wähle welche Balance-Metriken in der Statistik angezeigt werden.</div>
+            <div style="display:flex;flex-direction:column;gap:8px;padding:8px">
             <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:.9rem">
               <input type="checkbox" id="metric-hw-balance" checked>
               <span>🏠 HW-Tage vs Boot-Turm Balance</span>
@@ -572,46 +571,49 @@
               <input type="checkbox" id="metric-boat-pairing" checked>
               <span>👥 Boot-Paarungen Vielfalt</span>
             </label>
+            </div>
           </div>
 
           <!-- Datum & Generierung -->
-          <div class="section-label" style="margin-top:18px;">Datum &amp; Tageanzahl</div>
-          <div class="start-date-cfg">
-            <div class="sd-row">
-              <div class="sd-label">📅 Startdatum (Tag 1)
-                <span class="sub">Folgetage werden automatisch berechnet</span>
+          <div id="section-schedule" class="section section-schedule">
+            <div class="section-label" style="margin-top:18px;">Datum &amp; Tageanzahl</div>
+            <div class="start-date-cfg">
+              <div class="sd-row">
+                <div class="sd-label">📅 Startdatum (Tag 1)
+                  <span class="sub">Folgetage werden automatisch berechnet</span>
+                </div>
+                <input type="date" id="start-date" value="">
               </div>
-              <input type="date" id="start-date" value="">
-            </div>
-            <div class="sd-row" style="margin-top:10px;">
-              <div class="sd-label">📆 Anzahl Wachtage
-                <span class="sub">1–14 Tage möglich</span>
+              <div class="sd-row" style="margin-top:10px;">
+                <div class="sd-label">📆 Anzahl Wachtage
+                  <span class="sub">1–14 Tage möglich</span>
+                </div>
+                <input type="number" id="num-days" min="1" max="14" value="6"
+                  style="background:var(--navy-2);border:1px solid var(--line-strong);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.82rem;padding:7px 9px;width:62px;text-align:center;color-scheme:dark;">
               </div>
-              <input type="number" id="num-days" min="1" max="14" value="6"
-                style="background:var(--navy-2);border:1px solid var(--line-strong);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.82rem;padding:7px 9px;width:62px;text-align:center;color-scheme:dark;">
             </div>
-          </div>
 
-          <!-- Seed Input -->
-          <div style="background:var(--deep);border:1px solid rgba(160,120,255,.25);border-radius:9px;padding:11px 13px;margin-bottom:10px">
+            <!-- Seed Input -->
+            <div style="background:var(--deep);border:1px solid rgba(160,120,255,.25);border-radius:9px;padding:11px 13px;margin-bottom:10px">
             <label style="display:block;font-size:.84rem;margin-bottom:8px;color:var(--text-dim)">
               🎲 Seed für Startkonstellation
               <span style="display:block;font-size:.7rem;margin-top:2px">0 = Standard, 1-n = verschiedene Varianten</span>
             </label>
-            <input id="seed-input" type="number" min="0" max="999" value="0"
-              style="width:100%;background:var(--navy-2);border:1px solid rgba(160,120,255,.35);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.95rem;text-align:center;padding:8px 4px">
-          </div>
+              <input id="seed-input" type="number" min="0" max="999" value="0"
+                style="width:100%;background:var(--navy-2);border:1px solid rgba(160,120,255,.35);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.95rem;text-align:center;padding:8px 4px">
+            </div>
 
-          <div class="gen-row">
-            <button class="generate" id="generate">⚓ Plan generieren</button>
+            <div class="gen-row">
+              <button class="generate" id="generate">⚓ Plan generieren</button>
+            </div>
+            <div style="text-align:center;margin-top:5px;min-height:18px">
+              <span id="seed-display" class="seed-badge" style="display:none"></span>
+            </div>
           </div>
-          <div style="text-align:center;margin-top:5px;min-height:18px">
-            <span id="seed-display" class="seed-badge" style="display:none"></span>
-          </div>
-
 
           <!-- Planstatus Import/Export (Feature 7) -->
-          <div class="section-label" style="margin-top:18px;">Planstatus</div>
+          <div id="section-import-export" class="section section-import-export">
+            <div class="section-label" style="margin-top:18px;">Planstatus</div>
           <div class="info-box">Kompletten Status (Personen, Türme, Boote, Krank-Meldungen, manuelle Zuweisungen) als <b>JSON</b> sichern oder laden. Der Plan wird automatisch im Browser gespeichert und beim nächsten Öffnen wiederhergestellt.</div>
           <div id="autosave-indicator" style="display:none;font-family:'Spline Sans Mono',monospace;font-size:.68rem;color:var(--green);text-align:center;margin-bottom:8px;"></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -622,19 +624,18 @@
           <button class="ghost-btn" id="btn-clear-save" style="width:100%;margin-top:8px;border-color:var(--coral);color:var(--coral);font-size:.75rem;">🗑 Lokalen Speicherstand löschen</button>
           <input type="file" id="import-file-input" accept=".json" style="display:none">
           <input type="file" id="import-plans-file-input" accept=".json" style="display:none" multiple>
+          </div>
 
         </div>
       </aside>
     </div>
 
     <!-- Panel 1: Wachplan (Output) -->
-    <div class="main-panel main-panel-1" data-panel="1">
-      <main class="panel" id="output-panel">
-        <div class="empty-state">
-          <div class="big">⚓</div>
-          <p>Wachgänger benennen, Türme festlegen, dann <strong style="color:var(--foam)">Plan generieren</strong>.</p>
-        </div>
-      </main>
+    <div class="main-panel main-panel-1" data-panel="1" id="output-panel" class="panel panel-output" data-panel-name="Tages-Wachplan">
+      <div class="empty-state">
+        <div class="big">⚓</div>
+        <p>Wachgänger benennen, Türme festlegen, dann <strong style="color:var(--foam)">Plan generieren</strong>.</p>
+      </div>
     </div>
   </div>
 </div>

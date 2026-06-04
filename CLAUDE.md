@@ -87,6 +87,54 @@ server/api/import.js      – Plan-Import für alte .json-Dateien
 
 ---
 
+## HTML Panel-Naming (Issue #61)
+
+Alle UI-Panels haben eindeutige IDs, CSS-Klassen und optionale `data-panel-name` Attribute für bessere Dokumentation und Referenzierung.
+
+### Hauptpanels
+| ID | Klasse | Name | Funktion |
+|---|---|---|---|
+| `#sidebar-panel` | `panel panel-sidebar` | Wachgänger & Konfiguration | Einstellungen: Personen, Türme, Boote, Export, Datum |
+| `#output-panel` | `panel panel-output` | Tages-Wachplan | Ausgabe: Tages-Karten, Stats, Krank/Schließ-Status |
+
+### Sidebar-Sektionen
+| ID | Klasse | Name | Funktion |
+|---|---|---|---|
+| `#section-people` | `section section-people` | Wachgänger | Personen-Liste mit Rollen (F/B/E/U) |
+| `#section-towers` | `section section-towers` | Türme & Priorität | Turm-Konfiguration + Hauptwache Guard-Slots |
+| `#section-boats` | `section section-boats` | Boote | Boot-Konfiguration + Turm-Zuordnung |
+| `#section-hw-boat` | `section section-hw-boat` | HW-Boot | Dediziertes Boot für Hauptwache |
+| `#section-positions` | `section section-positions` | Zusatzbezeichnungen | XLSX-Positionsbeschriftungen (3–7) |
+| `#section-export-columns` | `section section-export-columns` | XLSX · Stationsspalten | Station-Code zu Template-Spalten Mapping |
+| `#section-fairness-metrics` | `section section-fairness-metrics` | Fairness-Metriken | Toggle für Anzeigeoptionen (HW, Türme, Paare) |
+| `#section-schedule` | `section section-schedule` | Datum & Tageanzahl | Startdatum, Tagezahl, Seed, Generate-Button |
+| `#section-import-export` | `section section-import-export` | Planstatus | Export/Import JSON, Autosave-Status |
+
+### Modals
+| ID | Typ | Name | Funktion |
+|---|---|---|---|
+| `#login-modal` | Modal | Login / Setup | Authentifizierung oder erste Admin-Erstellung |
+| `#move-modal` | Modal | Person verschieben | Dialog zum Wechsel von Slot/Tag mit Berechnung |
+| `#confirm-modal` | Modal | Regel überschreiben | Bestätigung bei ungültigen D&D-Vorgängen |
+| `#pw-modal` | Modal | Passwort ändern | Passwort-Änderung für Login-Benutzer |
+| `#share-modal` | Modal | Plan teilen | Plan mit anderen Benutzern teilen (edit/view) |
+| `#plans-modal` | Modal | Meine Pläne | Plan-Manager: rename, new, list, load |
+
+### Dynamische Inhalte (aus render-output.js)
+- **Tages-Panels:** `class="day-panel"` mit `data-panel` Attribut (Tag-Index)
+- **Stats-Bar:** `class="stats-bar"` mit `.stat` Einträge
+- **Tower-Cards:** `class="tower-card"` mit `data-drop-kind="tower|boat|main"`, `data-drop-slot="<towerId|boatId>"`
+- **Occupants:** `class="occupant"` mit `data-person-id`, `data-source-kind`, `data-source-slot`
+- **Inline-Boote:** `class="boat-inline"` mit `data-boat-id`, `data-boat-name`, `data-boat-code`
+
+### Kontextreferenzen
+In Code und Issues kann jetzt präzise auf UI-Elemente verwiesen werden:
+- "In `#section-people` kannst du Personen hinzufügen"
+- "Das `#output-panel` zeigt Tages-Karten mit `.tower-card` für jeden Turm"
+- "Boote ziehen: `#section-boats` → `#section-towers` via `boat-inline` D&D"
+
+---
+
 ## Globaler Zustand (state.js)
 
 ```js
