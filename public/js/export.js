@@ -18,7 +18,19 @@ const HOUR_ROWS_X  = {
 };
 // Template-Stationsspalten (Spaltennummern der 16 Stationsblöcke in Zeile 21)
 const TEMPLATE_STATION_COLS = [21,27,33,39,45,51,57,63,69,75,81,87,93,99,117,123];
-const FILL_HOURS = ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'];
+
+/** Erzeugt Stundenraster basierend auf serviceStartHour und serviceEndHour.
+ * Clampt auf 08–19 (verfügbare HOUR_ROWS_X-Einträge), erzwingt end >= start.
+ */
+function fillHours(){
+  const start = Math.max(8, Math.min(19, serviceStartHour|0));
+  const end   = Math.max(start, Math.min(19, serviceEndHour|0));
+  const out = [];
+  for(let h = start; h <= end; h++) {
+    out.push(String(h).padStart(2,'0') + ':00');
+  }
+  return out.filter(hr => HOUR_ROWS_X[hr]); // nur Stunden mit Template-Zeilen
+}
 
 /** Baut aus exportColumns eine Code→Spalte-Map. Wird zur Laufzeit aufgerufen. */
 function getStationColX(){
@@ -244,7 +256,7 @@ function _patchSheetXml(xml, dayIdx){
   // Stationscodes in Zeile 21 + Stundendaten schreiben
   effectiveCols.forEach(({ col, code, nums }) => {
     x = _patchCell(x, colLetter(col)+'21', 's', code);
-    FILL_HOURS.forEach(hr => {
+    fillHours().forEach(hr => {
       const [rt, rb] = HOUR_ROWS_X[hr];
       if(nums[0] != null) x = _patchCell(x, colLetter(col)+rt, 'n', nums[0]);
       if(nums[1] != null) x = _patchCell(x, colLetter(col)+rb, 'n', nums[1]);
@@ -262,7 +274,7 @@ function _patchSheetXml(xml, dayIdx){
       const col = TEMPLATE_STATION_COLS[tplIdx++];
       x = _patchCell(x, colLetter(col)+'21', 's', 'HW');
       const nr1 = overflowHW[i], nr2 = overflowHW[i+1];
-      FILL_HOURS.forEach(hr => {
+      fillHours().forEach(hr => {
         const [rt, rb] = HOUR_ROWS_X[hr];
         if(nr1 != null) x = _patchCell(x, colLetter(col)+rt, 'n', nr1);
         if(nr2 != null) x = _patchCell(x, colLetter(col)+rb, 'n', nr2);

@@ -153,6 +153,8 @@ uid                // monoton steigender ID-Counter
 randomSeed         // 0 = kein Seed; >0 = deterministischer Tiebreaker für Tag 1
 hwBoatId           // Boot-ID das der Hauptwache zugeordnet ist (null = keins)
 mainK              // Anzahl Guard-Slots neben der Führung an der Hauptwache
+serviceStartHour   // Startstunde Dienstzeit (Default 9 = 09:00); clampt auf 8–19
+serviceEndHour     // Endstunde Dienstzeit (Default 17 = 17:00); clampt auf 8–19
 ```
 
 **Rollen:** F = Führung, B = Bootsführer, E = Erfahren, U = Unerfahren  
@@ -273,6 +275,15 @@ Sidebar (Einstellungen) und Output-Panel (Wachplan) auf einer Seite nebeneinande
 - **Tablet/Mobile (<1040px):** Gestapelte Anordnung (Sidebar über Output) mit je unabhängigem Scrolling
 - Beide Panels scrollen unabhängig (kein synchronisiertes Scrolling)
 - Print-Modus (`@media print`): Nur Output-Panel angezeigt, Sidebar ausgeblendet
+
+### Feature 15: Konfigurierbare Dienstzeiten
+Flexibles Stundenraster für XLSX-Export; ersetzt hardcoded `09:00–17:00`:
+- `serviceStartHour` / `serviceEndHour` in `state.js` (Default 9/17)
+- Zwei Number-Inputs in `#section-schedule` mit min=8, max=19 (verfügbare HOUR_ROWS_X-Stunden)
+- `fillHours()` Funktion in `export.js`: clampt Werte, erzwingt `end >= start`
+- Validierung in `init.js`: gegenseitige Anpassung bei Verstöße (Falls start>end, ende=start, etc.)
+- Persistenz: `_buildStateObject()` speichert beide Werte; `importStateJSON()` mit Defaults 9/17 für Altpläne
+- `STATE_VERSION` 3→4: fehlende Felder bei älteren Exporten automatisch gefüllt
 
 ---
 

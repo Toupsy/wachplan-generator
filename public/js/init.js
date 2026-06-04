@@ -95,6 +95,22 @@ if(mainKInput) mainKInput.oninput = e => {
   mainK = Math.max(0, +e.target.value||0);
 };
 
+// ── Sidebar – Dienstzeit (Feature 15) ────────────────────────────────
+const serviceStartHourInput = document.getElementById('service-start-hour');
+const serviceEndHourInput = document.getElementById('service-end-hour');
+if(serviceStartHourInput) serviceStartHourInput.onchange = e => {
+  serviceStartHour = Math.max(8, Math.min(19, +e.target.value||9));
+  if(serviceEndHour < serviceStartHour) serviceEndHour = serviceStartHour;
+  if(serviceEndHourInput) serviceEndHourInput.value = serviceEndHour;
+  scheduleAutoSave();
+};
+if(serviceEndHourInput) serviceEndHourInput.onchange = e => {
+  serviceEndHour = Math.max(8, Math.min(19, +e.target.value||17));
+  if(serviceStartHour > serviceEndHour) serviceStartHour = serviceEndHour;
+  if(serviceStartHourInput) serviceStartHourInput.value = serviceStartHour;
+  scheduleAutoSave();
+};
+
 // ── Sidebar – Datum & Generierung ────────────────────────────────
 const startDateInput = document.getElementById('start-date');
 if(startDateInput) startDateInput.onchange = e => { startDate = e.target.value; };

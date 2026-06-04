@@ -18,6 +18,10 @@ let boats    = [];   // [{ id, name, code, towerId, prio, slotCount }]
 let mainK    = 2;    // Anzahl Guard-Slots neben der Führung
 let hwBoatId = null; // Boot das der Hauptwache zugeordnet ist (Feature 6)
 
+// Dienstzeit-Konfiguration (Feature 15)
+let serviceStartHour = 9;   // Default 09:00
+let serviceEndHour   = 17;  // Default 17:00
+
 // Pro-Tag-Status
 let dayState = [];   // Array[DAYS] von { sick:Set, closed:Set, closedBoats:Set }
 
@@ -70,6 +74,8 @@ function resetGlobalState() {
   boats = [];
   mainK = 2;
   hwBoatId = null;
+  serviceStartHour = 9;
+  serviceEndHour = 17;
   dayState = freshDayState();
   forcedPlacements = freshForcedPlacements();
   positionDescriptions = { 3:'', 4:'', 5:'', 6:'', 7:'' };
