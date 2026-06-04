@@ -218,7 +218,9 @@ function generate(startDay = 0){
     let usedGpre = k;
     const tempOpen = [];
     for(const t of openTowersSorted){
-      if(usedGpre + 2 <= availE.length + availU.length){ tempOpen.push(t); usedGpre += 2; }
+      const totalSlots = (t.slotCount || 2) + (t.leaderCount || 0);
+      const availGuards = availE.length + availU.length + surplusBF.length;
+      if(usedGpre + totalSlots <= availGuards){ tempOpen.push(t); usedGpre += totalSlots; }
     }
     // Boote, für die BF benötigt werden (ohne HW-Boot)
     const towersWithPreOpen = new Set(tempOpen.map(t => t.id));
