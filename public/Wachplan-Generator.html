@@ -27,8 +27,11 @@
   aside{display:flex;flex-direction:column;height:100%;overflow:hidden}
   .panel{background:linear-gradient(165deg,var(--navy-2),var(--paper));border:1px solid var(--line);border-radius:16px;padding:24px;position:relative;overflow:hidden;height:100%}
   .panel::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--sea),var(--foam),transparent);opacity:.5}
-  .sidebar{position:relative;flex:1;overflow-y:auto;overflow-x:hidden}
-  .sidebar::-webkit-scrollbar{width:8px}.sidebar::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:4px}
+  .sidebar{position:relative;flex:1;overflow-y:scroll;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
+  .sidebar::-webkit-scrollbar{width:8px}
+  .sidebar::-webkit-scrollbar-track{background:transparent}
+  .sidebar::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:4px}
+  .sidebar::-webkit-scrollbar-thumb:hover{background:var(--sea-bright)}
   .section-label{font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--foam);margin-bottom:18px;margin-top:24px;display:flex;align-items:center;gap:10px}
   .section-label::before{content:'';width:18px;height:2px;background:var(--sea-bright)}
   .person-edit{display:grid;grid-template-columns:22px 1fr 140px 28px;gap:8px;align-items:center;margin-bottom:10px}
@@ -230,17 +233,27 @@
   }
 
   #output-panel {
-    overflow-y: auto;
+    overflow-y: scroll;
     padding-bottom: 40px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
   }
 
   #output-panel::-webkit-scrollbar {
     width: 8px;
   }
 
+  #output-panel::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
   #output-panel::-webkit-scrollbar-thumb {
     background: var(--line-strong);
     border-radius: 4px;
+  }
+
+  #output-panel::-webkit-scrollbar-thumb:hover {
+    background: var(--sea-bright);
   }
 
   /* ── Responsive: Stack at <1040px ── */
