@@ -44,7 +44,16 @@ export default {
         new Request(new URL('/Wachplan-Generator.html', request.url))
       );
       if (indexResponse.status === 200) {
-        return indexResponse;
+        // Inject environment variable into HTML
+        const html = await indexResponse.text();
+        const environmentScript = `<script>window.WORKER_ENVIRONMENT = '${env.ENVIRONMENT || 'production'}';</script>`;
+        const modifiedHtml = html.replace('</head>', `${environmentScript}</head>`);
+
+        return new Response(modifiedHtml, {
+          status: indexResponse.status,
+          headers: new Headers(indexResponse.headers),
+          statusText: indexResponse.statusText,
+        });
       }
     }
 
