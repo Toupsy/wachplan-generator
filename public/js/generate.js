@@ -281,7 +281,7 @@ function generate(startDay = 0){
     // Vorabbelegte Türme brauchen ggf. weniger Pool-Personen
     for(const t of candidateTowers){
       const preCount = (forcedByTower[t.id] || []).length;
-      const need     = Math.max(0, (t.slotCount || 2) - preCount);
+      const need     = Math.max(0, (t.slotCount || 2) + (t.leaderCount || 0) - preCount);
       // need===0: Turm ist voll vorbelegt → immer öffnen (kein Pool nötig)
       if(need === 0 || usedG + need <= guardPoolSize()){ openTowers.push(t); usedG += need; }
     }
