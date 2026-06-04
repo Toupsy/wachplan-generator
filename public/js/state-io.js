@@ -114,7 +114,11 @@ function importStateJSON(json, silent = false){
   const daysInput = document.getElementById('num-days');
   if(daysInput) daysInput.value = DAYS;
 
-  people = (s.people || []).map(p => ({ ...p, labels: p.labels || '' }));
+  people = (s.people || []).map(p => ({
+    ...p,
+    labels: p.labels || '',
+    enableLabels: p.enableLabels !== undefined ? p.enableLabels : ((p.labels||'').trim().length > 0)  // Fallback für alte Exporte
+  }));
   towers = (s.towers || []).map(t => ({ ...t, slotCount: t.slotCount || 2 }));
   boats  = (s.boats  || []).map(b => ({ ...b, slotCount: b.slotCount || 1 }));
 

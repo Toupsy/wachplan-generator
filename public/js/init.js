@@ -58,12 +58,12 @@ document.addEventListener('DOMContentLoaded', () => {
 // ── Sidebar – Wachgänger ─────────────────────────────────────────
 const addPersonBtn = document.getElementById('add-person');
 if(addPersonBtn) addPersonBtn.onclick = () => {
-  people.push({ id:++uid, name:'', role:'E' });
+  people.push({ id:++uid, name:'', role:'E', enableLabels: true });
   renderPeople();
   scheduleAutoSave();
 };
 document.querySelectorAll('.quick-add button').forEach(b =>
-  b.onclick = () => { people.push({ id:++uid, name:'', role:b.dataset.role }); renderPeople(); scheduleAutoSave(); });
+  b.onclick = () => { people.push({ id:++uid, name:'', role:b.dataset.role, enableLabels: true }); renderPeople(); scheduleAutoSave(); });
 
 // ── Sidebar – Türme & Boote ──────────────────────────────────────
 const addTowerBtn = document.getElementById('add-tower');
