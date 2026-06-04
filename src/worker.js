@@ -46,7 +46,17 @@ export default {
       if (indexResponse.status === 200) {
         // Inject environment variable into HTML
         const html = await indexResponse.text();
-        const environmentScript = `<script>window.WORKER_ENVIRONMENT = '${env.ENVIRONMENT || 'production'}';</script>`;
+
+        // Detect if this is a preview URL (contains 'preview' or 'pr-' or commit hash in subdomain)
+        const hostname = url.hostname;
+        let environment = env.ENVIRONMENT || 'production';
+
+        // If subdomain contains preview/pr-, or commit hash pattern, use preview environment
+        if (hostname.includes('preview') || hostname.includes('pr-') || /^[a-f0-9]{8}-/.test(hostname)) {
+          environment = 'preview';
+        }
+
+        const environmentScript = `<script>window.WORKER_ENVIRONMENT = '${environment}';</script>`;
         const modifiedHtml = html.replace('</head>', `${environmentScript}</head>`);
 
         return new Response(modifiedHtml, {
