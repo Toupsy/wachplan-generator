@@ -18,10 +18,16 @@ export default {
     // API requests: proxy to origin server
     if (pathname.startsWith('/api/')) {
       if (!originServer) {
-        // Preview environment with no backend: return mock 404 for API
-        return new Response(JSON.stringify({ error: 'API not available in preview' }), {
-          status: 404,
-          headers: { 'Content-Type': 'application/json' },
+        // Preview environment with no backend: return 503 Service Unavailable
+        return new Response(JSON.stringify({
+          error: 'API not available in preview mode',
+          message: 'This is a preview deployment. The backend API is not available. Use localStorage offline mode instead.'
+        }), {
+          status: 503,
+          headers: {
+            'Content-Type': 'application/json',
+            'Retry-After': '3600'
+          },
         });
       }
       return proxyToOrigin(request, url, originServer);
@@ -30,9 +36,15 @@ export default {
     // WebSocket requests: proxy to origin
     if (pathname === '/ws') {
       if (!originServer) {
-        return new Response(JSON.stringify({ error: 'WebSocket not available in preview' }), {
-          status: 404,
-          headers: { 'Content-Type': 'application/json' },
+        return new Response(JSON.stringify({
+          error: 'WebSocket not available in preview mode',
+          message: 'This is a preview deployment. Real-time collaboration is not available.'
+        }), {
+          status: 503,
+          headers: {
+            'Content-Type': 'application/json',
+            'Retry-After': '3600'
+          },
         });
       }
       return proxyToOrigin(request, url, originServer);
