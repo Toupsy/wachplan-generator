@@ -587,6 +587,7 @@ function generate(startDay = 0){
         if(towerSlot){
           const captainId = boatSlot.bootsf.id;
           towerSlot.occupants.forEach(occupant => {
+            if(occupant.id === captainId) return;
             const s = ensure(occupant.id);
             s.boatCaptainPairings[captainId] = (s.boatCaptainPairings[captainId] || 0) + 1;
           });
