@@ -8,6 +8,7 @@ function renderPeople(){
   people.forEach((p, i) => {
     const row = document.createElement('div');
     row.className = 'person-edit';
+    const hasLabels = (p.labels || '').trim().length > 0;
     row.innerHTML = `
       <span class="pnr" title="Nr. in Besetzungsliste">${i+1}</span>
       <input type="text" value="${escapeHtml(p.name)}" data-id="${p.id}" class="pname" placeholder="Name">
@@ -21,16 +22,31 @@ function renderPeople(){
         <option value="E" ${p.bfLevel==='E'?'selected':''}>BF-E</option>
         <option value="U" ${p.bfLevel==='U'?'selected':''}>BF-U</option>
       </select>` : ''}
+      <label class="label-toggle" title="Labels bearbeiten">
+        <input type="checkbox" data-id="${p.id}" class="labels-checkbox" ${hasLabels ? 'checked' : ''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0">
+        <span style="font-size:0.7rem;color:var(--text-dim)">🏷️</span>
+      </label>
       <button class="mini-btn del-p" data-id="${p.id}">×</button>`;
     c.appendChild(row);
 
-    // Labels in separate row for better visibility
-    if (p.labels || true) { // Always show labels row
-      const labelsRow = document.createElement('div');
-      labelsRow.className = 'person-labels-row';
-      labelsRow.innerHTML = `<input type="text" value="${escapeHtml(p.labels||'')}" data-id="${p.id}" class="plabels" placeholder="Labels (z.B. Sanitäter, Rettungsschwimmer)">`;
-      c.appendChild(labelsRow);
-    }
+    // Labels in separate row, shown only when checkbox is checked
+    const labelsRow = document.createElement('div');
+    labelsRow.className = 'person-labels-row';
+    labelsRow.style.display = hasLabels ? 'grid' : 'none';
+    labelsRow.setAttribute('data-id', p.id);
+    labelsRow.innerHTML = `<input type="text" value="${escapeHtml(p.labels||'')}" data-id="${p.id}" class="plabels" placeholder="Labels (z.B. Sanitäter, Rettungsschwimmer)">`;
+    c.appendChild(labelsRow);
+  });
+
+  // Event handler for label checkbox
+  c.querySelectorAll('.labels-checkbox').forEach(checkbox => {
+    checkbox.onchange = e => {
+      const personId = +e.target.dataset.id;
+      const labelsRow = Array.from(c.querySelectorAll('.person-labels-row')).find(row => +row.getAttribute('data-id') === personId);
+      if (labelsRow) {
+        labelsRow.style.display = e.target.checked ? 'grid' : 'none';
+      }
+    };
   });
   c.querySelectorAll('.pname').forEach(i =>
     i.oninput = e => { getP(+e.target.dataset.id).name = e.target.value; });
