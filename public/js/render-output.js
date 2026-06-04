@@ -139,6 +139,7 @@ function renderOutput(){
       <div class="export-row">
         <button class="ghost-btn" id="btn-official" style="border-color:var(--warn);color:var(--warn)">📋 XLSX (${dayLabel(activeDay)})</button>
         <button class="ghost-btn" id="btn-csv">↓ CSV</button>
+        <button class="ghost-btn" id="btn-export-stats-csv">📊 Statistik (CSV)</button>
         <button class="ghost-btn" id="btn-print-all">🖨️ Alle Tage drucken</button>
         <button class="ghost-btn" id="btn-print-day">🖨️ Diesen Tag drucken</button>
       </div>
@@ -690,6 +691,7 @@ function renderOutput(){
   });
 
   document.getElementById('btn-csv').onclick   = exportCSV;
+  document.getElementById('btn-export-stats-csv').onclick = exportStatsCSV;
 
   // Print button handlers - two modes: all days vs. single day
   const btnPrintAll = document.getElementById('btn-print-all');

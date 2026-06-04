@@ -351,3 +351,31 @@ function exportCSV(){
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
   const a   =document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='wachplan.csv'; a.click();
 }
+
+// ── CSV-Export Fairness-Statistik ───────────────────────────────
+
+function exportStatsCSV(){
+  if(!lastResult?.stats){ showToast('Erst einen Plan generieren'); return; }
+  const { stats } = lastResult;
+  const header = ['Nr','Person','Rolle','Einsätze gesamt','HW-Tage','Türme (unique)','Turmbesuche gesamt','Boot-Tage','Tage Turm+Boot'];
+  const rows = [header];
+  people.forEach((p, i) => {
+    const s = stats[p.id] || {};
+    const towerVisits   = s.towerVisits || {};
+    const uniqueTowers  = Object.keys(towerVisits).length;
+    const totalTowerVis = Object.values(towerVisits).reduce((a,b)=>a+b,0);
+    const boatDays      = Object.values(s.boatVisits || {}).reduce((a,b)=>a+b,0);
+    rows.push([
+      i+1, p.name, ROLE[p.role],
+      s.total || 0, s.hwVisits || 0,
+      uniqueTowers, totalTowerVis,
+      boatDays, s.towerWithBoatDays || 0
+    ]);
+  });
+  const csv  = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['﻿'+csv], { type:'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'wachplan-statistik.csv';
+  a.click();
+}
