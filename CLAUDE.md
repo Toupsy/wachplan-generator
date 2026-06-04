@@ -219,11 +219,12 @@ Stats-Bar zeigt `avgHwVisits | avgTowerWithBoatDays` (z.B. `0.9 | 0.9`) + Boot-P
 - **Boot-Rotation:** bfLevel hat **keine** Auswirkung (faire Rotation für alle BF)
 - UI: Conditional Dropdown (BF-E / BF-U) erscheint nur bei `role='B'`
 
-### Feature 14: UI-Tabs (Einstellungen / Wachplan)
-Zwei Tabs in `.main-tabs`: "⚙️ Einstellungen" (Sidebar) und "📋 Wachplan" (Output-Panel).
-- Jedes Panel nutzt 100% verfügbare Breite, wenn aktiv
-- Print-Modus (`@media print`): Einstellungs-Tab ausgeblendet, nur Wachplan sichtbar
-- `activeMainTab = 0` in `init.js`; Tab-Umschaltung via `.active`-Klasse auf Tabs + Panels
+### Feature 14: Konsolidiertes Single-Page Layout (Einstellungen & Wachplan)
+Sidebar (Einstellungen) und Output-Panel (Wachplan) auf einer Seite nebeneinander.
+- **Desktop (>1040px):** Sidebar 380px fest | Output-Panel flex-grow mit Grid-Layout
+- **Tablet/Mobile (<1040px):** Gestapelte Anordnung (Sidebar über Output) mit je unabhängigem Scrolling
+- Beide Panels scrollen unabhängig (kein synchronisiertes Scrolling)
+- Print-Modus (`@media print`): Nur Output-Panel angezeigt, Sidebar ausgeblendet
 
 ---
 
