@@ -78,11 +78,11 @@ function renderTowerCfg(){
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <input type="checkbox" class="leader-checkbox" data-id="${t.id}" ${(t.leaderCount||0)>0?'checked':''} title="Führungskräfte einschalten" style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0">
-          <div class="leader-spinner" title="Anzahl benötigter Führungskräfte" style="flex:1;min-width:180px">
+          <div class="leader-spinner" title="Anzahl benötigter Führungskräfte" style="flex:1;min-width:180px;display:${(t.leaderCount||0)>0?'flex':'none'}">
             <label style="font-size:.75rem;flex-shrink:0;color:var(--text-dim)">👔</label>
-            <button class="slot-btn leader-minus" data-id="${t.id}" ${(t.leaderCount||0)===0?'disabled':''}>−</button>
+            <button class="slot-btn leader-minus" data-id="${t.id}">−</button>
             <span class="leader-display">${t.leaderCount||0}</span>
-            <button class="slot-btn leader-plus" data-id="${t.id}" ${(t.leaderCount||0)>=3?'disabled':''}>+</button>
+            <button class="slot-btn leader-plus" data-id="${t.id}">+</button>
             <span style="font-size:.65rem;color:var(--text-dim)">Führungskräfte</span>
           </div>
         </div>
@@ -187,7 +187,18 @@ function renderTowerCfg(){
   c.querySelectorAll('.slot-plus[data-type="tower"]').forEach(b =>
     b.onclick = e => { const t = getT(+e.target.dataset.id); if(t.slotCount < 10) { t.slotCount++; generate(); renderTowerCfg(); } });
   c.querySelectorAll('.leader-checkbox').forEach(cb =>
-    cb.onchange = e => { const t = getT(+e.target.dataset.id); if(!e.target.checked) { t.leaderCount = 0; } else if((t.leaderCount||0) === 0) { t.leaderCount = 1; } generate(); renderTowerCfg(); scheduleAutoSave(); });
+    cb.onchange = e => {
+      const t = getT(+e.target.dataset.id);
+      const spinner = e.target.closest('.tower-row-meta').querySelector('.leader-spinner');
+      if(!e.target.checked) {
+        t.leaderCount = 0;
+        if(spinner) spinner.style.display = 'none';
+      } else {
+        if((t.leaderCount||0) === 0) { t.leaderCount = 1; }
+        if(spinner) spinner.style.display = 'flex';
+      }
+      generate(); renderTowerCfg(); scheduleAutoSave();
+    });
   c.querySelectorAll('.leader-minus').forEach(b =>
     b.onclick = e => { const t = getT(+e.target.dataset.id); if((t.leaderCount||0) > 0) { t.leaderCount--; if(t.leaderCount === 0) { const cb = e.target.closest('.tower-row-meta').querySelector('.leader-checkbox'); if(cb) cb.checked = false; } generate(); renderTowerCfg(); } });
   c.querySelectorAll('.leader-plus').forEach(b =>
