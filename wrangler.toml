@@ -1,0 +1,29 @@
+name = "dlrg-wachplan-generator"
+main = "src/worker.js"
+type = "javascript"
+account_id = ""
+workers_dev = true
+
+# Assets configuration (public folder)
+[env.production]
+routes = [
+  { pattern = "wachplan-generator.de/*", zone_name = "wachplan-generator.de" }
+]
+
+# Asset directory configuration
+[assets]
+directory = "public/"
+binding = "ASSETS"
+
+# KV namespace for plan storage (optional)
+[[kv_namespaces]]
+binding = "PLANS_KV"
+id = ""
+preview_id = ""
+
+# Environment variables
+[env.production]
+vars = { ENVIRONMENT = "production" }
+
+[env.development]
+vars = { ENVIRONMENT = "development" }
