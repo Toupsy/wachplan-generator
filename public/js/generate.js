@@ -192,7 +192,9 @@ function generate(startDay = 0){
       if(!p) return;
       if(f.kind === 'tower'){
         if(!forcedByTower[f.slotId]) forcedByTower[f.slotId] = [];
-        if(forcedByTower[f.slotId].length < 2) forcedByTower[f.slotId].push(p);
+        const tower = towers.find(t => t.id === f.slotId);
+        const maxSlots = tower ? (tower.slotCount || 2) + (tower.leaderCount || 0) : 2;
+        if(forcedByTower[f.slotId].length < maxSlots) forcedByTower[f.slotId].push(p);
       } else if(f.kind === 'boat'){
         if(!forcedByBoat[f.slotId]) forcedByBoat[f.slotId] = [];
         forcedByBoat[f.slotId].push(p);  // Boot kann auch mehrere Plätze haben (slotCount)
