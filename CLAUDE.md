@@ -181,6 +181,7 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 ### BF-Aufteilung
 - `activeBF` = Bootsführer die für Boote/HW-Boot gebraucht werden
 - `surplusBF` = übrige BF, landen an Türmen/HW
+- **Vorab-Schätzung (`tempOpen`)** schätzt öffenbare Türme über `(t.slotCount||2)+(t.leaderCount||0)` Plätze (kein hartkodiertes `+2`) und zählt als verfügbare Turm-Körper `E + U + alle BF` (`availBodiesPre`, da `surplusBF` an dieser Stelle noch nicht existiert) → korrekte BF-Reservierung auch bei knappen E/U bzw. nicht-Standard-`slotCount`
 - `availB` wird VOR dem activeBF/surplusBF-Split nach `(boatDays*50 - hwVisits*10)` sortiert → faire BF-Rotation
 - surplusBF bekommen +800 Penalty wenn sie in Turm mit **aktivem** Boot landen würden
 - surplusBF bekommen -350 Bonus wenn Turm-Boot **außer Dienst** → 1150 Punkte Swing stellt sicher, dass BF bei deaktiviertem Boot zum richtigen Turm geht
