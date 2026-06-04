@@ -45,7 +45,7 @@ function openMoveModal(personId, dayIdx, fromKind, fromSlotId){
     });
     const mainSlot = d.assign.find(s => s.kind === 'main');
     if(mainSlot?.hwBoatSlot && fromKind !== 'hwboat')
-      addOpt('boat', mainSlot.hwBoatSlot.boatId, `🚤 HW-Boot: ${mainSlot.hwBoatSlot.name}`);
+      addOpt('hwboat', mainSlot.hwBoatSlot.boatId, `🚤 HW-Boot: ${mainSlot.hwBoatSlot.name}`);
   }
 
   // Hauptwache
