@@ -290,6 +290,15 @@ function _patchSheetXml(xml, dayIdx){
 async function exportOfficial(dayIdx){
   if(!lastResult){ alert('Bitte zuerst Plan generieren.'); return; }
 
+  if(people.length > 28){
+    const ok = confirm(
+      `⚠️ Das DLRG-Formular fasst nur 28 Personen im Namensblock.\n` +
+      `Aktuell sind ${people.length} Personen erfasst – Personen 29+ erscheinen ` +
+      `als Nummer ohne Namenszuordnung.\n\nTrotzdem exportieren?`
+    );
+    if(!ok) return;
+  }
+
   if(typeof JSZip === 'undefined'){
     alert('JSZip lädt noch – bitte kurz warten.');
     return;
