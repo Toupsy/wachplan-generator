@@ -192,7 +192,9 @@ function generate(startDay = 0){
       if(!p) return;
       if(f.kind === 'tower'){
         if(!forcedByTower[f.slotId]) forcedByTower[f.slotId] = [];
-        if(forcedByTower[f.slotId].length < 2) forcedByTower[f.slotId].push(p);
+        const tower = towers.find(t => t.id === f.slotId);
+        const maxSlots = tower ? (tower.slotCount || 2) + (tower.leaderCount || 0) : 2;
+        if(forcedByTower[f.slotId].length < maxSlots) forcedByTower[f.slotId].push(p);
       } else if(f.kind === 'boat'){
         if(!forcedByBoat[f.slotId]) forcedByBoat[f.slotId] = [];
         forcedByBoat[f.slotId].push(p);  // Boot kann auch mehrere Plätze haben (slotCount)
@@ -281,7 +283,7 @@ function generate(startDay = 0){
     // Vorabbelegte Türme brauchen ggf. weniger Pool-Personen
     for(const t of candidateTowers){
       const preCount = (forcedByTower[t.id] || []).length;
-      const need     = Math.max(0, (t.slotCount || 2) - preCount);
+      const need     = Math.max(0, (t.slotCount || 2) + (t.leaderCount || 0) - preCount);
       // need===0: Turm ist voll vorbelegt → immer öffnen (kein Pool nötig)
       if(need === 0 || usedG + need <= guardPoolSize()){ openTowers.push(t); usedG += need; }
     }
@@ -587,6 +589,7 @@ function generate(startDay = 0){
         if(towerSlot){
           const captainId = boatSlot.bootsf.id;
           towerSlot.occupants.forEach(occupant => {
+            if(occupant.id === captainId) return;
             const s = ensure(occupant.id);
             s.boatCaptainPairings[captainId] = (s.boatCaptainPairings[captainId] || 0) + 1;
           });
@@ -713,7 +716,8 @@ function generate(startDay = 0){
   const avgUniqueTowers = allStats.length > 0
     ? (Object.values(towerDistribution).reduce((a,b) => a+b, 0) / allStats.length).toFixed(1)
     : 0;
-  const minUniqueTowers = Math.min(...Object.values(towerDistribution), 0);
+  const towerDistVals = Object.values(towerDistribution);
+  const minUniqueTowers = towerDistVals.length > 0 ? Math.min(...towerDistVals) : 0;
 
   const avgHwVisits = allStats.length > 0
     ? (allStats.reduce((sum, s) => sum + (s.hwVisits || 0), 0) / allStats.length).toFixed(1)

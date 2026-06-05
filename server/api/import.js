@@ -33,6 +33,11 @@ router.post('/plans', express.json(), async (req, res) => {
       return res.status(400).json({ error: 'plans array required and non-empty' });
     }
 
+    const MAX_IMPORT = 100;
+    if (plans.length > MAX_IMPORT) {
+      return res.status(400).json({ error: `Maximal ${MAX_IMPORT} Pläne pro Import erlaubt` });
+    }
+
     let importedCount = 0;
     const errors = [];
 

@@ -306,6 +306,16 @@ Button „↺ Manuelle Zuweisungen zurücksetzen" in der Export-Row (neben XLSX/
 - Klick öffnet Bestätigungsdialog (ohne Recalc-Checkbox, da global wirksam)
 - Autosave erfolgt automatisch via `generate()` → bestehender Hook
 
+## Bugfixes
+
+### Bugfix: openTowers-Bedarfsrechnung ignoriert leaderCount (Issue #117, v0.4.1)
+**Problem:** Bei der Entscheidung, welche Türme geöffnet werden, wurde `leaderCount` nicht in den Personalbedarf eingerechnet.
+- **Ort:** `public/js/generate.js`, Zeile 284
+- **Ursache:** `const need = Math.max(0, (t.slotCount || 2) - preCount)` berechnete nur `slotCount`, ignorierte `leaderCount`
+- **Symptom:** Bei knappem Guard-Pool und zu wenigen Führungskräften konnten Türme mit `leaderCount > 0` geöffnet werden, obwohl nicht genug Personen vorhanden waren
+- **Lösung (Variante A):** `const need = Math.max(0, (t.slotCount || 2) + (t.leaderCount || 0) - preCount)` – konsistent mit Vorab-Schätzung (Zeile ~225) und tatsächlicher Turmbelegung
+- **Verifikation:** Alle 14 Tests grün, einschließlich Regressions-Szenarien aus `test/leaders.test.js`
+
 ---
 
 ## Manuelles Verschieben & Drag-and-Drop (move.js, render-output.js)

@@ -229,4 +229,4 @@ function setupScenario(ctx, opts = {}) {
   };
 }
 
-module.exports = { loadAlgoContext, setupScenario };
+module.exports = { loadAlgoContext, setupScenario, vm };

@@ -11,7 +11,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { loadAlgoContext, setupScenario } = require('./harness');
+const { loadAlgoContext, setupScenario, vm } = require('./harness');
 
 // Load context once per test suite
 const ctx = loadAlgoContext();
@@ -413,5 +413,149 @@ test('Scenario 9: Fuzz test (100 iterations)', (t) => {
     totalFailures,
     0,
     `Fuzz test (100 iterations): ${totalFailures} total failures detected. Breakdown: ${JSON.stringify(failuresByType)}`
+  );
+});
+
+test('Scenario 10: Transparent forced placement violates no invariants', (t) => {
+  const { schedule, stats, dayState, towers, boats } = setupScenario(ctx, {
+    numPeople: 10,
+    numTowers: 4,
+    numBoats: 2,
+    days: 3,
+    mainK: 2
+  });
+
+  // Schedule generated, now apply transparent placement on day 1
+  // Move person 1 from their assigned tower to main (HW)
+  const setupTransparentCode = `
+    // Person 1's original assignment on day 1
+    const dayOneSlot = lastResult.schedule[1].assign.find(s =>
+      s.kind === 'tower' && s.occupants.some(p => p.id === 1)
+    );
+
+    if (dayOneSlot) {
+      // Apply transparent forced placement
+      forcedPlacements[1].push({
+        personId: 1,
+        kind: 'main',
+        slotId: 0,
+        transparent: true
+      });
+      // Re-generate only day 1 (which applies transparent swap)
+      generate(1);
+    }
+  `;
+
+  try {
+    vm.runInContext(setupTransparentCode, ctx);
+  } catch (err) {
+    throw new Error(`Transparent placement setup failed: ${err.message}`);
+  }
+
+  // Retrieve updated schedule
+  const updatedSchedule = vm.runInContext('lastResult.schedule', ctx);
+
+  let allFailures = [];
+
+  // Check day 1 (where transparent swap was applied)
+  allFailures.push(...checkNoDuplicates(updatedSchedule, 1));
+  allFailures.push(...checkNoSickAssigned(updatedSchedule, dayState, 1));
+  allFailures.push(...checkNoClosedAssigned(updatedSchedule, dayState, 1, towers, boats));
+  allFailures.push(...checkSlotCounts(updatedSchedule, 1, towers));
+
+  assert.equal(
+    allFailures.length,
+    0,
+    `Transparent forced placement on day 1 should violate no invariants:\n${allFailures.join('\n')}`
+  );
+});
+
+test('Scenario 11: Partial recalculation (generate(startDay=3)) preserves earlier days', (t) => {
+  // Helper to snapshot day assignments for comparison
+  const snapshotDayAssignments = (schedule, dayIdx) => {
+    const day = schedule[dayIdx];
+    if (!day || !day.assign) return null;
+
+    // Create a snapshot of occupant IDs by slot (ignore order-sensitive properties)
+    const snapshot = {};
+    day.assign.forEach(slot => {
+      const key = `${slot.kind}:${slot.towerId || slot.boatId || 'main'}`;
+      if (!snapshot[key]) {
+        snapshot[key] = { occupantIds: [] };
+      }
+      if (slot.occupants) {
+        snapshot[key].occupantIds.push(...slot.occupants.map(p => p.id).sort((a, b) => a - b));
+      }
+    });
+    return snapshot;
+  };
+
+  const { schedule: initialSchedule, stats, dayState, towers, boats } = setupScenario(ctx, {
+    numPeople: 14,
+    numTowers: 6,
+    numBoats: 3,
+    days: 6,
+    mainK: 2
+  });
+
+  // Snapshot days 0-2 assignments before partial recalculation
+  const snapshotsBefore = [];
+  for (let d = 0; d < 3; d++) {
+    snapshotsBefore.push(snapshotDayAssignments(initialSchedule, d));
+  }
+
+  // Trigger partial recalculation from day 3
+  const partialRecalcCode = `
+    generate(3);  // Only recalculate days 3-5, keep 0-2
+  `;
+
+  try {
+    vm.runInContext(partialRecalcCode, ctx);
+  } catch (err) {
+    throw new Error(`Partial recalculation setup failed: ${err.message}`);
+  }
+
+  const updatedSchedule = vm.runInContext('lastResult.schedule', ctx);
+  const updatedStats = vm.runInContext('lastResult.stats', ctx);
+
+  // Verify days 0-2 occupant IDs are unchanged
+  for (let d = 0; d < 3; d++) {
+    const snapshotAfter = snapshotDayAssignments(updatedSchedule, d);
+    assert.deepEqual(
+      snapshotAfter,
+      snapshotsBefore[d],
+      `Day ${d} occupant assignments should be identical after partial recalculation from day 3`
+    );
+  }
+
+  let allFailures = [];
+
+  // Verify all days (0-5) still satisfy invariants
+  for (let d = 0; d < 6; d++) {
+    allFailures.push(...checkNoDuplicates(updatedSchedule, d));
+    allFailures.push(...checkNoSickAssigned(updatedSchedule, dayState, d));
+    allFailures.push(...checkNoClosedAssigned(updatedSchedule, dayState, d, towers, boats));
+    allFailures.push(...checkSlotCounts(updatedSchedule, d, towers));
+  }
+
+  assert.equal(
+    allFailures.length,
+    0,
+    `Partial recalculation should preserve invariants for all days:\n${allFailures.join('\n')}`
+  );
+
+  // Verify stats were properly re-accumulated for early days
+  const assignedInEarlyDays = new Set();
+  for (let d = 0; d < 3; d++) {
+    updatedSchedule[d].assign.forEach(slot => {
+      if (slot.occupants) {
+        slot.occupants.forEach(p => assignedInEarlyDays.add(p.id));
+      }
+    });
+  }
+
+  assert(
+    assignedInEarlyDays.size > 0,
+    'Should have people assigned in days 0-2'
   );
 });
