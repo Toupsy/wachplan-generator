@@ -59,6 +59,36 @@ async function renderPlansList(){
   });
 }
 
+async function renderTemplatesList(){
+  const listEl = document.getElementById('templates-list');
+  if(!listEl) return;
+  const templates = loadTemplatesList();
+  if(!templates.length){ listEl.innerHTML = '<div style="color:var(--text-dim);font-size:.82rem">Noch keine Vorlagen.</div>'; return; }
+
+  listEl.innerHTML = templates.map(t => {
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--deep);border:1px solid var(--line);border-radius:6px;padding:8px 10px">
+      <div style="min-width:0">
+        <div style="font-size:.88rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(t.name||'Vorlage')}</div>
+        <div style="font-size:.62rem;color:var(--text-dim)">${new Date(t.createdAt).toLocaleDateString('de-DE')}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <button class="ghost-btn tpl-load" data-id="${t.id}" data-name="${escapeHtml(t.name||'')}" style="border-color:var(--sea-bright);color:var(--sea-bright);font-size:.72rem;padding:4px 8px">Laden</button>
+        <button class="ghost-btn tpl-del" data-id="${t.id}" data-name="${escapeHtml(t.name||'')}" style="border-color:var(--coral);color:var(--coral);font-size:.72rem;padding:4px 8px" title="Löschen">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  listEl.querySelectorAll('.tpl-load').forEach(b => b.onclick = async () => {
+    loadTemplateAsNewPlan(+b.dataset.id, b.dataset.name);
+    closePlansModal();
+  });
+  listEl.querySelectorAll('.tpl-del').forEach(b => b.onclick = async () => {
+    if(!confirm(`Vorlage „${b.dataset.name}" wirklich löschen?`)) return;
+    deleteTemplate(+b.dataset.id);
+    await renderTemplatesList();
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const openBtn = document.getElementById('btn-plans');
   if(openBtn) openBtn.onclick = openPlansModal;
@@ -84,5 +114,35 @@ document.addEventListener('DOMContentLoaded', () => {
     createNewPlan(name);
     const ni = document.getElementById('plan-name-input'); if(ni) ni.value = currentPlanName || '';
     await renderPlansList();
+  };
+
+  // Template Tab Buttons
+  const plansTabBtn = document.getElementById('plans-tab-btn');
+  const templatesTabBtn = document.getElementById('templates-tab-btn');
+  const plansTab = document.getElementById('plans-tab');
+  const templatesTab = document.getElementById('templates-tab');
+
+  if(plansTabBtn) plansTabBtn.onclick = () => {
+    if(plansTab) plansTab.style.display = 'block';
+    if(templatesTab) templatesTab.style.display = 'none';
+    if(plansTabBtn) { plansTabBtn.style.borderBottomColor = 'var(--green)'; plansTabBtn.style.color = 'var(--text)'; }
+    if(templatesTabBtn) { templatesTabBtn.style.borderBottomColor = 'transparent'; templatesTabBtn.style.color = 'var(--text-dim)'; }
+  };
+
+  if(templatesTabBtn) templatesTabBtn.onclick = async () => {
+    if(plansTab) plansTab.style.display = 'none';
+    if(templatesTab) templatesTab.style.display = 'block';
+    if(plansTabBtn) { plansTabBtn.style.borderBottomColor = 'transparent'; plansTabBtn.style.color = 'var(--text-dim)'; }
+    if(templatesTabBtn) { templatesTabBtn.style.borderBottomColor = 'var(--green)'; templatesTabBtn.style.color = 'var(--text)'; }
+    await renderTemplatesList();
+  };
+
+  // Save as Template Button
+  const saveTemplateBtn = document.getElementById('save-template-btn');
+  if(saveTemplateBtn) saveTemplateBtn.onclick = () => {
+    const name = prompt('Name für die Vorlage:', currentPlanName || 'Vorlage');
+    if(name === null) return;
+    createTemplate(name);
+    renderTemplatesList();
   };
 });

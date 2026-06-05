@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS plans (
   encrypted_state BLOB NOT NULL,        -- AES-256-GCM encrypted state.js-JSON
   iv BLOB NOT NULL,                      -- Initialization Vector (16 bytes)
   auth_tag BLOB NOT NULL,                -- Authentication Tag (16 bytes)
+  is_template BOOLEAN DEFAULT 0,         -- 1 = Vorlage (ohne Schedule), 0 = normaler Plan
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE

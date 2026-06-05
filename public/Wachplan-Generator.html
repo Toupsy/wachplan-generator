@@ -479,8 +479,25 @@
       <button id="plan-rename-btn" class="modal-confirm" style="width:auto;padding:10px 14px;white-space:nowrap">✏️ Umbenennen</button>
     </div>
     <button id="plan-new-btn" class="ghost-btn" style="width:100%;margin-bottom:14px;border-color:var(--green);color:var(--green);padding:8px">➕ Neuer Plan</button>
-    <div style="font-size:.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Vorhandene Pläne</div>
-    <div id="plans-list" style="display:flex;flex-direction:column;gap:6px;max-height:300px;overflow:auto"></div>
+
+    <!-- Tabs: Pläne / Vorlagen -->
+    <div style="display:flex;gap:6px;margin-bottom:12px;border-bottom:1px solid var(--line)">
+      <button id="plans-tab-btn" class="ghost-btn" style="flex:1;border:none;border-bottom:2px solid var(--green);color:var(--text);padding:10px;background:transparent">📋 Pläne</button>
+      <button id="templates-tab-btn" class="ghost-btn" style="flex:1;border:none;border-bottom:2px solid transparent;color:var(--text-dim);padding:10px;background:transparent">📌 Vorlagen</button>
+    </div>
+
+    <!-- Pläne Tab -->
+    <div id="plans-tab" style="display:block">
+      <div style="font-size:.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Vorhandene Pläne</div>
+      <div id="plans-list" style="display:flex;flex-direction:column;gap:6px;max-height:300px;overflow:auto"></div>
+    </div>
+
+    <!-- Vorlagen Tab -->
+    <div id="templates-tab" style="display:none">
+      <button id="save-template-btn" class="ghost-btn" style="width:100%;margin-bottom:12px;border-color:var(--sea-bright);color:var(--sea-bright);padding:8px">💾 Konfig als Vorlage speichern</button>
+      <div style="font-size:.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Gespeicherte Vorlagen</div>
+      <div id="templates-list" style="display:flex;flex-direction:column;gap:6px;max-height:300px;overflow:auto"></div>
+    </div>
   </div>
 </div>
 

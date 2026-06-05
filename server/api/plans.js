@@ -37,13 +37,19 @@ router.use(authMiddleware);
 // ───────────────────────────────────────────────────────────
 router.get('/', async (req, res) => {
   try {
-    // Eigene Pläne + Pläne, die mit dem User geteilt wurden (mit Owner-Name).
+    // Filter: templates=true gibt nur Vorlagen zurück, ansonsten nur normale Pläne
+    const isTemplate = req.query.templates === 'true' ? 1 : 0;
+    const whereClause = req.query.templates === 'true'
+      ? '(p.user_id = ? OR s.user_id IS NOT NULL) AND p.is_template = 1'
+      : '(p.user_id = ? OR s.user_id IS NOT NULL) AND (p.is_template = 0 OR p.is_template IS NULL)';
+
+    // Eigene Pläne/Vorlagen + Pläne, die mit dem User geteilt wurden (mit Owner-Name).
     const plans = await dbAll(
-      `SELECT p.id, p.name, p.user_id, p.created_at, p.updated_at, u.username AS owner_name
+      `SELECT p.id, p.name, p.user_id, p.is_template, p.created_at, p.updated_at, u.username AS owner_name
          FROM plans p
          JOIN users u ON u.id = p.user_id
          LEFT JOIN plan_shares s ON s.plan_id = p.id AND s.user_id = ?
-        WHERE p.user_id = ? OR s.user_id IS NOT NULL
+        WHERE ${whereClause}
         ORDER BY p.updated_at DESC`,
       [req.session.userId, req.session.userId]
     );
@@ -55,7 +61,8 @@ router.get('/', async (req, res) => {
         created_at: p.created_at,
         updated_at: p.updated_at,
         isOwner: p.user_id === req.session.userId,
-        ownerName: p.owner_name
+        ownerName: p.owner_name,
+        isTemplate: p.is_template === 1
       }))
     });
   } catch (error) {
@@ -65,11 +72,11 @@ router.get('/', async (req, res) => {
 });
 
 // ───────────────────────────────────────────────────────────
-// POST /api/plans – Neuen Plan erstellen
+// POST /api/plans – Neuen Plan/Vorlage erstellen
 // ───────────────────────────────────────────────────────────
 router.post('/', express.json(), async (req, res) => {
   try {
-    const { name = 'Wachplan', state } = req.body;
+    const { name = 'Wachplan', state, isTemplate = false } = req.body;
 
     if (!state) {
       return res.status(400).json({ error: 'State data required' });
@@ -81,14 +88,15 @@ router.post('/', express.json(), async (req, res) => {
 
     // Insert into database
     const result = await dbRun(
-      `INSERT INTO plans (user_id, name, encrypted_state, iv, auth_tag)
-       VALUES (?, ?, ?, ?, ?)`,
-      [req.session.userId, name, encrypted, iv, authTag]
+      `INSERT INTO plans (user_id, name, encrypted_state, iv, auth_tag, is_template)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [req.session.userId, name, encrypted, iv, authTag, isTemplate ? 1 : 0]
     );
 
     res.status(201).json({
       id: result.lastID,
       name: name,
+      isTemplate: isTemplate,
       message: 'Plan created'
     });
   } catch (error) {
@@ -296,6 +304,75 @@ router.delete('/:id/share/:userId', async (req, res) => {
   } catch (error) {
     console.error('Unshare plan error:', error);
     res.status(500).json({ error: 'Failed to remove collaborator' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// POST /api/plans/:id/save-as-template – Plan als Vorlage speichern
+// ───────────────────────────────────────────────────────────
+router.post('/:id/save-as-template', express.json(), async (req, res) => {
+  try {
+    const planId = parseInt(req.params.id);
+    const { templateName } = req.body;
+
+    if (!templateName || !templateName.trim()) {
+      return res.status(400).json({ error: 'Template name required' });
+    }
+
+    const access = await getPlanAccess(planId, req.session.userId);
+    if (access === null) return res.status(404).json({ error: 'Plan not found' });
+    if (access === false) return res.status(403).json({ error: 'No access to this plan' });
+
+    const plan = await dbGet(
+      'SELECT encrypted_state, iv, auth_tag, state FROM plans WHERE id = ?',
+      [planId]
+    );
+    if (!plan) return res.status(404).json({ error: 'Plan not found' });
+
+    // Decrypt to modify and re-encrypt as template
+    const plainJSON = decryptPlanState(
+      plan.encrypted_state,
+      plan.iv,
+      plan.auth_tag,
+      access.ownerId
+    );
+
+    let state = JSON.parse(plainJSON);
+
+    // Remove schedule-related data
+    state.lastResult = undefined;
+    state.startDate = '';
+    state.randomSeed = 0;
+    state.dayState = Array(state.days).fill(null).map(() => ({
+      sick: [],
+      closed: [],
+      closedBoats: []
+    }));
+    state.forcedPlacements = Array(state.days).fill([]);
+
+    // Re-encrypt cleaned state
+    const cleanJSON = JSON.stringify(state);
+    const { encrypted, iv, authTag } = encryptPlanState(cleanJSON, access.ownerId);
+
+    // Create template as new plan
+    const result = await dbRun(
+      `INSERT INTO plans (user_id, name, encrypted_state, iv, auth_tag, is_template)
+       VALUES (?, ?, ?, ?, ?, 1)`,
+      [access.ownerId, templateName.trim(), encrypted, iv, authTag]
+    );
+
+    res.status(201).json({
+      id: result.lastID,
+      name: templateName.trim(),
+      isTemplate: true,
+      message: 'Vorlage erstellt'
+    });
+  } catch (error) {
+    console.error('Save as template error:', error);
+    if (error.message.includes('Unsupported state or unable to authenticate data')) {
+      return res.status(400).json({ error: 'Decryption failed - invalid data or wrong key' });
+    }
+    res.status(500).json({ error: 'Failed to save template' });
   }
 });
 

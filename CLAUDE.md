@@ -306,6 +306,29 @@ Button „↺ Manuelle Zuweisungen zurücksetzen" in der Export-Row (neben XLSX/
 - Klick öffnet Bestätigungsdialog (ohne Recalc-Checkbox, da global wirksam)
 - Autosave erfolgt automatisch via `generate()` → bestehender Hook
 
+### Feature 18: Plan-Vorlagen (Konfiguration speichern ohne Schedule)
+Neue „Vorlagen"-Funktion für wiederverwendbare Plankonfigurationen (Personen, Türme, Boote, Einstellungen).
+
+**UI Integration** (`#plans-modal`):
+- Neuer Tab „📌 Vorlagen" in der Meine-Pläne-Modal
+- Button „💾 Konfig als Vorlage speichern" speichert aktuelle Konfiguration ohne Schedule
+- Vorlagen-Liste mit [Laden] und [🗑️] Buttons
+- Geladen: neuer Plan mit Vorlagen-Konfiguration, ready zum Generieren
+
+**Frontend** (`public/js/state-io.js`):
+- `createTemplate(name)` – speichert aktuellen State ohne Schedule in localStorage (Key: `dlrg_wachplan_templates`)
+- `loadTemplatesList()` – lädt alle Vorlagen
+- `loadTemplateAsNewPlan(templateId, templateName)` – Template als neuen Plan laden (Schedule geleert)
+- `deleteTemplate(templateId)` – Vorlage löschen
+- Vorlage = State-Snapshot mit `lastResult`, `startDate`, `randomSeed` geleert; `dayState`/`forcedPlacements` zu leeren Arrays
+
+**Backend** (`server/api/plans.js`, `db/schema.sql`):
+- Neue Spalte `is_template BOOLEAN DEFAULT 0` in `plans`-Tabelle (Migration via `db/init.js`)
+- `GET /api/plans?templates=true` – filtert nur Vorlagen
+- `POST /api/plans` – Parameter `isTemplate` für Vorlage-Erstellung
+- `POST /api/plans/:id/save-as-template` – aktuellen Plan als Vorlage speichern (entfernt Schedule, re-encrypted)
+- Vorlagen sind per-User und können geteilt werden (plan_shares)
+
 ---
 
 ## Manuelles Verschieben & Drag-and-Drop (move.js, render-output.js)

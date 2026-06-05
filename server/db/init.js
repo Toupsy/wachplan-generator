@@ -93,6 +93,9 @@ function initDatabase() {
         // Statements auf der Verbindung → läuft vor den folgenden Queries.
         db.run("ALTER TABLE plan_shares ADD COLUMN role TEXT NOT NULL DEFAULT 'edit'", () => {});
 
+        // Idempotente Migration: is_template-Spalte für Plan-Vorlagen (Feature #133)
+        db.run("ALTER TABLE plans ADD COLUMN is_template BOOLEAN DEFAULT 0", () => {});
+
         // Auto-create admin if ADMIN_USERNAME + ADMIN_PASSWORD are set
         db.get("SELECT COUNT(*) as count FROM users WHERE is_admin = 1", async (err, row) => {
           if (err) {

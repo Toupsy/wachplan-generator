@@ -435,3 +435,106 @@ async function applyRemotePlanState(){
     showToast('🔄 Aktualisiert von Mitbearbeiter');
   } catch(e){ console.error('applyRemotePlanState', e); }
 }
+
+// ── Vorlagen-Verwaltung (Templates) ────────────────────────
+
+const TEMPLATES_STORAGE_KEY = 'dlrg_wachplan_templates';
+
+/**
+ * Erstellt eine Vorlage aus dem aktuellen Plan
+ * (ohne Schedule, nur Konfiguration: Personen, Türme, Boote, Einstellungen)
+ */
+function createTemplate(name){
+  const state = _buildStateObject();
+
+  // Entferne Schedule-bezogene Daten
+  state.lastResult = undefined;
+  state.startDate = '';  // Startdatum nicht speichern
+  state.randomSeed = 0;  // Seed zurücksetzen
+
+  // Leere alle dayState und forcedPlacements
+  state.dayState = Array(state.days).fill(null).map(() => ({
+    sick: [],
+    closed: [],
+    closedBoats: []
+  }));
+  state.forcedPlacements = Array(state.days).fill([]);
+
+  const template = {
+    id: Date.now() + Math.random(),
+    name: (name || 'Vorlage').trim(),
+    createdAt: new Date().toISOString(),
+    state
+  };
+
+  // Speichere in localStorage
+  let templates = [];
+  try {
+    const stored = localStorage.getItem(TEMPLATES_STORAGE_KEY);
+    if(stored) templates = JSON.parse(stored);
+  } catch(e) {}
+
+  templates.push(template);
+  try {
+    localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(templates));
+    showToast('✅ Vorlage „' + template.name + '" gespeichert');
+    return true;
+  } catch(e) {
+    console.error('Failed to save template:', e);
+    showToast('❌ Vorlage konnte nicht gespeichert werden', true);
+    return false;
+  }
+}
+
+/** Lädt alle gespeicherten Vorlagen. */
+function loadTemplatesList(){
+  try {
+    const stored = localStorage.getItem(TEMPLATES_STORAGE_KEY);
+    if(!stored) return [];
+    return JSON.parse(stored);
+  } catch(e) {
+    console.error('Failed to load templates:', e);
+    return [];
+  }
+}
+
+/** Lädt eine Vorlage als neuen Plan (ohne Speichern). */
+function loadTemplateAsNewPlan(templateId, templateName){
+  const templates = loadTemplatesList();
+  const template = templates.find(t => t.id === templateId);
+
+  if(!template || !template.state){
+    showToast('Vorlage nicht gefunden', true);
+    return false;
+  }
+
+  // Neuen Plan aus Vorlage erstellen (lokal noch nicht gespeichert)
+  currentPlanId = null;
+  currentPlanName = templateName || 'Wachplan';
+  currentPlanCanEdit = true;
+
+  _suppressAutoSave = true;
+  try {
+    importStateJSON(template.state, true);
+  } finally { _suppressAutoSave = false; }
+
+  generate();
+  _updateSaveIndicator();
+  showToast('📋 Vorlage „' + templateName + '" geladen – bereit zum Generieren');
+  return true;
+}
+
+/** Löscht eine Vorlage. */
+function deleteTemplate(templateId){
+  try {
+    let templates = loadTemplatesList();
+    templates = templates.filter(t => t.id !== templateId);
+    localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(templates));
+    showToast('🗑️ Vorlage gelöscht');
+    return true;
+  } catch(e) {
+    console.error('Failed to delete template:', e);
+    showToast('❌ Vorlage konnte nicht gelöscht werden', true);
+    return false;
+  }
+}
