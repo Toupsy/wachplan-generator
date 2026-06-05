@@ -76,9 +76,9 @@ function buildAssignments(dayIdx){
   d.assign.forEach(slot => {
     if(slot.kind==='tower' && slot.code)
       A[slot.code] = slot.occupants.map(p=>personNr(p.id)).filter(n=>n!=null);
-    else if(slot.kind==='boat' && slot.code && slot.bootsf){
-      const nr=personNr(slot.bootsf.id);
-      if(nr!=null) A[slot.code]=[nr];
+    else if(slot.kind==='boat' && slot.code && slot.occupants?.length){
+      const nums = slot.occupants.map(p=>personNr(p.id)).filter(n=>n!=null);
+      if(nums.length) A[slot.code] = nums;
     }
   });
   const main = d.assign.find(s=>s.kind==='main');
@@ -90,9 +90,12 @@ function buildAssignments(dayIdx){
       .map(p=>personNr(p.id)).filter(n=>n!=null);
     if(allHW.length)   A['HW']  = allHW; // alle HW → Overflow inline via _patchSheetXml
 
-    if(main.hwBoatSlot?.bootsf){
+    if(main.hwBoatSlot?.occupants?.length){
       const boCode = getBoat(main.hwBoatSlot.boatId)?.code;
-      if(boCode){ const nr=personNr(main.hwBoatSlot.bootsf.id); if(nr!=null) A[boCode]=[nr]; }
+      if(boCode){
+        const nums = main.hwBoatSlot.occupants.map(p=>personNr(p.id)).filter(n=>n!=null);
+        if(nums.length) A[boCode] = nums;
+      }
     }
   }
   return A;
