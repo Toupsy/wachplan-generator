@@ -368,9 +368,12 @@
 
     <!-- Konfiguration -->
     <div class="card">
-      <div class="card-title">⚙️ Konfiguration</div>
+      <div class="card-title">⚙️ Konfiguration & Wartung</div>
       <p style="color: var(--text-dim); margin-bottom: 15px; font-size: 0.9em;">Laden Sie die config.json neu, um Änderungen an Türmen, Booten und Export-Spalten wirksam zu machen.</p>
-      <button type="button" onclick="reloadConfig()" style="background: var(--sea); padding: 10px 20px;">🔄 Config neu laden</button>
+      <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+        <button type="button" onclick="reloadConfig()" style="background: var(--sea); padding: 10px 20px;">🔄 Config neu laden</button>
+        <button type="button" onclick="purgeOrphans()" style="background: var(--warn); padding: 10px 20px;">🧹 Verwaiste Daten bereinigen</button>
+      </div>
       <div id="config-status" style="margin-top: 10px; font-size: 0.9em; color: var(--text-dim);"></div>
     </div>
 
@@ -542,7 +545,16 @@
     }
 
     async function deleteUser(userId, username) {
-      if (!confirm(`Benutzer "${username}" wirklich löschen?\n\nAlle Pläne dieses Benutzers werden ebenfalls gelöscht.`)) {
+      const confirmed = confirm(
+        `⚠️ Benutzer "${username}" wirklich löschen?\n\n` +
+        `Dies ist UNWIDERRUFLICH und entfernt:\n` +
+        `• Benutzerkonto\n` +
+        `• Alle Wachpläne\n` +
+        `• Alle Freigaben (Plan-Zugänge)\n` +
+        `• Alle Sessions\n\n` +
+        `(GDPR Art. 17 – Recht auf Löschung)`
+      );
+      if (!confirmed) {
         return;
       }
 
@@ -556,7 +568,7 @@
           throw new Error(error.error || 'Failed to delete user');
         }
 
-        showToast(`✓ Benutzer "${username}" gelöscht`);
+        showToast(`✓ Benutzer "${username}" und alle zugehörigen Daten gelöscht`);
         loadUsers();
       } catch (error) {
         console.error('Delete user error:', error);
@@ -607,6 +619,33 @@
 
         statusEl.textContent = `✓ Config erfolgreich neu geladen! (${data.config.towers} Türme, ${data.config.boats} Boote)`;
         showToast('✓ Konfiguration erfolgreich neu geladen');
+      } catch (error) {
+        document.getElementById('config-status').textContent = `✗ Fehler: ${error.message}`;
+        showToast(error.message, true);
+      }
+    }
+
+    async function purgeOrphans() {
+      if (!confirm('🧹 Verwaiste Daten bereinigen?\n\nDies entfernt:\n• Pläne ohne Benutzer\n• Freigaben ohne Plan/Benutzer\n\nDies ist normalerweise nicht nötig.')) {
+        return;
+      }
+
+      try {
+        const statusEl = document.getElementById('config-status');
+        statusEl.textContent = 'Bereinige...';
+
+        const response = await fetch('/api/admin/purge-orphans', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Fehler beim Bereinigen');
+
+        const { plansWithoutUser, sharesWithoutPlan, sharesWithoutUser } = data.removed;
+        const total = plansWithoutUser + sharesWithoutPlan + sharesWithoutUser;
+        statusEl.textContent = `✓ Bereinigung abgeschlossen! (${total} Datensätze entfernt)`;
+        showToast(`✓ ${total} verwaiste Datensätze gelöscht`);
       } catch (error) {
         document.getElementById('config-status').textContent = `✗ Fehler: ${error.message}`;
         showToast(error.message, true);
