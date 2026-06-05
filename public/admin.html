@@ -384,12 +384,13 @@
             <th>E-Mail</th>
             <th>Rolle</th>
             <th>Erstellt</th>
+            <th>Letzter Login</th>
             <th style="text-align: right;">Aktionen</th>
           </tr>
         </thead>
         <tbody id="users-tbody">
           <tr>
-            <td colspan="5" class="empty">Lädt...</td>
+            <td colspan="6" class="empty">Lädt...</td>
           </tr>
         </tbody>
       </table>
@@ -453,7 +454,7 @@
 
         const tbody = document.getElementById('users-tbody');
         if (data.users.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" class="empty">Keine Benutzer gefunden</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="6" class="empty">Keine Benutzer gefunden</td></tr>';
           return;
         }
 
@@ -461,6 +462,9 @@
         data.users.forEach(user => {
           const tr = document.createElement('tr');
           const createdAt = new Date(user.createdAt).toLocaleDateString('de-DE');
+          const lastLogin = user.lastLogin
+            ? new Date(user.lastLogin.replace(' ', 'T') + 'Z').toLocaleString('de-DE')
+            : 'Noch nie';
           const badge = user.isAdmin
             ? '<span class="badge admin">Admin</span>'
             : '<span class="badge user">Benutzer</span>';
@@ -470,6 +474,7 @@
             <td>${user.email ? escapeHtml(user.email) : '-'}</td>
             <td>${badge}</td>
             <td>${createdAt}</td>
+            <td>${lastLogin}</td>
             <td style="text-align:right;white-space:nowrap;">
               <button class="btn-small btn-setpw">🔑 Passwort</button>
               <button class="btn-small danger btn-del">🗑️ Löschen</button>

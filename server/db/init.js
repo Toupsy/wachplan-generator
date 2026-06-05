@@ -93,6 +93,10 @@ function initDatabase() {
         // Statements auf der Verbindung → läuft vor den folgenden Queries.
         db.run("ALTER TABLE plan_shares ADD COLUMN role TEXT NOT NULL DEFAULT 'edit'", () => {});
 
+        // Idempotente Migration: last_login-Spalte für users (alte DBs ohne last_login).
+        // Fehler ("duplicate column name") wird bewusst ignoriert.
+        db.run("ALTER TABLE users ADD COLUMN last_login DATETIME", () => {});
+
         // Auto-create admin if ADMIN_USERNAME + ADMIN_PASSWORD are set
         db.get("SELECT COUNT(*) as count FROM users WHERE is_admin = 1", async (err, row) => {
           if (err) {

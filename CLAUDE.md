@@ -94,8 +94,8 @@ Alle UI-Panels haben eindeutige IDs, CSS-Klassen und optionale `data-panel-name`
 ### Hauptpanels
 | ID | Klasse | Name | Funktion |
 |---|---|---|---|
-| `#sidebar-panel` | `panel panel-sidebar` | Wachgänger & Konfiguration | Einstellungen: Personen, Türme, Boote, Export, Datum |
-| `#output-panel` | `panel panel-output` | Tages-Wachplan | Ausgabe: Tages-Karten, Stats, Krank/Schließ-Status |
+| `#sidebar-panel` | `main-panel main-panel-0 active panel-sidebar` | Wachgänger & Konfiguration | Einstellungen: Personen, Türme, Boote, Export, Datum |
+| `#output-panel` | `main-panel main-panel-1 panel panel-output` | Tages-Wachplan | Ausgabe: Tages-Karten, Stats, Krank/Schließ-Status |
 
 ### Sidebar-Sektionen
 | ID | Klasse | Name | Funktion |
@@ -308,6 +308,15 @@ Button „↺ Manuelle Zuweisungen zurücksetzen" in der Export-Row (neben XLSX/
 - Button ist disabled wenn keine Fixierungen existieren
 - Klick öffnet Bestätigungsdialog (ohne Recalc-Checkbox, da global wirksam)
 - Autosave erfolgt automatisch via `generate()` → bestehender Hook
+
+### Feature 18: Letzter Login im Admin-Panel
+Tracking und Anzeige des letzten erfolgreichen Logins pro Benutzer im Admin-Panel:
+- `users`-Tabelle erhält Spalte `last_login DATETIME` (NULL = noch nie eingeloggt)
+- Login wird nur bei erfolgreicher Authentifizierung (`POST /api/auth/login`) aktualisiert, nicht bei Session-Resume
+- Admin-API (`GET /api/admin/users`) gibt `lastLogin`-Feld aus
+- Admin-UI (`/admin.html`) zeigt neue Spalte „Letzter Login" mit Datum und Uhrzeit (Lokalzeit-Konvertierung mit UTC-String-Parsing)
+- Fallback: „Noch nie" für Benutzer, die sich nie eingeloggt haben
+- Idempotente Migration für bestehende DBs via `ALTER TABLE ... ADD COLUMN last_login DATETIME` in `init.js`
 
 ## Bugfixes
 
@@ -570,7 +579,7 @@ Alle Secrets in `.env` (gitignored). Vorlage: `.env.example`.
 
 ### Database Schema (SQLite)
 
-**users:** `id, username (UNIQUE), password_hash, email, is_admin, created_at, updated_at`
+**users:** `id, username (UNIQUE), password_hash, email, is_admin, last_login (NULL = noch nie), created_at, updated_at`
 
 **plans:** `id, user_id (FK CASCADE), name, encrypted_state (BLOB), iv (BLOB), auth_tag (BLOB), created_at, updated_at`
 
