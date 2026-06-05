@@ -300,6 +300,99 @@
     }
   }
 
+  /* ── Responsive: Schmale Displays (<520px) – Person/Turm-Reflow ── */
+  @media(max-width: 520px) {
+    /* Person-Edit: 2-zeilig statt 6 Spalten */
+    .person-edit {
+      grid-template-columns: 24px 1fr auto auto;
+      row-gap: 8px;
+      column-gap: 6px;
+    }
+
+    /* Row 1: Nr | Name */
+    .person-edit .pnr {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .person-edit .pname {
+      grid-column: 2 / -1;
+      grid-row: 1;
+    }
+
+    /* Row 2: Rolle über volle Breite (außer Delete) */
+    .person-edit .prole {
+      grid-column: 2 / 4;
+      grid-row: 2;
+    }
+
+    /* Row 2: Erf.-Toggle rechts */
+    .person-edit .exp-toggle {
+      grid-column: 4;
+      grid-row: 2;
+    }
+
+    .person-edit .exp-placeholder {
+      grid-column: 4;
+      grid-row: 2;
+    }
+
+    /* Row 2: Label-Toggle */
+    .person-edit .label-toggle {
+      grid-column: 1;
+      grid-row: 2;
+    }
+
+    /* Row 2: Delete-Button */
+    .person-edit .del-p {
+      grid-column: 4;
+      grid-row: 3;
+    }
+
+    /* Größere Touch-Targets */
+    .person-edit input[type=text],
+    .person-edit select {
+      height: 42px;
+      font-size: 0.9rem;
+    }
+
+    .person-edit .exp-toggle {
+      height: 42px;
+    }
+
+    .person-edit .mini-btn {
+      width: 36px;
+      height: 36px;
+    }
+
+    /* Turm-/Boot-Zeilen: mehr Abstand */
+    .tower-row-meta {
+      gap: 10px;
+    }
+
+    .tower-row-meta select {
+      min-height: 42px;
+      font-size: 0.78rem;
+    }
+
+    .code-input input,
+    .prio-input input {
+      min-height: 38px;
+    }
+
+    /* Slot-/Leader-Spinner-Buttons größer */
+    .slot-btn,
+    .leader-checkbox-wrapper {
+      min-height: 38px;
+    }
+
+    .slot-btn {
+      width: 34px;
+      height: 34px;
+      font-size: 1.1rem;
+    }
+  }
+
   @media print{
     @page{size:A4 landscape;margin:8mm}
     *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
