@@ -22,6 +22,7 @@ function renderPeople(){
         <option value="E" ${p.bfLevel==='E'?'selected':''}>BF-E</option>
         <option value="U" ${p.bfLevel==='U'?'selected':''}>BF-U</option>
       </select>` : `<div class="bf-level-placeholder"></div>`}
+      <button class="mini-btn absence-btn" data-id="${p.id}" title="Mehrtagige Abwesenheit setzen">📅</button>
       <label class="label-toggle" title="Labels bearbeiten">
         <input type="checkbox" data-id="${p.id}" class="labels-checkbox" ${hasLabels ? 'checked' : ''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0">
         <span style="font-size:0.7rem;color:var(--text-dim)">🏷️</span>
@@ -60,6 +61,11 @@ function renderPeople(){
     s.onchange = e => { getP(+e.target.dataset.id).role = e.target.value; renderPeople(); });
   c.querySelectorAll('.bf-level').forEach(s =>
     s.onchange = e => { getP(+e.target.dataset.id).bfLevel = e.target.value; });
+  c.querySelectorAll('.absence-btn').forEach(b =>
+    b.onclick = e => {
+      const personId = +e.target.dataset.id;
+      openAbsenceModal(personId);
+    });
   c.querySelectorAll('.del-p').forEach(b =>
     b.onclick = e => {
       const id = +e.target.dataset.id;

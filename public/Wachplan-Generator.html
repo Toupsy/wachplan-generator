@@ -47,7 +47,7 @@
   .sidebar::-webkit-scrollbar-thumb:hover{background:rgba(24,168,216,.6);background-clip:padding-box}
   .section-label{font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--foam);margin-bottom:18px;margin-top:24px;display:flex;align-items:center;gap:10px}
   .section-label::before{content:'';width:18px;height:2px;background:var(--sea-bright)}
-  .person-edit{display:grid;grid-template-columns:20px 2fr 1.4fr 1.1fr 0.6fr 24px;gap:6px;align-items:center;margin-bottom:10px}
+  .person-edit{display:grid;grid-template-columns:20px 2fr 1.4fr 1.1fr 24px 0.6fr 24px;gap:6px;align-items:center;margin-bottom:10px}
   .person-edit .pnr{font-family:'Spline Sans Mono',monospace;font-size:.72rem;color:var(--foam);text-align:center;background:rgba(127,212,232,.08);border-radius:5px;padding:6px 0;cursor:default}
   .person-edit input[type=text]{background:var(--deep);border:1px solid var(--line-strong);border-radius:8px;padding:9px 11px;color:var(--text);font-family:'Spline Sans',sans-serif;font-size:.85rem;width:100%;height:36px;box-sizing:border-box}
   .person-edit input:focus{outline:none;border-color:var(--sea-bright);box-shadow:0 0 0 3px rgba(24,168,216,.15)}
@@ -484,6 +484,26 @@
   </div>
 </div>
 
+<!-- ── Abwesenheit-Modal ───────────────────────────────────────── -->
+<div id="absence-modal" class="modal-overlay modal panel panel-absence-modal" data-panel-name="Mehrtägige Abwesenheit" style="display:none">
+  <div class="modal-box" style="max-width:400px">
+    <button class="modal-close-btn" id="absence-modal-close-btn">×</button>
+    <div class="modal-title" id="absence-modal-title">Abwesenheit</div>
+    <div style="margin:16px 0;font-size:.88rem">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <label style="font-size:.8rem;color:var(--text-dim);flex-shrink:0">Von Tag:</label>
+        <select id="absence-from-day" style="flex:1;box-sizing:border-box;padding:8px;background:var(--navy);border:1px solid var(--line);border-radius:6px;color:var(--text)"></select>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+        <label style="font-size:.8rem;color:var(--text-dim);flex-shrink:0">Bis Tag:</label>
+        <select id="absence-to-day" style="flex:1;box-sizing:border-box;padding:8px;background:var(--navy);border:1px solid var(--line);border-radius:6px;color:var(--text)"></select>
+      </div>
+    </div>
+    <button id="absence-set-btn" class="modal-confirm" style="width:100%;margin-bottom:8px">✔️ Abwesenheit setzen</button>
+    <button id="absence-clear-btn" class="modal-confirm" style="width:100%;background:rgba(127,212,232,.08);color:var(--sea-bright);border:1px solid var(--line-strong);display:none">🗑️ Alle löschen</button>
+  </div>
+</div>
+
 <!-- ── Haupt-Layout ────────────────────────────────────────────── -->
 <div class="wrap">
   <header>
@@ -698,6 +718,7 @@
 <script src="js/render-output.js"></script>
 <script src="js/export.js"></script>
 <script src="js/move.js"></script>
+<script src="js/absence.js"></script>
 <script src="js/state-io.js"></script>
 <script src="js/user-info.js"></script>
 <script src="js/share.js"></script>
