@@ -318,6 +318,14 @@ Tracking und Anzeige des letzten erfolgreichen Logins pro Benutzer im Admin-Pane
 - Fallback: „Noch nie" für Benutzer, die sich nie eingeloggt haben
 - Idempotente Migration für bestehende DBs via `ALTER TABLE ... ADD COLUMN last_login DATETIME` in `init.js`
 
+### Feature 19: DSGVO-Härtung – Datenminimierungs-Hinweis im Labels-Feld
+GDPR Art. 5 Abs. 1 c (Datenminimierung): Warnung gegen sensible Daten im Freitext-Feld `people[].labels`.
+- **UI-Hinweis:** Unter dem Labels-Input wird ein Warungstext angezeigt: „ℹ️ Nur dienstrelevante Qualifikationen – keine Gesundheits-/Privatdaten"
+- **Längenbegrenzung:** `maxlength="200"` auf dem Labels-Input (weiche Begrenzung für dienstrelevante Qualifikationen)
+- **Ort:** `public/js/render-sidebar.js`, Zeile 31–39 in `renderPeople()`
+- **Keine Logikänderung:** Speicherung, Export, Verarbeitung unverändert
+- **VERSION:** v0.4.4
+
 ## Bugfixes
 
 ### Bugfix: openTowers-Bedarfsrechnung ignoriert leaderCount (Issue #117, v0.4.1)
