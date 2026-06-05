@@ -435,3 +435,44 @@ async function applyRemotePlanState(){
     showToast('🔄 Aktualisiert von Mitbearbeiter');
   } catch(e){ console.error('applyRemotePlanState', e); }
 }
+
+/** Aggregiert Fairness-Statistiken aus mehreren Plänen. */
+async function aggregateStatsFromPlans(planIds){
+  const combined = {};
+  const personMap = {};
+  for(const planId of planIds){
+    try {
+      const res = await fetch(`/api/plans/${planId}`, { credentials:'include' });
+      if(!res.ok) continue;
+      const data = await res.json().catch(()=>({}));
+      if(!data.state) continue;
+      const parsed = typeof data.state === 'string' ? JSON.parse(data.state) : data.state;
+      const stats = parsed.lastResult?.stats || {};
+      const planPeople = parsed.people || [];
+      planPeople.forEach(p => {
+        if(!personMap[p.id]) personMap[p.id] = p;
+      });
+      Object.entries(stats).forEach(([personId, stat]) => {
+        if(!combined[personId]){
+          combined[personId] = {
+            total:0, hwVisits:0, towerVisits:{}, boatVisits:{},
+            towerWithBoatDays:0, boatCaptainPairings:{}
+          };
+        }
+        combined[personId].total += stat.total || 0;
+        combined[personId].hwVisits += stat.hwVisits || 0;
+        combined[personId].towerWithBoatDays += stat.towerWithBoatDays || 0;
+        Object.entries(stat.towerVisits||{}).forEach(([tid, cnt]) => {
+          combined[personId].towerVisits[tid] = (combined[personId].towerVisits[tid]||0) + cnt;
+        });
+        Object.entries(stat.boatVisits||{}).forEach(([bid, cnt]) => {
+          combined[personId].boatVisits[bid] = (combined[personId].boatVisits[bid]||0) + cnt;
+        });
+        Object.entries(stat.boatCaptainPairings||{}).forEach(([capId, cnt]) => {
+          combined[personId].boatCaptainPairings[capId] = (combined[personId].boatCaptainPairings[capId]||0) + cnt;
+        });
+      });
+    } catch(e){ console.error(`aggregateStatsFromPlans: Plan ${planId}`, e); }
+  }
+  return { combined, personMap };
+}

@@ -37,8 +37,10 @@ async function renderPlansList(){
     const openBtn = isCurrent
       ? '<span style="font-size:.66rem;color:var(--green);text-transform:uppercase">● aktuell</span>'
       : `<button class="ghost-btn pl-open" data-id="${p.id}" style="border-color:var(--sea-bright);color:var(--sea-bright);font-size:.72rem;padding:4px 8px">Öffnen</button>`;
+    const checkbox = `<input type="checkbox" class="plan-checkbox" data-id="${p.id}" style="cursor:pointer;width:16px;height:16px">`;
     return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--deep);border:1px solid ${isCurrent?'var(--green)':'var(--line)'};border-radius:6px;padding:8px 10px">
-      <div style="min-width:0">
+      <div style="flex-shrink:0">${checkbox}</div>
+      <div style="min-width:0;flex:1">
         <div style="font-size:.88rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(p.name||'(ohne Name)')}</div>
         <div>${badge}</div>
       </div>
@@ -84,5 +86,12 @@ document.addEventListener('DOMContentLoaded', () => {
     createNewPlan(name);
     const ni = document.getElementById('plan-name-input'); if(ni) ni.value = currentPlanName || '';
     await renderPlansList();
+  };
+
+  const statsBtn = document.getElementById('plan-combined-stats-btn');
+  if(statsBtn) statsBtn.onclick = async () => {
+    const selected = Array.from(document.querySelectorAll('.plan-checkbox:checked')).map(cb => +cb.dataset.id);
+    if(selected.length < 2){ showToast('Mindestens 2 Pläne auswählen'); return; }
+    await exportCombinedStatsCSV(selected);
   };
 });

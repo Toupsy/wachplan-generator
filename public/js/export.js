@@ -379,3 +379,35 @@ function exportStatsCSV(){
   a.download = 'wachplan-statistik.csv';
   a.click();
 }
+
+/** Exportiert kombinierte Statistiken aus mehreren Plänen als CSV. */
+async function exportCombinedStatsCSV(planIds){
+  if(!planIds || planIds.length < 2){ showToast('Mindestens 2 Pläne auswählen'); return; }
+  showToast('Aggregiere Statistiken…');
+  const { combined, personMap } = await aggregateStatsFromPlans(planIds);
+  if(Object.keys(combined).length === 0){ showToast('Keine Statistiken gefunden', true); return; }
+  const header = ['Nr','Person','Rolle','Einsätze gesamt','HW-Tage','Türme (unique)','Turmbesuche gesamt','Boot-Tage','Tage Turm+Boot'];
+  const rows = [header];
+  let nr = 1;
+  Object.entries(combined).forEach(([personId, s]) => {
+    const person = personMap[personId];
+    if(!person) return;
+    const towerVisits   = s.towerVisits || {};
+    const uniqueTowers  = Object.keys(towerVisits).length;
+    const totalTowerVis = Object.values(towerVisits).reduce((a,b)=>a+b,0);
+    const boatDays      = Object.values(s.boatVisits || {}).reduce((a,b)=>a+b,0);
+    rows.push([
+      nr++, person.name, ROLE[person.role],
+      s.total || 0, s.hwVisits || 0,
+      uniqueTowers, totalTowerVis,
+      boatDays, s.towerWithBoatDays || 0
+    ]);
+  });
+  const csv  = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['﻿'+csv], { type:'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'wachplan-statistik-kombiniert.csv';
+  a.click();
+  showToast('📊 Kombinierte Statistik exportiert');
+}
