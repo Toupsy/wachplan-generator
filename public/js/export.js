@@ -131,73 +131,125 @@ function _escXml(s){
 }
 
 /**
- * Setzt den Wert einer Zelle im XML-String.
- * Sucht <c r="REF" ...> (self-closing oder mit Inhalt) und ersetzt nur den Inhalt;
- * alle anderen Attribute (s=, ...) bleiben unberührt.
- *
- * @param {string}  xml   – worksheet XML
- * @param {string}  ref   – Zellreferenz, z.B. "AQ7"
- * @param {'n'|'s'} type  – 'n' = Zahl, 's' = Inline-String
- * @param {*}       value – zu schreibender Wert
+ * Sammelt Patches für batch-weise Anwendung.
+ * @returns {Map} ref → {type, value}
  */
-function _patchCell(xml, ref, type, value){
-  const esc = ref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  // Findet self-closing: <c r="REF" .../> oder mit Inhalt: <c r="REF" ...>...</c>
-  const re = new RegExp(`(<c [^>]*?r="${esc}"[^>]*?)(?:\\/>|>(?:[\\s\\S]*?)<\\/c>)`);
-  if(!re.test(xml)){
-    // Zelle existiert nicht → in die passende Zeile einfügen
-    return _insertCell(xml, ref, type, value);
-  }
-  return xml.replace(re, (_, openAttrs) => {
+function _createPatchMap(){
+  return new Map();
+}
+
+/**
+ * Wendet alle Patches aus einer Map mit einem Durchlauf an.
+ * Findet alle <c r="...">-Zellen, schlägt in der Map nach, ersetzt Wert.
+ * Fehlende Zellen werden separat gesammelt und gebündelt eingefügt.
+ *
+ * @param {string} xml       – worksheet XML
+ * @param {Map}   patchMap   – ref → {type, value}
+ * @returns {string}         – gepatchtes XML
+ */
+function _applyPatches(xml, patchMap){
+  if(patchMap.size === 0) return xml;
+
+  const missing = [];
+  let result = xml;
+
+  // Ein globaler Durchlauf über alle vorhandenen <c r="...">`-Zellen
+  const cellRegex = /(<c [^>]*?r="([A-Z0-9]+)"[^>]*?)(?:(\/?>)|>([\s\S]*?)<\/c>)/g;
+
+  result = result.replace(cellRegex, (match, openAttrs, ref, selfClose, content) => {
+    const patch = patchMap.get(ref);
+    if(!patch) return match;  // Keine Änderung für diese Zelle
+
+    const { type, value } = patch;
     // Vorhandenes t="-Attribut entfernen (wird ggf. neu gesetzt)
     const attrs = openAttrs.replace(/\s+t="[^"]*"/, '');
+
     if(type === 'n')
       return `${attrs}><v>${value}</v></c>`;
     else
       return `${attrs} t="inlineStr"><is><t>${_escXml(value)}</t></is></c>`;
   });
+
+  // Fehlende Zellen sammeln
+  patchMap.forEach((patch, ref) => {
+    // Prüfe ob ref in result existiert
+    const esc = ref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const testRe = new RegExp(`<c [^>]*?r="${esc}"[^>]*?(?:\\/>|>)`);
+    if(!testRe.test(result)){
+      missing.push({ ref, ...patch });
+    }
+  });
+
+  // Fehlende Zellen einfügen
+  if(missing.length > 0){
+    result = _insertMissingCells(result, missing);
+  }
+
+  return result;
 }
 
 /**
- * Fügt eine Zelle in die passende Zeile ein, falls sie im Template fehlt.
- * Hängt sie am Ende der Zeile ein (oder erstellt eine neue Zeile).
+ * Fügt fehlende Zellen gebündelt ein (pro Zeile gruppiert).
  */
-function _insertCell(xml, ref, type, value){
-  const rowNum  = ref.match(/\d+/)[0];
-  const colStr  = ref.replace(/\d+/, '');
-  const colNum  = _colToNum(colStr);
+function _insertMissingCells(xml, missing){
+  if(!missing.length) return xml;
 
-  const newCell = type === 'n'
-    ? `<c r="${ref}"><v>${value}</v></c>`
-    : `<c r="${ref}" t="inlineStr"><is><t>${_escXml(value)}</t></is></c>`;
-
-  // Versuche, in vorhandene Zeile einzufügen
-  const rowRe = new RegExp(`(<row [^>]*?r="${rowNum}"[^>]*>)([\\s\\S]*?)(</row>)`);
-  if(rowRe.test(xml)){
-    return xml.replace(rowRe, (_, open, content, close) => {
-      // Richtige Position innerhalb der Zeile finden (nach Spalte sortiert)
-      const insertRe = /<c r="([A-Z]+)\d+"[^>]*?(?:\/>|>[\s\S]*?<\/c>)/g;
-      let insertPos = content.length;
-      let m;
-      while((m = insertRe.exec(content)) !== null){
-        if(_colToNum(m[1]) > colNum){ insertPos = m.index; break; }
-      }
-      return open + content.slice(0, insertPos) + newCell + content.slice(insertPos) + close;
-    });
-  }
-
-  // Zeile fehlt komplett – vor der nächsten Zeile einfügen
-  const nextRowRe = new RegExp(`(<row [^>]*?r="(\\d+)"[^>]*>)`);
-  let inserted = false;
-  const result = xml.replace(/<row /g, (match, offset) => {
-    if(inserted) return match;
-    const rn = xml.slice(offset).match(/r="(\d+)"/);
-    if(rn && +rn[1] > +rowNum){
-      inserted = true;
-      return `<row r="${rowNum}"><c r="${ref}"${type==='n'?'':'  t="inlineStr"'}>${type==='n'?`<v>${value}</v>`:`<is><t>${_escXml(value)}</t></is>`}</c></row><row `;
-    }
-    return match;
+  // Nach Zeilennummern gruppieren
+  const byRow = {};
+  missing.forEach(({ ref, type, value }) => {
+    const rowNum = ref.match(/\d+/)[0];
+    if(!byRow[rowNum]) byRow[rowNum] = [];
+    byRow[rowNum].push({ ref, type, value });
   });
+
+  let result = xml;
+
+  // Pro Zeile Zellen am richtigen Ort einfügen
+  Object.entries(byRow).forEach(([rowNum, cells]) => {
+    cells.sort((a, b) => _colToNum(a.ref.replace(/\d+/, '')) - _colToNum(b.ref.replace(/\d+/, '')));
+
+    const rowRe = new RegExp(`(<row [^>]*?r="${rowNum}"[^>]*>)([\\s\\S]*?)(</row>)`);
+    if(rowRe.test(result)){
+      result = result.replace(rowRe, (_, open, content, close) => {
+        const insertRe = /<c r="([A-Z]+)\d+"[^>]*?(?:\/>|>[\s\S]*?<\/c>)/g;
+        let insertPos = content.length;
+        let m;
+
+        // Finde Position nach der letzten existierenden Zelle
+        while((m = insertRe.exec(content)) !== null){
+          insertPos = Math.max(insertPos, m.index + m[0].length);
+        }
+
+        const cellStrs = cells.map(({ ref, type, value }) =>
+          type === 'n'
+            ? `<c r="${ref}"><v>${value}</v></c>`
+            : `<c r="${ref}" t="inlineStr"><is><t>${_escXml(value)}</t></is></c>`
+        ).join('');
+
+        return open + content + cellStrs + close;
+      });
+    } else {
+      // Zeile existiert nicht – neu erstellen
+      const cellStrs = cells.map(({ ref, type, value }) =>
+        type === 'n'
+          ? `<c r="${ref}"><v>${value}</v></c>`
+          : `<c r="${ref}" t="inlineStr"><is><t>${_escXml(value)}</t></is></c>`
+      ).join('');
+
+      // Vor der nächsten höheren Zeilennummer einfügen
+      let inserted = false;
+      result = result.replace(/<row /g, (match, offset) => {
+        if(inserted) return match;
+        const rn = result.slice(offset).match(/r="(\d+)"/);
+        if(rn && +rn[1] > +rowNum){
+          inserted = true;
+          return `<row r="${rowNum}">${cellStrs}</row><row `;
+        }
+        return match;
+      });
+    }
+  });
+
   return result;
 }
 
@@ -208,26 +260,26 @@ function _colToNum(col){
 }
 
 /**
- * Hauptfunktion: Baut alle Patches und wendet sie auf das XML an.
+ * Hauptfunktion: Sammelt alle Patches und wendet sie mit einem Durchlauf an.
  */
 function _patchSheetXml(xml, dayIdx){
-  let x = xml;
+  const patches = _createPatchMap();
 
   // ── Datum ────────────────────────────────────────────────────
   const iso = computeDayDates()[dayIdx];
-  if(iso) x = _patchCell(x, 'EE3', 'n', excelSerial(iso));
+  if(iso) patches.set('EE3', { type: 'n', value: excelSerial(iso) });
 
   // ── Besetzungsliste (Namen 1–28) ─────────────────────────────
   for(let n = 1; n <= 28; n++){
     const ref = slotNameRef(n);
     const p   = people[n-1];
-    x = _patchCell(x, ref, 's', p ? (p.name||'') : '');
+    patches.set(ref, { type: 's', value: p ? (p.name||'') : '' });
   }
 
   // ── Positionsbeschriftungen ──────────────────────────────────
   [11,13,15,17,19].forEach((row, i) => {
     const desc = positionDescriptions[i+3];
-    if(desc) x = _patchCell(x, 'C'+row, 's', desc);
+    if(desc) patches.set('C'+row, { type: 's', value: desc });
   });
 
   // ── Effektives Spalten-Layout ────────────────────────────────────
@@ -255,11 +307,11 @@ function _patchSheetXml(xml, dayIdx){
 
   // Stationscodes in Zeile 21 + Stundendaten schreiben
   effectiveCols.forEach(({ col, code, nums }) => {
-    x = _patchCell(x, colLetter(col)+'21', 's', code);
+    patches.set(colLetter(col)+'21', { type: 's', value: code });
     fillHours().forEach(hr => {
       const [rt, rb] = HOUR_ROWS_X[hr];
-      if(nums[0] != null) x = _patchCell(x, colLetter(col)+rt, 'n', nums[0]);
-      if(nums[1] != null) x = _patchCell(x, colLetter(col)+rb, 'n', nums[1]);
+      if(nums[0] != null) patches.set(colLetter(col)+rt, { type: 'n', value: nums[0] });
+      if(nums[1] != null) patches.set(colLetter(col)+rb, { type: 'n', value: nums[1] });
     });
   });
 
@@ -272,17 +324,17 @@ function _patchSheetXml(xml, dayIdx){
     for(let i = 0; i < overflowHW.length; i += 2){
       if(tplIdx >= TEMPLATE_STATION_COLS.length) break;
       const col = TEMPLATE_STATION_COLS[tplIdx++];
-      x = _patchCell(x, colLetter(col)+'21', 's', 'HW');
+      patches.set(colLetter(col)+'21', { type: 's', value: 'HW' });
       const nr1 = overflowHW[i], nr2 = overflowHW[i+1];
       fillHours().forEach(hr => {
         const [rt, rb] = HOUR_ROWS_X[hr];
-        if(nr1 != null) x = _patchCell(x, colLetter(col)+rt, 'n', nr1);
-        if(nr2 != null) x = _patchCell(x, colLetter(col)+rb, 'n', nr2);
+        if(nr1 != null) patches.set(colLetter(col)+rt, { type: 'n', value: nr1 });
+        if(nr2 != null) patches.set(colLetter(col)+rb, { type: 'n', value: nr2 });
       });
     }
   }
 
-  return x;
+  return _applyPatches(xml, patches);
 }
 
 // ── Offizieller XLSX-Export ───────────────────────────────────────
