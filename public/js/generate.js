@@ -713,7 +713,8 @@ function generate(startDay = 0){
   const avgUniqueTowers = allStats.length > 0
     ? (Object.values(towerDistribution).reduce((a,b) => a+b, 0) / allStats.length).toFixed(1)
     : 0;
-  const minUniqueTowers = Math.min(...Object.values(towerDistribution), 0);
+  const towerDistVals = Object.values(towerDistribution);
+  const minUniqueTowers = towerDistVals.length > 0 ? Math.min(...towerDistVals) : 0;
 
   const avgHwVisits = allStats.length > 0
     ? (allStats.reduce((sum, s) => sum + (s.hwVisits || 0), 0) / allStats.length).toFixed(1)
