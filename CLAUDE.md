@@ -94,8 +94,8 @@ Alle UI-Panels haben eindeutige IDs, CSS-Klassen und optionale `data-panel-name`
 ### Hauptpanels
 | ID | Klasse | Name | Funktion |
 |---|---|---|---|
-| `#sidebar-panel` | `panel panel-sidebar` | Wachgänger & Konfiguration | Einstellungen: Personen, Türme, Boote, Export, Datum |
-| `#output-panel` | `panel panel-output` | Tages-Wachplan | Ausgabe: Tages-Karten, Stats, Krank/Schließ-Status |
+| `#sidebar-panel` | `main-panel main-panel-0 active panel-sidebar` | Wachgänger & Konfiguration | Einstellungen: Personen, Türme, Boote, Export, Datum |
+| `#output-panel` | `main-panel main-panel-1 panel panel-output` | Tages-Wachplan | Ausgabe: Tages-Karten, Stats, Krank/Schließ-Status |
 
 ### Sidebar-Sektionen
 | ID | Klasse | Name | Funktion |
