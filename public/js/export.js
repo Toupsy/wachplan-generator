@@ -337,7 +337,7 @@ function exportCSV(){
         slot.bootsfLeft.forEach(p =>rows.push([dn,slot.tower,'','Zentrale','Bootsf. HW',p.name,roleLabel(p),p.labels||'']));
         if(slot.hwBoatSlot?.bootsf)
           rows.push([dn,slot.hwBoatSlot.name,getBoat(slot.hwBoatSlot.boatId)?.code||'','HW-Boot','Bootsführer',slot.hwBoatSlot.bootsf.name,roleLabel(slot.hwBoatSlot.bootsf),slot.hwBoatSlot.bootsf.labels||'']);
-        slot.sick.forEach(p       =>rows.push([dn,slot.tower,'','Zentrale','AUSSER DIENST',p.name,roleLabel(p),p.labels||'']));
+        slot.sick.forEach(p       =>rows.push([dn,slot.tower,'','Zentrale','A. D.',p.name,roleLabel(p),p.labels||'']));
       } else if(slot.kind==='tower'){
         slot.occupants.forEach(p  =>rows.push([dn,slot.tower,slot.code||'','Turm','Wachgänger',p.name,roleLabel(p),p.labels||'']));
       } else if(slot.kind==='boat' && slot.occupants && slot.occupants.length > 0){
