@@ -104,6 +104,11 @@ router.post('/login', express.json(), async (req, res) => {
           console.error('Session save error:', err);
           return res.status(500).json({ error: 'Failed to save session' });
         }
+
+        // Record last login (UTC via CURRENT_TIMESTAMP), fire-and-forget
+        dbRun('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [user.id])
+          .catch(err => console.error('last_login update failed:', err));
+
         res.json({
           success: true,
           userId: user.id,
