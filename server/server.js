@@ -26,8 +26,8 @@ const HOST = process.env.HOST || '0.0.0.0';
 validateEnv();
 
 // ── Middleware (vor Session-Init, wird unten konfiguriert) ───────
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ── Basis-Security-Header ──────────────────────────────────────
 app.use((req, res, next) => {
