@@ -476,11 +476,13 @@
             <td>${createdAt}</td>
             <td>${lastLogin}</td>
             <td style="text-align:right;white-space:nowrap;">
+              <button class="btn-small btn-export">📤 Export</button>
               <button class="btn-small btn-setpw">🔑 Passwort</button>
               <button class="btn-small danger btn-del">🗑️ Löschen</button>
             </td>
           `;
           tr.querySelector('td').textContent = user.username;
+          tr.querySelector('.btn-export').addEventListener('click', () => exportUserData(user.id, user.username));
           tr.querySelector('.btn-del').addEventListener('click', () => deleteUser(user.id, user.username));
           tr.querySelector('.btn-setpw').addEventListener('click', () => adminSetPassword(user.id, user.username));
           tbody.appendChild(tr);
@@ -537,6 +539,32 @@
         if (!response.ok) throw new Error(data.error || 'Fehler');
         showToast(`✓ Passwort für "${username}" geändert`);
       } catch (error) {
+        showToast(error.message, true);
+      }
+    }
+
+    async function exportUserData(userId, username) {
+      try {
+        const response = await fetch(`/api/admin/users/${userId}/export`);
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Export fehlgeschlagen');
+        }
+
+        const data = await response.json();
+        const json = JSON.stringify(data, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `wachplan-userdaten-${username}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        showToast(`✓ Daten für "${username}" exportiert`);
+      } catch (error) {
+        console.error('Export user data error:', error);
         showToast(error.message, true);
       }
     }
