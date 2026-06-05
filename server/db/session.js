@@ -9,7 +9,7 @@ const { dbPath } = require('./connection');
 // Erstellt die Session-Middleware mit SQLite-Store.
 // server.js nutzt resave/saveUninitialized=true (SQLite-Reliability),
 // admin-server.js nutzt false/false → per Option überschreibbar.
-// secure:false, weil der Proxy HTTPS terminiert und intern via HTTP weiterleitet.
+// secure: GDPR (Art. 32) – setzen wenn HTTPS/TLS aktiv.
 function createSessionMiddleware({ resave = true, saveUninitialized = true } = {}) {
   const store = new SqliteStore({ db: dbPath, mode: 0o666 });
   store.on('error', (err) => {
@@ -21,7 +21,7 @@ function createSessionMiddleware({ resave = true, saveUninitialized = true } = {
     resave,
     saveUninitialized,
     cookie: {
-      secure: false,
+      secure: process.env.COOKIE_SECURE === 'true' || process.env.NODE_ENV === 'production',
       httpOnly: true,
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
