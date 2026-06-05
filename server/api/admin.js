@@ -47,7 +47,7 @@ router.use(adminMiddleware);
 router.get('/users', async (req, res) => {
   try {
     const users = await dbAll(
-      'SELECT id, username, email, is_admin, created_at FROM users ORDER BY created_at DESC'
+      'SELECT id, username, email, is_admin, last_login, created_at FROM users ORDER BY created_at DESC'
     );
 
     res.json({
@@ -56,6 +56,7 @@ router.get('/users', async (req, res) => {
         username: u.username,
         email: u.email,
         isAdmin: u.is_admin === 1,
+        lastLogin: u.last_login,
         createdAt: u.created_at
       }))
     });
