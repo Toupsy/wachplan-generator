@@ -112,7 +112,7 @@ function setupScenario(ctx, opts = {}) {
       id: uid++,
       name: `BoatMaster ${i + 1}`,
       role: 'B',
-      bfLevel: i % 2 === 0 ? 'E' : 'U'
+      experienced: i % 2 === 0
     });
   }
 
@@ -120,7 +120,8 @@ function setupScenario(ctx, opts = {}) {
     peopleData.push({
       id: uid++,
       name: `Experienced ${i + 1}`,
-      role: 'E'
+      role: 'W',
+      experienced: true
     });
   }
 
@@ -128,7 +129,8 @@ function setupScenario(ctx, opts = {}) {
     peopleData.push({
       id: uid++,
       name: `Inexperienced ${i + 1}`,
-      role: 'U'
+      role: 'W',
+      experienced: false
     });
   }
 

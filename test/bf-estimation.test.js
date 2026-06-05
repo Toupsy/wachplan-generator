@@ -34,9 +34,9 @@ function run({ people, towers, boats, days = 1, mainK = 0 }) {
 test('BF-Schätzung: kein Crash bei nicht-Standard slotCount', () => {
   const res = run({
     people: [
-      { id: 1, name: 'E1', role: 'E' }, { id: 2, name: 'E2', role: 'E' },
-      { id: 3, name: 'B1', role: 'B', bfLevel: 'E' }, { id: 4, name: 'B2', role: 'B', bfLevel: 'E' },
-      { id: 5, name: 'B3', role: 'B', bfLevel: 'E' }, { id: 6, name: 'B4', role: 'B', bfLevel: 'E' },
+      { id: 1, name: 'E1', role: 'W', experienced: true }, { id: 2, name: 'E2', role: 'W', experienced: true },
+      { id: 3, name: 'B1', role: 'B', experienced: true }, { id: 4, name: 'B2', role: 'B', experienced: true },
+      { id: 5, name: 'B3', role: 'B', experienced: true }, { id: 6, name: 'B4', role: 'B', experienced: true },
     ],
     towers: [
       { id: 20, name: 'T1', prio: 1, code: 'T1', slotCount: 4, leaderCount: 0 },
@@ -55,10 +55,10 @@ test('BF-Schätzung: Boot offener Türme bekommt einen Bootsführer (E/U knapp, 
   // Boot bekommt korrekt einen Bootsführer.
   const res = run({
     people: [
-      { id: 1, name: 'E1', role: 'E' }, { id: 2, name: 'E2', role: 'E' },
-      { id: 3, name: 'B1', role: 'B', bfLevel: 'E' }, { id: 4, name: 'B2', role: 'B', bfLevel: 'E' },
-      { id: 5, name: 'B3', role: 'B', bfLevel: 'E' }, { id: 6, name: 'B4', role: 'B', bfLevel: 'E' },
-      { id: 7, name: 'B5', role: 'B', bfLevel: 'E' }, { id: 8, name: 'B6', role: 'B', bfLevel: 'E' },
+      { id: 1, name: 'E1', role: 'W', experienced: true }, { id: 2, name: 'E2', role: 'W', experienced: true },
+      { id: 3, name: 'B1', role: 'B', experienced: true }, { id: 4, name: 'B2', role: 'B', experienced: true },
+      { id: 5, name: 'B3', role: 'B', experienced: true }, { id: 6, name: 'B4', role: 'B', experienced: true },
+      { id: 7, name: 'B5', role: 'B', experienced: true }, { id: 8, name: 'B6', role: 'B', experienced: true },
     ],
     towers: [
       { id: 20, name: 'T1', prio: 1, code: 'T1', slotCount: 2, leaderCount: 0 },

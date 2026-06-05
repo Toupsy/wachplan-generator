@@ -2,7 +2,7 @@
 // state-io.js – Planstatus-Import / Export (Feature 7) + Server-Sync
 // ============================================================
 
-const STATE_VERSION = 4;
+const STATE_VERSION = 5;
 const STORAGE_KEY   = 'dlrg_wachplan_autosave';  // Fallback für offline
 
 // Globale Variablen für Server-Sync
@@ -38,11 +38,7 @@ function _buildStateObject(){
     positionDescriptions: { ...positionDescriptions },
     fairnessMetricsDisplay: { ...fairnessMetricsDisplay },
     exportColumns:        [...exportColumns],
-    people:               people.map(p => {
-      const obj = { ...p };
-      if(p.role === 'B' && !obj.bfLevel) obj.bfLevel = 'E';  // Default BF-E
-      return obj;
-    }),
+    people:               people.map(p => ({ ...p })),
     towers:               towers.map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0 })),
     boats:                boats.map(b => ({ ...b, slotCount: b.slotCount || 1 })),
     dayState: dayState.map(d => ({
@@ -64,6 +60,20 @@ function exportStateJSON(){
   a.download = `wachplan_status_${(startDate||'entwurf').replace(/-/g,'')}.json`;
   a.click();
   showToast('✅ Status exportiert');
+}
+
+/**
+ * Migriert alte Personen-Datenmodelle (E/U/bfLevel) zum neuen (W/experienced).
+ * Idempotent: mehrfaches Aufrufen auf bereits migriert Daten ist harmlos.
+ */
+function migratePerson(p){
+  let role = p.role, experienced;
+  if(role === 'E'){ role='W'; experienced=true; }
+  else if(role === 'U'){ role='W'; experienced=false; }
+  else if(role === 'B'){ experienced = p.experienced ?? (p.bfLevel !== 'U'); }
+  else { role='F'; experienced = false; }
+  const { bfLevel, ...rest } = p;
+  return { ...rest, role, experienced: experienced ?? true };
 }
 
 /**
@@ -114,11 +124,14 @@ function importStateJSON(json, silent = false){
   const daysInput = document.getElementById('num-days');
   if(daysInput) daysInput.value = DAYS;
 
-  people = (s.people || []).map(p => ({
-    ...p,
-    labels: p.labels || '',
-    enableLabels: p.enableLabels !== undefined ? p.enableLabels : ((p.labels||'').trim().length > 0)  // Fallback für alte Exporte
-  }));
+  people = (s.people || []).map(p => {
+    const migrated = migratePerson(p);
+    return {
+      ...migrated,
+      labels: migrated.labels || '',
+      enableLabels: migrated.enableLabels !== undefined ? migrated.enableLabels : ((migrated.labels||'').trim().length > 0)
+    };
+  });
   towers = (s.towers || []).map(t => ({ ...t, slotCount: t.slotCount || 2 }));
   boats  = (s.boats  || []).map(b => ({ ...b, slotCount: b.slotCount || 1 }));
 

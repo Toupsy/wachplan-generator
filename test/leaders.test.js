@@ -33,11 +33,11 @@ function run({ people, towers, boats = [], days = 4, mainK = 2 }) {
 }
 
 const PEOPLE = [
-  { id: 1, name: 'F1', role: 'F' }, { id: 2, name: 'F2', role: 'F' },
-  { id: 3, name: 'E1', role: 'E' }, { id: 4, name: 'E2', role: 'E' },
-  { id: 5, name: 'E3', role: 'E' }, { id: 6, name: 'E4', role: 'E' },
-  { id: 7, name: 'U1', role: 'U' }, { id: 8, name: 'U2', role: 'U' },
-  { id: 9, name: 'U3', role: 'U' }, { id: 10, name: 'U4', role: 'U' },
+  { id: 1, name: 'F1', role: 'F', experienced: false }, { id: 2, name: 'F2', role: 'F', experienced: false },
+  { id: 3, name: 'E1', role: 'W', experienced: true }, { id: 4, name: 'E2', role: 'W', experienced: true },
+  { id: 5, name: 'E3', role: 'W', experienced: true }, { id: 6, name: 'E4', role: 'W', experienced: true },
+  { id: 7, name: 'U1', role: 'W', experienced: false }, { id: 8, name: 'U2', role: 'W', experienced: false },
+  { id: 9, name: 'U3', role: 'W', experienced: false }, { id: 10, name: 'U4', role: 'W', experienced: false },
 ];
 
 const fOnTowers = day =>
@@ -89,10 +89,10 @@ test('Feature 12: leaderCount>0 → F steht auf dem Turm, HW behält Führung', 
 test('Feature 12: zu wenige F → Leader-Slot regulär gefüllt, Turm voll, kein Crash', () => {
   const res = run({
     people: [
-      { id: 1, name: 'F1', role: 'F' },  // nur 1 F
-      { id: 3, name: 'E1', role: 'E' }, { id: 4, name: 'E2', role: 'E' },
-      { id: 5, name: 'E3', role: 'E' }, { id: 6, name: 'E4', role: 'E' },
-      { id: 7, name: 'U1', role: 'U' }, { id: 8, name: 'U2', role: 'U' },
+      { id: 1, name: 'F1', role: 'F', experienced: false },  // nur 1 F
+      { id: 3, name: 'E1', role: 'W', experienced: true }, { id: 4, name: 'E2', role: 'W', experienced: true },
+      { id: 5, name: 'E3', role: 'W', experienced: true }, { id: 6, name: 'E4', role: 'W', experienced: true },
+      { id: 7, name: 'U1', role: 'W', experienced: false }, { id: 8, name: 'U2', role: 'W', experienced: false },
     ],
     towers: [
       { id: 21, name: 'T1', prio: 1, code: 'T1', slotCount: 2, leaderCount: 2 }, // 2 Leader-Slots, nur 1 F

@@ -15,13 +15,12 @@ function renderPeople(){
       <select data-id="${p.id}" class="prole">
         <option value="F" ${p.role==='F'?'selected':''}>Führung</option>
         <option value="B" ${p.role==='B'?'selected':''}>Bootsführer</option>
-        <option value="E" ${p.role==='E'?'selected':''}>Erfahren</option>
-        <option value="U" ${p.role==='U'?'selected':''}>Unerfahren</option>
+        <option value="W" ${p.role==='W'?'selected':''}>Wachgänger</option>
       </select>
-      ${p.role==='B' ? `<select data-id="${p.id}" class="bf-level" title="BF Erfahrungslevel">
-        <option value="E" ${p.bfLevel==='E'?'selected':''}>BF-E</option>
-        <option value="U" ${p.bfLevel==='U'?'selected':''}>BF-U</option>
-      </select>` : `<div class="bf-level-placeholder"></div>`}
+      ${p.role!=='F' ? `<label class="experienced-toggle" title="Erfahren">
+        <input type="checkbox" data-id="${p.id}" class="experienced-checkbox" ${p.experienced ? 'checked' : ''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0">
+        <span style="font-size:0.7rem;color:var(--text-dim)">✓</span>
+      </label>` : `<div class="experienced-placeholder"></div>`}
       <label class="label-toggle" title="Labels bearbeiten">
         <input type="checkbox" data-id="${p.id}" class="labels-checkbox" ${hasLabels ? 'checked' : ''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0">
         <span style="font-size:0.7rem;color:var(--text-dim)">🏷️</span>
@@ -58,8 +57,8 @@ function renderPeople(){
     i.oninput = e => { getP(+e.target.dataset.id).labels = e.target.value; });
   c.querySelectorAll('.prole').forEach(s =>
     s.onchange = e => { getP(+e.target.dataset.id).role = e.target.value; renderPeople(); });
-  c.querySelectorAll('.bf-level').forEach(s =>
-    s.onchange = e => { getP(+e.target.dataset.id).bfLevel = e.target.value; });
+  c.querySelectorAll('.experienced-checkbox').forEach(cb =>
+    cb.onchange = e => { getP(+e.target.dataset.id).experienced = e.target.checked; scheduleAutoSave(); });
   c.querySelectorAll('.del-p').forEach(b =>
     b.onclick = e => {
       const id = +e.target.dataset.id;

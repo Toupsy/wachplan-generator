@@ -3,14 +3,14 @@
 // ============================================================
 
 let DAYS = 6;
-const ROLE = { F:'Führung', B:'Bootsführer', E:'Erfahren', U:'Unerfahren' };
+const ROLE = { F:'Führung', B:'Bootsführer', W:'Wachgänger' };
 const MAIN_ID = 0;
 
 let uid = 0;
 let randomSeed = 0;
 
 // Stammdaten
-let people   = [];   // [{ id, name, role, bfLevel?:'E'|'U', labels:'', enableLabels:true }] (bfLevel nur wenn role='B', labels Komma-getrennt, enableLabels steuert Sichtbarkeit)
+let people   = [];   // [{ id, name, role:'F'|'B'|'W', experienced:boolean, labels:'', enableLabels:true }] (experienced=true bei Rolle erfahren, labels Komma-getrennt, enableLabels steuert Sichtbarkeit)
 let towers   = [];   // [{ id, name, prio, code, slotCount, leaderCount }]
 let boats    = [];   // [{ id, name, code, towerId, prio, slotCount }]
 

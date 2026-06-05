@@ -8,6 +8,13 @@
 // CSV-Export und für buildAssignments verwendet.
 // ============================================================
 
+// Helper: Erfahrung-aware Rollen-Label für CSV/XLSX
+function roleLabel(p){
+  if(p.role === 'F') return 'Führung';
+  if(p.role === 'B') return p.experienced ? 'Bootsführer (erfahren)' : 'Bootsführer (unerfahren)';
+  return p.experienced ? 'Erfahren' : 'Unerfahren';   // W
+}
+
 // ── Mapping-Konstanten ───────────────────────────────────────────
 const SLOT_ROWS_X  = [7,9,11,13,15,17,19];
 const SLOT_NAMECOL = [43,76,109,142];
@@ -331,17 +338,17 @@ function exportCSV(){
     const dn=dayLabel(d.day);
     d.assign.forEach(slot=>{
       if(slot.kind==='main'){
-        slot.fuehrung.forEach(p   =>rows.push([dn,slot.tower,'','Zentrale','Führung',p.name,ROLE[p.role],p.labels||'']));
-        slot.mainGuards.forEach(p =>rows.push([dn,slot.tower,'','Zentrale','HW-Wache',p.name,ROLE[p.role],p.labels||'']));
-        slot.base.forEach(p       =>rows.push([dn,slot.tower,'','Zentrale','HW',p.name,ROLE[p.role],p.labels||'']));
-        slot.bootsfLeft.forEach(p =>rows.push([dn,slot.tower,'','Zentrale','Bootsf. HW',p.name,ROLE[p.role],p.labels||'']));
+        slot.fuehrung.forEach(p   =>rows.push([dn,slot.tower,'','Zentrale','Führung',p.name,roleLabel(p),p.labels||'']));
+        slot.mainGuards.forEach(p =>rows.push([dn,slot.tower,'','Zentrale','HW-Wache',p.name,roleLabel(p),p.labels||'']));
+        slot.base.forEach(p       =>rows.push([dn,slot.tower,'','Zentrale','HW',p.name,roleLabel(p),p.labels||'']));
+        slot.bootsfLeft.forEach(p =>rows.push([dn,slot.tower,'','Zentrale','Bootsf. HW',p.name,roleLabel(p),p.labels||'']));
         if(slot.hwBoatSlot?.bootsf)
-          rows.push([dn,slot.hwBoatSlot.name,getBoat(slot.hwBoatSlot.boatId)?.code||'','HW-Boot','Bootsführer',slot.hwBoatSlot.bootsf.name,ROLE[slot.hwBoatSlot.bootsf.role],slot.hwBoatSlot.bootsf.labels||'']);
-        slot.sick.forEach(p       =>rows.push([dn,slot.tower,'','Zentrale','KRANK',p.name,ROLE[p.role],p.labels||'']));
+          rows.push([dn,slot.hwBoatSlot.name,getBoat(slot.hwBoatSlot.boatId)?.code||'','HW-Boot','Bootsführer',slot.hwBoatSlot.bootsf.name,roleLabel(slot.hwBoatSlot.bootsf),slot.hwBoatSlot.bootsf.labels||'']);
+        slot.sick.forEach(p       =>rows.push([dn,slot.tower,'','Zentrale','KRANK',p.name,roleLabel(p),p.labels||'']));
       } else if(slot.kind==='tower'){
-        slot.occupants.forEach(p  =>rows.push([dn,slot.tower,slot.code||'','Turm','Wachgänger',p.name,ROLE[p.role],p.labels||'']));
+        slot.occupants.forEach(p  =>rows.push([dn,slot.tower,slot.code||'','Turm','Wachgänger',p.name,roleLabel(p),p.labels||'']));
       } else if(slot.kind==='boat' && slot.occupants && slot.occupants.length > 0){
-        slot.occupants.forEach(p  =>rows.push([dn,slot.name,slot.code||'','Boot','Bootsführer',p.name,ROLE[p.role],p.labels||'']));
+        slot.occupants.forEach(p  =>rows.push([dn,slot.name,slot.code||'','Boot','Bootsführer',p.name,roleLabel(p),p.labels||'']));
       }
     });
     [...d.manualClosed,...d.personnelClosed].forEach(t=>rows.push([dn,t.name,t.code||'','Turm','GESCHLOSSEN','','','']));
@@ -366,7 +373,7 @@ function exportStatsCSV(){
     const totalTowerVis = Object.values(towerVisits).reduce((a,b)=>a+b,0);
     const boatDays      = Object.values(s.boatVisits || {}).reduce((a,b)=>a+b,0);
     rows.push([
-      i+1, p.name, ROLE[p.role],
+      i+1, p.name, roleLabel(p),
       s.total || 0, s.hwVisits || 0,
       uniqueTowers, totalTowerVis,
       boatDays, s.towerWithBoatDays || 0

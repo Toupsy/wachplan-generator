@@ -58,12 +58,19 @@ document.addEventListener('DOMContentLoaded', () => {
 // ── Sidebar – Wachgänger ─────────────────────────────────────────
 const addPersonBtn = document.getElementById('add-person');
 if(addPersonBtn) addPersonBtn.onclick = () => {
-  people.push({ id:++uid, name:'', role:'E', enableLabels: true });
+  people.push({ id:++uid, name:'', role:'W', experienced:true, enableLabels: true });
   renderPeople();
   scheduleAutoSave();
 };
-document.querySelectorAll('.quick-add button').forEach(b =>
-  b.onclick = () => { people.push({ id:++uid, name:'', role:b.dataset.role, enableLabels: true }); renderPeople(); scheduleAutoSave(); });
+document.querySelectorAll('.quick-add button').forEach(b => {
+  const role = b.dataset.role;
+  b.onclick = () => {
+    const experienced = role !== 'F';
+    people.push({ id:++uid, name:'', role, experienced, enableLabels: true });
+    renderPeople();
+    scheduleAutoSave();
+  };
+});
 
 // ── Sidebar – Türme & Boote ──────────────────────────────────────
 const addTowerBtn = document.getElementById('add-tower');

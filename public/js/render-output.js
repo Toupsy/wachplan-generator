@@ -2,6 +2,12 @@
 // render-output.js – Hauptbereich: Tages-Ansicht + Matrix
 // ============================================================
 
+// Helper: Effektives Erfahrungslevel basierend auf Rolle + experienced-Flag
+function effLevel(p){
+  if(p.role === 'F') return 'F';
+  return p.experienced ? 'E' : 'U';
+}
+
 /** Rendert den kompletten Ausgabe-Bereich neu. */
 function renderOutput(){
   // Sicherstelle dass dayState korrekt initialisiert ist
@@ -109,7 +115,7 @@ function renderOutput(){
   const repeatedPairs  = allPairs.filter(([,v])=>v>1).length;
   let uuTotal = 0, repeatTowers = 0;
   schedule.forEach(day => day.assign.forEach(s => {
-    if(s.occupants?.length===2 && (s.occupants[0].role+s.occupants[1].role)==='UU') uuTotal++;
+    if(s.occupants?.length===2 && (effLevel(s.occupants[0])+effLevel(s.occupants[1]))==='UU') uuTotal++;
   }));
   Object.values(lastResult.stats).forEach(s =>
     Object.values(s.towerVisits).forEach(v => { if(v>2) repeatTowers++; }));
@@ -248,7 +254,7 @@ function renderOutput(){
       const labelText = labels.length > 0 ? ' - <span class="person-labels">' + labels.map(l => `<span class="label-tag">${escapeHtml(l)}</span>`).join(' ') + '</span>' : '';
       return `
           <div class="occupant" draggable="true" data-person-id="${p.id}" data-source-kind="${kind}" data-source-slot="${slotId}">
-            <i class="role-dot rd-${p.role.toLowerCase()}"></i>${escapeHtml(p.name)}${labelText}
+            <i class="role-dot rd-${effLevel(p).toLowerCase()}"></i>${escapeHtml(p.name)}${labelText}
             ${forcedIds.has(p.id)?'<span class="forced-badge" title="Manuell fixiert">🔒</span>':''}
             <span class="o-role">${label||ROLE[p.role]}</span>
             <button class="move-btn" data-move-person="${p.id}" data-move-day="${di}"
@@ -275,8 +281,8 @@ function renderOutput(){
         html += `<div class="tower-card main" id="card-main-${di}" style="grid-column:span 2;" data-drop-kind="main" data-drop-slot="${MAIN_ID}" data-panel-name="Hauptwache" data-card-type="main">
           <div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="main" data-card-slot="${MAIN_ID}" title="Zum Sortieren ziehen"><span class="tc-name">⛱ ${slot.tower}</span><span class="tc-type main">Zentrale · k=${slot.k}</span></div>
           ${slot.fuehrung.map(p=>renderOccupant(p,'Führung','main',MAIN_ID)).join('')}
-          ${slot.mainGuards.map(p=>renderOccupant(p,p.role==='E'?'Erfahren · HW':'Unerf. · HW','main',MAIN_ID)).join('')}
-          ${slot.base.map(p=>renderOccupant(p,p.role==='E'?'Erfahren · HW':'Unerf. · HW','main',MAIN_ID)).join('')}
+          ${slot.mainGuards.map(p=>renderOccupant(p,p.experienced?'Erfahren · HW':'Unerf. · HW','main',MAIN_ID)).join('')}
+          ${slot.base.map(p=>renderOccupant(p,p.experienced?'Erfahren · HW':'Unerf. · HW','main',MAIN_ID)).join('')}
           ${slot.bootsfLeft.map(p=>renderOccupant(p,'Bootsführer · HW','main',MAIN_ID)).join('')}
           ${renderInlineBoat(boatsByTower['HW'])}
           ${slot.sick.map(p=>`<div class="occupant" style="opacity:.55"><i class="role-dot rd-${p.role.toLowerCase()}"></i><span style="text-decoration:line-through">${escapeHtml(p.name)}</span><span class="o-role" style="color:var(--coral)">krank</span></div>`).join('')}
