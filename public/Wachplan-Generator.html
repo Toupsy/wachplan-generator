@@ -262,6 +262,8 @@
     min-width: 0;
   }
 
+  /* ── Mobile Switch: nur <768px sichtbar ── */
+  .mobile-switch { display: none; }
 
   /* ── Responsive: Tablet – Optional gap reduction for smaller screens ── */
   @media(max-width: 1200px) {
@@ -270,14 +272,65 @@
     }
   }
 
-  /* ── Responsive: Mobile & Tablet (<768px) – Stacked Layout ── */
+  /* ── Responsive: Mobile & Tablet (<768px) – Tab-Switch Layout ── */
   @media(max-width: 768px) {
+    .wrap {
+      height: auto;
+      min-height: 100dvh;
+    }
+
     .main-panels {
-      grid-template-columns: 1fr;
-      gap: 20px;
-      flex-direction: column;
-      height: 100%;
+      display: block;
+      height: auto;
       min-height: 0;
+    }
+
+    /* Mobile Switch anzeigen */
+    .mobile-switch {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      padding: 8px 0;
+      background: var(--deep);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .ms-btn {
+      padding: 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: 9px;
+      background: var(--navy-2);
+      color: var(--text-dim);
+      font-weight: 600;
+      cursor: pointer;
+      font-family: 'Spline Sans', sans-serif;
+      font-size: 0.9rem;
+      transition: all 0.15s;
+    }
+
+    .ms-btn:hover {
+      border-color: var(--sea-bright);
+      color: var(--text);
+    }
+
+    .ms-btn.active {
+      background: var(--sea);
+      border-color: var(--sea);
+      color: #fff;
+    }
+
+    /* Nur aktive Panel zeigen */
+    .main-panel {
+      display: none;
+      height: auto;
+      overflow: visible;
+    }
+
+    .main-panel.mobile-active {
+      display: block;
     }
 
     aside {
@@ -287,16 +340,14 @@
 
     .sidebar {
       position: relative;
-      flex: 1;
-      overflow-y: auto;
-      min-height: 0;
+      overflow: visible;
+      height: auto;
     }
 
     .panel-output {
-      flex: 1;
-      overflow-y: auto;
+      overflow: visible;
+      height: auto;
       grid-column: auto;
-      min-height: 0;
     }
   }
 
@@ -495,6 +546,12 @@
 
   <!-- Main Panels: Sidebar / Output (Grid Layout) -->
   <div class="main-panels">
+    <!-- Mobile Switch: nur auf <768px sichtbar -->
+    <div class="mobile-switch" role="tablist">
+      <button class="ms-btn active" data-target="0">⚙️ Einstellungen</button>
+      <button class="ms-btn" data-target="1">📋 Wachplan</button>
+    </div>
+
     <!-- Panel 0: Einstellungen (Sidebar) -->
     <div class="main-panel main-panel-0 active panel-sidebar" data-panel="0" id="sidebar-panel" data-panel-name="Wachgänger & Konfiguration">
       <aside class="sidebar">
