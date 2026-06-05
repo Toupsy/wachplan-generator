@@ -15,6 +15,19 @@ const { getPlanAccess } = require('../db/access');
 const { broadcastPlanUpdate } = require('../realtime');
 
 // ───────────────────────────────────────────────────────────
+// ID Parsing Helpers
+// ───────────────────────────────────────────────────────────
+function parsePlanId(paramStr) {
+  const id = parseInt(paramStr, 10);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+function parseUserId(paramStr) {
+  const id = parseInt(paramStr, 10);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+// ───────────────────────────────────────────────────────────
 // Authentication Middleware
 // ───────────────────────────────────────────────────────────
 const authMiddleware = (req, res, next) => {
@@ -102,7 +115,8 @@ router.post('/', express.json(), async (req, res) => {
 // ───────────────────────────────────────────────────────────
 router.get('/:id', async (req, res) => {
   try {
-    const planId = parseInt(req.params.id);
+    const planId = parsePlanId(req.params.id);
+    if (!planId) return res.status(400).json({ error: 'Ungültige Plan-ID' });
 
     const access = await getPlanAccess(planId, req.session.userId);
     if (access === null) return res.status(404).json({ error: 'Plan not found' });
@@ -143,7 +157,9 @@ router.get('/:id', async (req, res) => {
 // ───────────────────────────────────────────────────────────
 router.put('/:id', express.json(), async (req, res) => {
   try {
-    const planId = parseInt(req.params.id);
+    const planId = parsePlanId(req.params.id);
+    if (!planId) return res.status(400).json({ error: 'Ungültige Plan-ID' });
+
     const { state, name } = req.body;
 
     if (!state) {
@@ -193,7 +209,8 @@ router.put('/:id', express.json(), async (req, res) => {
 // ───────────────────────────────────────────────────────────
 router.delete('/:id', async (req, res) => {
   try {
-    const planId = parseInt(req.params.id);
+    const planId = parsePlanId(req.params.id);
+    if (!planId) return res.status(400).json({ error: 'Ungültige Plan-ID' });
 
     // Verify plan belongs to user
     const plan = await dbGet(
@@ -223,7 +240,9 @@ router.delete('/:id', async (req, res) => {
 // ───────────────────────────────────────────────────────────
 router.get('/:id/shares', async (req, res) => {
   try {
-    const planId = parseInt(req.params.id);
+    const planId = parsePlanId(req.params.id);
+    if (!planId) return res.status(400).json({ error: 'Ungültige Plan-ID' });
+
     const access = await getPlanAccess(planId, req.session.userId);
     if (access === null) return res.status(404).json({ error: 'Plan not found' });
     if (access === false) return res.status(403).json({ error: 'No access to this plan' });
@@ -253,7 +272,9 @@ router.get('/:id/shares', async (req, res) => {
 // ───────────────────────────────────────────────────────────
 router.post('/:id/share', express.json(), async (req, res) => {
   try {
-    const planId = parseInt(req.params.id);
+    const planId = parsePlanId(req.params.id);
+    if (!planId) return res.status(400).json({ error: 'Ungültige Plan-ID' });
+
     const username = (req.body.username || '').trim();
     const role = req.body.role === 'view' ? 'view' : 'edit';
     if (!username) return res.status(400).json({ error: 'Username required' });
@@ -284,8 +305,11 @@ router.post('/:id/share', express.json(), async (req, res) => {
 // ───────────────────────────────────────────────────────────
 router.delete('/:id/share/:userId', async (req, res) => {
   try {
-    const planId = parseInt(req.params.id);
-    const userId = parseInt(req.params.userId);
+    const planId = parsePlanId(req.params.id);
+    if (!planId) return res.status(400).json({ error: 'Ungültige Plan-ID' });
+
+    const userId = parseUserId(req.params.userId);
+    if (!userId) return res.status(400).json({ error: 'Ungültige Benutzer-ID' });
 
     const access = await getPlanAccess(planId, req.session.userId);
     if (access === null) return res.status(404).json({ error: 'Plan not found' });
