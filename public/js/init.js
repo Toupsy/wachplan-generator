@@ -58,12 +58,17 @@ document.addEventListener('DOMContentLoaded', () => {
 // ── Sidebar – Wachgänger ─────────────────────────────────────────
 const addPersonBtn = document.getElementById('add-person');
 if(addPersonBtn) addPersonBtn.onclick = () => {
-  people.push({ id:++uid, name:'', role:'E', enableLabels: true });
+  people.push({ id:++uid, name:'', role:'W', experienced:true, enableLabels: true });
   renderPeople();
   scheduleAutoSave();
 };
 document.querySelectorAll('.quick-add button').forEach(b =>
-  b.onclick = () => { people.push({ id:++uid, name:'', role:b.dataset.role, enableLabels: true }); renderPeople(); scheduleAutoSave(); });
+  b.onclick = () => {
+    const role = b.dataset.role;
+    people.push({ id:++uid, name:'', role, experienced: b.dataset.exp !== 'false', enableLabels: true });
+    renderPeople();
+    scheduleAutoSave();
+  });
 
 // ── Sidebar – Türme & Boote ──────────────────────────────────────
 const addTowerBtn = document.getElementById('add-tower');
@@ -152,7 +157,7 @@ function applySeedConstraints(seed){
   forcedPlacements[0] = [];
 
   // Shuffelte E/U Personen, dann verteile auf Türme
-  const eu = people.filter(p => p.role === 'E' || p.role === 'U');
+  const eu = people.filter(p => p.role === 'W');
   const shuffledEU = seedShuffle(eu, seed).slice(0, avail.towers.length);
   shuffledEU.forEach((p, i) => {
     forcedPlacements[0].push({

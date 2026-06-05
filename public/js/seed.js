@@ -26,20 +26,20 @@ function seed(){
   boats.push({ id: ++uid, name: 'Boot 78/3', code: '', towerId: t917.id, prio: 3, slotCount: 1 });
 
   // 2 Führungskräfte (F)
-  people.push({ id: ++uid, name: 'Führung 1', role: 'F' });
-  people.push({ id: ++uid, name: 'Führung 2', role: 'F' });
+  people.push({ id: ++uid, name: 'Führung 1', role: 'F', experienced: true });
+  people.push({ id: ++uid, name: 'Führung 2', role: 'F', experienced: true });
 
-  // 3 Bootsführer: 2 BF-E (erfahren), 1 BF-U (unerfahren)
-  people.push({ id: ++uid, name: 'BF 1', role: 'B', bfLevel: 'E' });
-  people.push({ id: ++uid, name: 'BF 2', role: 'B', bfLevel: 'E' });
-  people.push({ id: ++uid, name: 'BF 3', role: 'B', bfLevel: 'U' });
+  // 3 Bootsführer: 2 erfahren, 1 unerfahren
+  people.push({ id: ++uid, name: 'BF 1', role: 'B', experienced: true });
+  people.push({ id: ++uid, name: 'BF 2', role: 'B', experienced: true });
+  people.push({ id: ++uid, name: 'BF 3', role: 'B', experienced: false });
 
-  // 17 Wachgänger: 7 erfahren (E), 10 unerfahren (U)
+  // 17 Wachgänger: 7 erfahren, 10 unerfahren
   for (let i = 1; i <= 7; i++) {
-    people.push({ id: ++uid, name: `WG E${i}`, role: 'E' });
+    people.push({ id: ++uid, name: `WG E${i}`, role: 'W', experienced: true });
   }
   for (let i = 1; i <= 10; i++) {
-    people.push({ id: ++uid, name: `WG U${i}`, role: 'U' });
+    people.push({ id: ++uid, name: `WG U${i}`, role: 'W', experienced: false });
   }
 
   // Stationscodes für XLSX-Export

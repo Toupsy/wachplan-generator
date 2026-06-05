@@ -49,12 +49,15 @@
   .section-label::before{content:'';width:18px;height:2px;background:var(--sea-bright)}
   .person-edit{display:grid;grid-template-columns:20px 2fr 2.1fr 1.2fr 0.6fr 24px;gap:6px;align-items:center;margin-bottom:10px}
   .person-edit .pnr{font-family:'Spline Sans Mono',monospace;font-size:.72rem;color:var(--foam);text-align:center;background:rgba(127,212,232,.08);border-radius:5px;padding:6px 0;cursor:default}
+  .person-edit .exp-toggle{display:flex;align-items:center;justify-content:center;gap:4px;font-size:.7rem;color:var(--text-dim);cursor:pointer;user-select:none;height:36px}
+  .person-edit .exp-toggle input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:var(--green);flex-shrink:0}
+  .person-edit .exp-placeholder{height:36px}
   .person-edit input[type=text]{background:var(--deep);border:1px solid var(--line-strong);border-radius:8px;padding:9px 11px;color:var(--text);font-family:'Spline Sans',sans-serif;font-size:.85rem;width:100%;height:36px;box-sizing:border-box}
   .person-edit input:focus{outline:none;border-color:var(--sea-bright);box-shadow:0 0 0 3px rgba(24,168,216,.15)}
   .person-edit select{background:var(--deep);border:1px solid var(--line-strong);border-radius:8px;padding:9px 11px;padding-right:28px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.74rem;cursor:pointer;width:100%;height:36px;box-sizing:border-box;text-align:left}
   .person-edit .prole{grid-column:3}
-  .person-edit .bf-level{grid-column:4}
-  .person-edit .bf-level-placeholder{grid-column:4}
+  .person-edit .exp-toggle{grid-column:4}
+  .person-edit .exp-placeholder{grid-column:4}
   .person-edit .label-toggle{grid-column:5;display:flex;align-items:center;gap:4px;justify-content:center}
   .person-edit .del-p{grid-column:6}
   .person-labels-row{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:center;margin-bottom:12px;padding-left:0}
@@ -520,7 +523,7 @@
           <!-- Wachgänger -->
           <div id="section-people" class="section section-people">
             <div class="section-label">Wachgänger</div>
-            <div class="info-box">Namen eintippen, Rolle wählen. <b>F</b>ührung · <b>B</b>ootsführer · <b>E</b>rfahren · <b>U</b>nerfahren.</div>
+            <div class="info-box">Namen eintippen, Rolle wählen. <b>F</b>ührung · <b>B</b>ootsführer · <b>W</b>achgänger. Checkbox „Erf." markiert Erfahrene (für Bootsführer & Wachgänger).</div>
             <div class="legend">
               <span><i class="role-dot rd-f"></i>Führung</span>
               <span><i class="role-dot rd-b"></i>Bootsf.</span>
@@ -533,8 +536,8 @@
           <div class="quick-add">
             <button data-role="F">+ Führung</button>
             <button data-role="B">+ Bootsf.</button>
-            <button data-role="E">+ Erfahren</button>
-            <button data-role="U">+ Unerf.</button>
+            <button data-role="W" data-exp="true">+ Erfahren</button>
+            <button data-role="W" data-exp="false">+ Unerf.</button>
           </div>
 
           <!-- Türme -->

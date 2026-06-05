@@ -159,8 +159,12 @@ function generate(startDay = 0){
       if(isSick(p.id) || isForced(p)) return;
       (byRole[p.role] || (byRole[p.role] = [])).push(p);
     });
-    const availF = byRole['F'] || [], availB = byRole['B'] || [],
-          availE = byRole['E'] || [], availU = byRole['U'] || [];
+    // availE/availU werden aus den Wachgängern (role 'W') über das experienced-Flag
+    // abgeleitet → die tiefe Pool-Logik (poolE/poolU, getGuardPool) bleibt unverändert.
+    const availF = byRole['F'] || [], availB = byRole['B'] || [];
+    const guardsW = byRole['W'] || [];
+    const availE  = guardsW.filter(p =>  p.experienced);
+    const availU  = guardsW.filter(p => !p.experienced);
     const sickToday = people.filter(p => isSick(p.id));
 
     // Zusätzlich: nur EFFEKTIV forcierte Personen aus Pools entfernen
@@ -277,7 +281,7 @@ function generate(startDay = 0){
 
     // Wenn forcedForMain bereits k Guard-Slots füllt, müssen wir weniger aus dem
     // Guard-Pool reservieren (z.B. wenn _freezeDay alle Personen einfriert)
-    const guardRoles = new Set(['E','U','B']);
+    const guardRoles = new Set(['W','B']);
     const preForcedGuards = forcedForMain.filter(p => guardRoles.has(p.role)).length;
     let openTowers = [], usedG = Math.max(0, k - preForcedGuards);
     // Vorabbelegte Türme brauchen ggf. weniger Pool-Personen
@@ -311,11 +315,8 @@ function generate(startDay = 0){
       const cand   = getGuardPool();
       const isMain = t.id === MAIN_ID;
       let best = null, bestScore = Infinity;
-      // Feature 13: BF mit bfLevel wird als E/U behandelt (nur für Türm-Zuweisen)
-      const getEffectiveRole = (person) => {
-        if(person.role === 'B' && person.bfLevel) return person.bfLevel;  // 'E' oder 'U'
-        return person.role;
-      };
+      // Feature 13: B/W werden über experienced als E/U behandelt (nur für Turm-Zuweisung)
+      const getEffectiveRole = effLevel;
       // Feature 8: Personen die GESTERN auf diesem Turm waren einmalig vorberechnen
       // (statt pro Paar erneut den Vortag zu durchsuchen → O(n²·m) ⇒ O(m + n²))
       let prevTowerSet = null;
@@ -464,12 +465,12 @@ function generate(startDay = 0){
           removeAll(A); removeAll(B);
           pairCount[pairKey(A.id,B.id)] = (pairCount[pairKey(A.id,B.id)]||0)+1;
           commitPerson(A,t); commitPerson(B,t);
-          if((A.role+B.role)==='UU') slot.warn='Zwei Unerfahrene – kein Erfahrener frei';
+          if((effLevel(A)+effLevel(B))==='UU') slot.warn='Zwei Unerfahrene – kein Erfahrener frei';
           need -= 2;
           pairsAdded++;
         } else {
           const cand = getGuardPool().sort((a,b) => {
-            const getEffectiveRole = (p) => p.role === 'B' && p.bfLevel ? p.bfLevel : p.role;
+            const getEffectiveRole = effLevel;
             let scoreA = ensure(a.id).total + surplusBFPenalty(a, t);
             let scoreB = ensure(b.id).total + surplusBFPenalty(b, t);
             // Feature 13a: Wenn bereits zwei Unerfahrene auf Turm → BF-U Penalty, BF-E Bonus
@@ -749,7 +750,7 @@ function generate(startDay = 0){
 
   lastResult = {
     schedule, pairCount, stats,
-    peopleGuards: people.filter(p => p.role==='E' || p.role==='U'),
+    peopleGuards: people.filter(p => p.role==='W'),
     fairnessMetrics: {
       hwBalance: {
         avgHwVisits: parseFloat(avgHwVisits),

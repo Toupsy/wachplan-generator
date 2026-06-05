@@ -2,7 +2,20 @@
 // state-io.js – Planstatus-Import / Export (Feature 7) + Server-Sync
 // ============================================================
 
-const STATE_VERSION = 4;
+const STATE_VERSION = 5;
+
+// Migriert eine Person vom alten Rollenmodell (role 'E'/'U' + bfLevel) auf das
+// neue Modell (role 'F'|'B'|'W' + experienced:bool). Idempotent.
+function migratePerson(p){
+  let role = p.role, experienced;
+  if(role === 'E'){ role = 'W'; experienced = true; }
+  else if(role === 'U'){ role = 'W'; experienced = false; }
+  else if(role === 'B'){ experienced = (p.experienced !== undefined) ? p.experienced : (p.bfLevel !== 'U'); }
+  else if(role === 'F'){ experienced = false; }       // bei Führung irrelevant
+  else { role = 'W'; experienced = (p.experienced !== undefined) ? p.experienced : true; }
+  const { bfLevel, ...rest } = p;
+  return { ...rest, role, experienced };
+}
 const STORAGE_KEY   = 'dlrg_wachplan_autosave';  // Fallback für offline
 
 // Globale Variablen für Server-Sync
@@ -40,7 +53,7 @@ function _buildStateObject(){
     exportColumns:        [...exportColumns],
     people:               people.map(p => {
       const obj = { ...p };
-      if(p.role === 'B' && !obj.bfLevel) obj.bfLevel = 'E';  // Default BF-E
+      if(obj.experienced === undefined) obj.experienced = (p.role !== 'F');  // Default erfahren (außer F)
       return obj;
     }),
     towers:               towers.map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0 })),
@@ -115,7 +128,7 @@ function importStateJSON(json, silent = false){
   if(daysInput) daysInput.value = DAYS;
 
   people = (s.people || []).map(p => ({
-    ...p,
+    ...migratePerson(p),   // altes Rollenmodell (E/U + bfLevel) → role 'W' + experienced
     labels: p.labels || '',
     enableLabels: p.enableLabels !== undefined ? p.enableLabels : ((p.labels||'').trim().length > 0)  // Fallback für alte Exporte
   }));
