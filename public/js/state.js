@@ -3,14 +3,37 @@
 // ============================================================
 
 let DAYS = 6;
-const ROLE = { F:'Führung', B:'Bootsführer', E:'Erfahren', U:'Unerfahren' };
+const ROLE = { F:'Führung', B:'Bootsführer', W:'Wachgänger' };
 const MAIN_ID = 0;
+
+// Effektives Pairing-Level für den Algorithmus: Führung bleibt 'F';
+// Bootsführer (B) und Wachgänger (W) werden über das experienced-Flag zu 'E'/'U'.
+// Ersetzt das frühere getEffectiveRole + bfLevel (Feature 13).
+function effLevel(p){
+  if(p.role === 'F') return 'F';
+  return p.experienced ? 'E' : 'U';
+}
+
+// CSS-Suffix für role-dot: F→f, B→b (Bootsführer bleibt visuell eigenständig),
+// Wachgänger zeigen ihr Erfahrungslevel (erfahren→e/grün, unerfahren→u/grau).
+function roleDot(p){
+  if(p.role === 'F') return 'f';
+  if(p.role === 'B') return 'b';
+  return p.experienced ? 'e' : 'u';  // W
+}
+
+// Menschlich lesbares Rollen-Label inkl. Erfahrung (für Output/CSV/XLSX).
+function roleLabel(p){
+  if(p.role === 'F') return 'Führung';
+  if(p.role === 'B') return p.experienced ? 'Bootsführer (erfahren)' : 'Bootsführer (unerfahren)';
+  return p.experienced ? 'Erfahren' : 'Unerfahren';  // W
+}
 
 let uid = 0;
 let randomSeed = 0;
 
 // Stammdaten
-let people   = [];   // [{ id, name, role, bfLevel?:'E'|'U', labels:'', enableLabels:true }] (bfLevel nur wenn role='B', labels Komma-getrennt, enableLabels steuert Sichtbarkeit)
+let people   = [];   // [{ id, name, role:'F'|'B'|'W', experienced:bool, labels:'', enableLabels:true }] (experienced gilt für B und W; F ignoriert. labels Komma-getrennt, enableLabels steuert Sichtbarkeit)
 let towers   = [];   // [{ id, name, prio, code, slotCount, leaderCount }]
 let boats    = [];   // [{ id, name, code, towerId, prio, slotCount }]
 

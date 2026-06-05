@@ -109,7 +109,7 @@ function renderOutput(){
   const repeatedPairs  = allPairs.filter(([,v])=>v>1).length;
   let uuTotal = 0, repeatTowers = 0;
   schedule.forEach(day => day.assign.forEach(s => {
-    if(s.occupants?.length===2 && (s.occupants[0].role+s.occupants[1].role)==='UU') uuTotal++;
+    if(s.occupants?.length===2 && (effLevel(s.occupants[0])+effLevel(s.occupants[1]))==='UU') uuTotal++;
   }));
   Object.values(lastResult.stats).forEach(s =>
     Object.values(s.towerVisits).forEach(v => { if(v>2) repeatTowers++; }));
@@ -174,7 +174,7 @@ function renderOutput(){
         <div class="lbl">🤒 Krank melden</div>
         <div class="toggle-grid">
           ${people.map(p=>`<span class="toggle-chip ${dayState[di].sick.has(p.id)?'sick':''}" data-sick="${p.id}" data-day="${di}">
-            <i class="role-dot rd-${p.role.toLowerCase()}"></i><span class="nm">${escapeHtml(p.name)}</span>
+            <i class="role-dot rd-${roleDot(p)}"></i><span class="nm">${escapeHtml(p.name)}</span>
             ${dayState[di].sick.has(p.id)?'<span class="x">KRANK</span>':''}</span>`).join('')}
         </div>
       </div>
@@ -223,7 +223,7 @@ function renderOutput(){
       html+=`<div class="notice warn-n">🚤 <div>Boot zu (Turm zu): <strong>${d.boatsClosedTower.map(b=>escapeHtml(b.name)).join(', ')}</strong></div></div>`;
     if(d.boatsNoBootsf.length)
       html+=`<div class="notice warn-n">🚤 <div>Boot zu (kein BF): <strong>${d.boatsNoBootsf.map(b=>escapeHtml(b.name)).join(', ')}</strong></div></div>`;
-    const uuToday = d.assign.filter(s=>s.kind==='tower'&&s.occupants.length===2&&(s.occupants[0].role+s.occupants[1].role)==='UU').length;
+    const uuToday = d.assign.filter(s=>s.kind==='tower'&&s.occupants.length===2&&(effLevel(s.occupants[0])+effLevel(s.occupants[1]))==='UU').length;
     if(uuToday>0) html+=`<div class="notice warn-n">⚠️ <div>${uuToday}× zwei Unerfahrene auf einem Turm.</div></div>`;
 
     // ── Karten ─────────────────────────────────────────────────
@@ -248,9 +248,9 @@ function renderOutput(){
       const labelText = labels.length > 0 ? ' - <span class="person-labels">' + labels.map(l => `<span class="label-tag">${escapeHtml(l)}</span>`).join(' ') + '</span>' : '';
       return `
           <div class="occupant" draggable="true" data-person-id="${p.id}" data-source-kind="${kind}" data-source-slot="${slotId}">
-            <i class="role-dot rd-${p.role.toLowerCase()}"></i>${escapeHtml(p.name)}${labelText}
+            <i class="role-dot rd-${roleDot(p)}"></i>${escapeHtml(p.name)}${labelText}
             ${forcedIds.has(p.id)?'<span class="forced-badge" title="Manuell fixiert">🔒</span>':''}
-            <span class="o-role">${label||ROLE[p.role]}</span>
+            <span class="o-role">${label||roleLabel(p)}</span>
             <button class="move-btn" data-move-person="${p.id}" data-move-day="${di}"
               data-move-kind="${kind}" data-move-slot="${slotId||''}" title="Verschieben">↕</button>
           </div>`;
@@ -275,11 +275,11 @@ function renderOutput(){
         html += `<div class="tower-card main" id="card-main-${di}" style="grid-column:span 2;" data-drop-kind="main" data-drop-slot="${MAIN_ID}" data-panel-name="Hauptwache" data-card-type="main">
           <div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="main" data-card-slot="${MAIN_ID}" title="Zum Sortieren ziehen"><span class="tc-name">⛱ ${slot.tower}</span><span class="tc-type main">Zentrale · k=${slot.k}</span></div>
           ${slot.fuehrung.map(p=>renderOccupant(p,'Führung','main',MAIN_ID)).join('')}
-          ${slot.mainGuards.map(p=>renderOccupant(p,p.role==='E'?'Erfahren · HW':'Unerf. · HW','main',MAIN_ID)).join('')}
-          ${slot.base.map(p=>renderOccupant(p,p.role==='E'?'Erfahren · HW':'Unerf. · HW','main',MAIN_ID)).join('')}
+          ${slot.mainGuards.map(p=>renderOccupant(p,p.experienced?'Erfahren · HW':'Unerf. · HW','main',MAIN_ID)).join('')}
+          ${slot.base.map(p=>renderOccupant(p,p.experienced?'Erfahren · HW':'Unerf. · HW','main',MAIN_ID)).join('')}
           ${slot.bootsfLeft.map(p=>renderOccupant(p,'Bootsführer · HW','main',MAIN_ID)).join('')}
           ${renderInlineBoat(boatsByTower['HW'])}
-          ${slot.sick.map(p=>`<div class="occupant" style="opacity:.55"><i class="role-dot rd-${p.role.toLowerCase()}"></i><span style="text-decoration:line-through">${escapeHtml(p.name)}</span><span class="o-role" style="color:var(--coral)">krank</span></div>`).join('')}
+          ${slot.sick.map(p=>`<div class="occupant" style="opacity:.55"><i class="role-dot rd-${roleDot(p)}"></i><span style="text-decoration:line-through">${escapeHtml(p.name)}</span><span class="o-role" style="color:var(--coral)">krank</span></div>`).join('')}
         </div>`;
       }
       // ─ Turm (inkl. inline Boot, falls vorhanden) ─
@@ -655,7 +655,7 @@ function renderOutput(){
     const isRoleViolation = isBoatTarget && p && p.role !== 'B';
 
     const confirmMsg = isRoleViolation
-      ? `${p.name} ist ${ROLE[p.role]}, nicht Bootsführer. Trotzdem zum Boot verschieben?`
+      ? `${p.name} ist ${roleLabel(p)}, nicht Bootsführer. Trotzdem zum Boot verschieben?`
       : `Verschiebe ${p?.name || 'Person'} zu ${card.dataset.dropKind}?`;
 
     showConfirmation(
