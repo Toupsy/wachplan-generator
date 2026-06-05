@@ -473,6 +473,7 @@ _updateSaveIndicator()
 | Timezone-Bug | Lokale Datumsarithmetik statt toISOString() → kein UTC-Off-by-one |
 | Template-Auto-Load | fetch('Wachplan Template.xlsx') → localStorage cache (kein Nutzer-Upload) |
 | `personNr()` | NUR in utils.js definiert (utils lädt vor export) – nicht duplizieren |
+| `showConfirmation()` | NUR in utils.js definiert (utils lädt vor move) – nicht duplizieren |
 | Crypto Key-Caching | PBKDF2 100k Iterationen werden pro userId gecacht (~109.000× schneller ab 2. Aufruf) |
 | Session-Setup DRY | `createSessionMiddleware()` in db/session.js für beide Server-Entry-Points |
 | Perf-Optimierungen | `poolSBFIds`-Set (O(1)); `guardPoolSize()`; `pairKey` ohne Array-Sort → ~15ms für 20 Pers./14 Tage |
