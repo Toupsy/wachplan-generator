@@ -101,12 +101,29 @@ function buildAssignments(dayIdx){
 // ── Template-Lade-Logik ───────────────────────────────────────────
 const TEMPLATE_LS_KEY = 'dlrg_wachplan_template_b64';
 
+function _templateFromCache(){
+  try {
+    const b64 = localStorage.getItem(TEMPLATE_LS_KEY);
+    if(!b64) return null;
+    const bin = atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for(let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return arr;
+  } catch(_){ return null; }
+}
+
 async function _loadTemplate(){
-  const r = await fetch('Wachplan Template.xlsx');
-  if(!r.ok) throw new Error('Template nicht verfügbar');
-  const arr = new Uint8Array(await r.arrayBuffer());
-  _cacheTemplate(arr);
-  return arr;
+  try {
+    const r = await fetch('Wachplan Template.xlsx');
+    if(!r.ok) throw new Error('Template nicht verfügbar');
+    const arr = new Uint8Array(await r.arrayBuffer());
+    _cacheTemplate(arr);
+    return arr;
+  } catch(e){
+    const cached = _templateFromCache();
+    if(cached) return cached;
+    throw e;
+  }
 }
 
 function _cacheTemplate(arr){
