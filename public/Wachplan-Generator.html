@@ -159,6 +159,7 @@
   .tower-card.main{border-color:rgba(255,179,71,.35)}
   .tower-card.main::before{content:'';position:absolute;top:0;left:0;bottom:0;width:3px;background:linear-gradient(180deg,var(--warn),var(--coral))}
   .tower-card.closed{opacity:.5;border-style:dashed}
+  .tower-card.warn-understaffed{border-color:var(--coral);box-shadow:0 0 0 2px var(--coral);background:linear-gradient(160deg,rgba(216,57,44,.08),rgba(216,57,44,.04))}
   .tc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
   .tc-name{font-weight:700;font-size:1.02rem;letter-spacing:-.01em}
   .tc-type{font-family:'Spline Sans Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:6px}
@@ -183,6 +184,7 @@
   .notice{border-radius:10px;padding:13px 16px;margin-bottom:14px;font-size:.85rem;display:flex;gap:10px;align-items:flex-start}
   .notice.warn-n{background:rgba(255,179,71,.1);border:1px solid rgba(255,179,71,.3);color:var(--sand)}
   .notice.bad{background:rgba(216,57,44,.12);border:1px solid rgba(216,57,44,.35);color:#ffb5ae}
+  .notice.warn-understaffed{background:rgba(216,57,44,.12);border:1px solid rgba(216,57,44,.35);color:#ffb5ae}
   .export-row{display:flex;gap:10px;flex-wrap:wrap}
   .ghost-btn{background:transparent;border:1px solid var(--line-strong);color:var(--foam);border-radius:9px;padding:9px 16px;cursor:pointer;font-size:.82rem;font-weight:500;transition:all .15s}
   .ghost-btn:hover{background:rgba(24,168,216,.1);border-color:var(--sea-bright)}

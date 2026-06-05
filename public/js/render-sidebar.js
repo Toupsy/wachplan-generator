@@ -107,6 +107,13 @@ function renderTowerCfg(){
           <span style="font-size:.65rem;color:var(--text-dim)">Wachgänger</span>
           ${(t.leaderCount||0)===0?`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-left:8px"><input type="checkbox" class="leader-checkbox" data-id="${t.id}" style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0"><span style="font-size:.75rem;color:var(--text-dim)">👔</span></label>`:''}
         </div>
+        <div class="slot-spinner" style="margin-top:8px">
+          <label style="font-size:.75rem;flex-shrink:0;color:var(--text-dim)">⚠️</label>
+          <button class="slot-btn min-minus" data-id="${t.id}">−</button>
+          <span class="min-display">${t.minOccupancy||0}</span>
+          <button class="slot-btn min-plus" data-id="${t.id}">+</button>
+          <span style="font-size:.65rem;color:var(--text-dim)">Min-Besetzung</span>
+        </div>
         <button class="mini-btn del-t" data-id="${t.id}">×</button>
       </div>
       ${(t.leaderCount||0)>0?`<div class="tower-row-meta" style="margin-top:8px"><div class="leader-spinner" style="display:flex;align-items:center;gap:8px"><label style="font-size:.75rem;flex-shrink:0;color:var(--text-dim)">👔</label><button class="slot-btn leader-minus" data-id="${t.id}">−</button><span class="leader-display">${t.leaderCount||0}</span><button class="slot-btn leader-plus" data-id="${t.id}">+</button><input type="checkbox" class="leader-checkbox" data-id="${t.id}" checked style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0"><span style="font-size:.65rem;color:var(--text-dim)">Führung</span></div></div>`:''}
@@ -226,6 +233,10 @@ function renderTowerCfg(){
     b.onclick = e => { const t = getT(+e.target.dataset.id); if((t.leaderCount||0) > 0) { t.leaderCount--; if(t.leaderCount === 0) { const cb = e.target.closest('.tower-row-meta').querySelector('.leader-checkbox'); if(cb) cb.checked = false; } generate(); renderTowerCfg(); } });
   c.querySelectorAll('.leader-plus').forEach(b =>
     b.onclick = e => { const t = getT(+e.target.dataset.id); if((t.leaderCount||0) < 3) { t.leaderCount++; const cb = e.target.closest('.tower-row-meta').querySelector('.leader-checkbox'); if(cb) cb.checked = true; generate(); renderTowerCfg(); } });
+  c.querySelectorAll('.min-minus').forEach(b =>
+    b.onclick = e => { const t = getT(+e.target.dataset.id); if((t.minOccupancy||0) > 0) { t.minOccupancy--; scheduleAutoSave(); renderTowerCfg(); } });
+  c.querySelectorAll('.min-plus').forEach(b =>
+    b.onclick = e => { const t = getT(+e.target.dataset.id); if((t.minOccupancy||0) < (t.slotCount||2)) { t.minOccupancy++; scheduleAutoSave(); renderTowerCfg(); } });
   c.querySelectorAll('.del-t').forEach(b =>
     b.onclick = e => {
       const id = +e.target.dataset.id;

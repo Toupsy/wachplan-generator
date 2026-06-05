@@ -11,7 +11,7 @@ let randomSeed = 0;
 
 // Stammdaten
 let people   = [];   // [{ id, name, role, bfLevel?:'E'|'U', labels:'', enableLabels:true }] (bfLevel nur wenn role='B', labels Komma-getrennt, enableLabels steuert Sichtbarkeit)
-let towers   = [];   // [{ id, name, prio, code, slotCount, leaderCount }]
+let towers   = [];   // [{ id, name, prio, code, slotCount, leaderCount, minOccupancy:0 }] (minOccupancy: 0=kein Limit, 1–10=Mindestbesetzung)
 let boats    = [];   // [{ id, name, code, towerId, prio, slotCount }]
 
 // Hauptwache-Konfiguration

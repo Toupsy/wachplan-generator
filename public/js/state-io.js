@@ -43,7 +43,7 @@ function _buildStateObject(){
       if(p.role === 'B' && !obj.bfLevel) obj.bfLevel = 'E';  // Default BF-E
       return obj;
     }),
-    towers:               towers.map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0 })),
+    towers:               towers.map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0, minOccupancy: t.minOccupancy || 0 })),
     boats:                boats.map(b => ({ ...b, slotCount: b.slotCount || 1 })),
     dayState: dayState.map(d => ({
       sick:        [...d.sick],
@@ -119,7 +119,7 @@ function importStateJSON(json, silent = false){
     labels: p.labels || '',
     enableLabels: p.enableLabels !== undefined ? p.enableLabels : ((p.labels||'').trim().length > 0)  // Fallback für alte Exporte
   }));
-  towers = (s.towers || []).map(t => ({ ...t, slotCount: t.slotCount || 2 }));
+  towers = (s.towers || []).map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0, minOccupancy: t.minOccupancy || 0 }));
   boats  = (s.boats  || []).map(b => ({ ...b, slotCount: b.slotCount || 1 }));
 
   // uid sicherstellen (max vorhandener ID + 1)
