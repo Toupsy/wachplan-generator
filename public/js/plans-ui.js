@@ -18,6 +18,52 @@ function closePlansModal(){
   if(m) m.style.display = 'none';
 }
 
+function openCombinedStatsModal(planIds){
+  const modal = document.getElementById('combined-stats-modal');
+  if(!modal) return;
+  renderCombinedStatsTable(planIds);
+  modal.style.display = 'flex';
+}
+
+function closeCombinedStatsModal(){
+  const m = document.getElementById('combined-stats-modal');
+  if(m) m.style.display = 'none';
+}
+
+async function renderCombinedStatsTable(planIds){
+  const contentEl = document.getElementById('combined-stats-content');
+  if(!contentEl) return;
+  contentEl.innerHTML = '<div style="color:var(--text-dim);font-size:.82rem">Lädt…</div>';
+  try {
+    const { combined, personMap } = await aggregateStatsFromPlans(planIds);
+    if(Object.keys(combined).length === 0){
+      contentEl.innerHTML = '<div style="color:var(--text-dim);font-size:.82rem">Keine Statistiken gefunden.</div>';
+      return;
+    }
+    const tMap = {}; towers.forEach(t => tMap[t.id] = t);
+    const threshold = towers.length * 0.5;
+    let html = '<table style="width:100%;border-collapse:collapse;margin-bottom:20px">';
+    html += '<tr style="border-bottom:1px solid var(--line)"><th style="text-align:left;padding:6px;font-weight:bold">Person</th>';
+    html += '<th style="text-align:center;padding:6px;font-weight:bold">Gesamt</th><th style="text-align:center;padding:6px;font-weight:bold">Türme</th>';
+    html += '<th style="text-align:left;padding:6px;font-weight:bold">Details</th></tr>';
+    Object.entries(combined).forEach(([personId, stat]) => {
+      const person = personMap[personId];
+      if(!person) return;
+      const cnt = Object.keys(stat.towerVisits||{}).length;
+      const deets = Object.entries(stat.towerVisits||{}).sort(([a],[b])=>(tMap[b]?.prio||0)-(tMap[a]?.prio||0))
+        .map(([tid,c])=>(tMap[tid]?.name||`T${tid}`)+'('+c+')').join(', ');
+      html += `<tr style="border-bottom:1px solid var(--line-strong)"><td style="padding:6px">${escapeHtml(person.name)}</td>`;
+      html += `<td style="text-align:center;padding:6px">${stat.total}</td><td style="text-align:center;padding:6px;color:${cnt>=threshold?'var(--green)':'var(--warn)'};font-weight:bold">${cnt}</td>`;
+      html += `<td style="padding:6px;font-size:.75rem;color:var(--text-dim)">${escapeHtml(deets)}</td></tr>`;
+    });
+    html += '</table>';
+    contentEl.innerHTML = html;
+  } catch(e){
+    console.error('renderCombinedStatsTable', e);
+    contentEl.innerHTML = '<div style="color:var(--coral)">Fehler beim Laden</div>';
+  }
+}
+
 async function renderPlansList(){
   const listEl = document.getElementById('plans-list');
   if(!listEl) return;
@@ -92,6 +138,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if(statsBtn) statsBtn.onclick = async () => {
     const selected = Array.from(document.querySelectorAll('.plan-checkbox:checked')).map(cb => +cb.dataset.id);
     if(selected.length < 2){ showToast('Mindestens 2 Pläne auswählen'); return; }
-    await exportCombinedStatsCSV(selected);
+    const choice = confirm('CSV exportieren (OK) oder modal anzeigen (Abbrechen)?');
+    if(choice) await exportCombinedStatsCSV(selected);
+    else await openCombinedStatsModal(selected);
   };
+
+  const combinedCloseBtn = document.getElementById('combined-stats-close-btn');
+  if(combinedCloseBtn) combinedCloseBtn.onclick = closeCombinedStatsModal;
+  const combinedModal = document.getElementById('combined-stats-modal');
+  if(combinedModal) combinedModal.addEventListener('click', e => { if(e.target === combinedModal) closeCombinedStatsModal(); });
 });
