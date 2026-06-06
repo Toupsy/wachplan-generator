@@ -74,14 +74,14 @@ document.querySelectorAll('.quick-add button').forEach(b =>
 const addTowerBtn = document.getElementById('add-tower');
 if(addTowerBtn) addTowerBtn.onclick = () => {
   const minP = towers.length ? Math.min(...towers.map(t=>t.prio)) : 1;
-  towers.push({ id:++uid, name:`Turm ${towers.length+1}`, prio:Math.max(1,minP), code:'' });
+  towers.push({ id:++uid, name:`Turm ${towers.length+1}`, prio:Math.max(1,minP), code:'', slotCount:2, leaderCount:0 });
   renderTowerCfg(); renderBoatCfg(); renderPositionDescUI(); renderHWBoatSelector();
   scheduleAutoSave();
 };
 const addBoatBtn = document.getElementById('add-boat');
 if(addBoatBtn) addBoatBtn.onclick = () => {
   const minP = boats.length ? Math.min(...boats.map(b=>b.prio)) : (towers[0]?.prio||1);
-  boats.push({ id:++uid, name:`Boot ${boats.length+1}`, code:'', towerId:towers[0]?.id||null, prio:minP });
+  boats.push({ id:++uid, name:`Boot ${boats.length+1}`, code:'', towerId:towers[0]?.id||null, prio:minP, slotCount:1 });
   renderBoatCfg(); renderHWBoatSelector();
   scheduleAutoSave();
 };
