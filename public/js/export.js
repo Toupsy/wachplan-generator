@@ -90,12 +90,9 @@ function buildAssignments(dayIdx){
       .map(p=>personNr(p.id)).filter(n=>n!=null);
     if(allHW.length)   A['HW']  = allHW; // alle HW → Overflow inline via _patchSheetXml
 
-    if(main.hwBoatSlot?.occupants?.length){
+    if(main.hwBoatSlot?.bootsf){
       const boCode = getBoat(main.hwBoatSlot.boatId)?.code;
-      if(boCode){
-        const nums = main.hwBoatSlot.occupants.map(p=>personNr(p.id)).filter(n=>n!=null);
-        if(nums.length) A[boCode] = nums;
-      }
+      if(boCode) A[boCode] = [personNr(main.hwBoatSlot.bootsf.id)].filter(n=>n!=null);
     }
   }
   return A;
