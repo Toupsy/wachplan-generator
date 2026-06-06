@@ -52,6 +52,21 @@ const _loginAttempts = new Map();             // ip → { count, first }
 const _accountLockouts = new Map();           // username → { count, first }
 const LOGIN_MAX = 10, LOGIN_WINDOW_MS = 15 * 60 * 1000;
 
+// Cleanup expired entries to prevent unbounded map growth (DoS mitigation)
+function _cleanupExpiredEntries() {
+  const now = Date.now();
+  for (const [key, entry] of _loginAttempts.entries()) {
+    if (now - entry.first > LOGIN_WINDOW_MS) {
+      _loginAttempts.delete(key);
+    }
+  }
+  for (const [key, entry] of _accountLockouts.entries()) {
+    if (now - entry.first > LOGIN_WINDOW_MS) {
+      _accountLockouts.delete(key);
+    }
+  }
+}
+
 function _attemptEntry(ip) {
   const now = Date.now();
   let e = _loginAttempts.get(ip);
@@ -83,6 +98,9 @@ const _resetAttempts = (ip, username) => {
 router.post('/login', express.json(), async (req, res) => {
   const ip = req.ip || 'unknown';
   const { username, password } = req.body;
+
+  // Periodically clean up expired entries to prevent map unbounded growth
+  _cleanupExpiredEntries();
 
   if (_isRateLimited(ip)) {
     return res.status(429).json({ error: 'Zu viele Login-Versuche. Bitte später erneut versuchen.' });
