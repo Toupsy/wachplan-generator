@@ -187,13 +187,8 @@ function renderTowerCfg(){
         const boat = getBoat(boatId);
         if(boat.towerId !== t.id){
           boat.towerId = t.id;
-          // Wenn Boot war HW-Boot, clear hwBoatId
-          if(hwBoatId === boat.id){
-            hwBoatId = null;
-          }
           renderBoatCfg();
           renderTowerCfg();
-          renderHWBoatSelector();
           showToast(`✅ 🚤 ${escapeHtml(boat.name)} → ${escapeHtml(t.name)}`);
         }
       } else if(dragSrcTower !== null && dragSrcTower !== i) {
@@ -254,7 +249,7 @@ function renderTowerCfg(){
         const toRemove = fp.filter(f => f.kind==='tower' && f.slotId===id);
         toRemove.forEach(f => fp.splice(fp.indexOf(f), 1));
       });
-      renderTowerCfg(); renderBoatCfg(); renderPositionDescUI(); renderHWBoatSelector();
+      renderTowerCfg(); renderBoatCfg(); renderPositionDescUI();
       scheduleAutoSave();
     });
 }
@@ -357,7 +352,7 @@ function renderBoatCfg(){
   });
   c.querySelectorAll('.bname').forEach(i => {
     i.oninput = e  => { getBoat(+e.target.dataset.id).name = e.target.value; };
-    i.onblur  = () => { renderHWBoatSelector(); renderPositionDescUI(); };
+    i.onblur  = () => { renderPositionDescUI(); };
   });
   c.querySelectorAll('.bcode').forEach(i =>
     i.oninput = e => { getBoat(+e.target.dataset.id).code = e.target.value.trim(); });
@@ -368,47 +363,22 @@ function renderBoatCfg(){
       const boat = getBoat(+e.target.dataset.id);
       const val = e.target.value;
       boat.towerId = val === 'HW' ? 'HW' : (+val || null);
-      // Wenn Boot die HW-Boot war und jetzt nicht mehr zur HW zugeordnet ist, hwBoatId clearen
-      if(hwBoatId === boat.id && val !== 'HW'){
-        hwBoatId = null;
-      }
-      renderHWBoatSelector();
+      scheduleAutoSave();
     });
   c.querySelectorAll('.del-b').forEach(b =>
     b.onclick = e => {
       const id = +e.target.dataset.id;
-      if(hwBoatId === id) hwBoatId = null;
       boats = boats.filter(x => x.id !== id);
       dayState.forEach(d => d.closedBoats.delete(id));
       forcedPlacements.forEach(fp => {
         const toRemove = fp.filter(f => f.kind==='boat' && f.slotId===id);
         toRemove.forEach(f => fp.splice(fp.indexOf(f), 1));
       });
-      renderBoatCfg(); renderHWBoatSelector();
+      renderBoatCfg();
       scheduleAutoSave();
     });
 }
 
-/** Feature 6: Dropdown zur HW-Boot-Auswahl (nur Boote die zur HW zugeordnet sind) */
-function renderHWBoatSelector(){
-  const c = document.getElementById('hw-boat-select');
-  if(!c) return;
-  // Nur Boote filtern die zur HW zugeordnet sind (towerId === 'HW')
-  const opts = ['<option value="">— kein HW-Boot —</option>'].concat(
-    boats.filter(b => b.towerId === 'HW').map(b => `<option value="${b.id}" ${hwBoatId===b.id?'selected':''}>${escapeHtml(b.name)} (${escapeHtml(b.code||'?')})</option>`)
-  ).join('');
-  c.innerHTML = opts;
-  c.onchange = e => {
-    const boatId = +e.target.value || null;
-    // Validierung: Boot muss zur HW zugeordnet sein
-    if(boatId && getBoat(boatId).towerId !== 'HW'){
-      showToast('⚠️ Boot muss erst zur Hauptwache zugeordnet werden');
-      e.target.value = hwBoatId || '';
-      return;
-    }
-    hwBoatId = boatId;
-  };
-}
 
 /**
  * Befüllt exportColumns automatisch:
@@ -430,7 +400,7 @@ function autoFillExportColumns(){
 
   sortedTowers.forEach(t => {
     // Boote zu diesem Turm
-    boats.filter(b => b.towerId === t.id && b.id !== hwBoatId)
+    boats.filter(b => b.towerId === t.id)
          .forEach(b => { if(b.code) cols.push(b.code); });
 
     // Turm selbst
@@ -445,6 +415,10 @@ function autoFillExportColumns(){
       cols.push('');
     }
   });
+
+  // HW-Boote (zusätzliche Stationsspalten)
+  boats.filter(b => b.towerId === 'HW')
+       .forEach(b => { if(b.code) cols.push(b.code); });
 
   console.log('DEBUG autoFillExportColumns - final cols:', cols);
   while(cols.length < TEMPLATE_STATION_COLS.length) cols.push('');
