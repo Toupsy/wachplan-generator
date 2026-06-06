@@ -569,7 +569,14 @@ Dark-Theme mit CSS-Variables:
   - IP-basiert: 10 Versuche / 15 min → 429 (`auth.js`)
   - Account-basiert: 10 Versuche / 15 min pro Username → 429 (verhindert verteilte Angriffe)
 - ✅ Session-Fixation-Schutz (`req.session.regenerate()` nach Login)
-- ✅ Security-Header: `X-Content-Type-Options:nosniff`, `X-Frame-Options:SAMEORIGIN`, `Referrer-Policy:same-origin`
+- ✅ Security-Header: `X-Content-Type-Options:nosniff`, `X-Frame-Options:SAMEORIGIN`, `Referrer-Policy:same-origin`, `Content-Security-Policy`, `Strict-Transport-Security`
+- ✅ CSP-Header mit pragmatischer Policy:
+  - `default-src 'self'` – nur interne Ressourcen
+  - `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com` – Inline-Styles + Google Fonts CSS
+  - `font-src 'self' https://fonts.gstatic.com` – Font-Dateien von Google
+  - `connect-src 'self' ws: wss:` – WebSocket für Live-Collaboration
+  - Weitere: `img-src`, `script-src`, `frame-ancestors` (s. `server/server.js` Z. 34–42)
+- ✅ HSTS-Header (Produktion): `max-age=31536000; includeSubDomains` (nur bei `NODE_ENV=production`)
 - ✅ SQL durchgehend parametrisiert (keine Injection)
 - ✅ `getPlanAccess()` zentralisiert in `db/access.js` (Owner/Share, kein IDOR)
 - ✅ Non-root Docker User
@@ -578,7 +585,7 @@ Dark-Theme mit CSS-Variables:
 **Empfehlungen (Infra):**
 - Cookie `secure:true` + `trust proxy` in Produktion aktivieren (bei TLS-terminierendem Proxy)
 - `MASTER_SECRET` + `SALT` nur mit Re-Encryption-Migration rotieren (gehen in `deriveKey` ein → Änderung macht bestehende Pläne unlesbar)
-- Optional: CSP-Header (derzeit fehlt wegen Inline-Styles in admin.html)
+- Mittelfristig: Inline-Styles in `admin.html` refaktorieren für strikte CSP (`style-src 'self'` ohne `unsafe-inline`)
 
 ### Konfiguration & Secrets
 
