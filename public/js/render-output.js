@@ -170,7 +170,7 @@ function renderOutput(){
           <input type="date" value="${computeDayDates()[di]||''}" readonly title="Aus Startdatum berechnet"></div>
       </div>
       <div class="dc-section">
-        <div class="lbl">🚫 a. D. melden</div>
+        <div class="lbl">🚫 Außer Dienst melden</div>
         <div class="toggle-grid">
           ${people.map(p=>`<span class="toggle-chip ${dayState[di].sick.has(p.id)?'sick':''}" data-sick="${p.id}" data-day="${di}">
             <i class="role-dot rd-${roleDot(p)}"></i><span class="nm">${escapeHtml(p.name)}</span>
