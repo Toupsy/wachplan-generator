@@ -33,7 +33,7 @@ Diese Vorlage hilft der betreibenden Organisation, ihre Verarbeitungstätigkeit 
 | **Verfügbarkeitsstatus** | Mindestspeicherdauer: Aktive Planungsdauer + 6 Monate (Kontrollfähigkeit)<br>Maximum: 3 Jahre | **Löschfrist:** Nach Planzweck + Aufbewahrungsfristen der Organisation |
 | **Empfänger der Daten** | - Interne Nutzer der Organisation<br>- Evtl. externe Nutzer mit Zugriff via Share-Link (mit Zustimmung)<br>- ggf. externe Admins zur Wartung | Dokumentieren Sie ausdrücklich, wer Zugriff hat |
 | **Drittländer-Übermittlung** | ❌ Keine (Self-Hosted auf eigenem Server/NAS) | Bei Cloud-Nutzung: Angemessenheitsbeschluss prüfen |
-| **Verwendete Systeme** | DLRG Wachplan-Generator v2.1.0+<br>SQLite-Datenbank<br>Docker-Container (optional) | Versionierung für Nachverfolgung |
+| **Verwendete Systeme** | DLRG Wachplan-Generator (ab v0.4.4)<br>SQLite-Datenbank<br>Docker-Container (optional) | Versionierung für Nachverfolgung |
 | **Sicherheitsmaßnahmen** | Siehe [TOMs](#technische--organisatorische-maßnahmen-toms) unten | |
 
 ---
@@ -67,7 +67,7 @@ Diese Vorlage hilft der betreibenden Organisation, ihre Verarbeitungstätigkeit 
 #### Admin-Panel & Nachverfolgung
 | Maßnahme | Details | Status |
 |----------|---------|--------|
-| **Letzter Login-Timestamp** | Spalte `last_login` in users-Tabelle (NULL = noch nie eingeloggt) | ✅ Implementiert (v0.4.7+) |
+| **Letzter Login-Timestamp** | Spalte `last_login` in users-Tabelle (NULL = noch nie eingeloggt) | ✅ Implementiert (ab v0.4.4) |
 | **Admin-Panel-Zugriff** | Separater Admin-Server (Port 3001), Login-erforderlich, Admin-only Endpoints | ✅ Implementiert |
 | **Benutzer-Verwaltung** | Admins können Benutzer erstellen/löschen; Cascade-Delete entfernt Plandaten des Benutzers | ✅ Implementiert |
 
@@ -96,8 +96,8 @@ Diese Vorlage hilft der betreibenden Organisation, ihre Verarbeitungstätigkeit 
 
 | TOM | Beschreibung | Priorität | Checkliste |
 |-----|-------------|-----------|-----------|
-| **Admin-Passwort ändern** | Default Admin-User sollte bei Deployment mit sicherem Passwort erstellt und anschließend nicht mehr mit default Credentials genutzt werden. | ⚠️ Kritisch | - [ ] Admin-Passwort ≥8 Zeichen<br>- [ ] Passwort-Manager nutzen<br>- [ ] Passwort nicht im Code speichern |
-| **Nutzer-Passwort-Richtlinie** | Organisation sollte eigene Passwort-Policy durchsetzen (z.B. mind. 8 Zeichen, Sonderzeichen). | ℹ️ Standard | - [ ] Policy dokumentiert<br>- [ ] Nutzer informiert<br>- [ ] Ggf. technisch erzwungen |
+| **Admin-Passwort ändern** | Default Admin-User sollte bei Deployment mit sicherem Passwort erstellt und anschließend nicht mehr mit default Credentials genutzt werden. | ⚠️ Kritisch | - [ ] Admin-Passwort ≥10 Zeichen<br>- [ ] Passwort-Manager nutzen<br>- [ ] Passwort nicht im Code speichern |
+| **Nutzer-Passwort-Richtlinie** | Organisation sollte eigene Passwort-Policy durchsetzen (z.B. mind. 10 Zeichen, Sonderzeichen). | ℹ️ Standard | - [ ] Policy dokumentiert<br>- [ ] Nutzer informiert<br>- [ ] Ggf. technisch erzwungen |
 | **Limitierung fehlgeschlagener Logins** | Im Code implementiert: 10 Versuche pro 15 Minuten → HTTP 429. | ✅ Implementiert | - [ ] Monitoring: Sind Rate-Limits wirksam? |
 | **Session-Timeouts** | Standard: 7 Tage. Bei Bedarf: In `db/session.js` anpassen. | ℹ️ Standard | - [ ] Timeout-Dauer festgelegt<br>- [ ] Nutzer informiert |
 
