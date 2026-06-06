@@ -117,7 +117,8 @@ router.post('/users', express.json(), async (req, res) => {
 });
 
 // ───────────────────────────────────────────────────────────
-// DELETE /api/admin/users/:id – User löschen
+// DELETE /api/admin/users/:id – User löschen (GDPR Art. 17)
+// Cascading: plans, plan_shares, sessions
 // ───────────────────────────────────────────────────────────
 router.delete('/users/:id', async (req, res) => {
   try {
@@ -134,7 +135,12 @@ router.delete('/users/:id', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Delete user and their plans (cascade)
+    // Delete in cascading order (GDPR Art. 17 – Recht auf Löschung)
+    // Foreign keys are enabled in connection.js for plans/plan_shares cascade
+    // connect-sqlite3 sessions: check sess column (serialized JSON) for userId
+    await dbRun("DELETE FROM sessions WHERE json_extract(sess, '$.userId') = ?", [userId]);
+    // plan_shares cascade via foreign key
+    // plans cascade via foreign key (will trigger plan_shares cascade)
     await dbRun('DELETE FROM plans WHERE user_id = ?', [userId]);
     await dbRun('DELETE FROM users WHERE id = ?', [userId]);
 
@@ -203,6 +209,41 @@ router.post('/reload-config', express.json(), async (req, res) => {
     }
     console.error('Reload config error:', error);
     res.status(500).json({ error: 'Failed to reload configuration' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// POST /api/admin/purge-orphans – Security net: remove orphaned data
+// Cleans up: plans without user, plan_shares without plan/user
+// ───────────────────────────────────────────────────────────
+router.post('/purge-orphans', express.json(), async (req, res) => {
+  try {
+    // Delete plan_shares where plan doesn't exist
+    const orphanShares = await dbRun(
+      'DELETE FROM plan_shares WHERE plan_id NOT IN (SELECT id FROM plans)'
+    );
+
+    // Delete plan_shares where user doesn't exist
+    const orphanSharesUser = await dbRun(
+      'DELETE FROM plan_shares WHERE user_id NOT IN (SELECT id FROM users)'
+    );
+
+    // Delete plans where user doesn't exist
+    const orphanPlans = await dbRun(
+      'DELETE FROM plans WHERE user_id NOT IN (SELECT id FROM users)'
+    );
+
+    res.json({
+      message: 'Orphan data purged successfully',
+      removed: {
+        plansWithoutUser: orphanPlans.changes || 0,
+        sharesWithoutPlan: orphanShares.changes || 0,
+        sharesWithoutUser: orphanSharesUser.changes || 0
+      }
+    });
+  } catch (error) {
+    console.error('Orphan purge error:', error);
+    res.status(500).json({ error: 'Failed to purge orphans' });
   }
 });
 
