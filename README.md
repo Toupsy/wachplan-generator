@@ -127,6 +127,7 @@ npm run dev
 | Dokument | Zweck |
 |----------|-------|
 | **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** | Production-Setup, Docker-Konfiguration, Portainer-Integration, TLS-Termination |
+| **[DATENSCHUTZ.md](docs/DATENSCHUTZ.md)** | DSGVO-Compliance: VVT-Vorlage (Art. 30), TOMs (Art. 32), NAS-Betriebscheckliste, Betroffenenrechte |
 | **[CLAUDE.md](CLAUDE.md)** | Technische Architektur, Algorithmus-Details, Dateistruktur, API-Übersicht |
 | **[db/schema.sql](server/db/schema.sql)** | SQLite-Datenbankschema |
 
