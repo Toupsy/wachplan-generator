@@ -97,7 +97,7 @@ const _resetAttempts = (ip, username) => {
 // ───────────────────────────────────────────────────────────
 router.post('/login', express.json(), async (req, res) => {
   const ip = req.ip || 'unknown';
-  const { username, password } = req.body;
+  const { username, password, rememberMe } = req.body;
 
   // Periodically clean up expired entries to prevent map unbounded growth
   _cleanupExpiredEntries();
@@ -143,6 +143,11 @@ router.post('/login', express.json(), async (req, res) => {
       }
       req.session.userId = user.id;
       req.session.isAdmin = user.is_admin === 1;
+
+      // Merke-mich: 30 Tage; Standard: 7 Tage (bestehende Konfig)
+      if (rememberMe === true) {
+        req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000; // 30 Tage
+      }
 
       req.session.save((err) => {
         if (err) {
