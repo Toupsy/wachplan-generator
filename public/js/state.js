@@ -39,7 +39,6 @@ let boats    = [];   // [{ id, name, code, towerId, prio, slotCount }]
 
 // Hauptwache-Konfiguration
 let mainK    = 2;    // Anzahl Guard-Slots neben der Führung
-let hwBoatId = null; // Boot das der Hauptwache zugeordnet ist (Feature 6)
 
 // Dienstzeit-Konfiguration (Feature 15)
 let serviceStartHour = 9;   // Default 09:00
@@ -96,7 +95,6 @@ function resetGlobalState() {
   towers = [];
   boats = [];
   mainK = 2;
-  hwBoatId = null;
   serviceStartHour = 9;
   serviceEndHour = 17;
   dayState = freshDayState();

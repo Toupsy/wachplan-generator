@@ -13,6 +13,11 @@ const bcryptjs = require('bcryptjs');
 const { dbRun, dbGet, dbAll } = require('../db/connection');
 
 // ───────────────────────────────────────────────────────────
+// Security Constants
+// ───────────────────────────────────────────────────────────
+const MIN_PASSWORD_LENGTH = 10;
+
+// ───────────────────────────────────────────────────────────
 // Admin-only Middleware
 // ───────────────────────────────────────────────────────────
 const adminMiddleware = async (req, res, next) => {
@@ -82,8 +87,8 @@ router.post('/users', express.json(), async (req, res) => {
       return res.status(400).json({ error: 'Username must be at least 3 characters' });
     }
 
-    if (password.length < 8) {
-      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      return res.status(400).json({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` });
     }
 
     // Hash password
@@ -112,7 +117,8 @@ router.post('/users', express.json(), async (req, res) => {
 });
 
 // ───────────────────────────────────────────────────────────
-// DELETE /api/admin/users/:id – User löschen
+// DELETE /api/admin/users/:id – User löschen (GDPR Art. 17)
+// Cascading: plans, plan_shares, sessions
 // ───────────────────────────────────────────────────────────
 router.delete('/users/:id', async (req, res) => {
   try {
@@ -129,7 +135,12 @@ router.delete('/users/:id', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Delete user and their plans (cascade)
+    // Delete in cascading order (GDPR Art. 17 – Recht auf Löschung)
+    // Foreign keys are enabled in connection.js for plans/plan_shares cascade
+    // connect-sqlite3 sessions: check sess column (serialized JSON) for userId
+    await dbRun("DELETE FROM sessions WHERE json_extract(sess, '$.userId') = ?", [userId]);
+    // plan_shares cascade via foreign key
+    // plans cascade via foreign key (will trigger plan_shares cascade)
     await dbRun('DELETE FROM plans WHERE user_id = ?', [userId]);
     await dbRun('DELETE FROM users WHERE id = ?', [userId]);
 
@@ -149,8 +160,8 @@ router.put('/users/:id/password', express.json(), async (req, res) => {
     const userId = parseInt(req.params.id);
     const { newPassword } = req.body;
 
-    if (!newPassword || newPassword.length < 8) {
-      return res.status(400).json({ error: 'New password must be at least 8 characters' });
+    if (!newPassword || newPassword.length < MIN_PASSWORD_LENGTH) {
+      return res.status(400).json({ error: `New password must be at least ${MIN_PASSWORD_LENGTH} characters` });
     }
 
     const user = await dbGet('SELECT id FROM users WHERE id = ?', [userId]);
@@ -165,6 +176,97 @@ router.put('/users/:id/password', express.json(), async (req, res) => {
   } catch (error) {
     console.error('Admin set password error:', error);
     res.status(500).json({ error: 'Failed to update password' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// GET /api/admin/users/:id/export – DSGVO Art. 15 Datenexport
+// ───────────────────────────────────────────────────────────
+router.get('/users/:id/export', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+
+    // Fetch user data (exclude password_hash)
+    const user = await dbGet(
+      'SELECT id, username, email, is_admin, last_login, created_at FROM users WHERE id = ?',
+      [userId]
+    );
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Fetch user's own plans (metadata only, no encrypted content)
+    const ownPlans = await dbAll(
+      'SELECT id, name, created_at, updated_at FROM plans WHERE user_id = ? ORDER BY created_at DESC',
+      [userId]
+    );
+
+    // Fetch shared plans: plans owned by other users but shared with this user
+    const sharedWithUser = await dbAll(
+      `SELECT p.id, p.name, u.username as owner_username, ps.role, p.created_at, p.updated_at
+       FROM plan_shares ps
+       JOIN plans p ON ps.plan_id = p.id
+       JOIN users u ON p.user_id = u.id
+       WHERE ps.user_id = ?
+       ORDER BY p.created_at DESC`,
+      [userId]
+    );
+
+    // Fetch plans shared by this user to others
+    const sharedByUser = await dbAll(
+      `SELECT p.id, p.name, u.username as shared_with_username, ps.role, p.created_at, p.updated_at
+       FROM plan_shares ps
+       JOIN plans p ON ps.plan_id = p.id
+       JOIN users u ON ps.user_id = u.id
+       WHERE p.user_id = ?
+       ORDER BY p.created_at DESC`,
+      [userId]
+    );
+
+    // Build export object
+    const exportData = {
+      exportDate: new Date().toISOString(),
+      userData: {
+        id: user.id,
+        username: user.username,
+        email: user.email || null,
+        isAdmin: user.is_admin === 1,
+        lastLogin: user.last_login || null,
+        createdAt: user.created_at
+      },
+      ownPlans: ownPlans.map(p => ({
+        id: p.id,
+        name: p.name,
+        createdAt: p.created_at,
+        updatedAt: p.updated_at
+      })),
+      sharedWithMe: sharedWithUser.map(p => ({
+        id: p.id,
+        name: p.name,
+        ownerUsername: p.owner_username,
+        role: p.role,
+        createdAt: p.created_at,
+        updatedAt: p.updated_at
+      })),
+      sharedByMe: sharedByUser.map(p => ({
+        id: p.id,
+        name: p.name,
+        sharedWithUsername: p.shared_with_username,
+        role: p.role,
+        createdAt: p.created_at,
+        updatedAt: p.updated_at
+      }))
+    };
+
+    // Send as JSON download
+    const filename = `wachplan-userdaten-${user.username}.json`;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.json(exportData);
+  } catch (error) {
+    console.error('Export user data error:', error);
+    res.status(500).json({ error: 'Failed to export user data' });
   }
 });
 
@@ -198,6 +300,41 @@ router.post('/reload-config', express.json(), async (req, res) => {
     }
     console.error('Reload config error:', error);
     res.status(500).json({ error: 'Failed to reload configuration' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// POST /api/admin/purge-orphans – Security net: remove orphaned data
+// Cleans up: plans without user, plan_shares without plan/user
+// ───────────────────────────────────────────────────────────
+router.post('/purge-orphans', express.json(), async (req, res) => {
+  try {
+    // Delete plan_shares where plan doesn't exist
+    const orphanShares = await dbRun(
+      'DELETE FROM plan_shares WHERE plan_id NOT IN (SELECT id FROM plans)'
+    );
+
+    // Delete plan_shares where user doesn't exist
+    const orphanSharesUser = await dbRun(
+      'DELETE FROM plan_shares WHERE user_id NOT IN (SELECT id FROM users)'
+    );
+
+    // Delete plans where user doesn't exist
+    const orphanPlans = await dbRun(
+      'DELETE FROM plans WHERE user_id NOT IN (SELECT id FROM users)'
+    );
+
+    res.json({
+      message: 'Orphan data purged successfully',
+      removed: {
+        plansWithoutUser: orphanPlans.changes || 0,
+        sharesWithoutPlan: orphanShares.changes || 0,
+        sharesWithoutUser: orphanSharesUser.changes || 0
+      }
+    });
+  } catch (error) {
+    console.error('Orphan purge error:', error);
+    res.status(500).json({ error: 'Failed to purge orphans' });
   }
 });
 

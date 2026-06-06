@@ -43,9 +43,6 @@ function openMoveModal(personId, dayIdx, fromKind, fromSlotId){
     d.boatsNoBootsf.forEach(b => {
       addOpt('boat', b.id, `🚤 ${b.name}  (${b.code||'?'} · kein BF)`);
     });
-    const mainSlot = d.assign.find(s => s.kind === 'main');
-    if(mainSlot?.hwBoatSlot && fromKind !== 'hwboat')
-      addOpt('hwboat', mainSlot.hwBoatSlot.boatId, `🚤 HW-Boot: ${mainSlot.hwBoatSlot.name}`);
   }
 
   // Hauptwache
@@ -95,7 +92,7 @@ function closeMoveModal(){
 // ── Hilfsfunktion: lesbares Herkunfts-Label ──────────────────────
 function _slotLabel(kind, slotId){
   if(kind === 'tower')  { const t = getT(slotId);    return t ? `🗼 ${t.name}` : 'Turm'; }
-  if(kind === 'boat' || kind === 'hwboat') { const b = getBoat(slotId);  return b ? `🚤 ${b.name}` : 'Boot'; }
+  if(kind === 'boat') { const b = getBoat(slotId);  return b ? `🚤 ${b.name}` : 'Boot'; }
   return '⛱ Hauptwache';
 }
 
@@ -134,9 +131,6 @@ function _applyMoveToSchedule(personId, dayIdx, kind, slotId){
   } else if(kind === 'boat'){
     const s = dayData.assign.find(s => s.kind === 'boat' && s.boatId === slotId);
     if(s){ s.occupants.push(person); if(!s.bootsf) s.bootsf = person; }
-  } else if(kind === 'hwboat'){
-    const m = dayData.assign.find(s => s.kind === 'main');
-    if(m?.hwBoatSlot?.boatId === slotId) m.hwBoatSlot.bootsf = person;
   } else if(kind === 'main'){
     const m = dayData.assign.find(s => s.kind === 'main');
     if(m) m.base.push(person);
@@ -173,52 +167,4 @@ function clearForced(personId, fromDay, scope){
       forcedPlacements[d] = forcedPlacements[d].filter(f => f.personId !== personId);
   });
   generate();
-}
-
-
-/**
- * Bestätigungs-Modal für D&D-Tausch (Drag-and-Drop).
- * Öffnet Modal mit optionaler Checkbox für "Folgetage neu berechnen".
- *
- * @param {string} message - Bestätigungs-Nachricht
- * @param {function} onConfirm - Callback wenn bestätigt, erhält (recalcFuture: boolean)
- * @param {function} onCancel - Callback wenn abgebrochen
- * @param {boolean} showRecalcCheckbox - Soll Checkbox angezeigt werden?
- */
-function showConfirmation(message, onConfirm, onCancel, showRecalcCheckbox) {
-  const modal = document.getElementById('confirm-modal');
-  const msgDiv = document.getElementById('confirm-modal-message');
-  const scopeDiv = document.getElementById('confirm-modal-scope');
-  const checkbox = document.getElementById('confirm-scope-forward-chk');
-  const proceedBtn = document.getElementById('confirm-modal-proceed');
-  const cancelBtn = document.getElementById('confirm-modal-cancel');
-
-  msgDiv.textContent = message;
-  if(showRecalcCheckbox){
-    scopeDiv.style.display = 'block';
-    checkbox.checked = false;  // Standard: keine Neuberechnung
-  } else {
-    scopeDiv.style.display = 'none';
-  }
-
-  // Alte Handler entfernen um keine Duplikate
-  proceedBtn.onclick = null;
-  cancelBtn.onclick = null;
-  const closeBtn = document.getElementById('confirm-modal-close-btn');
-  if(closeBtn) closeBtn.onclick = null;
-
-  proceedBtn.onclick = () => {
-    const recalcFuture = checkbox?.checked ?? false;
-    modal.style.display = 'none';
-    if(onConfirm) onConfirm(recalcFuture);
-  };
-
-  const closeFn = () => {
-    modal.style.display = 'none';
-    if(onCancel) onCancel();
-  };
-  cancelBtn.onclick = closeFn;
-  if(closeBtn) closeBtn.onclick = closeFn;
-
-  modal.style.display = 'flex';
 }

@@ -16,6 +16,28 @@ function syncMetricCheckboxes(){
   });
 }
 
+/** Mobile Switch Setup (Tab-Umschalter für <768px)
+ * Zeigt nur ein Panel gleichzeitig an und erlaubt Umschaltung via Segment-Buttons.
+ */
+function setupMobileSwitch() {
+  const btns = document.querySelectorAll('.ms-btn');
+  const panels = document.querySelectorAll('.main-panel');
+
+  const showPanel = (idx) => {
+    panels.forEach((p, i) => p.classList.toggle('mobile-active', i === idx));
+    btns.forEach((b, i) => b.classList.toggle('active', i === idx));
+  };
+
+  btns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const idx = +btn.dataset.target;
+      showPanel(idx);
+    });
+  });
+
+  showPanel(0);  // Start: Einstellungen
+}
+
 // ── Startsequenz (nach Authentifizierung) ─────────────────────────
 // Muss VOR DOMContentLoaded definiert sein, damit es global sichtbar ist!
 async function initAfterAuth() {
@@ -40,7 +62,6 @@ async function initAfterAuth() {
     renderPeople();
     renderTowerCfg();
     renderBoatCfg();
-    renderHWBoatSelector();
     renderPositionDescUI();
     renderExportColumnUI();   // Render exportColumns (bereits von seedFromConfig() gesetzt)
 
@@ -54,6 +75,9 @@ async function initAfterAuth() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+
+// ── Mobile Switch Setup (Tab-Umschalter für <768px) ──────────────
+setupMobileSwitch();
 
 // ── Sidebar – Wachgänger ─────────────────────────────────────────
 const addPersonBtn = document.getElementById('add-person');
@@ -74,15 +98,15 @@ document.querySelectorAll('.quick-add button').forEach(b =>
 const addTowerBtn = document.getElementById('add-tower');
 if(addTowerBtn) addTowerBtn.onclick = () => {
   const minP = towers.length ? Math.min(...towers.map(t=>t.prio)) : 1;
-  towers.push({ id:++uid, name:`Turm ${towers.length+1}`, prio:Math.max(1,minP), code:'' });
-  renderTowerCfg(); renderBoatCfg(); renderPositionDescUI(); renderHWBoatSelector();
+  towers.push({ id:++uid, name:`Turm ${towers.length+1}`, prio:Math.max(1,minP), code:'', slotCount:2, leaderCount:0 });
+  renderTowerCfg(); renderBoatCfg(); renderPositionDescUI();
   scheduleAutoSave();
 };
 const addBoatBtn = document.getElementById('add-boat');
 if(addBoatBtn) addBoatBtn.onclick = () => {
   const minP = boats.length ? Math.min(...boats.map(b=>b.prio)) : (towers[0]?.prio||1);
-  boats.push({ id:++uid, name:`Boot ${boats.length+1}`, code:'', towerId:towers[0]?.id||null, prio:minP });
-  renderBoatCfg(); renderHWBoatSelector();
+  boats.push({ id:++uid, name:`Boot ${boats.length+1}`, code:'', towerId:towers[0]?.id||null, prio:minP, slotCount:1 });
+  renderBoatCfg();
   scheduleAutoSave();
 };
 
@@ -125,6 +149,13 @@ if(generateBtn) generateBtn.onclick = async () => {
   if(seedVal > 0) applySeedConstraints(seedVal);
   generate();
   await autoSave();
+  // Auto-switch to schedule view on mobile after generate
+  const btns = document.querySelectorAll('.ms-btn');
+  const panels = document.querySelectorAll('.main-panel');
+  if (btns.length > 0 && window.matchMedia('(max-width: 900px)').matches) {
+    panels.forEach((p, i) => p.classList.toggle('mobile-active', i === 1));
+    btns.forEach((b, i) => b.classList.toggle('active', i === 1));
+  }
 };
 
 /** Generiere verschiedene Startkonstellationen basierend auf Seed.
