@@ -64,8 +64,8 @@
   .person-edit .exp-placeholder{grid-column:4}
   .person-edit .label-toggle{grid-column:5;display:flex;align-items:center;gap:4px;justify-content:center}
   .person-edit .del-p{grid-column:6}
-  .person-labels-row{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:center;margin-bottom:12px;padding-left:0}
-  .person-labels-row .plabels{grid-column:2;font-size:.8rem}
+  .person-labels-row{display:grid;grid-template-columns:20px minmax(0,2fr) minmax(0,2.1fr) minmax(0,1.2fr) minmax(0,0.6fr) 24px;gap:6px;align-items:center;margin-bottom:12px;padding-left:0}
+  .person-labels-row .plabels{grid-column:2/6;font-size:.8rem}
   .person-edit select:focus{outline:none;border-color:var(--sea-bright)}
   .mini-btn{background:transparent;border:1px solid var(--line-strong);color:var(--text-dim);border-radius:6px;width:28px;height:36px;cursor:pointer;font-size:1.1rem;line-height:1;transition:all .15s}
   .mini-btn:hover{border-color:var(--coral);color:var(--coral)}
@@ -677,7 +677,7 @@
           <!-- Wachgänger -->
           <div id="section-people" class="section section-people">
             <div class="section-label">Wachgänger</div>
-            <div class="info-box">Namen eintippen, Rolle wählen. <b>F</b>ührung · <b>B</b>ootsführer · <b>W</b>achgänger. Checkbox „Erf." markiert Erfahrene (für Bootsführer & Wachgänger).</div>
+            <div class="info-box">Namen eintippen, Rolle wählen. <b>F</b>ührung · <b>B</b>ootsführer · <b>W</b>achgänger. Checkbox „Erf." markiert Erfahrene (für Bootsführer & Wachgänger). <br><br><span style="color:var(--text-dim);font-size:0.75rem">ℹ️ Nur dienstrelevante Qualifikationen – keine Gesundheits-/Privatdaten</span></div>
             <div class="legend">
               <span><i class="role-dot rd-f"></i>Führung</span>
               <span><i class="role-dot rd-b"></i>Bootsf.</span>

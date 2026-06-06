@@ -43,10 +43,7 @@ function renderPeople(){
     labelsRow.style.display = hasLabels ? 'grid' : 'none';
     labelsRow.setAttribute('data-id', p.id);
     labelsRow.innerHTML = `
-      <div style="display:grid;gap:4px">
-        <input type="text" value="${escapeHtml(p.labels||'')}" data-id="${p.id}" class="plabels" placeholder="Labels (z.B. Sanitäter, Rettungsschwimmer)" maxlength="200">
-        <span style="font-size:0.75rem;color:var(--text-dim);line-height:1.2">ℹ️ Nur dienstrelevante Qualifikationen – keine Gesundheits-/Privatdaten</span>
-      </div>`;
+      <input type="text" value="${escapeHtml(p.labels||'')}" data-id="${p.id}" class="plabels" placeholder="Labels (z.B. Sanitäter, Rettungsschwimmer)" maxlength="200">`;
     c.appendChild(labelsRow);
   });
 
