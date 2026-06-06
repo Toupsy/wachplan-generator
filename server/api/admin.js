@@ -13,6 +13,11 @@ const bcryptjs = require('bcryptjs');
 const { dbRun, dbGet, dbAll } = require('../db/connection');
 
 // ───────────────────────────────────────────────────────────
+// Security Constants
+// ───────────────────────────────────────────────────────────
+const MIN_PASSWORD_LENGTH = 10;
+
+// ───────────────────────────────────────────────────────────
 // Admin-only Middleware
 // ───────────────────────────────────────────────────────────
 const adminMiddleware = async (req, res, next) => {
@@ -82,8 +87,8 @@ router.post('/users', express.json(), async (req, res) => {
       return res.status(400).json({ error: 'Username must be at least 3 characters' });
     }
 
-    if (password.length < 8) {
-      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      return res.status(400).json({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` });
     }
 
     // Hash password
@@ -149,8 +154,8 @@ router.put('/users/:id/password', express.json(), async (req, res) => {
     const userId = parseInt(req.params.id);
     const { newPassword } = req.body;
 
-    if (!newPassword || newPassword.length < 8) {
-      return res.status(400).json({ error: 'New password must be at least 8 characters' });
+    if (!newPassword || newPassword.length < MIN_PASSWORD_LENGTH) {
+      return res.status(400).json({ error: `New password must be at least ${MIN_PASSWORD_LENGTH} characters` });
     }
 
     const user = await dbGet('SELECT id FROM users WHERE id = ?', [userId]);

@@ -558,11 +558,14 @@ Dark-Theme mit CSS-Variables:
 
 ### Sicherheitsmaßnahmen (implementiert)
 - ✅ bcryptjs Passwort-Hashing (10 Rounds)
+- ✅ Passwort-Mindestlänge: ≥10 Zeichen (zentral in `auth.js` + `admin.js`)
 - ✅ AES-256-GCM Encryption at rest (NIST-Standard, Authenticated Encryption)
 - ✅ PBKDF2 Key Derivation (100k iterations, SHA-256, pro userId gecacht)
 - ✅ HTTPOnly Cookies (CSRF-Grundschutz via `sameSite:lax`)
 - ✅ Per-User Encryption Keys
-- ✅ In-Memory Rate-Limit Login (10 Versuche / 15 min → 429, `auth.js`)
+- ✅ Rate-Limiting (zwei Ebenen):
+  - IP-basiert: 10 Versuche / 15 min → 429 (`auth.js`)
+  - Account-basiert: 10 Versuche / 15 min pro Username → 429 (verhindert verteilte Angriffe)
 - ✅ Session-Fixation-Schutz (`req.session.regenerate()` nach Login)
 - ✅ Security-Header: `X-Content-Type-Options:nosniff`, `X-Frame-Options:SAMEORIGIN`, `Referrer-Policy:same-origin`
 - ✅ SQL durchgehend parametrisiert (keine Injection)
@@ -609,11 +612,11 @@ Verschlüsselung immer mit dem **Owner-Key** (`plans.user_id`), auch bei geteilt
 
 #### Authentication
 ```
-POST /api/auth/login     – { username, password } → { userId, username, isAdmin }
+POST /api/auth/login     – { username, password } → { userId, username, isAdmin } (≥10 Zeichen)
 POST /api/auth/logout    – Session zerstören
 GET  /api/auth/me        – Aktueller User oder 401
-POST /api/auth/init      – Ersten Admin anlegen (einmalig, public)
-PUT  /api/auth/password  – { currentPassword, newPassword } (≥8 Zeichen)
+POST /api/auth/init      – Ersten Admin anlegen (einmalig, public, ≥10 Zeichen)
+PUT  /api/auth/password  – { currentPassword, newPassword } (≥10 Zeichen)
 ```
 
 #### Plans (Authenticated)
@@ -632,9 +635,9 @@ DELETE /api/plans/:id/share/:userId  – Mitbearbeiter entfernen (nur Owner)
 ```
 POST   /api/import/plans             – { plans: [{ name, state }] } → Bulk-Import alter .json
 GET    /api/admin/users              – Alle User auflisten
-POST   /api/admin/users              – User erstellen
+POST   /api/admin/users              – User erstellen (≥10 Zeichen)
 DELETE /api/admin/users/:id          – User löschen (cascade plans)
-PUT    /api/admin/users/:id/password – Fremdes Passwort setzen (≥8)
+PUT    /api/admin/users/:id/password – Fremdes Passwort setzen (≥10 Zeichen)
 ```
 
 ### Plan-Sharing & Live-Kollaboration
