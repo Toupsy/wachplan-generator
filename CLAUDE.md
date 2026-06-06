@@ -323,6 +323,14 @@ Tracking und Anzeige des letzten erfolgreichen Logins pro Benutzer im Admin-Pane
 - Fallback: „Noch nie" für Benutzer, die sich nie eingeloggt haben
 - Idempotente Migration für bestehende DBs via `ALTER TABLE ... ADD COLUMN last_login DATETIME` in `init.js`
 
+### Feature 19: DSGVO-Härtung – Datenminimierungs-Hinweis im Labels-Feld
+GDPR Art. 5 Abs. 1 c (Datenminimierung): Warnung gegen sensible Daten im Freitext-Feld `people[].labels`.
+- **UI-Hinweis:** Unter dem Labels-Input wird ein Warungstext angezeigt: „ℹ️ Nur dienstrelevante Qualifikationen – keine Gesundheits-/Privatdaten"
+- **Längenbegrenzung:** `maxlength="200"` auf dem Labels-Input (weiche Begrenzung für dienstrelevante Qualifikationen)
+- **Ort:** `public/js/render-sidebar.js`, Zeile 31–39 in `renderPeople()`
+- **Keine Logikänderung:** Speicherung, Export, Verarbeitung unverändert
+- **VERSION:** v0.4.4
+
 ## Bugfixes
 
 ### Bugfix: openTowers-Bedarfsrechnung ignoriert leaderCount (Issue #117, v0.4.1)
@@ -478,6 +486,7 @@ _updateSaveIndicator()
 | Timezone-Bug | Lokale Datumsarithmetik statt toISOString() → kein UTC-Off-by-one |
 | Template-Auto-Load | fetch('Wachplan Template.xlsx') → localStorage cache (kein Nutzer-Upload) |
 | `personNr()` | NUR in utils.js definiert (utils lädt vor export) – nicht duplizieren |
+| `showConfirmation()` | NUR in utils.js definiert (utils lädt vor move) – nicht duplizieren |
 | Crypto Key-Caching | PBKDF2 100k Iterationen werden pro userId gecacht (~109.000× schneller ab 2. Aufruf) |
 | Session-Setup DRY | `createSessionMiddleware()` in db/session.js für beide Server-Entry-Points |
 | Perf-Optimierungen | `poolSBFIds`-Set (O(1)); `guardPoolSize()`; `pairKey` ohne Array-Sort → ~15ms für 20 Pers./14 Tage |
@@ -554,11 +563,14 @@ Dark-Theme mit CSS-Variables:
 
 ### Sicherheitsmaßnahmen (implementiert)
 - ✅ bcryptjs Passwort-Hashing (10 Rounds)
+- ✅ Passwort-Mindestlänge: ≥10 Zeichen (zentral in `auth.js` + `admin.js`)
 - ✅ AES-256-GCM Encryption at rest (NIST-Standard, Authenticated Encryption)
 - ✅ PBKDF2 Key Derivation (100k iterations, SHA-256, pro userId gecacht)
 - ✅ HTTPOnly Cookies (CSRF-Grundschutz via `sameSite:lax`)
 - ✅ Per-User Encryption Keys
-- ✅ In-Memory Rate-Limit Login (10 Versuche / 15 min → 429, `auth.js`)
+- ✅ Rate-Limiting (zwei Ebenen):
+  - IP-basiert: 10 Versuche / 15 min → 429 (`auth.js`)
+  - Account-basiert: 10 Versuche / 15 min pro Username → 429 (verhindert verteilte Angriffe)
 - ✅ Session-Fixation-Schutz (`req.session.regenerate()` nach Login)
 - ✅ Security-Header: `X-Content-Type-Options:nosniff`, `X-Frame-Options:SAMEORIGIN`, `Referrer-Policy:same-origin`
 - ✅ SQL durchgehend parametrisiert (keine Injection)
@@ -605,11 +617,11 @@ Verschlüsselung immer mit dem **Owner-Key** (`plans.user_id`), auch bei geteilt
 
 #### Authentication
 ```
-POST /api/auth/login     – { username, password } → { userId, username, isAdmin }
+POST /api/auth/login     – { username, password } → { userId, username, isAdmin } (≥10 Zeichen)
 POST /api/auth/logout    – Session zerstören
 GET  /api/auth/me        – Aktueller User oder 401
-POST /api/auth/init      – Ersten Admin anlegen (einmalig, public)
-PUT  /api/auth/password  – { currentPassword, newPassword } (≥8 Zeichen)
+POST /api/auth/init      – Ersten Admin anlegen (einmalig, public, ≥10 Zeichen)
+PUT  /api/auth/password  – { currentPassword, newPassword } (≥10 Zeichen)
 ```
 
 #### Plans (Authenticated)
@@ -628,9 +640,10 @@ DELETE /api/plans/:id/share/:userId  – Mitbearbeiter entfernen (nur Owner)
 ```
 POST   /api/import/plans             – { plans: [{ name, state }] } → Bulk-Import alter .json
 GET    /api/admin/users              – Alle User auflisten
-POST   /api/admin/users              – User erstellen
-DELETE /api/admin/users/:id          – User löschen (cascade plans)
-PUT    /api/admin/users/:id/password – Fremdes Passwort setzen (≥8)
+POST   /api/admin/users              – User erstellen (≥10 Zeichen)
+DELETE /api/admin/users/:id          – User löschen (cascade plans, GDPR Art. 17)
+PUT    /api/admin/users/:id/password – Fremdes Passwort setzen (≥10 Zeichen)
+GET    /api/admin/users/:id/export   – DSGVO Art. 15: Datenexport (JSON-Download, Admin-only)
 ```
 
 ### Plan-Sharing & Live-Kollaboration

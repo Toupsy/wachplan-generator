@@ -12,6 +12,11 @@ const bcryptjs = require('bcryptjs');
 const { dbRun, dbGet } = require('../db/connection');
 
 // ───────────────────────────────────────────────────────────
+// Security Constants
+// ───────────────────────────────────────────────────────────
+const MIN_PASSWORD_LENGTH = 10;
+
+// ───────────────────────────────────────────────────────────
 // GET /api/auth/me – Check current session
 // ───────────────────────────────────────────────────────────
 router.get('/me', async (req, res) => {
@@ -41,31 +46,71 @@ router.get('/me', async (req, res) => {
 });
 
 // ───────────────────────────────────────────────────────────
-// Einfacher In-Memory-Brute-Force-Schutz pro IP (Single-Instance).
+// In-Memory Brute-Force-Schutz: IP-basiert + Account-basiert
 // ───────────────────────────────────────────────────────────
 const _loginAttempts = new Map();             // ip → { count, first }
+const _accountLockouts = new Map();           // username → { count, first }
 const LOGIN_MAX = 10, LOGIN_WINDOW_MS = 15 * 60 * 1000;
+
+// Cleanup expired entries to prevent unbounded map growth (DoS mitigation)
+function _cleanupExpiredEntries() {
+  const now = Date.now();
+  for (const [key, entry] of _loginAttempts.entries()) {
+    if (now - entry.first > LOGIN_WINDOW_MS) {
+      _loginAttempts.delete(key);
+    }
+  }
+  for (const [key, entry] of _accountLockouts.entries()) {
+    if (now - entry.first > LOGIN_WINDOW_MS) {
+      _accountLockouts.delete(key);
+    }
+  }
+}
+
 function _attemptEntry(ip) {
   const now = Date.now();
   let e = _loginAttempts.get(ip);
   if (!e || now - e.first > LOGIN_WINDOW_MS) { e = { count: 0, first: now }; _loginAttempts.set(ip, e); }
   return e;
 }
+
+function _accountLockoutEntry(username) {
+  const now = Date.now();
+  let e = _accountLockouts.get(username);
+  if (!e || now - e.first > LOGIN_WINDOW_MS) { e = { count: 0, first: now }; _accountLockouts.set(username, e); }
+  return e;
+}
+
 const _isRateLimited = ip => _attemptEntry(ip).count >= LOGIN_MAX;
-const _recordFail    = ip => { _attemptEntry(ip).count++; };
-const _resetAttempts = ip => { _loginAttempts.delete(ip); };
+const _isAccountLocked = username => _accountLockoutEntry(username).count >= LOGIN_MAX;
+const _recordFail = (ip, username) => {
+  _attemptEntry(ip).count++;
+  _accountLockoutEntry(username).count++;
+};
+const _resetAttempts = (ip, username) => {
+  _loginAttempts.delete(ip);
+  _accountLockouts.delete(username);
+};
 
 // ───────────────────────────────────────────────────────────
 // POST /api/auth/login – Authenticate with username/password
 // ───────────────────────────────────────────────────────────
 router.post('/login', express.json(), async (req, res) => {
   const ip = req.ip || 'unknown';
+  const { username, password } = req.body;
+
+  // Periodically clean up expired entries to prevent map unbounded growth
+  _cleanupExpiredEntries();
+
   if (_isRateLimited(ip)) {
     return res.status(429).json({ error: 'Zu viele Login-Versuche. Bitte später erneut versuchen.' });
   }
-  try {
-    const { username, password } = req.body;
 
+  if (username && _isAccountLocked(username)) {
+    return res.status(429).json({ error: 'Zu viele fehlgeschlagene Login-Versuche für dieses Konto. Bitte später erneut versuchen.' });
+  }
+
+  try {
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password required' });
     }
@@ -78,17 +123,17 @@ router.post('/login', express.json(), async (req, res) => {
 
     // Generische Fehlermeldung (keine User-Enumeration). Fehlversuch zählt.
     if (!user) {
-      _recordFail(ip);
+      _recordFail(ip, username);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const validPassword = await bcryptjs.compare(password, user.password_hash);
     if (!validPassword) {
-      _recordFail(ip);
+      _recordFail(ip, username);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    _resetAttempts(ip);
+    _resetAttempts(ip, username);
 
     // Session-Fixation verhindern: neue Session-ID NACH erfolgreichem Login
     req.session.regenerate((regenErr) => {
@@ -159,6 +204,10 @@ router.post('/init', express.json(), async (req, res) => {
       return res.status(400).json({ error: 'Username and password required' });
     }
 
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      return res.status(400).json({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` });
+    }
+
     // Check if any admin exists
     const adminExists = await dbGet(
       'SELECT COUNT(*) as count FROM users WHERE is_admin = 1'
@@ -199,8 +248,8 @@ router.put('/password', express.json(), async (req, res) => {
   if (!currentPassword || !newPassword) {
     return res.status(400).json({ error: 'Current and new password required' });
   }
-  if (newPassword.length < 8) {
-    return res.status(400).json({ error: 'New password must be at least 8 characters' });
+  if (newPassword.length < MIN_PASSWORD_LENGTH) {
+    return res.status(400).json({ error: `New password must be at least ${MIN_PASSWORD_LENGTH} characters` });
   }
 
   try {
