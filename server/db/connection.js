@@ -17,6 +17,10 @@ function getDb() {
         db = null;
         return;
       }
+      // Enable foreign key constraint enforcement (GDPR Art. 17 cascading deletes)
+      db.run('PRAGMA foreign_keys = ON', (err) => {
+        if (err) console.warn('⚠ Foreign keys error:', err.message);
+      });
       // Enable WAL mode for better concurrency
       db.run('PRAGMA journal_mode = WAL', (err) => {
         if (err) console.warn('⚠ WAL mode error:', err.message);
