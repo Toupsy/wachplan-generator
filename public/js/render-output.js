@@ -170,11 +170,11 @@ function renderOutput(){
           <input type="date" value="${computeDayDates()[di]||''}" readonly title="Aus Startdatum berechnet"></div>
       </div>
       <div class="dc-section">
-        <div class="lbl">🤒 Krank melden</div>
+        <div class="lbl">🚫 a. D. melden</div>
         <div class="toggle-grid">
           ${people.map(p=>`<span class="toggle-chip ${dayState[di].sick.has(p.id)?'sick':''}" data-sick="${p.id}" data-day="${di}">
             <i class="role-dot rd-${roleDot(p)}"></i><span class="nm">${escapeHtml(p.name)}</span>
-            ${dayState[di].sick.has(p.id)?'<span class="x">KRANK</span>':''}</span>`).join('')}
+            ${dayState[di].sick.has(p.id)?'<span class="x">AUSSER DIENST</span>':''}</span>`).join('')}
         </div>
       </div>
       <div class="dc-section">
@@ -217,7 +217,7 @@ function renderOutput(){
     if(d.personnelClosed.length)
       html+=`<div class="notice bad">⚠️ <div>Personalmangel – geschlossen: <strong>${d.personnelClosed.map(t=>escapeHtml(t.name)).join(', ')}</strong></div></div>`;
     if(d.boatsManualClosed.length)
-      html+=`<div class="notice bad">🚤 <div>Außer Dienst: <strong>${d.boatsManualClosed.map(b=>escapeHtml(b.name)).join(', ')}</strong></div></div>`;
+      html+=`<div class="notice bad">🚤 <div>a. D.: <strong>${d.boatsManualClosed.map(b=>escapeHtml(b.name)).join(', ')}</strong></div></div>`;
     if(d.boatsClosedTower.length)
       html+=`<div class="notice warn-n">🚤 <div>Boot zu (Turm zu): <strong>${d.boatsClosedTower.map(b=>escapeHtml(b.name)).join(', ')}</strong></div></div>`;
     if(d.boatsNoBootsf.length)
@@ -278,7 +278,7 @@ function renderOutput(){
           ${slot.base.map(p=>renderOccupant(p,p.experienced?'Erfahren · HW':'Unerf. · HW','main',MAIN_ID)).join('')}
           ${slot.bootsfLeft.map(p=>renderOccupant(p,'Bootsführer · HW','main',MAIN_ID)).join('')}
           ${renderInlineBoat(boatsByTower['HW'])}
-          ${slot.sick.map(p=>`<div class="occupant" style="opacity:.55"><i class="role-dot rd-${roleDot(p)}"></i><span style="text-decoration:line-through">${escapeHtml(p.name)}</span><span class="o-role" style="color:var(--coral)">krank</span></div>`).join('')}
+          ${slot.sick.map(p=>`<div class="occupant" style="opacity:.55"><i class="role-dot rd-${roleDot(p)}"></i><span style="text-decoration:line-through">${escapeHtml(p.name)}</span><span class="o-role" style="color:var(--coral)">außer Dienst</span></div>`).join('')}
         </div>`;
       }
       // ─ Turm (inkl. inline Boot, falls vorhanden) ─

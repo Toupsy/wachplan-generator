@@ -76,9 +76,9 @@ function buildAssignments(dayIdx){
   d.assign.forEach(slot => {
     if(slot.kind==='tower' && slot.code)
       A[slot.code] = slot.occupants.map(p=>personNr(p.id)).filter(n=>n!=null);
-    else if(slot.kind==='boat' && slot.code && slot.bootsf){
-      const nr=personNr(slot.bootsf.id);
-      if(nr!=null) A[slot.code]=[nr];
+    else if(slot.kind==='boat' && slot.code && slot.occupants?.length){
+      const nums = slot.occupants.map(p=>personNr(p.id)).filter(n=>n!=null);
+      if(nums.length) A[slot.code] = nums;
     }
   });
   const main = d.assign.find(s=>s.kind==='main');
@@ -92,7 +92,7 @@ function buildAssignments(dayIdx){
 
     if(main.hwBoatSlot?.bootsf){
       const boCode = getBoat(main.hwBoatSlot.boatId)?.code;
-      if(boCode){ const nr=personNr(main.hwBoatSlot.bootsf.id); if(nr!=null) A[boCode]=[nr]; }
+      if(boCode) A[boCode] = [personNr(main.hwBoatSlot.bootsf.id)].filter(n=>n!=null);
     }
   }
   return A;
@@ -101,12 +101,29 @@ function buildAssignments(dayIdx){
 // ── Template-Lade-Logik ───────────────────────────────────────────
 const TEMPLATE_LS_KEY = 'dlrg_wachplan_template_b64';
 
+function _templateFromCache(){
+  try {
+    const b64 = localStorage.getItem(TEMPLATE_LS_KEY);
+    if(!b64) return null;
+    const bin = atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for(let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return arr;
+  } catch(_){ return null; }
+}
+
 async function _loadTemplate(){
-  const r = await fetch('Wachplan Template.xlsx');
-  if(!r.ok) throw new Error('Template nicht verfügbar');
-  const arr = new Uint8Array(await r.arrayBuffer());
-  _cacheTemplate(arr);
-  return arr;
+  try {
+    const r = await fetch('Wachplan Template.xlsx');
+    if(!r.ok) throw new Error('Template nicht verfügbar');
+    const arr = new Uint8Array(await r.arrayBuffer());
+    _cacheTemplate(arr);
+    return arr;
+  } catch(e){
+    const cached = _templateFromCache();
+    if(cached) return cached;
+    throw e;
+  }
 }
 
 function _cacheTemplate(arr){
@@ -402,7 +419,7 @@ function exportCSV(){
         slot.bootsfLeft.forEach(p =>rows.push([dn,slot.tower,'','Zentrale','Bootsf. HW',p.name,roleLabel(p),p.labels||'']));
         if(slot.hwBoatSlot?.bootsf)
           rows.push([dn,slot.hwBoatSlot.name,getBoat(slot.hwBoatSlot.boatId)?.code||'','HW-Boot','Bootsführer',slot.hwBoatSlot.bootsf.name,roleLabel(slot.hwBoatSlot.bootsf),slot.hwBoatSlot.bootsf.labels||'']);
-        slot.sick.forEach(p       =>rows.push([dn,slot.tower,'','Zentrale','KRANK',p.name,roleLabel(p),p.labels||'']));
+        slot.sick.forEach(p       =>rows.push([dn,slot.tower,'','Zentrale','A. D.',p.name,roleLabel(p),p.labels||'']));
       } else if(slot.kind==='tower'){
         slot.occupants.forEach(p  =>rows.push([dn,slot.tower,slot.code||'','Turm','Wachgänger',p.name,roleLabel(p),p.labels||'']));
       } else if(slot.kind==='boat' && slot.occupants && slot.occupants.length > 0){
