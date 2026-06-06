@@ -37,3 +37,6 @@ Thumbs.db
 # Misc
 .cache/
 .claude/
+
+# graphify generated knowledge-graph output
+graphify-out/
