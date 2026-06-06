@@ -49,7 +49,7 @@ public/js/utils.js              – escapeHtml, showToast, seededRand, Lookup-He
 public/js/dates.js              – Datumsberechnung (lokale Arithmetik, kein UTC-Shift)
 public/js/autoCodes.js          – Automatische Stationscodes + freshDayState()
 public/js/seed.js               – Beispieldatensatz (Fallback ohne Autosave)
-public/js/render-sidebar.js     – Sidebar-UI: Personen, Türme, Boote, HW-Boot, XLSX-Config
+public/js/render-sidebar.js     – Sidebar-UI: Personen, Türme, Boote, XLSX-Config
 public/js/generate.js           – KERN-ALGORITHMUS: Wachplan berechnen (Scoring, Rotation)
 public/js/render-output.js      – Ausgabe-Panel: Tages-Karten, Steuerung, Matrix
 public/js/export.js             – XLSX- (XML-Patch via JSZip) und CSV-Export
@@ -102,8 +102,7 @@ Alle UI-Panels haben eindeutige IDs, CSS-Klassen und optionale `data-panel-name`
 |---|---|---|---|
 | `#section-people` | `section section-people` | Wachgänger | Personen-Liste mit Rollen (F/B/E/U) |
 | `#section-towers` | `section section-towers` | Türme & Priorität | Turm-Konfiguration + Hauptwache Guard-Slots |
-| `#section-boats` | `section section-boats` | Boote | Boot-Konfiguration + Turm-Zuordnung |
-| `#section-hw-boat` | `section section-hw-boat` | HW-Boot | Dediziertes Boot für Hauptwache |
+| `#section-boats` | `section section-boats` | Boote | Boot-Konfiguration + Turm/HW-Zuordnung |
 | `#section-positions` | `section section-positions` | Zusatzbezeichnungen | XLSX-Positionsbeschriftungen (3–7) |
 | `#section-export-columns` | `section section-export-columns` | XLSX · Stationsspalten | Station-Code zu Template-Spalten Mapping |
 | `#section-fairness-metrics` | `section section-fairness-metrics` | Fairness-Metriken | Toggle für Anzeigeoptionen (HW, Türme, Paare) |
@@ -151,7 +150,6 @@ activeDay          // aktuell sichtbarer Tab (0-basiert)
 DAYS               // 1–14 (veränderbar zur Laufzeit)
 uid                // monoton steigender ID-Counter
 randomSeed         // 0 = kein Seed; >0 = deterministischer Tiebreaker für Tag 1
-hwBoatId           // Boot-ID das der Hauptwache zugeordnet ist (null = keins)
 mainK              // Anzahl Guard-Slots neben der Führung an der Hauptwache
 serviceStartHour   // Startstunde Dienstzeit (Default 9 = 09:00); clampt auf 8–19
 serviceEndHour     // Endstunde Dienstzeit (Default 17 = 17:00); clampt auf 8–19
@@ -179,12 +177,13 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 - `boatCaptainPairings` – Häufigkeit (Captain-ID → Count) mit bestimmtem Bootsführer zusammen
 
 ### BF-Aufteilung
-- `activeBF` = Bootsführer die für Boote/HW-Boot gebraucht werden
+- `activeBF` = Bootsführer die für Boote gebraucht werden
 - `surplusBF` = übrige BF, landen an Türmen/HW
 - **Vorab-Schätzung (`tempOpen`)** schätzt öffenbare Türme über `(t.slotCount||2)+(t.leaderCount||0)` Plätze (kein hartkodiertes `+2`) und zählt als verfügbare Turm-Körper `E + U + alle BF` (`availBodiesPre`, da `surplusBF` an dieser Stelle noch nicht existiert) → korrekte BF-Reservierung auch bei knappen E/U bzw. nicht-Standard-`slotCount`
 - `availB` wird VOR dem activeBF/surplusBF-Split nach `(boatDays*50 - hwVisits*10)` sortiert → faire BF-Rotation
 - surplusBF bekommen +800 Penalty wenn sie in Turm mit **aktivem** Boot landen würden
 - surplusBF bekommen -350 Bonus wenn Turm-Boot **außer Dienst** → 1150 Punkte Swing stellt sicher, dass BF bei deaktiviertem Boot zum richtigen Turm geht
+- Boote mit `towerId === 'HW'` werden wie normale Boote behandelt: ein BF pro aktivem HW-Boot
 
 ### Zwangszuweisungen (forcedPlacements)
 - `transparent: false` (effektiv) → Person aus Pool entfernen, fest vorab platzieren, Statistik zählt mit → Folgetage berücksichtigen den Wechsel
@@ -213,11 +212,10 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 0. **BF-Fairness-Sort** – `availB` nach `(boatDays*50 - hwVisits*10)` sortieren VOR activeBF/surplusBF-Split
 1. **Hauptwache** – Zwangszuweisungen → Paare via bestPair → Einzelpersonen
 2. **Türme** – je `slotCount + leaderCount` Wachgänger via bestPair(t, true), Türme nach prio **ASC** sortiert (Prio 1 = wichtigster, öffnet zuerst)
-3. **Boote** – je 1 BF pro aktives Boot, sortiert nach Gesamteinsätzen + Boot-Rotation
-4. **HW-Boot** – dedizierter BF wenn `hwBoatId` aktiv (gleiche Sortierung)
-5. **Boot-Captain-Paarungen-Tracking** – registriere Turm-Personen × Captain
-6. **HW finalize** – Zwangszuweisungen → verbleibende Personen + alle Overflow; alle in `main.base`/`poolB` bekommen `hwVisits++`
-7. **Transparente Zuweisungen** anwenden (visueller Tausch nach dem Algorithmus)
+3. **Boote** – je 1 BF pro aktives Boot (inkl. HW-Boote mit `towerId === 'HW'`), sortiert nach Gesamteinsätzen + Boot-Rotation
+4. **Boot-Captain-Paarungen-Tracking** – registriere Turm-Personen × Captain
+5. **HW finalize** – Zwangszuweisungen → verbleibende Personen + alle Overflow; alle in `main.base`/`poolB` bekommen `hwVisits++`
+6. **Transparente Zuweisungen** anwenden (visueller Tausch nach dem Algorithmus)
 
 **Prioritäts-Semantik:** Prio 1 = wichtigster Turm → öffnet zuerst, schließt zuletzt. Niedrig besetzte Tage → höhere Prio-Nummern schließen zuerst.
 
@@ -229,8 +227,8 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 Übrige Bootsführer (nicht auf Booten) sollen nicht an Türmen mit aktivem Boot stehen.
 - +800 Penalty auf aktive-Boot-Türmen; -350 auf deaktivierten-Boot-Türmen → 1150 Swing sichert korrekte Zuweisung.
 
-### Feature 6: HW-Boot
-Dedizierter BF für das HW-Boot (`hwBoatId`). Wird separat von den regulären Boot-Zuweisungen vergeben.
+### Feature 6 (deprecated): HW-Boot
+Ehemals dediziertes Feature mit separater `hwBoatId` Variable. Seit v0.4.13 obsolet: Boote werden der Hauptwache uniform über `towerId='HW'` zugeordnet (wie jedem Turm). Mehrere Boote an HW möglich, jedes bekommt einen eigenen BF.
 
 ### Feature 7: Erweiterte Fairness-Metriken
 Stats-Bar zeigt `avgHwVisits | avgTowerWithBoatDays` (z.B. `0.9 | 0.9`) + Boot-Paarungen-Diversität %.
@@ -433,9 +431,8 @@ Pro Turm (Prio absteigend): erst zugeordnete Boote, dann Turm → Boot steht imm
 |---|---|
 | `renderPeople()` | Personenliste neu zeichnen; beim Löschen: aus dayState.sick + forcedPlacements bereinigen |
 | `renderTowerCfg()` | Turm-Zeilen (Name / CODE / PRIO / Slot-Spinner / Leader-Spinner / ×); Spinner ändert slotCount/leaderCount + generate(); beim Löschen: verknüpfte Boote trennen |
-| `renderBoatCfg()` | Boot-Zeilen (Name / CODE / Turm-Dropdown / Slot-Spinner / ×); Spinner ändert slotCount (1–3) |
-| `renderHWBoatSelector()` | Dropdown: welches Boot ist HW-Boot? |
-| `autoFillExportColumns()` | Füllt exportColumns: Boote → Türme (Prio↓) → WF → WF2 → HW |
+| `renderBoatCfg()` | Boot-Zeilen (Name / CODE / Turm/HW-Dropdown / Slot-Spinner / ×); Spinner ändert slotCount (1–3) |
+| `autoFillExportColumns()` | Füllt exportColumns: Boote → Türme (Prio↓) → HW-Boote → WF → HW |
 | `renderExportColumnUI()` | 16 Felder für manuelles Stationscode-Mapping (Drag & Drop per ⠿-Handle) |
 | `renderPositionDescUI()` | 5 Felder für XLSX-Positionsbeschriftungen (Pos. 3–7) |
 
@@ -480,7 +477,7 @@ _updateSaveIndicator()
 | UU-Warnung | +1000 wenn beide Unerfahren → nur als Notlösung |
 | Transparenter Swap | Nur Darstellung überschreiben; kein generate() → Folgetage unverändert. **Achtung:** transparentes Verschieben auf vollen Turm zeigt `slotCount+1` Belegung (visueller Overlay) – Absicht |
 | D&D dragSrc capture | srcPersonId/srcKind/srcSlot in lokale Vars VOR showConfirmation sichern (dragend nullt async) |
-| Boot inline | Boote in Turm-Card via renderInlineBoat(); HW-Boot als towerId='HW' normalisiert |
+| Boot inline | Boote in Turm-Card via renderInlineBoat(); Boote an HW auch inline unter Hauptwache |
 | Kein Framework | Vanilla-JS; Re-Renders via komplettem innerHTML-Replace |
 | XLSX-Integrität | XML-Patch statt SheetJS-Write → Styles/Bilder/Schutz erhalten |
 | Timezone-Bug | Lokale Datumsarithmetik statt toISOString() → kein UTC-Off-by-one |

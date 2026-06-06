@@ -75,13 +75,6 @@ function _reAccumulateDayStats(daySchedule, dayIdx, stats, pairCount, ensure, pa
       [...(slot.base || []), ...(slot.bootsfLeft || [])].forEach(p => {
         ensure(p.id).hwVisits++;
       });
-      // HW-Boot Kapitän
-      if(slot.hwBoatSlot?.bootsf){
-        const p = slot.hwBoatSlot.bootsf;
-        const s = ensure(p.id);
-        s.total++;
-        s.boatVisits[slot.hwBoatSlot.boatId] = (s.boatVisits[slot.hwBoatSlot.boatId] || 0) + 1;
-      }
     }
   });
 }
@@ -207,12 +200,6 @@ function generate(startDay = 0){
       }
     });
 
-    // ── Feature 6: HW-Boot ────────────────────────────────────────
-    // Falls ein Boot der HW zugewiesen ist und heute nicht außer Dienst
-    const hwBoatActive = hwBoatId
-      && !ds.closedBoats.has(hwBoatId)
-      && boats.some(b => b.id === hwBoatId);
-
     // ── Vorab-Schätzung der BF-Aufteilung ────────────────────────
     // Sortierung ASC nach prio: Prio 1 = wichtigster Turm → wird ZUERST geöffnet
     // (bleibt offen) → schließt ZULETZT bei Personalmangel. Höhere Prio-Nummern
@@ -231,16 +218,13 @@ function generate(startDay = 0){
       const totalSlots = (t.slotCount || 2) + (t.leaderCount || 0);
       if(usedGpre + totalSlots <= availBodiesPre){ tempOpen.push(t); usedGpre += totalSlots; }
     }
-    // Boote, für die BF benötigt werden (ohne HW-Boot)
+    // Boote, für die BF benötigt werden
     const towersWithPreOpen = new Set(tempOpen.map(t => t.id));
     const boatsPre = boats.filter(b =>
       !ds.closedBoats.has(b.id) &&
       b.towerId &&
-      towersWithPreOpen.has(b.towerId) &&
-      b.id !== hwBoatId
+      towersWithPreOpen.has(b.towerId)
     );
-    // HW-Boot zählt ebenfalls als BF-Bedarf
-    const hwBoatBFNeeded = hwBoatActive ? 1 : 0;
 
     // BFs nach Fairness sortieren, BEVOR aktiveBF/surplusBF-Aufteilung:
     // Wer weniger Bootstage hat UND mehr HW-Tage, kommt zuerst in den Boot-Pool.
@@ -252,7 +236,7 @@ function generate(startDay = 0){
       return (boatA * 50 - (sa.hwVisits||0) * 10) - (boatB * 50 - (sb.hwVisits||0) * 10)
           || (a.id - b.id);
     });
-    const neededBF  = Math.min(boatsPre.length + hwBoatBFNeeded, availB.length);
+    const neededBF  = Math.min(boatsPre.length, availB.length);
     const activeBF  = availB.slice(0, neededBF);
     const surplusBF = availB.slice(neededBF);
 
@@ -497,7 +481,7 @@ function generate(startDay = 0){
 
     // ── 3) BOOTE (je 1 Bootsführer) ───────────────────────────────
     const boatCandidates = boats.slice()
-      .filter(b => !ds.closedBoats.has(b.id) && b.id !== hwBoatId)
+      .filter(b => !ds.closedBoats.has(b.id))
       .filter(b => b.towerId && openTowers.some(t => t.id === b.towerId))
       .sort((a,b) => (b.prio-a.prio)||(a.id-b.id));
 
@@ -506,7 +490,6 @@ function generate(startDay = 0){
     const boatsManualClosed = [];
 
     boats.forEach(b => {
-      if(b.id === hwBoatId) return;   // HW-Boot separat
       if(ds.closedBoats.has(b.id))                                   boatsManualClosed.push(b);
       else if(b.towerId && !openTowers.some(t => t.id === b.towerId)) boatsClosedTower.push(b);
     });
@@ -598,45 +581,12 @@ function generate(startDay = 0){
       }
     }
 
-    // ── 4) HW-Boot (Feature 6) ─────────────────────────────────────
-    let hwBoatSlot = null;
-    if(hwBoatActive){
-      const bo = boats.find(b => b.id === hwBoatId);
-      if(bo){
-        hwBoatSlot = {
-          kind:'hwboat', boatId:bo.id, name:bo.name, code:bo.code, bootsf:null,
-        };
-        const forcedArray = forcedByBoat[bo.id];
-        if(forcedArray && forcedArray.length > 0){
-          // Letzte forcierte Person für HW-Boot
-          const forceHW = forcedArray[forcedArray.length - 1];
-          hwBoatSlot.bootsf = forceHW;
-          const s = ensure(forceHW.id);
-          s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id]||0)+1;
-        } else {
-          poolB.sort((a,b) => {
-            const sa=ensure(a.id),sb=ensure(b.id);
-            // HW-Besuche negativ: BF mit mehr HW-Tagen bevorzugt fürs HW-Boot
-            let scoreA = sa.total + (sa.boatVisits[bo.id]||0)*50 - (sa.hwVisits||0)*10;
-            let scoreB = sb.total + (sb.boatVisits[bo.id]||0)*50 - (sb.hwVisits||0)*10;
-            return scoreA - scoreB || (a.id - b.id);
-          });
-          const bf = poolB.shift();
-          if(bf){
-            hwBoatSlot.bootsf = bf;
-            const s = ensure(bf.id);
-            s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id]||0)+1;
-          }
-        }
-      }
-    }
-
-    // ── 5) HAUPTWACHE finalize ──────────────────────────────────────
+    // ── 4) HAUPTWACHE finalize ──────────────────────────────────────
     const leftovers = [...poolE, ...poolU, ...poolSBF];
     dayAssign.push({
       kind:'main', main:true, tower:'Hauptwache',
       fuehrung:poolF, mainGuards, base:leftovers,
-      bootsfLeft:poolB, hwBoatSlot,
+      bootsfLeft:poolB,
       sick:sickToday, k,
     });
 
@@ -651,7 +601,7 @@ function generate(startDay = 0){
     // Leader-Rotation auch nach Teil-Neuberechnung (generate(startDay>0)).
     poolF.forEach(p => { const s = ensure(p.id); s.total++; s.hwVisits++; });
 
-    // ── 6) TRANSPARENTE Zuweisungen: visueller Tausch NACH dem Algorithmus ──
+    // ── 5) TRANSPARENTE Zuweisungen: visueller Tausch NACH dem Algorithmus ──
     // Person bleibt im Pool → Statistik identisch zum Originalplan.
     // Nur die Anzeige für diesen Tag wird überschrieben.
     transparentDayForced.forEach(f => {
@@ -671,7 +621,6 @@ function generate(startDay = 0){
           slot.mainGuards = slot.mainGuards.filter(p => p.id !== f.personId);
           slot.base       = slot.base.filter(p => p.id !== f.personId);
           slot.bootsfLeft = slot.bootsfLeft.filter(p => p.id !== f.personId);
-          if(slot.hwBoatSlot?.bootsf?.id === f.personId) slot.hwBoatSlot.bootsf = null;
         }
       });
       // In Zielslot einfügen
@@ -683,11 +632,8 @@ function generate(startDay = 0){
         if(s){
           s.occupants.push(person);
           if(!s.bootsf) s.bootsf = person;  // Erste Person als bootsf für Display-Kompatibilität
-        } else {
-          const m = dayAssign.find(s => s.kind === 'main');
-          if(m?.hwBoatSlot?.boatId === f.slotId) m.hwBoatSlot.bootsf = person;
         }
-      } else if(f.kind === 'main' || f.kind === 'hwboat'){
+      } else if(f.kind === 'main'){
         const m = dayAssign.find(s => s.kind === 'main');
         if(m) m.mainGuards.push(person);
       }

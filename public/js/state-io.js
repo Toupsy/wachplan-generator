@@ -2,7 +2,7 @@
 // state-io.js – Planstatus-Import / Export (Feature 7) + Server-Sync
 // ============================================================
 
-const STATE_VERSION = 5;
+const STATE_VERSION = 6;
 
 // Migriert eine Person vom alten Rollenmodell (role 'E'/'U' + bfLevel) auf das
 // neue Modell (role 'F'|'B'|'W' + experienced:bool). Idempotent.
@@ -44,7 +44,6 @@ function _buildStateObject(){
     randomSeed,
     startDate,
     mainK,
-    hwBoatId,
     serviceStartHour,
     serviceEndHour,
     days:                 DAYS,
@@ -111,7 +110,6 @@ function importStateJSON(json, silent = false){
   randomSeed        = s.randomSeed        ?? 0;
   startDate         = s.startDate         ?? '';
   mainK             = s.mainK             ?? 2;
-  hwBoatId          = s.hwBoatId          ?? null;
   serviceStartHour  = s.serviceStartHour  ?? 9;
   serviceEndHour    = s.serviceEndHour    ?? 17;
   DAYS              = s.days              ?? 6;
@@ -134,6 +132,14 @@ function importStateJSON(json, silent = false){
   }));
   towers = (s.towers || []).map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0 }));
   boats  = (s.boats  || []).map(b => ({ ...b, slotCount: b.slotCount || 1 }));
+
+  // Migration v5→v6: hwBoatId → Boote mit towerId='HW' einheitlich behandeln
+  if(s.version < 6 && s.hwBoatId){
+    const hwBoot = boats.find(b => b.id === s.hwBoatId);
+    if(hwBoot && hwBoot.towerId !== 'HW'){
+      hwBoot.towerId = 'HW';
+    }
+  }
 
   // uid sicherstellen (max vorhandener ID + 1)
   let maxId = uid;
@@ -163,7 +169,6 @@ function importStateJSON(json, silent = false){
   renderPeople();
   renderTowerCfg();
   renderBoatCfg();
-  renderHWBoatSelector();
   renderPositionDescUI();
   renderExportColumnUI();
 

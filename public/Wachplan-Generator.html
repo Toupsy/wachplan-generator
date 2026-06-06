@@ -44,7 +44,7 @@
   /* Force panel-output to fill available height */
   #output-panel{height:100% !important;display:flex !important;flex-direction:column !important;overflow-y:auto !important;overflow-x:hidden !important}
   .section{position:relative;display:block}
-  .section-people,.section-towers,.section-boats,.section-hw-boat,.section-positions,.section-export-columns,.section-fairness-metrics,.section-schedule,.section-import-export{position:relative;display:block;width:100%}
+  .section-people,.section-towers,.section-boats,.section-positions,.section-export-columns,.section-fairness-metrics,.section-schedule,.section-import-export{position:relative;display:block;width:100%}
   .sidebar::-webkit-scrollbar{width:12px}
   .sidebar::-webkit-scrollbar-track{background:transparent}
   .sidebar::-webkit-scrollbar-thumb{background:rgba(127,212,232,.35);border-radius:6px;border:3px solid transparent;background-clip:padding-box}
@@ -226,8 +226,6 @@
   .pos-desc-input:focus{outline:none;border-color:var(--sea-bright)}
 
   /* ── HW-Boot-Dropdown ── */
-  .full-select{width:100%;background:var(--deep);border:1px solid var(--line-strong);border-radius:8px;padding:9px 10px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.78rem;cursor:pointer;margin-bottom:6px}
-  .full-select:focus{outline:none;border-color:var(--sea-bright)}
 
   /* ── Verschiebe-Modal ── */
   .modal-overlay{position:fixed;inset:0;background:rgba(6,19,32,.88);z-index:500;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
@@ -717,13 +715,6 @@
             <div id="boat-cfg"></div>
           </div>
           <button class="add-btn" id="add-boat">+ Boot hinzufügen</button>
-
-          <!-- HW-Boot (Feature 6) -->
-          <div id="section-hw-boat" class="section section-hw-boat">
-            <div class="section-label" style="margin-top:18px;">HW-Boot</div>
-            <div class="info-box">Ein Boot das der <b>Hauptwache direkt</b> zugeordnet wird. Der Bootsführer erscheint im HW-Feld und zählt nicht als Turm-Guard.</div>
-            <select id="hw-boat-select" class="full-select"></select>
-          </div>
 
           <!-- Positionsbeschriftungen (Feature 2) -->
           <div id="section-positions" class="section section-positions">

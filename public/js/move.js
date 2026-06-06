@@ -43,9 +43,6 @@ function openMoveModal(personId, dayIdx, fromKind, fromSlotId){
     d.boatsNoBootsf.forEach(b => {
       addOpt('boat', b.id, `🚤 ${b.name}  (${b.code||'?'} · kein BF)`);
     });
-    const mainSlot = d.assign.find(s => s.kind === 'main');
-    if(mainSlot?.hwBoatSlot && fromKind !== 'hwboat')
-      addOpt('hwboat', mainSlot.hwBoatSlot.boatId, `🚤 HW-Boot: ${mainSlot.hwBoatSlot.name}`);
   }
 
   // Hauptwache
@@ -95,7 +92,7 @@ function closeMoveModal(){
 // ── Hilfsfunktion: lesbares Herkunfts-Label ──────────────────────
 function _slotLabel(kind, slotId){
   if(kind === 'tower')  { const t = getT(slotId);    return t ? `🗼 ${t.name}` : 'Turm'; }
-  if(kind === 'boat' || kind === 'hwboat') { const b = getBoat(slotId);  return b ? `🚤 ${b.name}` : 'Boot'; }
+  if(kind === 'boat') { const b = getBoat(slotId);  return b ? `🚤 ${b.name}` : 'Boot'; }
   return '⛱ Hauptwache';
 }
 
@@ -134,9 +131,6 @@ function _applyMoveToSchedule(personId, dayIdx, kind, slotId){
   } else if(kind === 'boat'){
     const s = dayData.assign.find(s => s.kind === 'boat' && s.boatId === slotId);
     if(s){ s.occupants.push(person); if(!s.bootsf) s.bootsf = person; }
-  } else if(kind === 'hwboat'){
-    const m = dayData.assign.find(s => s.kind === 'main');
-    if(m?.hwBoatSlot?.boatId === slotId) m.hwBoatSlot.bootsf = person;
   } else if(kind === 'main'){
     const m = dayData.assign.find(s => s.kind === 'main');
     if(m) m.base.push(person);

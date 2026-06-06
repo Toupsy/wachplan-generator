@@ -534,10 +534,6 @@ function renderOutput(){
         if(boatSlot){
           currentTowerId = boatSlot.towerId;
           currentTowerName = boatSlot.towerName || '?';
-        } else if(boatId === hwBoatId){
-          // Dediziertes HW-Boot (als hwBoatSlot gespeichert, kein Boot-Slot)
-          currentTowerId = 'HW';
-          currentTowerName = 'Hauptwache';
         }
       }
 
