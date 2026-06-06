@@ -16,6 +16,28 @@ function syncMetricCheckboxes(){
   });
 }
 
+/** Mobile Switch Setup (Tab-Umschalter für <768px)
+ * Zeigt nur ein Panel gleichzeitig an und erlaubt Umschaltung via Segment-Buttons.
+ */
+function setupMobileSwitch() {
+  const btns = document.querySelectorAll('.ms-btn');
+  const panels = document.querySelectorAll('.main-panel');
+
+  const showPanel = (idx) => {
+    panels.forEach((p, i) => p.classList.toggle('mobile-active', i === idx));
+    btns.forEach((b, i) => b.classList.toggle('active', i === idx));
+  };
+
+  btns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const idx = +btn.dataset.target;
+      showPanel(idx);
+    });
+  });
+
+  showPanel(0);  // Start: Einstellungen
+}
+
 // ── Startsequenz (nach Authentifizierung) ─────────────────────────
 // Muss VOR DOMContentLoaded definiert sein, damit es global sichtbar ist!
 async function initAfterAuth() {
@@ -54,6 +76,9 @@ async function initAfterAuth() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+
+// ── Mobile Switch Setup (Tab-Umschalter für <768px) ──────────────
+setupMobileSwitch();
 
 // ── Sidebar – Wachgänger ─────────────────────────────────────────
 const addPersonBtn = document.getElementById('add-person');
@@ -125,6 +150,13 @@ if(generateBtn) generateBtn.onclick = async () => {
   if(seedVal > 0) applySeedConstraints(seedVal);
   generate();
   await autoSave();
+  // Auto-switch to schedule view on mobile after generate
+  const btns = document.querySelectorAll('.ms-btn');
+  const panels = document.querySelectorAll('.main-panel');
+  if (btns.length > 0 && window.matchMedia('(max-width: 900px)').matches) {
+    panels.forEach((p, i) => p.classList.toggle('mobile-active', i === 1));
+    btns.forEach((b, i) => b.classList.toggle('active', i === 1));
+  }
 };
 
 /** Generiere verschiedene Startkonstellationen basierend auf Seed.

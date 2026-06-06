@@ -276,12 +276,17 @@ Stats-Bar zeigt `avgHwVisits | avgTowerWithBoatDays` (z.B. `0.9 | 0.9`) + Boot-P
 - **UI:** Dropdown nur noch Führung/Bootsführer/Wachgänger + Checkbox „Erf." (sichtbar bei B und W, ausgeblendet bei F)
 - **Migration:** `migratePerson()` in `state-io.js` wandelt Altpläne (E/U + bfLevel) → `role:'W'` + `experienced`; `STATE_VERSION` 4→5
 
-### Feature 14: Konsolidiertes Single-Page Layout (Einstellungen & Wachplan)
-Sidebar (Einstellungen) und Output-Panel (Wachplan) auf einer Seite nebeneinander.
-- **Desktop (>1040px):** Sidebar 380px fest | Output-Panel flex-grow mit Grid-Layout
-- **Tablet/Mobile (<1040px):** Gestapelte Anordnung (Sidebar über Output) mit je unabhängigem Scrolling
-- Beide Panels scrollen unabhängig (kein synchronisiertes Scrolling)
-- Print-Modus (`@media print`): Nur Output-Panel angezeigt, Sidebar ausgeblendet
+### Feature 14: Konsolidiertes Single-Page Layout mit mobiler Tab-Umschaltung
+Sidebar (Einstellungen) und Output-Panel (Wachplan) auf einer Seite nebeneinander (Desktop) oder per Tab-Umschalter (Mobile).
+- **Desktop (≥768px):** Sidebar + Output-Panel Side-by-Side, Grid-Layout mit unabhängigem Scrolling
+- **Mobile (<768px):** Nur ein Panel sichtbar gleichzeitig; Umschaltung via sticky Segment-Leiste (⚙️ Einstellungen | 📋 Wachplan)
+  - Leiste bleibt beim Scrollen erreichbar (sticky positioning, z-index:20)
+  - Beide Panels scrollen natürlich als Ganzes (`height:auto`, keine verschachtelten Scroll-Container)
+  - Nach „Plan generieren" automatischer Wechsel zur Wachplan-Ansicht (optional, mit `matchMedia` Guard)
+- **UI-Elemente:** `.mobile-switch` Container mit `.ms-btn` Buttons; `data-target` Attribute für Panel-Index
+- **JS-Logik:** `setupMobileSwitch()` in `init.js` verdrahtet Event-Listener und Klassen-Toggle (`mobile-active`)
+- **CSS:** Mobile-Switch nur `display:none` auf Desktop; auf Mobile: grid mit 2 Spalten, `position:sticky`
+- **Print-Modus:** `@media print` blendet Sidebar und Mobile-Switch aus, zeigt nur Output-Panel
 
 ### Feature 15: Konfigurierbare Dienstzeiten
 Flexibles Stundenraster für XLSX-Export; ersetzt hardcoded `09:00–17:00`:
