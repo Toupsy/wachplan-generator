@@ -174,7 +174,7 @@ function renderOutput(){
         <div class="toggle-grid">
           ${people.map(p=>`<span class="toggle-chip ${dayState[di].sick.has(p.id)?'sick':''}" data-sick="${p.id}" data-day="${di}">
             <i class="role-dot rd-${roleDot(p)}"></i><span class="nm">${escapeHtml(p.name)}</span>
-            ${dayState[di].sick.has(p.id)?'<span class="x">AUSSER DIENST</span>':''}</span>`).join('')}
+            ${dayState[di].sick.has(p.id)?'<span class="x">a. D.</span>':''}</span>`).join('')}
         </div>
       </div>
       <div class="dc-section">
