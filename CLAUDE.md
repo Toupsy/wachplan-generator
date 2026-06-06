@@ -331,6 +331,59 @@ GDPR Art. 5 Abs. 1 c (Datenminimierung): Warnung gegen sensible Daten im Freitex
 - **Keine Logikänderung:** Speicherung, Export, Verarbeitung unverändert
 - **VERSION:** v0.4.4
 
+### Feature 20: CSP- und HSTS-Security-Header (Issue #149, v0.4.13)
+**DSGVO Art. 32 – Sicherheit der Verarbeitung**
+- **CSP (Content-Security-Policy):** Schutz vor XSS-Attacken
+  - `default-src 'self'`, `script-src 'self'`, `style-src 'self' 'unsafe-inline'` (wegen Admin-Panel Inline-Styles)
+  - Fonts via `fonts.gstatic.com`, WebSocket-Quellen (`ws:`, `wss:`)
+  - Eingebaut in `server/server.js` und `server/admin-server.js` (Zeile 33–52)
+- **HSTS (Strict-Transport-Security):** Nur bei `NODE_ENV=production`
+  - `max-age=31536000; includeSubDomains` (1 Jahr) → erzwingt HTTPS
+  - Fallback für HTTP-Entwicklung (lokal)
+- **Verifikation:** Konsole bei Browser-Start auf CSP-Verstöße prüfen
+
+### Feature 21: Datenschutzhinweis-Seite (Issue #155, v0.4.13)
+**DSGVO Art. 13 – Information der Betroffenen**
+- **Neue Datei:** `public/datenschutz.html` – bearbeitbare Vorlage
+  - Platzhalter für Verantwortliche, DSB, Datenarten, Aufbewahrung, Betroffenenrechte
+  - Eingebundene Sicherheitsmaßnahmen (AES-256-GCM, PBKDF2, Rate-Limiting)
+  - Hinweis: Gliederung/DSB muss Inhalte an DLRG-Datenschutzordnung anpassen
+- **Verlinkung:** Fußnote in `public/Wachplan-Generator.html` + Login-Modal `public/js/login-modal.js`
+- **Keine externen Ressourcen** auf der Seite
+
+### Feature 22: Audit-Log für Admin-Aktionen (Issue #154, v0.4.13)
+**DSGVO Art. 5 Abs. 2 – Rechenschaftspflicht**
+- **Neue Tabelle:** `audit_log` in `server/db/schema.sql`
+  - Spalten: `id`, `actor_user_id` (Admin), `action`, `target` (Ressource), `created_at`
+  - Indizes auf `created_at DESC` und `actor_user_id` für Performance
+- **Logging-Helper:** `auditLog(actorUserId, action, target)` in `server/api/admin.js` (Zeile 19–26)
+  - Protokolliert: `user.create`, `user.delete`, `user.setpw`, `user.export`, `plans.purge`, `plans.cleanup`
+  - Keine sensiblen Inhalte (Passwörter, Plandaten)
+- **API-Endpoint:** `GET /api/admin/audit-log` → 500 neueste Einträge mit Usernamen
+- **Admin-UI:** Neue Tabelle in `public/admin.html` (Zeile 402–421)
+  - Read-only, neueste zuerst, Zeitstempel + Admin + Aktion + Ressource
+  - Lädt automatisch bei Admin-Panel-Start
+- **Migration:** Idempotente `CREATE TABLE IF NOT EXISTS audit_log` in `server/db/init.js` (Zeile 100–111)
+
+### Feature 23: Plan-Speicherbegrenzung & Auto-Cleanup (Issue #153, v0.4.13)
+**DSGVO Art. 5 Abs. 1 e – Speicherbegrenzung (Dataminimierung)**
+- **Env-Variable:** `PLAN_RETENTION_DAYS` (Standard: deaktiviert)
+  - `0` oder leer = unbegrenzte Aufbewahrung
+  - `365` = Pläne älter als 1 Jahr täglich um 02:00 Uhr automatisch löschen
+- **Scheduler:** In `server/server.js` (Zeile 141–179)
+  - Startet beim Server-Boot, berechnet nächsten 02:00-Termin
+  - Führt `DELETE FROM plans WHERE updated_at < cutoff` aus
+  - Console-Log bei Cleanup
+- **Manuelle Lösch-API:**
+  - `GET /api/admin/cleanup-plans-preview` → Anzahl Pläne, die gelöscht würden
+  - `POST /api/admin/cleanup-plans` → Tatsächliches Löschen + Audit-Log
+- **Admin-UI:** Neue Buttons in `public/admin.html` (Zeile 380–395)
+  - "📊 Aufräum-Vorschau" → zeigt, wie viele Pläne gelöscht würden
+  - "🗑 Alte Pläne löschen" → mit Bestätigung
+- **Dokumentation:** `.env.example` aktualisiert mit Beispiel
+
+---
+
 ## Bugfixes
 
 ### Bugfix: openTowers-Bedarfsrechnung ignoriert leaderCount (Issue #117, v0.4.1)

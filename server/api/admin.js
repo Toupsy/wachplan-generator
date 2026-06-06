@@ -18,6 +18,21 @@ const { dbRun, dbGet, dbAll } = require('../db/connection');
 const MIN_PASSWORD_LENGTH = 10;
 
 // ───────────────────────────────────────────────────────────
+// Audit Logging Helper (Art. 5 Abs. 2)
+// ───────────────────────────────────────────────────────────
+async function auditLog(actorUserId, action, target = null) {
+  try {
+    await dbRun(
+      'INSERT INTO audit_log (actor_user_id, action, target) VALUES (?, ?, ?)',
+      [actorUserId, action, target]
+    );
+  } catch (error) {
+    console.error('Audit log error:', error);
+    // Fehler beim Logging nicht propagieren (beste Anstrengung)
+  }
+}
+
+// ───────────────────────────────────────────────────────────
 // Admin-only Middleware
 // ───────────────────────────────────────────────────────────
 const adminMiddleware = async (req, res, next) => {
@@ -100,6 +115,9 @@ router.post('/users', express.json(), async (req, res) => {
       [username, passwordHash, email || null, isAdmin ? 1 : 0]
     );
 
+    // Audit log
+    await auditLog(req.session.userId, 'user.create', `user:${result.lastID}`);
+
     res.status(201).json({
       id: result.lastID,
       username: username,
@@ -144,6 +162,9 @@ router.delete('/users/:id', async (req, res) => {
     await dbRun('DELETE FROM plans WHERE user_id = ?', [userId]);
     await dbRun('DELETE FROM users WHERE id = ?', [userId]);
 
+    // Audit log
+    await auditLog(req.session.userId, 'user.delete', `user:${userId}`);
+
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
     console.error('Delete user error:', error);
@@ -171,6 +192,9 @@ router.put('/users/:id/password', express.json(), async (req, res) => {
 
     const passwordHash = await bcryptjs.hash(newPassword, 10);
     await dbRun('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, userId]);
+
+    // Audit log
+    await auditLog(req.session.userId, 'user.setpw', `user:${userId}`);
 
     res.json({ success: true, message: 'Password updated' });
   } catch (error) {
@@ -259,6 +283,9 @@ router.get('/users/:id/export', async (req, res) => {
       }))
     };
 
+    // Audit log
+    await auditLog(req.session.userId, 'user.export', `user:${userId}`);
+
     // Send as JSON download
     const filename = `wachplan-userdaten-${user.username}.json`;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -267,6 +294,129 @@ router.get('/users/:id/export', async (req, res) => {
   } catch (error) {
     console.error('Export user data error:', error);
     res.status(500).json({ error: 'Failed to export user data' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// GET /api/admin/audit-log – Audit-Log auslesen (Art. 5 Abs. 2)
+// ───────────────────────────────────────────────────────────
+router.get('/audit-log', async (req, res) => {
+  try {
+    const entries = await dbAll(
+      `SELECT
+        id,
+        actor_user_id,
+        action,
+        target,
+        created_at
+       FROM audit_log
+       ORDER BY created_at DESC
+       LIMIT 500`,
+      []
+    );
+
+    // Fetch actor usernames for display
+    const enriched = [];
+    for (const entry of entries) {
+      let actorUsername = 'System';
+      if (entry.actor_user_id) {
+        const actor = await dbGet('SELECT username FROM users WHERE id = ?', [entry.actor_user_id]);
+        actorUsername = actor ? actor.username : `User #${entry.actor_user_id}`;
+      }
+      enriched.push({
+        id: entry.id,
+        actorUserId: entry.actor_user_id,
+        actorUsername,
+        action: entry.action,
+        target: entry.target,
+        createdAt: entry.created_at
+      });
+    }
+
+    res.json({ entries: enriched });
+  } catch (error) {
+    console.error('Audit log fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch audit log' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// POST /api/admin/cleanup-plans – Alte Pläne löschen (Art. 5 Abs. 1 e)
+// ───────────────────────────────────────────────────────────
+router.post('/cleanup-plans', express.json(), async (req, res) => {
+  try {
+    const retentionDays = parseInt(process.env.PLAN_RETENTION_DAYS || '0');
+
+    // Keine Aktion wenn Aufbewahrung deaktiviert
+    if (retentionDays <= 0) {
+      return res.json({
+        message: 'Plan-Aufbewahrung ist deaktiviert (PLAN_RETENTION_DAYS=0 oder nicht gesetzt)',
+        removed: 0
+      });
+    }
+
+    // Berechne Cutoff-Datum
+    const now = new Date();
+    const cutoffDate = new Date(now.getTime() - retentionDays * 24 * 60 * 60 * 1000);
+    const cutoffISO = cutoffDate.toISOString();
+
+    // Lösche Pläne älter als Frist
+    const result = await dbRun(
+      'DELETE FROM plans WHERE updated_at < ?',
+      [cutoffISO]
+    );
+
+    const removedCount = result.changes || 0;
+
+    // Audit log
+    await auditLog(req.session.userId, 'plans.cleanup', `retention:${retentionDays}d,removed:${removedCount}`);
+
+    res.json({
+      message: `${removedCount} alte Pläne gelöscht`,
+      removed: removedCount,
+      retentionDays,
+      cutoffDate: cutoffISO
+    });
+  } catch (error) {
+    console.error('Plan cleanup error:', error);
+    res.status(500).json({ error: 'Failed to cleanup plans' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// GET /api/admin/cleanup-plans-preview – Vorschau wie viele Pläne gelöscht würden
+// ───────────────────────────────────────────────────────────
+router.get('/cleanup-plans-preview', async (req, res) => {
+  try {
+    const retentionDays = parseInt(process.env.PLAN_RETENTION_DAYS || '0');
+
+    if (retentionDays <= 0) {
+      return res.json({
+        previewCount: 0,
+        message: 'Aufbewahrung deaktiviert',
+        enabled: false
+      });
+    }
+
+    const now = new Date();
+    const cutoffDate = new Date(now.getTime() - retentionDays * 24 * 60 * 60 * 1000);
+    const cutoffISO = cutoffDate.toISOString();
+
+    const result = await dbGet(
+      'SELECT COUNT(*) as count FROM plans WHERE updated_at < ?',
+      [cutoffISO]
+    );
+
+    res.json({
+      previewCount: result.count,
+      message: `${result.count} Plan(e) älter als ${retentionDays} Tag(e) würden gelöscht`,
+      enabled: true,
+      retentionDays,
+      cutoffDate: cutoffISO
+    });
+  } catch (error) {
+    console.error('Cleanup preview error:', error);
+    res.status(500).json({ error: 'Failed to preview cleanup' });
   }
 });
 
@@ -323,6 +473,11 @@ router.post('/purge-orphans', express.json(), async (req, res) => {
     const orphanPlans = await dbRun(
       'DELETE FROM plans WHERE user_id NOT IN (SELECT id FROM users)'
     );
+
+    const totalRemoved = (orphanPlans.changes || 0) + (orphanShares.changes || 0) + (orphanSharesUser.changes || 0);
+
+    // Audit log
+    await auditLog(req.session.userId, 'plans.purge', `orphans:${totalRemoved}`);
 
     res.json({
       message: 'Orphan data purged successfully',

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Datenschutz – DLRG Wachplan-Generator</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Spline Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a1e3a;
+      color: #d4d4d8;
+      line-height: 1.6;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #1a2d4a;
+      border-radius: 8px;
+      padding: 40px;
+    }
+
+    h1 {
+      color: #60a5fa;
+      font-size: 2em;
+      margin-bottom: 30px;
+    }
+
+    h2 {
+      color: #93c5fd;
+      font-size: 1.3em;
+      margin-top: 30px;
+      margin-bottom: 15px;
+    }
+
+    p {
+      margin-bottom: 15px;
+    }
+
+    .warning {
+      background: #7c2d12;
+      border-left: 4px solid #ea580c;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 4px;
+      color: #fed7aa;
+    }
+
+    .placeholder {
+      background: #3f3f46;
+      padding: 10px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+      margin-bottom: 10px;
+      color: #fca5a5;
+    }
+
+    ul {
+      margin-left: 20px;
+      margin-bottom: 15px;
+    }
+
+    li {
+      margin-bottom: 8px;
+    }
+
+    .footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid #3f3f46;
+      font-size: 0.9em;
+      color: #a1a1a6;
+    }
+
+    a {
+      color: #60a5fa;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .back-link {
+      margin-bottom: 20px;
+    }
+
+    .back-link a {
+      display: inline-block;
+      padding: 8px 12px;
+      background: #3f3f46;
+      border-radius: 4px;
+      color: #60a5fa;
+      text-decoration: none;
+    }
+
+    .back-link a:hover {
+      background: #52525b;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="back-link">
+      <a href="/">← Zurück zur Anwendung</a>
+    </div>
+
+    <h1>🔒 Datenschutz – DLRG Wachplan-Generator</h1>
+
+    <div class="warning">
+      <strong>⚠️ Hinweis:</strong> Dies ist eine Vorlage. Der rechtlich bindende Datenschutzhinweis muss durch die
+      <strong>Datenschutzbeauftragte/den Datenschutzbeauftragten Ihrer DLRG-Gliederung</strong> oder des zuständigen
+      <strong>Landesverbands</strong> ausgefüllt und angepasst werden. Die DLRG-Datenschutzordnung ist maßgeblich.
+    </div>
+
+    <h2>1. Verantwortlicher und Kontakt</h2>
+    <div class="placeholder">
+      <!-- ANPASSEN: Name der DLRG-Gliederung/des Landesverbands und Adresse eintragen -->
+      Verantwortlicher: [Gliederung/Landesverband eintragen]<br/>
+      Adresse: [Adresse eintragen]<br/>
+      Telefon: [Telefon eintragen]<br/>
+      E-Mail: [E-Mail eintragen]
+    </div>
+
+    <div class="placeholder">
+      Datenschutzbeauftragte/Datenschutzbeauftragter:<br/>
+      E-Mail: [DSB E-Mail eintragen]<br/>
+      Anschrift: [DSB Anschrift eintragen]
+    </div>
+
+    <h2>2. Zweck und Rechtsgrundlagen der Datenverarbeitung</h2>
+    <p>
+      Die DLRG Wachplan-Generator wird zur <strong>Planung und Organisation der Wachdienste</strong> im Wasserrettungsdienst eingesetzt.
+    </p>
+
+    <p>Verarbeitet werden personenbezogene Daten auf Grundlage von:</p>
+    <ul>
+      <li><strong>Art. 6 Abs. 1 c DSGVO:</strong> Erfüllung gesetzlicher Verpflichtungen (z.B. Einsatzverpflichtung der DLRG-Mitglieder)</li>
+      <li><strong>Art. 6 Abs. 1 b DSGVO:</strong> Erfüllung eines Vertrags (Dienstverpflichtung, Einsatzplan)</li>
+      <li><div class="placeholder"><!-- ANPASSEN --> Ggf. weitere Rechtsgrundlagen eintragen (z.B. berechtigte Interessen)</div></li>
+    </ul>
+
+    <h2>3. Datenarten und Verarbeitung</h2>
+    <p>Die folgende personenbezogene Daten werden verarbeitet:</p>
+    <ul>
+      <li><strong>Name</strong> – zur Identifikation und Eintragung im Wachplan</li>
+      <li><strong>Rolle</strong> – Führung (F), Bootsführer (B), Wachgänger (W) und Erfahrungslevel (erfahren/unerfahren)</li>
+      <li><strong>Einteilung</strong> – Zuweisung zu Türmen, Booten und Wachtagen</li>
+      <li><strong>Status</strong> – Verfügbarkeit, Außer-Dienst-Markierungen</li>
+      <li><strong>Benutzerinformation</strong> – Username, verschlüsseltes Passwort, Zugangszeiten</li>
+      <li><div class="placeholder"><!-- ANPASSEN --> Ggf. weitere Datenarten (Kontaktdaten, Qualifikationen) eintragen</div></li>
+    </ul>
+
+    <p><strong>Keine Gesundheitsdaten:</strong> Das System verarbeitet keine Krankheitsdaten. Die Markierung „Außer Dienst" dient ausschließlich der
+    Einsatzplanung, nicht der Erfassung von Gesundheitszuständen.</p>
+
+    <h2>4. Speicherdauer und Aufbewahrung</h2>
+    <div class="placeholder">
+      <!-- ANPASSEN: Aufbewahrungsfrist gemäß DLRG-Vorgaben eintragen -->
+      Wachpläne werden regelmäßig nach [Aufbewahrungsfrist, z.B. 12 Monaten] gelöscht, sofern keine
+      längeren Aufbewahrungsverpflichtungen bestehen.
+    </div>
+
+    <h2>5. Betroffenenrechte</h2>
+    <p>Du hast die folgenden Rechte:</p>
+    <ul>
+      <li><strong>Auskunftrecht (Art. 15 DSGVO):</strong> Deine Daten einsehen und exportieren</li>
+      <li><strong>Berichtigungsrecht (Art. 16 DSGVO):</strong> Unrichtige Daten korrigieren</li>
+      <li><strong>Löschungsrecht (Art. 17 DSGVO):</strong> Deine Daten löschen (vorbehaltlich gesetzlicher Aufbewahrungsverpflichtungen)</li>
+      <li><strong>Widerspruchsrecht (Art. 21 DSGVO):</strong> Der Verarbeitung widersprechen</li>
+    </ul>
+
+    <p>
+      Um deine Rechte geltend zu machen, wende dich bitte an die oben genannte Adresse oder den/die
+      Datenschutzbeauftragte/n.
+    </p>
+
+    <h2>6. Sicherheit und Verschlüsselung</h2>
+    <p>
+      Die Anwendung verwendet folgende Sicherheitsmaßnahmen zum Schutz deiner Daten (Art. 32 DSGVO):
+    </p>
+    <ul>
+      <li><strong>AES-256-GCM-Verschlüsselung</strong> aller gespeicherten Pläne (Verschlüsselung in Ruhe)</li>
+      <li><strong>Sichere Passwort-Hashing</strong> (bcryptjs, 10 Rounds) mit Mindestlänge von 10 Zeichen</li>
+      <li><strong>PBKDF2-Schlüsselableitung</strong> mit 100.000 Iterationen und SHA-256</li>
+      <li><strong>HTTPOnly-Cookies</strong> mit SameSite-Schutz gegen CSRF-Angriffe</li>
+      <li><strong>Rate-Limiting</strong> gegen Brute-Force-Angriffe (10 Login-Versuche pro 15 Minuten)</li>
+      <li><strong>Session-Fixation-Schutz</strong> durch automatische Session-Neuerstellung nach Login</li>
+      <li><strong>SQL-Injection-Schutz</strong> durch parametrisierte Datenbankabfragen</li>
+    </ul>
+
+    <div class="placeholder">
+      <!-- ANPASSEN: NAS/Infrastruktur-Spezifika eintragen -->
+      Die Anwendung läuft auf einer privaten NAS/Infrastruktur [Angaben zum Betreiber/Standort eintragen].
+      Backups der Datenbank werden regelmäßig erstellt und verschlüsselt gespeichert.
+    </div>
+
+    <h2>7. Weitergabe an Dritte</h2>
+    <p>
+      Personenbezogene Daten werden <strong>nicht an Dritte weitergegeben</strong>. Sie werden ausschließlich
+      von der DLRG-Gliederung / dem Landesverband selbst verarbeitet.
+    </p>
+
+    <h2>8. Zugriff und Nutzer</h2>
+    <p>
+      Auf die Anwendung können nur berechtigte Mitglieder der DLRG-Gliederung zugreifen (Authentifizierung erforderlich).
+      Der Admin kann Benutzerkonten verwalten und Pläne teilen.
+    </p>
+
+    <h2>9. Ihre Fragen und Kontakt</h2>
+    <p>
+      Haben Sie Fragen zum Datenschutz oder möchten Sie Ihre Betroffenenrechte geltend machen, wenden Sie sich bitte an:
+    </p>
+    <div class="placeholder">
+      <!-- ANPASSEN: Kontaktdaten eintragen -->
+      [Datenschutzbeauftragte/r oder Verantwortlicher] – [E-Mail/Telefon eintragen]
+    </div>
+
+    <div class="footer">
+      <p>
+        <strong>Gültig ab:</strong> <span class="placeholder" style="display: inline;"><!-- ANPASSEN: Datum eintragen --> [Datum]</span>
+      </p>
+      <p>
+        <em>Letzte Aktualisierung:</em> <span class="placeholder" style="display: inline;"><!-- ANPASSEN --> [Datum]</span>
+      </p>
+      <p style="margin-top: 20px; font-size: 0.8em; color: #6b7280;">
+        Diese Seite ist Bestandteil des DLRG Wachplan-Generators. Die Anwendung wird Open Source entwickelt und steht unter
+        <a href="https://github.com/Toupsy/Wachplan-Generator" target="_blank">GitHub</a> zur Verfügung.
+      </p>
+    </div>
+  </div>
+</body>
+</html>

@@ -48,7 +48,19 @@ CREATE TABLE IF NOT EXISTS plan_shares (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Audit-Log für Admin-Aktionen (Art. 5 Abs. 2 – Rechenschaftspflicht)
+CREATE TABLE IF NOT EXISTS audit_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  actor_user_id INTEGER,                 -- Admin der Aktion durchgeführt hat (NULL = System)
+  action TEXT NOT NULL,                  -- z.B. 'user.create', 'user.delete', 'user.setpw', 'user.export', 'plans.purge'
+  target TEXT,                           -- betroffene User/Plan (z.B. 'user:5' oder 'plan:123')
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
 -- Indices für Performance
 CREATE INDEX IF NOT EXISTS idx_plans_user_id ON plans(user_id);
 CREATE INDEX IF NOT EXISTS idx_plan_shares_user ON plan_shares(user_id);
 CREATE INDEX IF NOT EXISTS idx_plan_shares_plan ON plan_shares(plan_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_log_actor ON audit_log(actor_user_id);

@@ -29,11 +29,27 @@ validateEnv();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// ── Basis-Security-Header ──────────────────────────────────────
+// ── Security-Header (Art. 32) ────────────────────────────────────
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');           // Clickjacking-Schutz
   res.setHeader('Referrer-Policy', 'same-origin');
+
+  // CSP: Schutz vor XSS (Art. 32)
+  res.setHeader('Content-Security-Policy',
+    "default-src 'self'; " +
+    "img-src 'self' data:; " +
+    "style-src 'self' 'unsafe-inline'; " +
+    "font-src 'self' https://fonts.gstatic.com; " +
+    "script-src 'self'; " +
+    "connect-src 'self' ws: wss:; " +
+    "frame-ancestors 'self'");
+
+  // HSTS: Erzwinge HTTPS nur in Produktion (Art. 32)
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+
   next();
 });
 
@@ -121,6 +137,54 @@ async function start() {
     // Realtime/Live-Update (WebSocket auf /ws) an den HTTP-Server hängen
     const { setupRealtime } = require('./realtime');
     setupRealtime(server, sessionMiddleware);
+
+    // Daily Plan Cleanup Scheduler (Art. 5 Abs. 1 e – Speicherbegrenzung)
+    if (process.env.PLAN_RETENTION_DAYS && parseInt(process.env.PLAN_RETENTION_DAYS) > 0) {
+      const { dbRun, dbGet } = require('./db/connection');
+
+      async function runCleanup() {
+        try {
+          const retentionDays = parseInt(process.env.PLAN_RETENTION_DAYS);
+          const now = new Date();
+          const cutoffDate = new Date(now.getTime() - retentionDays * 24 * 60 * 60 * 1000);
+          const cutoffISO = cutoffDate.toISOString();
+
+          const result = await dbRun(
+            'DELETE FROM plans WHERE updated_at < ?',
+            [cutoffISO]
+          );
+
+          const removedCount = result.changes || 0;
+          if (removedCount > 0) {
+            console.log(`✓ Cleanup: ${removedCount} Plan(e) älter als ${retentionDays} Tag(e) gelöscht`);
+          }
+        } catch (error) {
+          console.error('❌ Plan cleanup error:', error.message);
+        }
+      }
+
+      // Führe Cleanup täglich um 02:00 Uhr aus
+      const scheduleNextCleanup = () => {
+        const now = new Date();
+        const target = new Date(now);
+        target.setHours(2, 0, 0, 0);
+
+        // Wenn 02:00 schon vorbei ist, morgen ausführen
+        if (target <= now) {
+          target.setDate(target.getDate() + 1);
+        }
+
+        const delayMs = target - now;
+        console.log(`📅 Nächster Plan-Cleanup: ${target.toLocaleString('de-DE')}`);
+
+        setTimeout(async () => {
+          await runCleanup();
+          scheduleNextCleanup();  // Nächster Tag
+        }, delayMs);
+      };
+
+      scheduleNextCleanup();
+    }
 
     // Graceful shutdown
     process.on('SIGTERM', () => {

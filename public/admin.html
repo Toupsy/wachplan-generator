@@ -375,6 +375,16 @@
         <button type="button" onclick="purgeOrphans()" style="background: var(--warn); padding: 10px 20px;">🧹 Verwaiste Daten bereinigen</button>
       </div>
       <div id="config-status" style="margin-top: 10px; font-size: 0.9em; color: var(--text-dim);"></div>
+
+      <!-- Speicherbegrenzung / Plan-Cleanup (Art. 5 Abs. 1 e) -->
+      <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line);">
+        <p style="color: var(--text-dim); margin-bottom: 10px; font-size: 0.9em;">Alte Pläne automatisch löschen (DSGVO Art. 5 – Speicherbegrenzung):</p>
+        <div style="display: flex; gap: 10px;">
+          <button type="button" onclick="showCleanupPreview()" style="background: var(--sea-bright); padding: 8px 16px; font-size: 0.9em;">📊 Aufräum-Vorschau</button>
+          <button type="button" onclick="cleanupOldPlans()" id="cleanup-btn" style="background: var(--coral); padding: 8px 16px; font-size: 0.9em;">🗑 Alte Pläne löschen</button>
+        </div>
+        <div id="cleanup-status" style="margin-top: 10px; font-size: 0.9em; color: var(--text-dim);"></div>
+      </div>
     </div>
 
     <!-- Benutzerliste -->
@@ -394,6 +404,27 @@
         <tbody id="users-tbody">
           <tr>
             <td colspan="6" class="empty">Lädt...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Audit-Log (Art. 5 Abs. 2) -->
+    <h2>📋 Audit-Log (Nachvollziehbarkeit)</h2>
+    <div class="card">
+      <p style="color: var(--text-dim); margin-bottom: 15px; font-size: 0.9em;">Alle Admin-Aktionen zur Nachverfolgung von Datenänderungen (DSGVO Art. 5).</p>
+      <table id="audit-table" style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr>
+            <th style="text-align: left; padding: 10px; border-bottom: 1px solid var(--line);">Zeitstempel</th>
+            <th style="text-align: left; padding: 10px; border-bottom: 1px solid var(--line);">Admin</th>
+            <th style="text-align: left; padding: 10px; border-bottom: 1px solid var(--line);">Aktion</th>
+            <th style="text-align: left; padding: 10px; border-bottom: 1px solid var(--line);">Betroffene Ressource</th>
+          </tr>
+        </thead>
+        <tbody id="audit-tbody">
+          <tr>
+            <td colspan="4" class="empty" style="padding: 20px; text-align: center; color: var(--text-dim);">Lädt...</td>
           </tr>
         </tbody>
       </table>
@@ -424,6 +455,7 @@
           currentUserId = data.userId;
           document.getElementById('login-overlay').classList.remove('visible');
           loadUsers();
+          loadAuditLog();
         } catch (err) {
           errorEl.textContent = 'Netzwerkfehler';
         }
@@ -442,6 +474,7 @@
         }
         currentUserId = data.userId;
         loadUsers();
+        loadAuditLog();
       } catch (error) {
         document.getElementById('login-overlay').classList.add('visible');
       }
@@ -674,8 +707,108 @@
         const total = plansWithoutUser + sharesWithoutPlan + sharesWithoutUser;
         statusEl.textContent = `✓ Bereinigung abgeschlossen! (${total} Datensätze entfernt)`;
         showToast(`✓ ${total} verwaiste Datensätze gelöscht`);
+        loadAuditLog();
       } catch (error) {
         document.getElementById('config-status').textContent = `✗ Fehler: ${error.message}`;
+        showToast(error.message, true);
+      }
+    }
+
+    async function loadAuditLog() {
+      try {
+        const response = await fetch('/api/admin/audit-log');
+        if (!response.ok) {
+          document.getElementById('audit-tbody').innerHTML = '<tr><td colspan="4" class="empty" style="padding: 20px;">Audit-Log nicht verfügbar</td></tr>';
+          return;
+        }
+
+        const data = await response.json();
+        const tbody = document.getElementById('audit-tbody');
+
+        if (!data.entries || data.entries.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" class="empty" style="padding: 20px; text-align: center;">Keine Einträge im Audit-Log</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = data.entries.map(entry => `
+          <tr style="border-bottom: 1px solid var(--line);">
+            <td style="padding: 10px; color: var(--text-dim); font-size: 0.85em;">${new Date(entry.createdAt).toLocaleString('de-DE')}</td>
+            <td style="padding: 10px;">${escapeHtml(entry.actorUsername)}</td>
+            <td style="padding: 10px;">${escapeHtml(entry.action)}</td>
+            <td style="padding: 10px; color: var(--text-dim);">${entry.target ? escapeHtml(entry.target) : '—'}</td>
+          </tr>
+        `).join('');
+      } catch (error) {
+        console.error('Audit log load error:', error);
+        document.getElementById('audit-tbody').innerHTML = '<tr><td colspan="4" class="empty" style="padding: 20px;">Fehler beim Laden des Audit-Log</td></tr>';
+      }
+    }
+
+    function escapeHtml(text) {
+      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+      return text.replace(/[&<>"']/g, m => map[m]);
+    }
+
+    async function showCleanupPreview() {
+      try {
+        const statusEl = document.getElementById('cleanup-status');
+        statusEl.textContent = 'Lädt Vorschau...';
+
+        const response = await fetch('/api/admin/cleanup-plans-preview');
+        if (!response.ok) throw new Error('Fehler beim Laden der Vorschau');
+
+        const data = await response.json();
+        if (!data.enabled) {
+          statusEl.textContent = '⚠️ Plan-Aufbewahrung ist deaktiviert (PLAN_RETENTION_DAYS nicht gesetzt)';
+          return;
+        }
+
+        statusEl.textContent = `📊 ${data.message} (Aufbewahrung: ${data.retentionDays} Tag(e))`;
+      } catch (error) {
+        document.getElementById('cleanup-status').textContent = `✗ Fehler: ${error.message}`;
+        showToast(error.message, true);
+      }
+    }
+
+    async function cleanupOldPlans() {
+      try {
+        const statusEl = document.getElementById('cleanup-status');
+
+        // Erst Vorschau anfordern
+        const previewRes = await fetch('/api/admin/cleanup-plans-preview');
+        const preview = await previewRes.json();
+
+        if (!preview.enabled) {
+          statusEl.textContent = '⚠️ Aufbewahrung deaktiviert';
+          return;
+        }
+
+        if (preview.previewCount === 0) {
+          statusEl.textContent = '✓ Keine alten Pläne zum Löschen vorhanden';
+          return;
+        }
+
+        // Bestätigung anfordern
+        if (!confirm(`🗑 ${preview.previewCount} Plan(e) älter als ${preview.retentionDays} Tag(e) wirklich löschen?\n\nDies kann nicht rückgängig gemacht werden!`)) {
+          return;
+        }
+
+        statusEl.textContent = 'Lösche...';
+
+        // Cleanup durchführen
+        const response = await fetch('/api/admin/cleanup-plans', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Fehler beim Löschen');
+
+        statusEl.textContent = `✓ ${data.message}`;
+        showToast(`✓ ${data.removed} Plan(e) gelöscht`);
+        loadAuditLog();
+      } catch (error) {
+        document.getElementById('cleanup-status').textContent = `✗ Fehler: ${error.message}`;
         showToast(error.message, true);
       }
     }
@@ -692,17 +825,6 @@
       toast.textContent = message;
       document.body.appendChild(toast);
       setTimeout(() => toast.remove(), 3000);
-    }
-
-    function escapeHtml(text) {
-      const map = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#039;'
-      };
-      return text.replace(/[&<>"']/g, m => map[m]);
     }
   </script>
 </body>

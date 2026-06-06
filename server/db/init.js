@@ -97,6 +97,19 @@ function initDatabase() {
         // Fehler ("duplicate column name") wird bewusst ignoriert.
         db.run("ALTER TABLE users ADD COLUMN last_login DATETIME", () => {});
 
+        // Idempotente Migration: audit_log-Tabelle (neue DBs erzeugen via schema.sql, alte per Fallback)
+        // Fehler ("already exists") wird bewusst ignoriert.
+        db.run(`CREATE TABLE IF NOT EXISTS audit_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          actor_user_id INTEGER,
+          action TEXT NOT NULL,
+          target TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL
+        )`, () => {});
+        db.run("CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at DESC)", () => {});
+        db.run("CREATE INDEX IF NOT EXISTS idx_audit_log_actor ON audit_log(actor_user_id)", () => {});
+
         // Auto-create admin if ADMIN_USERNAME + ADMIN_PASSWORD are set
         db.get("SELECT COUNT(*) as count FROM users WHERE is_admin = 1", async (err, row) => {
           if (err) {
