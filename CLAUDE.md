@@ -636,8 +636,9 @@ DELETE /api/plans/:id/share/:userId  – Mitbearbeiter entfernen (nur Owner)
 POST   /api/import/plans             – { plans: [{ name, state }] } → Bulk-Import alter .json
 GET    /api/admin/users              – Alle User auflisten
 POST   /api/admin/users              – User erstellen (≥10 Zeichen)
-DELETE /api/admin/users/:id          – User löschen (cascade plans)
+DELETE /api/admin/users/:id          – User löschen (cascade plans, GDPR Art. 17)
 PUT    /api/admin/users/:id/password – Fremdes Passwort setzen (≥10 Zeichen)
+GET    /api/admin/users/:id/export   – DSGVO Art. 15: Datenexport (JSON-Download, Admin-only)
 ```
 
 ### Plan-Sharing & Live-Kollaboration
