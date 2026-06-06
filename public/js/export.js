@@ -189,7 +189,9 @@ function _applyPatches(xml, patchMap){
 }
 
 /**
- * Fügt fehlende Zellen gebündelt ein (pro Zeile gruppiert).
+ * Fügt fehlende Zellen gebündelt ein (pro Zeile gruppiert, spalten-sortiert).
+ * Wahrung der OOXML-Spezifikation: Zellen innerhalb einer Zeile müssen
+ * in aufsteigender Spalten-Reihenfolge angeordnet sein.
  */
 function _insertMissingCells(xml, missing){
   if(!missing.length) return xml;
@@ -206,27 +208,38 @@ function _insertMissingCells(xml, missing){
 
   // Pro Zeile Zellen am richtigen Ort einfügen
   Object.entries(byRow).forEach(([rowNum, cells]) => {
+    // Sortiere fehlende Zellen nach Spalten-Nummer (aufsteigend)
     cells.sort((a, b) => _colToNum(a.ref.replace(/\d+/, '')) - _colToNum(b.ref.replace(/\d+/, '')));
 
     const rowRe = new RegExp(`(<row [^>]*?r="${rowNum}"[^>]*>)([\\s\\S]*?)(</row>)`);
     if(rowRe.test(result)){
       result = result.replace(rowRe, (_, open, content, close) => {
-        const insertRe = /<c r="([A-Z]+)\d+"[^>]*?(?:\/>|>[\s\S]*?<\/c>)/g;
-        let insertPos = content.length;
-        let m;
+        let newContent = content;
 
-        // Finde Position nach der letzten existierenden Zelle
-        while((m = insertRe.exec(content)) !== null){
-          insertPos = Math.max(insertPos, m.index + m[0].length);
-        }
-
-        const cellStrs = cells.map(({ ref, type, value }) =>
-          type === 'n'
+        // Für jede fehlende Zelle, bestimme die spalten-sortierte Einfüge-Position
+        cells.forEach(({ ref, type, value }) => {
+          const missingColNum = _colToNum(ref.replace(/\d+/, ''));
+          const cellStr = type === 'n'
             ? `<c r="${ref}"><v>${value}</v></c>`
-            : `<c r="${ref}" t="inlineStr"><is><t>${_escXml(value)}</t></is></c>`
-        ).join('');
+            : `<c r="${ref}" t="inlineStr"><is><t>${_escXml(value)}</t></is></c>`;
 
-        return open + content + cellStrs + close;
+          // Suche die erste existierende Zelle in newContent mit höherem Spalten-Index
+          const cellRegex = /<c [^>]*?r="([A-Z0-9]+)"[^>]*?(?:\/>|>[\s\S]*?<\/c>)/g;
+          let m;
+          let insertPos = newContent.length; // Default: am Ende der Zeile
+          while((m = cellRegex.exec(newContent)) !== null){
+            const existingColNum = _colToNum(m[1].replace(/\d+/, ''));
+            if(existingColNum > missingColNum){
+              // Füge VOR dieser Zelle ein (spalten-sortiert)
+              insertPos = m.index;
+              break;
+            }
+          }
+
+          newContent = newContent.slice(0, insertPos) + cellStr + newContent.slice(insertPos);
+        });
+
+        return open + newContent + close;
       });
     } else {
       // Zeile existiert nicht – neu erstellen
