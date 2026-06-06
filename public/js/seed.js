@@ -42,10 +42,10 @@ function seed(){
     people.push({ id: ++uid, name: `WG U${i}`, role: 'W', experienced: false });
   }
 
-  // Stationscodes für XLSX-Export
+  // Stationscodes für XLSX-Export – identisch mit config.json
   exportColumns = [
-    '78/1', '78/2', '78/3', '', 'WF', 'HW', '',
-    '', '', '', '', '', '', ''
+    '78/1', '9/12', '9/13', '', 'WF', 'HW', '',
+    '78/2', '9/14', '9/15', '9/16', '78/3', '9/17', '9/18'
   ];
 
   dayState = freshDayState();
