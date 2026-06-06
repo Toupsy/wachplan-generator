@@ -113,10 +113,10 @@ async function runTest() {
     );
     console.log(`✓ Plan 1 shared with other user`);
 
-    // Create sessions
+    // Create sessions (connect-sqlite3 format: sid, sess, expiryDate)
     const sessionObj = JSON.stringify({ userId: userId, username: 'test_user' });
     await run(
-      'INSERT INTO sessions (sid, session, expiryDate) VALUES (?, ?, ?)',
+      'INSERT INTO sessions (sid, sess, expiryDate) VALUES (?, ?, ?)',
       ['session-1', sessionObj, new Date(Date.now() + 7*24*60*60*1000).toISOString()]
     );
     console.log(`✓ Session created for user`);
@@ -135,7 +135,7 @@ async function runTest() {
 
     // 3. Simulate deletion (from admin.js)
     console.log('\n=== Perform Cascading Deletion ===');
-    await run('DELETE FROM sessions WHERE json_extract(session, "$.userId") = ?', [userId]);
+    await run('DELETE FROM sessions WHERE json_extract(sess, "$.userId") = ?', [userId]);
     await run('DELETE FROM plans WHERE user_id = ?', [userId]);
     await run('DELETE FROM users WHERE id = ?', [userId]);
     console.log(`✓ User ${userId} and related data deleted`);
@@ -145,7 +145,7 @@ async function runTest() {
     const userAfter = await get('SELECT COUNT(*) as count FROM users WHERE id = ?', [userId]);
     const plansAfter = await all('SELECT id FROM plans WHERE user_id = ?', [userId]);
     const sharesAfter = await all('SELECT * FROM plan_shares WHERE plan_id IN (?, ?)', [plan1Id, plan2Id]);
-    const sessionsAfter = await all('SELECT * FROM sessions WHERE json_extract(session, "$.userId") = ?', [userId]);
+    const sessionsAfter = await all('SELECT * FROM sessions WHERE json_extract(sess, "$.userId") = ?', [userId]);
 
     console.log(`✓ User record: ${userAfter.count === 0 ? 'DELETED ✓' : 'STILL EXISTS ✗'}`);
     console.log(`✓ Plans: ${plansAfter.length === 0 ? 'ALL DELETED ✓' : `${plansAfter.length} ORPHANS FOUND ✗`}`);

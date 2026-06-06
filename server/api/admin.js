@@ -131,8 +131,9 @@ router.delete('/users/:id', async (req, res) => {
     }
 
     // Delete in cascading order (GDPR Art. 17 – Recht auf Löschung)
-    // Foreign keys are enabled in connection.js, but explicit cleanup ensures completeness
-    await dbRun('DELETE FROM sessions WHERE json_extract(session, "$.userId") = ?', [userId]);
+    // Foreign keys are enabled in connection.js for plans/plan_shares cascade
+    // connect-sqlite3 sessions: check sess column (serialized JSON) for userId
+    await dbRun('DELETE FROM sessions WHERE json_extract(sess, "$.userId") = ?', [userId]);
     // plan_shares cascade via foreign key
     // plans cascade via foreign key (will trigger plan_shares cascade)
     await dbRun('DELETE FROM plans WHERE user_id = ?', [userId]);
