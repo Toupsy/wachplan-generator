@@ -132,7 +132,7 @@ function importStateJSON(json, silent = false){
     labels: p.labels || '',
     enableLabels: p.enableLabels !== undefined ? p.enableLabels : ((p.labels||'').trim().length > 0)  // Fallback für alte Exporte
   }));
-  towers = (s.towers || []).map(t => ({ ...t, slotCount: t.slotCount || 2 }));
+  towers = (s.towers || []).map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0 }));
   boats  = (s.boats  || []).map(b => ({ ...b, slotCount: b.slotCount || 1 }));
 
   // uid sicherstellen (max vorhandener ID + 1)

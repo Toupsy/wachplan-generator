@@ -58,11 +58,48 @@ curl -X POST http://localhost:3000/api/auth/init \
 - In Docker-Volume `wachplan-data` persistent gespeichert
 
 ## Sicherheit
+
+### Basis-Sicherheitsmaßnahmen
 - ✅ AES-256-GCM Verschlüsselung für Plandaten (at-rest)
 - ✅ bcryptjs Passwort-Hashing (10 Rounds)
 - ✅ Session-basierte Authentifizierung (HTTPOnly Cookies)
 - ✅ Per-User Encryption Keys (PBKDF2-derived)
 - ✅ Non-root Docker User (nodejs:nodejs)
+
+### HTTPS/TLS für Production (DSGVO Art. 32)
+Die Anwendung läuft standardmäßig auf Port 3000 **ohne TLS**. Bei Production-Deployments sollte TLS **vor der Anwendung** terminiert werden:
+
+#### Empfohlene Konfiguration: TLS am Reverse-Proxy
+```
+Client (HTTPS)
+    ↓
+Reverse-Proxy / NAS (Synology/QNAP, TLS-Terminierung)
+    ↓ HTTP (intern)
+Wachplan-Generator (Port 3000)
+```
+
+**Aktiviere Secure Cookies:**
+```bash
+# .env
+NODE_ENV=production
+COOKIE_SECURE=true
+```
+
+Oder setze in Deinem Reverse-Proxy die Header:
+```
+X-Forwarded-Proto: https
+```
+
+Die Anwendung nutzt `trust proxy` automatisch (erkennt `X-Forwarded-Proto`). Mit `COOKIE_SECURE=true` wird das Session-Cookie mit dem `Secure`-Flag übertragen → Session-ID wird nie unverschlüsselt gesendet (GDPR-Compliance Art. 32).
+
+#### Beispiel: Synology/QNAP NAS mit Reverse-Proxy
+1. NAS-Admin-Panel öffnen → Reverse-Proxy Regel anlegen
+2. Source: `https://your-nas.com`
+3. Destination: `http://localhost:3000` (Container)
+4. Enable: `Use HSTS`, `Trust WebSocket`
+5. In der App: `.env` → `COOKIE_SECURE=true`
+
+**Lokale HTTP-Entwicklung:** `COOKIE_SECURE` nicht setzen oder explizit `false` → erlaubt HTTP ohne Secure-Flag
 
 ## Features nach Deployment
 
