@@ -5,6 +5,15 @@
 function renderPeople(){
   const c = document.getElementById('people-edit');
   c.innerHTML = '';
+
+  if(people.length > 28){
+    const warning = document.createElement('div');
+    warning.className = 'warning-box';
+    warning.style.cssText = 'color:var(--coral);font-size:0.85rem;padding:8px;margin-bottom:8px;border-left:3px solid var(--coral);background:rgba(255,100,100,0.05)';
+    warning.textContent = `⚠️ ${people.length} Personen – XLSX fasst max. 28! Personen 29+ erscheinen ohne Namen.`;
+    c.appendChild(warning);
+  }
+
   people.forEach((p, i) => {
     const row = document.createElement('div');
     row.className = 'person-edit';
