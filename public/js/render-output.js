@@ -165,7 +165,7 @@ function renderOutput(){
     // Tages-Steuerung
     html += `<div class="day-controls">
       <div class="dc-head">
-        <div><span class="dc-title">${dayLabel(di)}</span> <span class="dc-sub">— Status nur für diesen Tag</span></div>
+        <div><span class="dc-title">${dayLabel(di)}</span> <span class="dc-sub">— Tagesweiser Aufbau über mehrere Tage. Faire Rotation durch akkumulierte Statistik – jede Person und jeder Tag hat eigenen außer Dienst- und Schließstatus. Personen lassen sich per ↕ manuell auf andere Positionen verschieben.</span></div>
         <div class="date-pick"><label>📅 Datum</label>
           <input type="date" value="${computeDayDates()[di]||''}" readonly title="Aus Startdatum berechnet"></div>
       </div>
