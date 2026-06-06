@@ -43,9 +43,7 @@ function renderPeople(){
     labelsRow.style.display = hasLabels ? 'grid' : 'none';
     labelsRow.setAttribute('data-id', p.id);
     labelsRow.innerHTML = `
-      <div style="display:grid;gap:4px">
-        <input type="text" value="${escapeHtml(p.labels||'')}" data-id="${p.id}" class="plabels" placeholder="Labels (z.B. Sanitäter, Rettungsschwimmer)" maxlength="200">
-      </div>`;
+      <input type="text" value="${escapeHtml(p.labels||'')}" data-id="${p.id}" class="plabels" placeholder="Labels (z.B. Sanitäter, Rettungsschwimmer)" maxlength="200">`;
     c.appendChild(labelsRow);
   });
 
