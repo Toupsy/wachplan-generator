@@ -398,12 +398,10 @@ async function loadPlanById(id){
 
 /** Neuen, leeren Plan aus der Config-Vorlage erstellen (wird beim ersten Speichern angelegt). */
 function createNewPlan(name){
-  currentPlanId = null;             // → autoSave POST erstellt neuen Plan
+  resetGlobalState();               // Reset all state to defaults (towers, boats, DAYS, etc.)
   currentPlanName = (name||'').trim() || 'Wachplan';
   currentPlanCanEdit = true;
   if(typeof seedFromConfig === 'function') seedFromConfig();
-  forcedPlacements = freshForcedPlacements();
-  dayState = freshDayState();
   _rebuildAllUI();
   generate();                       // ruft autoSave → POST → setzt currentPlanId + realtimeJoin
   _updateSaveIndicator();

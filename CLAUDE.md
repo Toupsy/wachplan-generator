@@ -339,6 +339,18 @@ GDPR Art. 5 Abs. 1 c (Datenminimierung): Warnung gegen sensible Daten im Freitex
 - **Lösung (Variante A):** `const need = Math.max(0, (t.slotCount || 2) + (t.leaderCount || 0) - preCount)` – konsistent mit Vorab-Schätzung (Zeile ~225) und tatsächlicher Turmbelegung
 - **Verifikation:** Alle 14 Tests grün, einschließlich Regressions-Szenarien aus `test/leaders.test.js`
 
+### Bugfix: Neue Pläne erben Türme/Boote vom aktuellen Plan (Issue #204, v0.4.14)
+**Problem:** Beim Erstellen eines neuen Plans über „📋 Meine Pläne → Neuer Plan" wurden Türme, Boote und Planungsparameter (DAYS, startDate, mainK, serviceHours, fairnessMetricsDisplay) des aktuellen Plans übernommen.
+- **Ursache (2 Stellen):**
+  1. `createNewPlan()` in `public/js/state-io.js` rief `seedFromConfig()` auf **ohne** vorherigen `resetGlobalState()`-Aufruf
+  2. `seedFromConfig()` in `public/js/config.js` und `seed()` in `public/js/seed.js` reset­teten `towers` / `boats` Arrays **nicht** bevor `.push()` aufgerufen wurde → Akkumulation auf bestehenden Arrays
+- **Symptom:** Ein Nutzer mit Plan A (14 Tage, 10 Türme) erstellt Plan B → Plan B erhält 17 Türme (10 alt + 7 aus Template), altes Startdatum, 14 Tage statt 6
+- **Lösung:** 
+  - `createNewPlan()`: `resetGlobalState()` **vor** `seedFromConfig()` aufrufen (Option A, robust)
+  - `seed()` + `seedFromConfig()`: zusätzlich `towers = []` + `boats = []` einführen (defensiv, Falls resetGlobalState fehlschlägt)
+- **Orte:** `public/js/state-io.js` Zeile 400, `public/js/config.js` Zeile 30, `public/js/seed.js` Zeile 9
+- **Verifikation:** `npm test` grün, neue Pläne starten mit leeren Türmen/Booten + Default-Parametern (DAYS=6, startDate='', serviceStartHour=9, serviceEndHour=17, mainK=2)
+
 ---
 
 ## Manuelles Verschieben & Drag-and-Drop (move.js, render-output.js)
