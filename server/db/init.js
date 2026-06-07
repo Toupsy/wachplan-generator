@@ -164,7 +164,23 @@ async function main() {
   }
 }
 
-module.exports = { initDatabase, validateEnv };
+// Audit logging helper
+function auditLog(db, userId, action, entityType = null, entityId = null, details = null, ipAddress = null) {
+  return new Promise((resolve, reject) => {
+    const detailsStr = details ? JSON.stringify(details) : null;
+    db.run(
+      `INSERT INTO audit_log (user_id, action, entity_type, entity_id, details, ip_address)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [userId, action, entityType, entityId, detailsStr, ipAddress],
+      function(err) {
+        if (err) reject(err);
+        else resolve({ id: this.lastID });
+      }
+    );
+  });
+}
+
+module.exports = { initDatabase, validateEnv, auditLog };
 
 // Run if called directly
 if (require.main === module) {

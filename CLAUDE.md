@@ -329,6 +329,15 @@ GDPR Art. 5 Abs. 1 c (Datenminimierung): Warnung gegen sensible Daten im Freitex
 - **Keine Logikänderung:** Speicherung, Export, Verarbeitung unverändert
 - **VERSION:** v0.4.13
 
+### Feature 20: Audit-Logging (DSGVO Art. 5 Abs. 1 f – Accountability)
+Umfassendes Audit-Log für Benutzeraktionen und Admin-Operationen zur Nachverfolgung und Compliance.
+- **Schema:** `audit_log`-Tabelle mit Spalten: `id`, `user_id` (NULL für System-Events), `action` (login/logout/plan_create/plan_update/plan_delete/plan_share/plan_share_revoke/plan_import/admin_user_create/admin_user_delete/admin_password_reset/plan_cleanup), `entity_type` (user/plan/plan_share), `entity_id` (user_id oder plan_id), `details` (JSON), `ip_address`, `timestamp`
+- **Indizes:** `user_id`, `action`, `timestamp` für schnelle Abfragen
+- **API:** `GET /api/admin/audit-log` – auflisten mit Filterung nach `action` und `user_id`; `limit` (1–500, default 100) und `offset` für Paginierung
+- **Admin-UI:** Tabellarische Anzeige im Admin-Panel mit Filteroptionen
+- **Datenspeicherung:** Audit-Einträge werden nicht automatisch gelöscht (dauerhafte Nachverfolgung); bei Plan-Deletion werden audit_log-Einträge mit `entity_type='plan'` beibehalten (Referential Integrity: `user_id` kann NULL werden, aber Datensatz bleibt)
+- **VERSION:** v0.4.15
+
 ## Bugfixes
 
 ### Bugfix: Passwortlängen-Validierung inconsistent (Issue #234, v0.4.14)
