@@ -764,7 +764,7 @@ function renderBoatStatsPerPerson(){
     const deets = Object.entries(stat.boatVisits||{}).sort(([a],[b])=>bMap[b]?.prio-bMap[a]?.prio)
       .map(([bid,c])=>(bMap[bid]?.name||`B${bid}`)+'('+c+')').join(', ');
     html += `<tr style="border-bottom:1px solid var(--line-strong)"><td style="padding:6px">${escapeHtml(person.name)}</td>`;
-    html += `<td style="text-align:center;padding:6px">${total}</td><td style="text-align:center;padding:6px;color:${cnt>=threshold?'var(--green)':'var(--warn)';font-weight:bold">${cnt}</td>`;
+    html += `<td style="text-align:center;padding:6px">${total}</td><td style="text-align:center;padding:6px;color:${cnt>=threshold?'var(--green)':'var(--warn)'};font-weight:bold">${cnt}</td>`;
     html += `<td style="padding:6px;font-size:.75rem;color:var(--text-dim)">${escapeHtml(deets)}</td></tr>`;
   });
   html += '</table></div>';
