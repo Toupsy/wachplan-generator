@@ -49,6 +49,7 @@ function _buildStateObject(){
     days:                 DAYS,
     positionDescriptions: { ...positionDescriptions },
     fairnessMetricsDisplay: { ...fairnessMetricsDisplay },
+    fairnessChartsDisplay: { ...fairnessChartsDisplay },
     exportColumns:        [...exportColumns],
     people:               people.map(p => {
       const obj = { ...p };
@@ -118,6 +119,9 @@ function importStateJSON(json, silent = false){
   fairnessMetricsDisplay = Object.assign(
     { hwBoatBalance:true, towerDistribution:true, boatPairingDiversity:true },
     s.fairnessMetricsDisplay || {});
+  fairnessChartsDisplay = Object.assign(
+    { assignmentsPerPerson:true, hwDaysPerPerson:true, towerUtilization:true },
+    s.fairnessChartsDisplay || {});
   // Checkboxen mit wiederhergestelltem Zustand synchronisieren
   syncMetricCheckboxes();
   exportColumns = Array.isArray(s.exportColumns) ? [...s.exportColumns] : [];

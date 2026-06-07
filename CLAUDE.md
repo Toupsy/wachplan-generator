@@ -329,6 +329,26 @@ GDPR Art. 5 Abs. 1 c (Datenminimierung): Warnung gegen sensible Daten im Freitex
 - **Keine Logikänderung:** Speicherung, Export, Verarbeitung unverändert
 - **VERSION:** v0.4.13
 
+### Feature 20: Fairness-Visualisierung – Balkendiagramme für Einsatzverteilung (Issue #225, v0.4.14)
+Visuelle SVG-Balkendiagramme zur schnellen Kontrolle der Schichtverteilung über den Planungszeitraum.
+- **3 Diagramme** (alle togglebar):
+  1. **Einsätze gesamt pro Person** – horizontal gestapelter Wachplan, sortiert absteigend, mit Durchschnittslinie (Ø)
+  2. **HW-Tage pro Person** – zeigt Imbalancen bei Dauerlast an der Hauptwache
+  3. **Turmauslastung** – je nach Turm-Prio sortiert; Über/Unterauslastung sichtbar
+- **Farbcoding:**
+  - Grün: Ausgeglichene Verteilung (±30% vom Durchschnitt)
+  - Orange: Schieflage erkannt (>30% Abweichung)
+  - Rote Durchschnittslinie (Ø) als Referenz
+- **Toggle**: 3 Checkboxen in `#section-fairness-metrics` (sub-Bereich „Visualisierungen")
+- **Print-Modus:** `@media print { .charts-container { display: none } }` – Charts im Druck ausgeblendet
+- **Implementierung**: Reines SVG/CSS, keine externen Libs (CSP-konform `default-src 'self'`)
+  - `renderAssignmentsChart()`, `renderHWDaysChart()`, `renderTowerUtilizationChart()` in `render-output.js`
+  - `fairnessChartsDisplay` in `state.js` + Import/Export via `state-io.js` (STATE_VERSION 6)
+  - Event-Listener in `init.js` (Toggle → re-render)
+- **Design:** Dark-Theme mit CSS-Variablen (grün/orange/coral wie bestehende Metriken)
+- **UX:** Nach Plan-Generierung sofort sichtbar; hilft bei manuellen Optimierungen (Move-Modal ↕)
+- **VERSION:** v0.4.14
+
 ## Bugfixes
 
 ### Bugfix: openTowers-Bedarfsrechnung ignoriert leaderCount (Issue #117, v0.4.1)

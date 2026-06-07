@@ -62,6 +62,13 @@ let fairnessMetricsDisplay = {
   boatPairingDiversity: true
 };
 
+// Fairness-Visualisierungen (Balkendiagramme)
+let fairnessChartsDisplay = {
+  assignmentsPerPerson: true,   // Einsätze gesamt pro Person
+  hwDaysPerPerson: true,        // HW-Tage pro Person
+  towerUtilization: true        // Turmauslastung
+};
+
 // XLSX-Stationsspalten: 16 Einträge, jeder ein Stations-Code (oder '') für die
 // Template-Spalten U, AA, AG, AM, AS, AY, BE, BK, BQ, BW, CC, CI, CO, CU, DM, DS
 // Leer ('') = Spalte bleibt im Export unbeschriftet
@@ -104,6 +111,11 @@ function resetGlobalState() {
     hwBoatBalance: true,
     towerDistribution: true,
     boatPairingDiversity: true
+  };
+  fairnessChartsDisplay = {
+    assignmentsPerPerson: true,
+    hwDaysPerPerson: true,
+    towerUtilization: true
   };
   exportColumns = [];
   lastResult = null;

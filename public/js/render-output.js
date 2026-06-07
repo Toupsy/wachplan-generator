@@ -307,7 +307,7 @@ function renderOutput(){
   });
 
   // Zusatz-Auswertungen (im Druck ausgeblendet via .out-extras)
-  html += `<div class="out-extras">${renderTowerStatsPerPerson()}${renderMatrix()}</div>`;
+  html += `<div class="out-extras">${renderFairnessCharts()}${renderTowerStatsPerPerson()}${renderMatrix()}</div>`;
   panel.innerHTML = html;
 
   // ── Event-Listener ─────────────────────────────────────────────
@@ -777,4 +777,146 @@ function _applyBoatReassignment(boatId, dayIdx, kind, slotId){
     targetSlotId: slotId,
     transparent: true
   });
+}
+
+/** Erstellt SVG-Balkendiagramm für Einsätze pro Person */
+function renderAssignmentsChart(){
+  if(!lastResult?.stats) return '';
+  const stats = Object.entries(lastResult.stats)
+    .filter(([id, s]) => people.find(p => p.id === parseInt(id)))
+    .map(([id, s]) => ({ personId: parseInt(id), person: people.find(p => p.id === parseInt(id)), total: s.total }))
+    .sort((a, b) => b.total - a.total);
+
+  if(stats.length === 0) return '';
+
+  const maxVal = Math.max(...stats.map(s => s.total));
+  const avgVal = stats.reduce((sum, s) => sum + s.total, 0) / stats.length;
+  const width = 800, height = Math.max(180, stats.length * 20 + 40);
+  const margin = { left: 140, right: 20, top: 20, bottom: 30 };
+  const chartWidth = width - margin.left - margin.right;
+  const chartHeight = height - margin.top - margin.bottom;
+  const barHeight = Math.max(14, chartHeight / stats.length);
+
+  let svg = `<svg class="chart-svg" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">`;
+
+  stats.forEach((s, idx) => {
+    const y = margin.top + idx * barHeight;
+    const barWidth = (s.total / maxVal) * chartWidth;
+    const isSkewed = Math.abs(s.total - avgVal) > avgVal * 0.3;
+    const barClass = isSkewed ? 'chart-bar skewed' : 'chart-bar balanced';
+    svg += `<rect x="${margin.left}" y="${y + 2}" width="${barWidth}" height="${barHeight - 4}" class="${barClass}" data-value="${s.total}"/>`;
+    svg += `<text x="${margin.left - 8}" y="${y + barHeight / 2 + 3}" class="chart-label-y">${escapeHtml(s.person.name.slice(0, 16))}</text>`;
+    svg += `<text x="${margin.left + barWidth + 5}" y="${y + barHeight / 2 + 3}" class="chart-text">${s.total}</text>`;
+  });
+
+  const avgX = margin.left + (avgVal / maxVal) * chartWidth;
+  svg += `<line x1="${avgX}" y1="${margin.top}" x2="${avgX}" y2="${height - margin.bottom}" class="chart-avg-line"/>`;
+  svg += `<text x="${avgX}" y="${height - 8}" class="chart-label-x" text-anchor="middle">Ø ${Math.round(avgVal * 10) / 10}</text>`;
+
+  svg += '</svg>';
+  return `<div class="chart-section"><div class="chart-title">📊 Einsätze gesamt pro Person</div><div class="chart-wrapper">${svg}</div></div>`;
+}
+
+/** Erstellt SVG-Balkendiagramm für HW-Tage pro Person */
+function renderHWDaysChart(){
+  if(!lastResult?.stats) return '';
+  const stats = Object.entries(lastResult.stats)
+    .filter(([id, s]) => people.find(p => p.id === parseInt(id)))
+    .map(([id, s]) => ({ personId: parseInt(id), person: people.find(p => p.id === parseInt(id)), hwVisits: s.hwVisits }))
+    .sort((a, b) => b.hwVisits - a.hwVisits);
+
+  if(stats.length === 0) return '';
+
+  const maxVal = Math.max(...stats.map(s => s.hwVisits), 1);
+  const avgVal = stats.reduce((sum, s) => sum + s.hwVisits, 0) / stats.length;
+  const width = 800, height = Math.max(180, stats.length * 20 + 40);
+  const margin = { left: 140, right: 20, top: 20, bottom: 30 };
+  const chartWidth = width - margin.left - margin.right;
+  const chartHeight = height - margin.top - margin.bottom;
+  const barHeight = Math.max(14, chartHeight / stats.length);
+
+  let svg = `<svg class="chart-svg" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">`;
+
+  stats.forEach((s, idx) => {
+    const y = margin.top + idx * barHeight;
+    const barWidth = (s.hwVisits / maxVal) * chartWidth;
+    const isSkewed = Math.abs(s.hwVisits - avgVal) > avgVal * 0.4;
+    const barClass = isSkewed ? 'chart-bar skewed' : 'chart-bar balanced';
+    svg += `<rect x="${margin.left}" y="${y + 2}" width="${barWidth}" height="${barHeight - 4}" class="${barClass}"/>`;
+    svg += `<text x="${margin.left - 8}" y="${y + barHeight / 2 + 3}" class="chart-label-y">${escapeHtml(s.person.name.slice(0, 16))}</text>`;
+    svg += `<text x="${margin.left + barWidth + 5}" y="${y + barHeight / 2 + 3}" class="chart-text">${s.hwVisits}</text>`;
+  });
+
+  const avgX = margin.left + (avgVal / maxVal) * chartWidth;
+  svg += `<line x1="${avgX}" y1="${margin.top}" x2="${avgX}" y2="${height - margin.bottom}" class="chart-avg-line"/>`;
+  svg += `<text x="${avgX}" y="${height - 8}" class="chart-label-x" text-anchor="middle">Ø ${Math.round(avgVal * 10) / 10}</text>`;
+
+  svg += '</svg>';
+  return `<div class="chart-section"><div class="chart-title">🏠 HW-Tage pro Person</div><div class="chart-wrapper">${svg}</div></div>`;
+}
+
+/** Erstellt SVG-Balkendiagramm für Turmauslastung */
+function renderTowerUtilizationChart(){
+  if(!lastResult?.stats || towers.length === 0) return '';
+
+  const towerStats = {};
+  towers.forEach(t => {
+    towerStats[t.id] = { name: t.name, visits: 0, prio: t.prio };
+  });
+
+  Object.values(lastResult.stats).forEach(s => {
+    Object.entries(s.towerVisits || {}).forEach(([towerId, count]) => {
+      if(towerStats[towerId]) towerStats[towerId].visits += count;
+    });
+  });
+
+  const stats = Object.entries(towerStats)
+    .map(([id, t]) => ({ towerId: parseInt(id), ...t }))
+    .sort((a, b) => a.prio - b.prio);
+
+  const maxVal = Math.max(...stats.map(s => s.visits), 1);
+  const avgVal = stats.reduce((sum, s) => sum + s.visits, 0) / stats.length;
+  const width = 800, height = Math.max(180, stats.length * 24 + 40);
+  const margin = { left: 140, right: 20, top: 20, bottom: 30 };
+  const chartWidth = width - margin.left - margin.right;
+  const chartHeight = height - margin.top - margin.bottom;
+  const barHeight = Math.max(16, chartHeight / stats.length);
+
+  let svg = `<svg class="chart-svg" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">`;
+
+  stats.forEach((s, idx) => {
+    const y = margin.top + idx * barHeight;
+    const barWidth = (s.visits / maxVal) * chartWidth;
+    const isSkewed = Math.abs(s.visits - avgVal) > avgVal * 0.35;
+    const barClass = isSkewed ? 'chart-bar skewed' : 'chart-bar balanced';
+    svg += `<rect x="${margin.left}" y="${y + 2}" width="${barWidth}" height="${barHeight - 4}" class="${barClass}"/>`;
+    svg += `<text x="${margin.left - 8}" y="${y + barHeight / 2 + 3}" class="chart-label-y">${escapeHtml(s.name.slice(0, 14))}</text>`;
+    svg += `<text x="${margin.left + barWidth + 5}" y="${y + barHeight / 2 + 3}" class="chart-text">${s.visits}</text>`;
+  });
+
+  const avgX = margin.left + (avgVal / maxVal) * chartWidth;
+  svg += `<line x1="${avgX}" y1="${margin.top}" x2="${avgX}" y2="${height - margin.bottom}" class="chart-avg-line"/>`;
+  svg += `<text x="${avgX}" y="${height - 8}" class="chart-label-x" text-anchor="middle">Ø ${Math.round(avgVal * 10) / 10}</text>`;
+
+  svg += '</svg>';
+  return `<div class="chart-section"><div class="chart-title">📍 Turmauslastung</div><div class="chart-wrapper">${svg}</div></div>`;
+}
+
+/** Rendert Fairness-Visualisierungen (Balkendiagramme) */
+function renderFairnessCharts(){
+  if(!fairnessChartsDisplay) return '';
+  let html = '<div class="charts-container">';
+
+  if(fairnessChartsDisplay.assignmentsPerPerson) {
+    html += renderAssignmentsChart();
+  }
+  if(fairnessChartsDisplay.hwDaysPerPerson) {
+    html += renderHWDaysChart();
+  }
+  if(fairnessChartsDisplay.towerUtilization) {
+    html += renderTowerUtilizationChart();
+  }
+
+  html += '</div>';
+  return html;
 }

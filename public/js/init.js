@@ -14,6 +14,16 @@ function syncMetricCheckboxes(){
     const el = document.getElementById(id);
     if(el) el.checked = !!fairnessMetricsDisplay[key];
   });
+
+  const CHARTS_MAP = {
+    'chart-assignments':  'assignmentsPerPerson',
+    'chart-hw-days':      'hwDaysPerPerson',
+    'chart-tower-util':   'towerUtilization'
+  };
+  Object.entries(CHARTS_MAP).forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    if(el) el.checked = !!fairnessChartsDisplay[key];
+  });
 }
 
 /** Mobile Switch Setup (Tab-Umschalter für <768px)
@@ -267,6 +277,20 @@ Object.entries(METRICS_MAP).forEach(([id, key]) => {
   const el = document.getElementById(id);
   if(el) el.onchange = e => {
     fairnessMetricsDisplay[key] = e.target.checked;
+    if(lastResult) renderOutput();
+  };
+});
+
+// ── Fairness-Visualisierungen (Charts) ─────────────────────────────
+const CHARTS_MAP = {
+  'chart-assignments':  'assignmentsPerPerson',
+  'chart-hw-days':      'hwDaysPerPerson',
+  'chart-tower-util':   'towerUtilization'
+};
+Object.entries(CHARTS_MAP).forEach(([id, key]) => {
+  const el = document.getElementById(id);
+  if(el) el.onchange = e => {
+    fairnessChartsDisplay[key] = e.target.checked;
     if(lastResult) renderOutput();
   };
 });
