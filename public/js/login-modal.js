@@ -42,19 +42,42 @@ async function initLoginModal() {
     console.error('Setup check failed:', error);
   }
 
-  showLoginModal();
+  // Check registration status and show login with optional register link
+  try {
+    const regResponse = await fetch('/api/auth/registration-status', { credentials: 'include' });
+    const regData = await regResponse.json();
+    showLoginModal(regData);
+  } catch (error) {
+    console.error('Registration status check failed:', error);
+    showLoginModal({ enabled: false });
+  }
 }
 
-function showLoginModal() {
+function showLoginModal(regStatus = { enabled: false }) {
   const loginModal = document.getElementById('login-modal');
   const loginView = document.getElementById('login-view');
   const setupView = document.getElementById('setup-view');
+  const registerView = document.getElementById('register-view');
   const loginForm = document.getElementById('login-form');
+  const registerLinkText = document.getElementById('register-link-text');
 
   if(loginModal) loginModal.style.display = 'flex';
   if(loginView) loginView.style.display = 'block';
   if(setupView) setupView.style.display = 'none';
+  if(registerView) registerView.style.display = 'none';
   if(loginForm) loginForm.addEventListener('submit', handleLogin);
+
+  // Show registration link if enabled
+  if (regStatus.enabled && registerLinkText) {
+    registerLinkText.innerHTML = 'Noch kein Account? <button type="button" id="show-register-btn" style="background:none;border:none;color:var(--sea-bright);cursor:pointer;text-decoration:underline;font-size:inherit">Jetzt registrieren</button>';
+    const showRegisterBtn = document.getElementById('show-register-btn');
+    if(showRegisterBtn) {
+      showRegisterBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        showRegisterView(regStatus);
+      });
+    }
+  }
 }
 
 function showSetupModal() {
@@ -170,6 +193,95 @@ async function handleSetup(e) {
       credentials: 'include',
       body: JSON.stringify({ username, password })
     });
+
+    if (typeof updateUserInfo === 'function') await updateUserInfo();
+    hideLoginModal();
+  } catch (error) {
+    if(errorEl) errorEl.textContent = 'Netzwerkfehler: ' + error.message;
+  }
+}
+
+function showRegisterView(regStatus) {
+  const loginView = document.getElementById('login-view');
+  const registerView = document.getElementById('register-view');
+  const registerForm = document.getElementById('register-form');
+  const registerCodeField = document.getElementById('register-code-field');
+
+  if(loginView) loginView.style.display = 'none';
+  if(registerView) registerView.style.display = 'block';
+
+  // Show code field only if code is required
+  if(registerCodeField) {
+    registerCodeField.style.display = regStatus.requiresCode ? 'block' : 'none';
+  }
+
+  if(registerForm) registerForm.addEventListener('submit', handleRegister);
+
+  const backBtn = document.getElementById('back-to-login-btn');
+  if(backBtn) {
+    backBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      showLoginModal(regStatus);
+    });
+  }
+}
+
+async function handleRegister(e) {
+  e.preventDefault();
+  const usernameEl = document.getElementById('register-username');
+  const passwordEl = document.getElementById('register-password');
+  const password2El = document.getElementById('register-password2');
+  const emailEl = document.getElementById('register-email');
+  const codeEl = document.getElementById('register-code');
+  const privacyEl = document.getElementById('register-privacy');
+  const errorEl = document.getElementById('register-error');
+
+  if(!usernameEl || !passwordEl || !password2El || !errorEl) {
+    console.error('Register form elements not found');
+    return;
+  }
+
+  const username = usernameEl.value;
+  const password = passwordEl.value;
+  const password2 = password2El.value;
+  const email = emailEl?.value || '';
+  const code = codeEl?.value || '';
+  const acceptedPrivacy = privacyEl?.checked ?? false;
+
+  // Validate passwords match
+  if (password !== password2) {
+    errorEl.textContent = 'Passwörter stimmen nicht überein';
+    return;
+  }
+
+  // Validate password length
+  if (password.length < 10) {
+    errorEl.textContent = 'Passwort muss mindestens 10 Zeichen haben';
+    return;
+  }
+
+  // Validate privacy acceptance
+  if (!acceptedPrivacy) {
+    errorEl.textContent = 'Datenschutzhinweis muss akzeptiert werden';
+    return;
+  }
+
+  try {
+    const payload = { username, password, email, acceptedPrivacy };
+    if (code) payload.code = code;
+
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      errorEl.textContent = data.error || 'Registrierung fehlgeschlagen';
+      return;
+    }
 
     if (typeof updateUserInfo === 'function') await updateUserInfo();
     hideLoginModal();
