@@ -41,6 +41,7 @@ async function start() {
     console.log('✓ Database ready');
 
     // Session middleware (SQLite-Store, zentral in db/session.js)
+    // Explizit resave=false, saveUninitialized=false um Session-Bloat zu reduzieren
     const dbPath = path.join(__dirname, '..', 'data', 'wachplan.db');  // für Log unten
     app.use(createSessionMiddleware({ resave: false, saveUninitialized: false }));
 

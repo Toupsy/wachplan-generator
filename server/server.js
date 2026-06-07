@@ -50,8 +50,10 @@ async function start() {
     console.log('✓ Database ready');
 
     // Session middleware (SQLite-Store, zentral in db/session.js).
-    // saveUninitialized: false → Sessions nur bei Login angelegt (via regenerate())
-    // resave: false → Optimierung: DB nur bei Änderungen aktualisiert
+    // Explizit resave=false, saveUninitialized=false um Session-Bloat zu reduzieren:
+    // - saveUninitialized=false: keine Sessions für anon. Besucher → weniger DB-Einträge
+    // - resave=false: DB-Update nur bei Session-Änderungen → Performance
+    // Authenticated Sessions sind nicht betroffen (login() nutzt regenerate() → explizit gespeichert)
     const sessionMiddleware = createSessionMiddleware({ resave: false, saveUninitialized: false });
     app.use(sessionMiddleware);
 
