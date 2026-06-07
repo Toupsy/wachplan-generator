@@ -72,6 +72,13 @@ function initDatabase() {
 
       console.log('✓ Database connection established:', dbPath);
 
+      // Migration: Drop old incorrectly-structured sessions table from pre-#211 versions.
+      // connect-sqlite3 expects (sid, expired, sess) but old schema had (sid, session, expiryDate).
+      // Sessions are ephemeral → dropping is safe. connect-sqlite3 will create correct table.
+      db.run('DROP TABLE IF EXISTS sessions', () => {
+        // Ignore errors; table may not exist in fresh installs
+      });
+
       // Read and execute schema
       const schemaPath = path.join(__dirname, 'schema.sql');
       const schema = fs.readFileSync(schemaPath, 'utf-8');
@@ -157,7 +164,23 @@ async function main() {
   }
 }
 
-module.exports = { initDatabase, validateEnv };
+// Audit logging helper
+function auditLog(db, userId, action, entityType = null, entityId = null, details = null, ipAddress = null) {
+  return new Promise((resolve, reject) => {
+    const detailsStr = details ? JSON.stringify(details) : null;
+    db.run(
+      `INSERT INTO audit_log (user_id, action, entity_type, entity_id, details, ip_address)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [userId, action, entityType, entityId, detailsStr, ipAddress],
+      function(err) {
+        if (err) reject(err);
+        else resolve({ id: this.lastID });
+      }
+    );
+  });
+}
+
+module.exports = { initDatabase, validateEnv, auditLog };
 
 // Run if called directly
 if (require.main === module) {

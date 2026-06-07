@@ -201,7 +201,7 @@ async function submitPasswordChange() {
   const next2 = document.getElementById('pw-new2').value;
 
   if (!current || !next) { _setPwMsg('Bitte alle Felder ausfüllen.'); return; }
-  if (next.length < 8) { _setPwMsg('Neues Passwort: mindestens 8 Zeichen.'); return; }
+  if (next.length < 10) { _setPwMsg('Neues Passwort: mindestens 10 Zeichen.'); return; }
   if (next !== next2) { _setPwMsg('Die neuen Passwörter stimmen nicht überein.'); return; }
 
   const btn = document.getElementById('pw-modal-confirm');

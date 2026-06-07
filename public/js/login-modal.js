@@ -144,8 +144,8 @@ async function handleSetup(e) {
     errorEl.textContent = 'Passwörter stimmen nicht überein';
     return;
   }
-  if (password.length < 8) {
-    errorEl.textContent = 'Passwort muss mindestens 8 Zeichen haben';
+  if (password.length < 10) {
+    errorEl.textContent = 'Passwort muss mindestens 10 Zeichen haben';
     return;
   }
 
