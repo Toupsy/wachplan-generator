@@ -18,6 +18,21 @@ function closePlansModal(){
   if(m) m.style.display = 'none';
 }
 
+function openDuplicatePlanModal(planId, planName){
+  const modal = document.getElementById('duplicate-plan-modal');
+  if(!modal) return;
+  modal.dataset.planId = planId;
+  modal.dataset.planName = planName;
+  const titleEl = modal.querySelector('.modal-title');
+  if(titleEl) titleEl.textContent = 'Plan duplizieren: ' + escapeHtml(planName);
+  modal.style.display = 'flex';
+}
+
+function closeDuplicatePlanModal(){
+  const m = document.getElementById('duplicate-plan-modal');
+  if(m) m.style.display = 'none';
+}
+
 async function renderPlansList(){
   const listEl = document.getElementById('plans-list');
   if(!listEl) return;
@@ -31,6 +46,9 @@ async function renderPlansList(){
     const badge = p.isOwner
       ? '<span style="font-size:.62rem;color:var(--text-dim);text-transform:uppercase">Eigen</span>'
       : `<span style="font-size:.62rem;color:var(--warn);text-transform:uppercase">geteilt · ${escapeHtml(p.ownerName||'?')}</span>`;
+    const dupBtn = p.isOwner
+      ? `<button class="ghost-btn pl-dup" data-id="${p.id}" data-name="${escapeHtml(p.name||'')}" style="border-color:var(--sea);color:var(--sea);font-size:.72rem;padding:4px 8px" title="Duplizieren">⧉</button>`
+      : '';
     const del = p.isOwner
       ? `<button class="ghost-btn pl-del" data-id="${p.id}" data-name="${escapeHtml(p.name||'')}" style="border-color:var(--coral);color:var(--coral);font-size:.72rem;padding:4px 8px" title="Löschen">🗑️</button>`
       : '';
@@ -42,7 +60,7 @@ async function renderPlansList(){
         <div style="font-size:.88rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(p.name||'(ohne Name)')}</div>
         <div>${badge}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">${openBtn}${del}</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">${openBtn}${dupBtn}${del}</div>
     </div>`;
   }).join('');
 
@@ -50,6 +68,9 @@ async function renderPlansList(){
     await loadPlanById(+b.dataset.id);
     await renderPlansList();
     const ni = document.getElementById('plan-name-input'); if(ni) ni.value = currentPlanName || '';
+  });
+  listEl.querySelectorAll('.pl-dup').forEach(b => b.onclick = () => {
+    openDuplicatePlanModal(+b.dataset.id, b.dataset.name);
   });
   listEl.querySelectorAll('.pl-del').forEach(b => b.onclick = async () => {
     if(!confirm(`Plan „${b.dataset.name}" wirklich löschen?`)) return;
@@ -84,5 +105,25 @@ document.addEventListener('DOMContentLoaded', () => {
     createNewPlan(name);
     const ni = document.getElementById('plan-name-input'); if(ni) ni.value = currentPlanName || '';
     await renderPlansList();
+  };
+
+  // Duplicate Modal
+  const dupCloseBtn = document.getElementById('duplicate-plan-modal-close-btn');
+  if(dupCloseBtn) dupCloseBtn.onclick = closeDuplicatePlanModal;
+  const dupModal = document.getElementById('duplicate-plan-modal');
+  if(dupModal) dupModal.addEventListener('click', e => { if(e.target === dupModal) closeDuplicatePlanModal(); });
+
+  const dupConfirmBtn = document.getElementById('duplicate-plan-confirm-btn');
+  if(dupConfirmBtn) dupConfirmBtn.onclick = async () => {
+    const planId = +dupModal.dataset.planId;
+    const includeForcedPlmts = document.getElementById('duplicate-include-forced').checked;
+    closeDuplicatePlanModal();
+    const success = await duplicatePlanById(planId, includeForcedPlmts);
+    if(success){
+      closePlansModal();
+      await renderPlansList();
+    } else {
+      await renderPlansList();
+    }
   };
 });

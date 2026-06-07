@@ -434,6 +434,71 @@ async function deletePlanById(id){
   } catch(e){ console.error('deletePlanById', e); return false; }
 }
 
+/** Plan duplizieren: lädt den Plan, serialisiert seinen State, erstellt einen neuen Plan mit Kopie */
+async function duplicatePlanById(id, includeForcedPlacements = false){
+  try {
+    const res = await fetch(`/api/plans/${id}`, { credentials:'include' });
+    if(!res.ok){ showToast('Plan konnte nicht geladen werden', true); return false; }
+    const data = await res.json().catch(()=>({}));
+    if(!data.state){ showToast('Plan ist leer/ungültig', true); return false; }
+
+    // State deserialisieren
+    let sourceState;
+    if(typeof data.state === 'string'){
+      sourceState = JSON.parse(data.state);
+    } else {
+      sourceState = data.state;
+    }
+
+    // Neue State-Kopie erstellen
+    const newState = JSON.parse(JSON.stringify(sourceState));
+
+    // Wenn forcedPlacements nicht übernommen werden, zurücksetzen
+    if(!includeForcedPlacements){
+      newState.forcedPlacements = (newState.forcedPlacements || []).map(() => []);
+    }
+
+    // Neuer Name: "<Original> (Kopie)"
+    const newName = (data.name || 'Wachplan') + ' (Kopie)';
+
+    // POST: neuen Plan mit kopiertem State erstellen
+    const createRes = await fetch('/api/plans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ name: newName, state: newState })
+    });
+
+    if(!createRes.ok){
+      const d = await createRes.json().catch(()=>({}));
+      showToast(d.error || 'Duplizieren fehlgeschlagen', true);
+      return false;
+    }
+
+    const newPlan = await createRes.json();
+    currentPlanId = newPlan.id;
+    currentPlanName = newPlan.name;
+    currentPlanCanEdit = true;
+
+    // UI aktualisieren
+    _suppressAutoSave = true;
+    try {
+      importStateJSON(newState, true);
+      generate();
+    } finally {
+      _suppressAutoSave = false; }
+
+    if(typeof realtimeJoin === 'function') realtimeJoin(currentPlanId);
+    _updateSaveIndicator();
+    showToast('📋 Plan „' + newName + '" erstellt');
+    return true;
+  } catch(e){
+    console.error('duplicatePlanById', e);
+    showToast('Fehler beim Duplizieren', true);
+    return false;
+  }
+}
+
 /** Von realtime.js bei { type:'plan-updated' } aufgerufen: aktuellen Plan neu laden, ohne Echo. */
 async function applyRemotePlanState(){
   if(currentPlanId == null) return;

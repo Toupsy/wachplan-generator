@@ -637,6 +637,26 @@
   </div>
 </div>
 
+<!-- ── Plan duplizieren Modal ──────────────────────────────────── -->
+<div id="duplicate-plan-modal" class="modal-overlay modal panel panel-duplicate-plan-modal" data-panel-name="Plan duplizieren" style="display:none">
+  <div class="modal-box" style="max-width:460px">
+    <button class="modal-close-btn" id="duplicate-plan-modal-close-btn">×</button>
+    <div class="modal-title">Plan duplizieren</div>
+    <div class="modal-sub">Der Plan wird mit allen Einstellungen kopiert. Du kannst Optionen wählen:</div>
+    <label style="display:flex;gap:8px;align-items:center;margin:16px 0;cursor:pointer;font-size:.9rem">
+      <input type="checkbox" id="duplicate-include-forced" checked style="width:16px;height:16px;cursor:pointer;accent-color:var(--green)">
+      <span>Manuelle Zuweisungen und Tagesstatus übernehmen</span>
+    </label>
+    <div style="font-size:.78rem;color:var(--text-dim);margin:12px 0;line-height:1.4">
+      Wenn unchecked: Der neue Plan hat die gleiche Konfiguration (Personen, Türme, Boote), aber kein Datum und keine manuellen Zuweisungen.
+    </div>
+    <div style="display:flex;gap:8px">
+      <button id="duplicate-plan-confirm-btn" class="modal-confirm" style="flex:1">⧉ Duplizieren</button>
+      <button class="ghost-btn" onclick="closeDuplicatePlanModal()" style="width:auto;padding:10px 14px;border-color:var(--line-strong);color:var(--text-dim)">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Haupt-Layout ────────────────────────────────────────────── -->
 <div class="wrap">
   <header>

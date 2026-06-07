@@ -329,6 +329,22 @@ GDPR Art. 5 Abs. 1 c (Datenminimierung): Warnung gegen sensible Daten im Freitex
 - **Keine Logikänderung:** Speicherung, Export, Verarbeitung unverändert
 - **VERSION:** v0.4.13
 
+### Feature 20: Plan duplizieren („Als Vorlage verwenden")
+Schnelles Aufsetzen eines Folgeplans aus bestehender Konfiguration (Issue #223):
+- **UI:** Button „⧉ Duplizieren" je Plan-Eintrag in `#plans-modal` (Plan-Manager)
+- **Modal:** `#duplicate-plan-modal` mit Checkbox „Manuelle Zuweisungen übernehmen"
+  - Checked (Default): `forcedPlacements` + `dayState` (sick/closed) werden kopiert
+  - Unchecked: nur Struktur (Personen/Türme/Boote/Config), `forcedPlacements` wird geleert
+- **Flow:** `duplicatePlanById(planId, includeForcedPlacements)` in `state-io.js`
+  - Lädt Source-Plan via `GET /api/plans/:id`
+  - Deep-clone des State via `JSON.parse(JSON.stringify(sourceState))`
+  - Optionales Zurücksetzen von `forcedPlacements`
+  - POST neuer Plan mit Name „<Original> (Kopie)"
+  - Neuer Plan wird sofort geöffnet und in die `realtimeJoin` aufgenommen
+- **Buttons:** `plans-ui.js` implementiert `openDuplicatePlanModal()` + `closeDuplicatePlanModal()`, verdrahtet in DOMContentLoaded
+- **Datei:** `public/Wachplan-Generator.html` enthält `#duplicate-plan-modal`
+- **VERSION:** v0.4.14
+
 ## Bugfixes
 
 ### Bugfix: openTowers-Bedarfsrechnung ignoriert leaderCount (Issue #117, v0.4.1)
