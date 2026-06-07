@@ -89,11 +89,6 @@ function buildAssignments(dayIdx){
     const allHW=[...main.mainGuards,...main.base,...main.bootsfLeft,...(main.sick||[])]
       .map(p=>personNr(p.id)).filter(n=>n!=null);
     if(allHW.length)   A['HW']  = allHW; // alle HW → Overflow inline via _patchSheetXml
-
-    if(main.hwBoatSlot?.bootsf){
-      const boCode = getBoat(main.hwBoatSlot.boatId)?.code;
-      if(boCode) A[boCode] = [personNr(main.hwBoatSlot.bootsf.id)].filter(n=>n!=null);
-    }
   }
   return A;
 }
@@ -426,8 +421,6 @@ function exportCSV(){
         slot.mainGuards.forEach(p =>rows.push([dn,slot.tower,'','Zentrale','HW-Wache',p.name,roleLabel(p),p.labels||'']));
         slot.base.forEach(p       =>rows.push([dn,slot.tower,'','Zentrale','HW',p.name,roleLabel(p),p.labels||'']));
         slot.bootsfLeft.forEach(p =>rows.push([dn,slot.tower,'','Zentrale','Bootsf. HW',p.name,roleLabel(p),p.labels||'']));
-        if(slot.hwBoatSlot?.bootsf)
-          rows.push([dn,slot.hwBoatSlot.name,getBoat(slot.hwBoatSlot.boatId)?.code||'','HW-Boot','Bootsführer',slot.hwBoatSlot.bootsf.name,roleLabel(slot.hwBoatSlot.bootsf),slot.hwBoatSlot.bootsf.labels||'']);
         slot.sick.forEach(p       =>rows.push([dn,slot.tower,'','Zentrale','A. D.',p.name,roleLabel(p),p.labels||'']));
       } else if(slot.kind==='tower'){
         slot.occupants.forEach(p  =>rows.push([dn,slot.tower,slot.code||'','Turm','Wachgänger',p.name,roleLabel(p),p.labels||'']));
@@ -546,7 +539,6 @@ function exportPersonalICS(personId){
         const inGuards    = slot.mainGuards.some(p => p.id === personId);
         const inBase      = slot.base.some(p => p.id === personId);
         const inBootsfLeft = slot.bootsfLeft.some(p => p.id === personId);
-        const inHWBoat    = slot.hwBoatSlot?.bootsf?.id === personId;
         const isSick      = slot.sick?.some(p => p.id === personId);
 
         if(inFuehrung || inGuards || inBase || inBootsfLeft){
@@ -554,15 +546,6 @@ function exportPersonalICS(personId){
             station: 'Hauptwache',
             code: 'HW',
             type: 'Wache'
-          });
-        }
-        if(inHWBoat){
-          const boatName = slot.hwBoatSlot?.name || 'HW-Boot';
-          const boatCode = slot.hwBoatSlot?.code || '';
-          dayServices.push({
-            station: boatName,
-            code: boatCode,
-            type: 'Boot'
           });
         }
         // Kranke werden NICHT als Event exportiert

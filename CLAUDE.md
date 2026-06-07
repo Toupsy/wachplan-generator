@@ -329,27 +329,15 @@ GDPR Art. 5 Abs. 1 c (Datenminimierung): Warnung gegen sensible Daten im Freitex
 - **Keine Logikänderung:** Speicherung, Export, Verarbeitung unverändert
 - **VERSION:** v0.4.13
 
-### Feature 20: Persönlicher Dienstplan-Export (.ics iCalendar)
-Jeder Wachgänger erhält seinen persönlichen Dienstplan als `.ics`-Datei für den Import in Telefon-Kalendaranwendungen.
-- **Export-Funktion:** `exportPersonalICS(personId)` in `public/js/export.js`
-  - Sammelt alle Dienst-Tage aus `lastResult.schedule` für die Person
-  - Berücksichtigt: Türme, Boote, Hauptwache-Rollen (Führung, Wache, BF)
-  - Ignoriert: kranke Personen
-- **iCalendar-Format:**
-  - Pro Dienst-Tag ein VEVENT
-  - DTSTART/DTEND: lokale Zeiten (aus `serviceStartHour`/`serviceEndHour`)
-  - SUMMARY: Stationsname + Typ (z.B. „Nord (Turm)")
-  - LOCATION: Stations-Code
-- **Zeitzone:** Berlin (mit Standard/Daylight-Switching per VTIMEZONE)
-- **UI:** Button „📅 .ics" in der Turm-Einsatzverteilung pro Person (renderTowerStatsPerPerson)
-- **Hilfsfunktionen:**
-  - `_generateUUID()` – UIDs für VEVENT
-  - `_toICalDateTime(dateStr, hour, minute)` – Konvertierung zu iCalendar-Format
-  - `_escapeICalText(s)` – Escaping von Sonderzeichen (RFC 5545)
-- **Dateiname:** `wachplan-<vorname-nachname>.ics` (Leerzeichen → Bindestriche)
-- **VERSION:** v0.4.14
-
 ## Bugfixes
+
+### Bugfix: Passwortlängen-Validierung inconsistent (Issue #234, v0.4.14)
+**Problem:** Frontend validierte ≥8 Zeichen, Backend verlangte ≥10, führte zu widersprüchlichen Fehlermeldungen.
+- **Ort:** `public/js/login-modal.js` Zeile 145, `public/js/user-info.js` Zeile 204, `public/Wachplan-Generator.html` Zeile 532 + 589
+- **Ursache:** Frontend und HTML-Placeholder verwendeten noch die alte Anforderung (8 Zeichen), während Backend bereits zu 10 Zeichen migriert war
+- **Symptom:** Benutzer konnte 8-9 stellige Passwörter eingeben, Frontend-Validierung schlug fehl, Backend sendete englische Fehlermeldung
+- **Lösung:** Frontend-Validierung auf ≥10 Zeichen erhöht, alle Placeholder-Texte aktualisiert: `"Passwort (min. 10 Zeichen)"`
+- **Verifikation:** Alle Frontend-Validierungen (Setup + Passwort-Änderung) und Placeholder-Texte konsistent auf 10 Zeichen
 
 ### Bugfix: openTowers-Bedarfsrechnung ignoriert leaderCount (Issue #117, v0.4.1)
 **Problem:** Bei der Entscheidung, welche Türme geöffnet werden, wurde `leaderCount` nicht in den Personalbedarf eingerechnet.
@@ -358,6 +346,33 @@ Jeder Wachgänger erhält seinen persönlichen Dienstplan als `.ics`-Datei für 
 - **Symptom:** Bei knappem Guard-Pool und zu wenigen Führungskräften konnten Türme mit `leaderCount > 0` geöffnet werden, obwohl nicht genug Personen vorhanden waren
 - **Lösung (Variante A):** `const need = Math.max(0, (t.slotCount || 2) + (t.leaderCount || 0) - preCount)` – konsistent mit Vorab-Schätzung (Zeile ~225) und tatsächlicher Turmbelegung
 - **Verifikation:** Alle 14 Tests grün, einschließlich Regressions-Szenarien aus `test/leaders.test.js`
+
+### Bugfix: `renderHWBoatSelector()` undefined ReferenceError (Issue #233, v0.4.14)
+**Problem:** In `state-io.js` Zeile 376 ruft `_rebuildAllUI()` die Funktion `renderHWBoatSelector()` auf, die nirgendwo im Code definiert ist.
+- **Ort:** `public/js/state-io.js`, Zeile 376
+- **Ursache:** Überbleibsel aus Feature 6 (HW-Boot, deprecated seit v0.4.13). Boote werden nun uniform via `towerId='HW'` behandelt; der Aufruf wurde beim Cleanup nicht entfernt.
+- **Symptom:** ReferenceError in drei kritischen Pfaden: `createNewPlan()`, `loadPlanById()`, `applyRemotePlanState()`. UI-Neu-Erstellung stoppt vorzeitig.
+- **Lösung:** Zeile 376 entfernt: `renderHWBoatSelector(); ←` gelöscht, da Funktion nicht existiert und nicht mehr benötigt wird.
+- **Verifikation:** Alle 16 Tests grün; keine Regressions-Szenarien.
+
+### Bugfix: Neue Pläne erben Türme/Boote vom aktuellen Plan (Issue #204, v0.4.14)
+**Problem:** Beim Erstellen eines neuen Plans über „📋 Meine Pläne → Neuer Plan" wurden Türme, Boote und Planungsparameter (DAYS, startDate, mainK, serviceHours, fairnessMetricsDisplay) des aktuellen Plans übernommen.
+- **Ursache (2 Stellen):**
+  1. `createNewPlan()` in `public/js/state-io.js` rief `seedFromConfig()` auf **ohne** vorherigen `resetGlobalState()`-Aufruf
+  2. `seedFromConfig()` in `public/js/config.js` und `seed()` in `public/js/seed.js` reset­teten `towers` / `boats` Arrays **nicht** bevor `.push()` aufgerufen wurde → Akkumulation auf bestehenden Arrays
+- **Symptom:** Ein Nutzer mit Plan A (14 Tage, 10 Türme) erstellt Plan B → Plan B erhält 17 Türme (10 alt + 7 aus Template), altes Startdatum, 14 Tage statt 6
+- **Lösung:** 
+  - `createNewPlan()`: `resetGlobalState()` **vor** `seedFromConfig()` aufrufen (Option A, robust)
+  - `seed()` + `seedFromConfig()`: zusätzlich `towers = []` + `boats = []` einführen (defensiv, Falls resetGlobalState fehlschlägt)
+- **Orte:** `public/js/state-io.js` Zeile 400, `public/js/config.js` Zeile 30, `public/js/seed.js` Zeile 9
+- **Verifikation:** `npm test` grün, neue Pläne starten mit leeren Türmen/Booten + Default-Parametern (DAYS=6, startDate='', serviceStartHour=9, serviceEndHour=17, mainK=2)
+### Bugfix: `renderHWBoatSelector()` undefined ReferenceError (Issue #233, v0.4.14)
+**Problem:** In `state-io.js` Zeile 376 ruft `_rebuildAllUI()` die Funktion `renderHWBoatSelector()` auf, die nirgendwo im Code definiert ist.
+- **Ort:** `public/js/state-io.js`, Zeile 376
+- **Ursache:** Überbleibsel aus Feature 6 (HW-Boot, deprecated seit v0.4.13). Boote werden nun uniform via `towerId='HW'` behandelt; der Aufruf wurde beim Cleanup nicht entfernt.
+- **Symptom:** ReferenceError in drei kritischen Pfaden: `createNewPlan()`, `loadPlanById()`, `applyRemotePlanState()`. UI-Neu-Erstellung stoppt vorzeitig.
+- **Lösung:** Zeile 376 entfernt: `renderHWBoatSelector(); ←` gelöscht, da Funktion nicht existiert und nicht mehr benötigt wird.
+- **Verifikation:** Alle 16 Tests grün; keine Regressions-Szenarien.
 
 ---
 
@@ -626,7 +641,7 @@ Alle Secrets in `.env` (gitignored). Vorlage: `.env.example`.
 
 **plan_shares:** `plan_id, user_id, role ('edit'|'view')`
 
-**sessions:** `sid, sess, expire`
+**sessions:** Managed exclusively by `connect-sqlite3` (created automatically); columns: `sid (TEXT PRIMARY KEY), expired (INTEGER), sess (TEXT)`. Note: Prior to v0.4.14, a hand-written schema caused column mismatch (Issue #211). The schema now allows `connect-sqlite3` to manage the table directly.
 
 ### Encryption Details
 
