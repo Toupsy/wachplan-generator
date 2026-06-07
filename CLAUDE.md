@@ -268,7 +268,7 @@ Stats-Bar zeigt `avgHwVisits | avgTowerWithBoatDays` (z.B. `0.9 | 0.9`) + Boot-P
 ### Feature 13: Vereinheitlichtes Erfahrungs-Flag (`experienced`)
 - `role: 'F'|'B'|'W'` (F = Führung, B = Bootsführer, **W = Wachgänger**) + `experienced: boolean`
 - `experienced` ersetzt das frühere E/U-Rollenmodell **und** `bfLevel`; gilt für **B und W** (bei F irrelevant)
-- **Helfer (state.js):** `effLevel(p)` → F bleibt 'F', B/W werden via `experienced` zu 'E'/'U' (für `bestPair`-Scoring); `roleDot(p)` → Dot-Farbe (F→f, B→b, W→e/u nach Erfahrung); `roleLabel(p)` → lesbares Label inkl. Erfahrung
+- **Helfer (state.js):** `effLevel(p)` → F zählt als **'E' (erfahren)** (Issue #251), B/W werden via `experienced` zu 'E'/'U' (für `bestPair`-Scoring); `roleDot(p)` → Dot-Farbe (F→f, B→b, W→e/u nach Erfahrung); `roleLabel(p)` → lesbares Label inkl. Erfahrung
 - **Algorithmus:** `availE`/`availU` werden in `generate.js` aus den W-Personen (`byRole['W']`) per `experienced` abgeleitet → tiefe Pool-Logik unverändert; UU/EE-Penalty greift wie zuvor
 - **Boot-Rotation:** `experienced` hat **keine** Auswirkung (faire Rotation für alle BF); Boot-Eignung weiter an `role='B'`
 - **UI:** Dropdown nur noch Führung/Bootsführer/Wachgänger + Checkbox „Erf." (sichtbar bei B und W, ausgeblendet bei F)
@@ -392,6 +392,13 @@ Ausführliche, benutzerfreundliche Datenschutzerklärung in deutscher Sprache (e
 - **VERSION:** v0.4.18
 
 ## Bugfixes
+
+### Bugfix: Führungskräfte zählen als erfahren (Issue #251, v0.4.20)
+**Problem:** Führungskräfte (`role:'F'`) galten im Pairing-Scoring als eigene Kategorie ('F') statt als erfahren. Dadurch konnten 2 Führungskräfte an der HW zwei unerfahrene Wachgänger nicht „ausgleichen".
+- **Ort:** `public/js/state.js`, `effLevel(p)`
+- **Lösung:** `effLevel` gibt für `role:'F'` jetzt `'E'` zurück. So zählen Führungskräfte als erfahren → an der HW sind 3 Unerfahrene mit 2 WF möglich, solange alle anderen Türme mindestens eine erfahrene Person haben.
+- **Wirkung:** Betrifft nur das Scoring/UU-Bewertung; `roleDot`/`roleLabel`/Paarungs-Matrix unverändert.
+- **Verifikation:** Alle 11 Invarianten-Tests grün.
 
 ### Bugfix: Passwortlängen-Validierung inconsistent (Issue #234, v0.4.14)
 **Problem:** Frontend validierte ≥8 Zeichen, Backend verlangte ≥10, führte zu widersprüchlichen Fehlermeldungen.

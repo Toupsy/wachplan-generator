@@ -6,11 +6,12 @@ let DAYS = 6;
 const ROLE = { F:'Führung', B:'Bootsführer', W:'Wachgänger' };
 const MAIN_ID = 0;
 
-// Effektives Pairing-Level für den Algorithmus: Führung bleibt 'F';
+// Effektives Pairing-Level für den Algorithmus: Führungskräfte zählen als erfahren (E);
 // Bootsführer (B) und Wachgänger (W) werden über das experienced-Flag zu 'E'/'U'.
 // Ersetzt das frühere getEffectiveRole + bfLevel (Feature 13).
+// Feature 251: Führung ('F') → immer 'E' (erfahren), ermöglicht HW-Optimierung (2 WF balancieren 3 unerfahrene)
 function effLevel(p){
-  if(p.role === 'F') return 'F';
+  if(p.role === 'F') return 'E';
   return p.experienced ? 'E' : 'U';
 }
 
