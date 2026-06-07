@@ -50,7 +50,8 @@ function seedFromConfig() {
       name: towerCfg.name,
       prio: towerCfg.prio,
       code: towerCfg.name,  // Code = Name (z.B. "9/12")
-      slotCount: towerCfg.slotCount || 2
+      slotCount: towerCfg.slotCount || 2,
+      leaderCount: towerCfg.leaderCount || 0
     };
     towerMap[towerCfg.name] = tower;
     towers.push(tower);
