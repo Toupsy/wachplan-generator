@@ -63,6 +63,7 @@ function _reAccumulateDayStats(daySchedule, dayIdx, stats, pairCount, ensure, pa
         const s = ensure(p.id);
         s.total++;
         s.boatVisits[slot.boatId] = (s.boatVisits[slot.boatId] || 0) + 1;
+        s.lastBoatId = slot.boatId;  // Track for rotation penalty on next day
       });
     } else if(slot.kind === 'main'){
       // Aktive HW-Personen (Führung + mainGuards): total++ + hwVisits++
@@ -98,7 +99,8 @@ function generate(startDay = 0){
       boatVisits: {},
       hwVisits: 0,
       towerWithBoatDays: 0,
-      boatCaptainPairings: {}
+      boatCaptainPairings: {},
+      lastBoatId: null  // Track BF's previous boat for rotation penalty
     };
     return stats[id];
   };
@@ -295,6 +297,21 @@ function generate(startDay = 0){
       return towerHasActiveBoat(tower.id) ? 800 : 0;
     }
 
+    /**
+     * Boat rotation penalty: avoid assigning same BF to same boat on consecutive days
+     * @param {object} candidate  – BF candidate
+     * @param {object} boat       – Target boat
+     * @returns {number} Penalty score (higher = worse)
+     */
+    function boatRotationPenalty(candidate, boat){
+      const s = ensure(candidate.id);
+      // If this BF was on this exact boat yesterday, add penalty
+      if(d > 0 && schedule[d-1] && s.lastBoatId === boat.id){
+        return 300;  // Strong penalty to encourage rotation
+      }
+      return 0;
+    }
+
     function bestPair(t, requireMix, currentDay){
       const cand   = getGuardPool();
       const isMain = t.id === MAIN_ID;
@@ -314,7 +331,11 @@ function generate(startDay = 0){
           const sA = ensure(A.id), sB = ensure(B.id);
           let score = 0;
           if(requireMix){
-            if(roles === 'UU') score += 1000;
+            if(roles === 'UU'){
+              // For HW: prefer 3 inexperienced over towers with 2 inexperienced
+              // Reduced penalty for HW (isMain=true) to make it more attractive
+              score += isMain ? 300 : 1000;
+            }
             else if(roles === 'EE') score += 40;
           }
           score += (pairCount[pairKey(A.id, B.id)] || 0) * 120;
@@ -540,18 +561,36 @@ function generate(startDay = 0){
         scoreB += (sb.boatVisits[bo.id] || 0) * 50;
         scoreA -= (sa.hwVisits || 0) * 10;
         scoreB -= (sb.hwVisits || 0) * 10;
+        scoreA += boatRotationPenalty(a, bo);  // Rotation penalty
+        scoreB += boatRotationPenalty(b, bo);
         // Feature 13: bfLevel hat KEINE Auswirkung auf Boot-Rotation (nur auf Turm-Zuweisen)
         return scoreA - scoreB || (a.id - b.id);
       });
 
       let assigned = 0;
       while(assigned < neededSlots && poolB.length > 0){
-        const bf = poolB.shift();
+        // Find best BF for this boat considering rotation penalty
+        let bestBFIdx = 0;
+        let bestBFScore = Infinity;
+        for(let i = 0; i < poolB.length; i++){
+          const bf = poolB[i];
+          const s = ensure(bf.id);
+          let score = s.total;
+          score += (s.boatVisits[bo.id] || 0) * 50;
+          score -= (s.hwVisits || 0) * 10;
+          score += boatRotationPenalty(bf, bo);  // Penalty for same boat consecutive days
+          if(score < bestBFScore){
+            bestBFScore = score;
+            bestBFIdx = i;
+          }
+        }
+        const bf = poolB.splice(bestBFIdx, 1)[0];
         if(bf){
           slot.occupants.push(bf);
           if(assigned === 0) slot.bootsf = bf;  // Erste Person als Bootsführer
           const s = ensure(bf.id);
           s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id]||0)+1;
+          s.lastBoatId = bo.id;  // Update for next day's rotation penalty
           assigned++;
         } else {
           break;
