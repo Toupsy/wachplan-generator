@@ -2,24 +2,27 @@
 // init.js – Event-Listener und Startsequenz
 // ============================================================
 
+// Metric/Chart ID → State-Key Mappings (used in syncMetricCheckboxes + DOMContentLoaded)
+const METRICS_MAP = {
+  'metric-hw-balance':  'hwBoatBalance',
+  'metric-tower-dist':  'towerDistribution',
+  'metric-boat-pairing':'boatPairingDiversity'
+};
+
+const CHARTS_MAP = {
+  'chart-assignments':  'assignmentsPerPerson',
+  'chart-hw-days':      'hwDaysPerPerson',
+  'chart-tower-util':   'towerUtilization'
+};
+
 /** Checkbox-Zustände aus fairnessMetricsDisplay übernehmen (nach State-Import).
  * Muss VOR DOMContentLoaded definiert sein, da es von importStateJSON aufgerufen wird! */
 function syncMetricCheckboxes(){
-  const METRICS_MAP = {
-    'metric-hw-balance':  'hwBoatBalance',
-    'metric-tower-dist':  'towerDistribution',
-    'metric-boat-pairing':'boatPairingDiversity'
-  };
   Object.entries(METRICS_MAP).forEach(([id, key]) => {
     const el = document.getElementById(id);
     if(el) el.checked = !!fairnessMetricsDisplay[key];
   });
 
-  const CHARTS_MAP = {
-    'chart-assignments':  'assignmentsPerPerson',
-    'chart-hw-days':      'hwDaysPerPerson',
-    'chart-tower-util':   'towerUtilization'
-  };
   Object.entries(CHARTS_MAP).forEach(([id, key]) => {
     const el = document.getElementById(id);
     if(el) el.checked = !!fairnessChartsDisplay[key];
@@ -268,11 +271,6 @@ if(autoExportColsBtn) autoExportColsBtn.onclick = () => {
 };
 
 // ── Fairness-Metriken Anzeige ─────────────────────────────────────
-const METRICS_MAP = {
-  'metric-hw-balance':  'hwBoatBalance',
-  'metric-tower-dist':  'towerDistribution',
-  'metric-boat-pairing':'boatPairingDiversity'
-};
 Object.entries(METRICS_MAP).forEach(([id, key]) => {
   const el = document.getElementById(id);
   if(el) el.onchange = e => {
@@ -282,11 +280,6 @@ Object.entries(METRICS_MAP).forEach(([id, key]) => {
 });
 
 // ── Fairness-Visualisierungen (Charts) ─────────────────────────────
-const CHARTS_MAP = {
-  'chart-assignments':  'assignmentsPerPerson',
-  'chart-hw-days':      'hwDaysPerPerson',
-  'chart-tower-util':   'towerUtilization'
-};
 Object.entries(CHARTS_MAP).forEach(([id, key]) => {
   const el = document.getElementById(id);
   if(el) el.onchange = e => {
