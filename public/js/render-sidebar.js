@@ -380,7 +380,7 @@ function renderBoatCfg(){
 /**
  * Befüllt exportColumns automatisch:
  * Pro Turm (nach Turmzahl aufsteigend, z.B. 9/12, 9/13, ...): zuerst zugeordnete Boote, dann der Turm selbst.
- * Nach Turm 9/13: WF → HW.
+ * Nach allen Türmen: HW-Boote, dann WF → HW.
  * Rest mit leeren Einträgen auffüllen.
  */
 function autoFillExportColumns(){
@@ -393,7 +393,6 @@ function autoFillExportColumns(){
     const numB = parseInt(b.name.split('/')[1] || b.name) || 0;
     return numA - numB;
   });
-  console.log('DEBUG autoFillExportColumns - sortedTowers:', sortedTowers.map(t => `${t.name}(prio${t.prio})`));
 
   sortedTowers.forEach(t => {
     // Boote zu diesem Turm
@@ -402,25 +401,20 @@ function autoFillExportColumns(){
 
     // Turm selbst
     if(t.code) cols.push(t.code);
-    else console.log('⚠️ Tower hat keinen Code:', t.name);
-
-    // Nach Turm 9/13: [leer], WF, HW, [leer]
-    if(t.name === '9/13'){
-      cols.push('');
-      cols.push('WF');
-      cols.push('HW');
-      cols.push('');
-    }
   });
 
   // HW-Boote (zusätzliche Stationsspalten)
   boats.filter(b => b.towerId === 'HW')
        .forEach(b => { if(b.code) cols.push(b.code); });
 
-  console.log('DEBUG autoFillExportColumns - final cols:', cols);
+  // WF + HW deterministisch (nicht an einen Turmnamen gekoppelt)
+  cols.push('');
+  cols.push('WF');
+  cols.push('HW');
+  cols.push('');
+
   while(cols.length < TEMPLATE_STATION_COLS.length) cols.push('');
   exportColumns = cols.slice(0, TEMPLATE_STATION_COLS.length);
-  console.log('DEBUG autoFillExportColumns - exportColumns:', exportColumns);
   renderExportColumnUI();
 }
 
