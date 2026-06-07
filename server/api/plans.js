@@ -80,7 +80,7 @@ router.get('/', async (req, res) => {
 // ───────────────────────────────────────────────────────────
 // POST /api/plans – Neuen Plan erstellen
 // ───────────────────────────────────────────────────────────
-router.post('/', express.json(), async (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { name = 'Wachplan', state } = req.body;
 
@@ -155,7 +155,7 @@ router.get('/:id', async (req, res) => {
 // ───────────────────────────────────────────────────────────
 // PUT /api/plans/:id – Plan speichern (verschlüsselt)
 // ───────────────────────────────────────────────────────────
-router.put('/:id', express.json(), async (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const planId = parsePlanId(req.params.id);
     if (!planId) return res.status(400).json({ error: 'Ungültige Plan-ID' });
@@ -270,7 +270,7 @@ router.get('/:id/shares', async (req, res) => {
 // ───────────────────────────────────────────────────────────
 // POST /api/plans/:id/share – { username } → Mitbearbeiter hinzufügen (nur Owner)
 // ───────────────────────────────────────────────────────────
-router.post('/:id/share', express.json(), async (req, res) => {
+router.post('/:id/share', async (req, res) => {
   try {
     const planId = parsePlanId(req.params.id);
     if (!planId) return res.status(400).json({ error: 'Ungültige Plan-ID' });

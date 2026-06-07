@@ -7,10 +7,11 @@ const SqliteStore = require('connect-sqlite3')(session);
 const { dbPath } = require('./connection');
 
 // Erstellt die Session-Middleware mit SQLite-Store.
-// server.js nutzt resave/saveUninitialized=true (SQLite-Reliability),
-// admin-server.js nutzt false/false → per Option überschreibbar.
+// Beiden Servern nun gemeinsam: resave=false, saveUninitialized=false
+// → Sessions entstehen nur beim Login via regenerate(), reduziert DB-Bloat
+// Per-Server Overrides via Optionen noch möglich wenn nötig (z.B. für Legacy).
 // secure: GDPR (Art. 32) – setzen wenn HTTPS/TLS aktiv.
-function createSessionMiddleware({ resave = true, saveUninitialized = true } = {}) {
+function createSessionMiddleware({ resave = false, saveUninitialized = false } = {}) {
   const store = new SqliteStore({ db: dbPath, mode: 0o666 });
   store.on('error', (err) => {
     console.warn('⚠ Session store error (continuing):', err.message);

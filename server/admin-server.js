@@ -9,6 +9,7 @@ const express = require('express');
 const path = require('path');
 const { createSessionMiddleware } = require('./db/session');
 const { initDatabase, validateEnv } = require('./db/init');
+const securityHeaders = require('./middleware/security');
 const authApi = require('./api/auth');
 const adminApi = require('./api/admin');
 
@@ -20,23 +21,12 @@ const HOST = process.env.HOST || '0.0.0.0';
 // ── Umgebungsvariablen validieren ──────────────────────────────
 validateEnv();
 
-// ── Middleware ───────────────────────────────────────────────
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// ── Middleware ─────────────────────────────────────────────────
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// ── Basis-Security-Header ──────────────────────────────────────
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-  res.setHeader('Referrer-Policy', 'same-origin');
-  res.setHeader('Content-Security-Policy',
-    "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-    "font-src 'self' https://fonts.gstatic.com; script-src 'self'; " +
-    "connect-src 'self' ws: wss:; frame-ancestors 'self'");
-  if (process.env.NODE_ENV === 'production')
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  next();
-});
+// ── Centralized Security Headers ────────────────────────────────
+app.use(securityHeaders);
 
 // ── Health-Check (für Docker/K8s) ──────────────────────────────
 app.get('/health', (req, res) => {

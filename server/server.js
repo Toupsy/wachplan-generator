@@ -12,6 +12,7 @@ const path = require('path');
 const fs = require('fs');
 const { createSessionMiddleware } = require('./db/session');
 const { initDatabase, validateEnv } = require('./db/init');
+const securityHeaders = require('./middleware/security');
 const authApi = require('./api/auth');
 const plansApi = require('./api/plans');
 const adminApi = require('./api/admin');
@@ -25,23 +26,12 @@ const HOST = process.env.HOST || '0.0.0.0';
 // ── Umgebungsvariablen validieren ──────────────────────────────
 validateEnv();
 
-// ── Middleware (vor Session-Init, wird unten konfiguriert) ───────
+// ── Middleware ─────────────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// ── Basis-Security-Header ──────────────────────────────────────
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');           // Clickjacking-Schutz
-  res.setHeader('Referrer-Policy', 'same-origin');
-  res.setHeader('Content-Security-Policy',
-    "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-    "font-src 'self' https://fonts.gstatic.com; script-src 'self'; " +
-    "connect-src 'self' ws: wss:; frame-ancestors 'self'");
-  if (process.env.NODE_ENV === 'production')
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  next();
-});
+// ── Centralized Security Headers ────────────────────────────────
+app.use(securityHeaders);
 
 // ── Health-Check (für Docker/K8s) ──────────────────────────────
 app.get('/health', (req, res) => {
@@ -60,9 +50,9 @@ async function start() {
     console.log('✓ Database ready');
 
     // Session middleware (SQLite-Store, zentral in db/session.js).
-    // resave/saveUninitialized=true für SQLite-Reliability.
-    // Referenz behalten → wird vom WebSocket-Upgrade (Realtime) zur Auth genutzt.
-    const sessionMiddleware = createSessionMiddleware({ resave: true, saveUninitialized: true });
+    // saveUninitialized: false → Sessions nur bei Login angelegt (via regenerate())
+    // resave: false → Optimierung: DB nur bei Änderungen aktualisiert
+    const sessionMiddleware = createSessionMiddleware({ resave: false, saveUninitialized: false });
     app.use(sessionMiddleware);
 
     // Register API routes AFTER session middleware

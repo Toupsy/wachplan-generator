@@ -95,7 +95,7 @@ const _resetAttempts = (ip, username) => {
 // ───────────────────────────────────────────────────────────
 // POST /api/auth/login – Authenticate with username/password
 // ───────────────────────────────────────────────────────────
-router.post('/login', express.json(), async (req, res) => {
+router.post('/login', async (req, res) => {
   const ip = req.ip || 'unknown';
   const { username, password } = req.body;
 
@@ -196,7 +196,7 @@ router.get('/needs-setup', async (req, res) => {
 // ───────────────────────────────────────────────────────────
 // POST /api/auth/init – Create first admin user (one-time)
 // ───────────────────────────────────────────────────────────
-router.post('/init', express.json(), async (req, res) => {
+router.post('/init', async (req, res) => {
   try {
     const { username, password } = req.body;
 
@@ -239,7 +239,7 @@ router.post('/init', express.json(), async (req, res) => {
 // ───────────────────────────────────────────────────────────
 // PUT /api/auth/password – Change own password (authenticated)
 // ───────────────────────────────────────────────────────────
-router.put('/password', express.json(), async (req, res) => {
+router.put('/password', async (req, res) => {
   if (!req.session.userId) {
     return res.status(401).json({ error: 'Not authenticated' });
   }

@@ -74,7 +74,7 @@ router.get('/users', async (req, res) => {
 // ───────────────────────────────────────────────────────────
 // POST /api/admin/users – Neuen User erstellen
 // ───────────────────────────────────────────────────────────
-router.post('/users', express.json(), async (req, res) => {
+router.post('/users', async (req, res) => {
   try {
     const { username, password, email, isAdmin } = req.body;
 
@@ -155,7 +155,7 @@ router.delete('/users/:id', async (req, res) => {
 // PUT /api/admin/users/:id/password – Passwort eines Users setzen
 // (Admin braucht das aktuelle Passwort NICHT)
 // ───────────────────────────────────────────────────────────
-router.put('/users/:id/password', express.json(), async (req, res) => {
+router.put('/users/:id/password', async (req, res) => {
   try {
     const userId = parseInt(req.params.id);
     const { newPassword } = req.body;
@@ -273,7 +273,7 @@ router.get('/users/:id/export', async (req, res) => {
 // ───────────────────────────────────────────────────────────
 // POST /api/admin/reload-config – Reload configuration file
 // ───────────────────────────────────────────────────────────
-router.post('/reload-config', express.json(), async (req, res) => {
+router.post('/reload-config', async (req, res) => {
   try {
     const configPath = path.join(__dirname, '..', 'config.json');
 
@@ -307,7 +307,7 @@ router.post('/reload-config', express.json(), async (req, res) => {
 // POST /api/admin/purge-orphans – Security net: remove orphaned data
 // Cleans up: plans without user, plan_shares without plan/user
 // ───────────────────────────────────────────────────────────
-router.post('/purge-orphans', express.json(), async (req, res) => {
+router.post('/purge-orphans', async (req, res) => {
   try {
     // Delete plan_shares where plan doesn't exist
     const orphanShares = await dbRun(

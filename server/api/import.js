@@ -25,7 +25,7 @@ router.use(authMiddleware);
 // ───────────────────────────────────────────────────────────
 // POST /api/import/plans – Alte JSON-Pläne importieren
 // ───────────────────────────────────────────────────────────
-router.post('/plans', express.json(), async (req, res) => {
+router.post('/plans', async (req, res) => {
   try {
     const { plans } = req.body;
 

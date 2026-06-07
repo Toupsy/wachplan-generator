@@ -548,6 +548,32 @@ Dark-Theme mit CSS-Variables:
 
 ---
 
+## Backend Architecture & DRY (v0.4.14+)
+
+### Server-Struktur
+- **Public Server** (`server/server.js`, Port 3000): SPA-Hosting + API + WebSocket
+- **Admin Server** (`server/admin-server.js`, Port 3001): Admin-Panel + User-Management
+
+### Centralized Middleware
+- **Security Headers** (`server/middleware/security.js`): CSP, HSTS, X-Frame-Options, etc. von beiden Servern genutzt → **keine Duplizierung**
+- **Body Parser** (`express.json()`): Global mit `limit: '10mb'` auf beiden Servern; **Per-Route-Aufrufe entfernt**
+- **Session Middleware** (`server/db/session.js`): Zentral definiert mit optionalen Overrides
+
+### Session-Konfiguration
+- **Public Server:** `saveUninitialized: false` → Sessions entstehen erst beim Login via `regenerate()`
+- **Admin Server:** `saveUninitialized: false` (gleich)
+- **Beide:** `resave: false` → DB-Optimierung (Updates nur bei echten Änderungen)
+- **Vorteil:** Reduziert Session-Tabellen-Bloat von anonymen Besuchern
+
+### Affected Router Files (v0.4.14)
+Per-Route `express.json()` entfernt aus:
+- `server/api/auth.js` (3 Routen: `/login`, `/init`, `/password`)
+- `server/api/plans.js` (4 Routen: `POST /`, `PUT /:id`, `POST /:id/share`, ...)
+- `server/api/admin.js` (4 Routen: `/users`, `/users/:id/password`, `/reload-config`, `/purge-orphans`)
+- `server/api/import.js` (1 Route: `POST /plans`)
+
+---
+
 ## Authentication & Encryption
 
 ### Übersicht
@@ -570,12 +596,13 @@ Dark-Theme mit CSS-Variables:
   - Account-basiert: 10 Versuche / 15 min pro Username → 429 (verhindert verteilte Angriffe)
 - ✅ Session-Fixation-Schutz (`req.session.regenerate()` nach Login)
 - ✅ Security-Header: `X-Content-Type-Options:nosniff`, `X-Frame-Options:SAMEORIGIN`, `Referrer-Policy:same-origin`, `Content-Security-Policy`, `Strict-Transport-Security`
+  - **Zentral definiert:** `server/middleware/security.js` (von `server.js` + `admin-server.js` genutzt)
 - ✅ CSP-Header mit pragmatischer Policy:
   - `default-src 'self'` – nur interne Ressourcen
   - `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com` – Inline-Styles + Google Fonts CSS
   - `font-src 'self' https://fonts.gstatic.com` – Font-Dateien von Google
   - `connect-src 'self' ws: wss:` – WebSocket für Live-Collaboration
-  - Weitere: `img-src`, `script-src`, `frame-ancestors` (s. `server/server.js` Z. 34–42)
+  - Weitere: `img-src`, `script-src`, `frame-ancestors` (s. `server/middleware/security.js`)
 - ✅ HSTS-Header (Produktion): `max-age=31536000; includeSubDomains` (nur bei `NODE_ENV=production`)
 - ✅ SQL durchgehend parametrisiert (keine Injection)
 - ✅ `getPlanAccess()` zentralisiert in `db/access.js` (Owner/Share, kein IDOR)
