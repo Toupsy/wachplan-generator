@@ -329,6 +329,18 @@ GDPR Art. 5 Abs. 1 c (Datenminimierung): Warnung gegen sensible Daten im Freitex
 - **Keine Logikänderung:** Speicherung, Export, Verarbeitung unverändert
 - **VERSION:** v0.4.13
 
+### Feature 20: "Angemeldet bleiben" (Remember Me) – Session-Dauer-Wahl
+Session-Dauer-Kontrolle im Login-Modal für flexible Security vs. Komfort je Kontext:
+- **Checkbox:** „Angemeldet bleiben (7 Tage)" im `#login-form` (standardmäßig unchecked, sicherere Wahl)
+- **Ohne Checkbox:** Session-Cookie (`maxAge: undefined`) → endet beim Browser-Schließen, kein Persistent-Store
+- **Mit Checkbox:** Persistenter Cookie (`maxAge: 7 * 24 * 60 * 60 * 1000`) → wie bisheriges Verhalten (7 Tage TTL)
+- **Serverseitig:** `POST /api/auth/login` liest `remember`-Flag aus Request, setzt `req.session.cookie.maxAge` entsprechend
+- **SQLite-Store:** Speichert Session in beiden Fällen; ohne `maxAge` wird kein `Expires` gesetzt → Cookie-Verfall beim Browser-Close
+- **Kein Impact:** Bestehende Sessions unverändert; Setup-View (`#setup-form`) unberührt (auto-login ohne Checkbox)
+- **UI:** Dark-Theme konsistent; Checkbox mit `accent-color:var(--sea-bright)`
+- **Ort:** `public/Wachplan-Generator.html` (Checkbox-HTML), `public/js/login-modal.js` (Flag mitschicken), `server/api/auth.js` (maxAge setzen)
+- **VERSION:** v0.4.14
+
 ## Bugfixes
 
 ### Bugfix: openTowers-Bedarfsrechnung ignoriert leaderCount (Issue #117, v0.4.1)

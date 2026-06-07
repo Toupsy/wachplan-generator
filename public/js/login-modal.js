@@ -90,6 +90,7 @@ async function handleLogin(e) {
   e.preventDefault();
   const usernameEl = document.getElementById('login-username');
   const passwordEl = document.getElementById('login-password');
+  const rememberEl = document.getElementById('login-remember');
   const errorEl = document.getElementById('login-error');
 
   if(!usernameEl || !passwordEl || !errorEl) {
@@ -99,13 +100,14 @@ async function handleLogin(e) {
 
   const username = usernameEl.value;
   const password = passwordEl.value;
+  const remember = rememberEl?.checked ?? false;
 
   try {
     const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ username, password, remember })
     });
 
     if (!response.ok) {

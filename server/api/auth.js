@@ -97,7 +97,7 @@ const _resetAttempts = (ip, username) => {
 // ───────────────────────────────────────────────────────────
 router.post('/login', express.json(), async (req, res) => {
   const ip = req.ip || 'unknown';
-  const { username, password } = req.body;
+  const { username, password, remember } = req.body;
 
   // Periodically clean up expired entries to prevent map unbounded growth
   _cleanupExpiredEntries();
@@ -143,6 +143,15 @@ router.post('/login', express.json(), async (req, res) => {
       }
       req.session.userId = user.id;
       req.session.isAdmin = user.is_admin === 1;
+
+      // Set cookie duration based on "remember me" flag
+      if (remember) {
+        // Persistent cookie: 7 days
+        req.session.cookie.maxAge = 7 * 24 * 60 * 60 * 1000;
+      } else {
+        // Session cookie: no maxAge, expires when browser closes
+        req.session.cookie.maxAge = undefined;
+      }
 
       req.session.save((err) => {
         if (err) {
