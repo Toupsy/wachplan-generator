@@ -194,9 +194,8 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 + 1000  beide Unerfahren (UU) + requireMix=true  → Notlösung
 + 40    beide Erfahren (EE) + requireMix=true
 + 120×  bisherige gemeinsame Turmdienste (Paar-Wiederholung vermeiden)
-+ 30×v  Turmbesuche Person A (v≥2 → +300)
-+ 30×v  Turmbesuche Person B (v≥2 → +300)
-+ 5×    Gesamteinsätze (Fairness: wer wenig hatte, kommt zuerst)
++ 200×  Turmbesuche Person A/B (linear: 1st=200, 2nd=400, 3rd+=600; verstärkt Anti-Clustering)
++ 10×   Gesamteinsätze (Fairness: wer wenig hatte, kommt zuerst; war 5×)
 + 800   surplusBF-Strafe (Turm mit aktivem Boot)
 - 350   surplusBF-Bonus (Turm mit deaktiviertem Boot)
 + 200×  konsekutive Tage auf gleichen Turm (+200/Person wenn Vortag selber Turm)
@@ -206,7 +205,7 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 + 60×   hwVisits (HW-k-Slots: Strafe für erneute HW-Zuweisung)
 + Tiebreaker (deterministisch oder seededRand() für Tag 1)
 ```
-**Niedrigster Score gewinnt.**
+**Niedrigster Score gewinnt.** Issue #253: 150×→200× Penalty + 5×→10× Fairness verstärkt anti-clustering in 6-14 Tage Plänen.
 
 ### Zuweisung pro Tag (Reihenfolge)
 0. **BF-Fairness-Sort** – `availB` nach `(boatDays*50 - hwVisits*10)` sortieren VOR activeBF/surplusBF-Split
@@ -372,20 +371,17 @@ Konfigurierbare Selbstregistrierung mit drei Sicherheitsmodi für Self-Hosting (
 - **DSGVO:** Datenschutz-Checkbox (Art. 13/Einwilligung), E-Mail optional (Datenminimierung)
 - **VERSION:** v0.4.16
 
-## Bugfixes & Optimizations
+### Feature 23: Verstärkte Fairness gegen Tower-Clustering + Boat/BF-Metriken (Issue #253)
+Reduziert Mehrfachbesuche gleicher Türme in 6-14 Tage Plänen durch Scoring-Optimierung und zeigt Boot-Fairness:
+- **Turm-Penalty:** `150×` → `200×` pro Turmbesuch (linear: 1st=200, 2nd=400, 3rd+=600)
+- **Fairness-Gewicht:** `5×` → `10×` Gesamteinsätze (schwächt `total` relative zu Tower-Wiederholung)
+- **Kombiniert:** 40% stärkere Anti-Clustering (linear scaling + höheres Fairness-Gewicht)
+- **Neue Metriken:** `renderBoatStatsPerPerson()` zeigt Boot-Einsätze + Bootsführer-Rotation
+- **Backend:** `fairnessMetrics.boatDistribution` mit `avgUniqueBoats`, `minUniqueBoats`, `avgBoatVisits`, `maxBoatVisits`
+- **Stats-Display:** Tabelle mit Pro-BF Boot-Tage + verschiedene Boote (≥50% Boote grün, sonst orange)
+- **VERSION:** v0.4.17
 
-### Optimization: Fairness-Algorithmus – Tower-Verteilung verbessert (Issue #253, v0.4.17)
-**Problem:** In sechstägigen Plänen wurden Personen manchmal 2–3× auf denselben Turm eingeplant, obwohl neue Türme und neue Partner pro Tag möglich sein sollten.
-- **Ort:** `public/js/generate.js`, Zeile 320–324 (`bestPair` Scoring für Tower-Besuche)
-- **Ursache:** Schwache Penalty für erste Tower-Revisit: Scoring war `vA >= 2 ? 300 : vA * 30` – das bedeutete nur +30 Punkte für `vA=1` (erste Revisit), aber +300 für `vA≥2` ("2-visit cliff"). Mit mehreren verfügbaren Personen konnte der Algorithmus die schwache erste Penalty leicht ausgleichen.
-- **Symptom:** Person besucht Turm 1 am Tag 1, wird am Tag 3 wieder Turm 1 zugeordnet (nur 30 Punkt Penalty vs. 100+ Punkte Fairness-Bonus weil Person wenig Gesamteinsätze hatte)
-- **Lösung:** Tower-Visit-Penalty auf lineare Skalierung erhöht: `score += vA * 150` (statt `vA >= 2 ? 300 : vA * 30`)
-  - 1. Besuch: +150 Punkte (statt +30, also 5× höher)
-  - 2. Besuch: +300 Punkte (gleich wie vorher, aber konsistent)
-  - 3. Besuch: +450 Punkte (keine Cliff-Diskontinuität)
-  - **Effekt:** Neue Türme werden jetzt stark bevorzugt, Tower-Cluster in kurzen Plänen eliminiert
-- **Verifikation:** Alle 16 Core-Tests grün (invariants.test.js), keine Regression bei anderen Fairness-Metriken (HW-Balance, Boat-Pairings, Leader-Rotation)
-- **Trade-off:** In Extremfällen (z.B. 28 Personen × 1 Turm) können nicht alle Personen neue Türme bekommen – der Algorithmus respektiert dann Slot-Grenzen und weicht zu Revisits aus. Das ist beabsichtigt (Sicherheit vor Unmöglichkeit).
+## Bugfixes
 
 ### Bugfix: Passwortlängen-Validierung inconsistent (Issue #234, v0.4.14)
 **Problem:** Frontend validierte ≥8 Zeichen, Backend verlangte ≥10, führte zu widersprüchlichen Fehlermeldungen.

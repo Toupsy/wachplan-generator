@@ -307,7 +307,7 @@ function renderOutput(){
   });
 
   // Zusatz-Auswertungen (im Druck ausgeblendet via .out-extras)
-  html += `<div class="out-extras">${renderTowerStatsPerPerson()}${renderMatrix()}</div>`;
+  html += `<div class="out-extras">${renderTowerStatsPerPerson()}${renderBoatStatsPerPerson()}${renderMatrix()}</div>`;
   panel.innerHTML = html;
 
   // ── Event-Listener ─────────────────────────────────────────────
@@ -733,6 +733,38 @@ function renderTowerStatsPerPerson(){
       .map(([tid,c])=>(tMap[tid]?.name||`T${tid}`)+'('+c+')').join(', ');
     html += `<tr style="border-bottom:1px solid var(--line-strong)"><td style="padding:6px">${escapeHtml(p.name)}</td>`;
     html += `<td style="text-align:center;padding:6px">${stat.total}</td><td style="text-align:center;padding:6px;color:${cnt>=threshold?'var(--green)':'var(--warn)'};font-weight:bold">${cnt}</td>`;
+    html += `<td style="padding:6px;font-size:.75rem;color:var(--text-dim)">${escapeHtml(deets)}</td></tr>`;
+  });
+  html += '</table></div>';
+  return html;
+}
+
+/** Boat & BF Fairness Distribution */
+function renderBoatStatsPerPerson(){
+  if(!lastResult?.stats) return '';
+  const bMap = {}; boats.forEach(b => bMap[b.id] = b);
+  const bfOnlyStats = Object.entries(lastResult.stats)
+    .filter(([pid, stat]) => Object.values(stat.boatVisits||{}).reduce((a,b)=>a+b,0) > 0)
+    .map(([pid, stat]) => ({ pid: +pid, stat }));
+
+  if(bfOnlyStats.length === 0) return '';
+
+  let html = '<div class="section-label" style="margin-top:30px;">Boot & Bootsführer-Fairness</div>';
+  html += '<div style="font-size:.85rem;overflow-x:auto"><table style="width:100%;border-collapse:collapse">';
+  html += '<tr style="border-bottom:1px solid var(--line)"><th style="text-align:left;padding:6px;font-weight:bold">Bootsführer</th>';
+  html += '<th style="text-align:center;padding:6px;font-weight:bold">Boot-Tage</th><th style="text-align:center;padding:6px;font-weight:bold">Verschiedene Boote</th>';
+  html += '<th style="text-align:left;padding:6px;font-weight:bold">Boot-Details</th></tr>';
+
+  const threshold = boats.length * 0.5;
+  bfOnlyStats.forEach(({ pid, stat }) => {
+    const person = people.find(p => p.id === pid);
+    if(!person) return;
+    const cnt = Object.keys(stat.boatVisits||{}).length;
+    const total = Object.values(stat.boatVisits||{}).reduce((a,b)=>a+b,0);
+    const deets = Object.entries(stat.boatVisits||{}).sort(([a],[b])=>bMap[b]?.prio-bMap[a]?.prio)
+      .map(([bid,c])=>(bMap[bid]?.name||`B${bid}`)+'('+c+')').join(', ');
+    html += `<tr style="border-bottom:1px solid var(--line-strong)"><td style="padding:6px">${escapeHtml(person.name)}</td>`;
+    html += `<td style="text-align:center;padding:6px">${total}</td><td style="text-align:center;padding:6px;color:${cnt>=threshold?'var(--green)':'var(--warn)';font-weight:bold">${cnt}</td>`;
     html += `<td style="padding:6px;font-size:.75rem;color:var(--text-dim)">${escapeHtml(deets)}</td></tr>`;
   });
   html += '</table></div>';

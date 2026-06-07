@@ -320,9 +320,9 @@ function generate(startDay = 0){
           score += (pairCount[pairKey(A.id, B.id)] || 0) * 120;
           const vA = sA.towerVisits[t.id] || 0;
           const vB = sB.towerVisits[t.id] || 0;
-          score += vA * 150;  // 150 pts per visit: 1st=150, 2nd=300, 3rd=450 (linear, no cliff)
-          score += vB * 150;
-          score += (sA.total + sB.total) * 5;
+          score += vA * 200;  // 200 pts per visit: 1st=200, 2nd=400, 3rd=600 (stronger penalty)
+          score += vB * 200;
+          score += (sA.total + sB.total) * 10;  // Stronger fairness weight (was 5)
           score += surplusBFPenalty(A, t) + surplusBFPenalty(B, t);
           // Feature 12: Bevorzuge Führungskräfte auf Türmen mit leaderCount > 0
           const needsLeader = t.leaderCount && t.leaderCount > 0;
@@ -660,6 +660,20 @@ function generate(startDay = 0){
     }
   });
 
+  // Boat distribution: count unique boats per person
+  const boatDistribution = {};
+  const boatCounts = {};
+  people.forEach(p => {
+    const stat = stats[p.id];
+    if(stat && stat.boatVisits) {
+      boatDistribution[p.id] = Object.keys(stat.boatVisits).length;
+      boatCounts[p.id] = Object.values(stat.boatVisits).reduce((a,b) => a+b, 0);
+    } else {
+      boatDistribution[p.id] = 0;
+      boatCounts[p.id] = 0;
+    }
+  });
+
   const avgUniqueTowers = allStats.length > 0
     ? (Object.values(towerDistribution).reduce((a,b) => a+b, 0) / allStats.length).toFixed(1)
     : 0;
@@ -694,6 +708,17 @@ function generate(startDay = 0){
     };
   })();
 
+  // Boat fairness: distribution of boat visits across BFs
+  const boatDistVals = Object.values(boatDistribution);
+  const avgUniqueBoats = boatDistVals.length > 0
+    ? (boatDistVals.reduce((a,b) => a+b, 0) / boatDistVals.length).toFixed(1)
+    : 0;
+  const minUniqueBoats = boatDistVals.length > 0 ? Math.min(...boatDistVals) : 0;
+  const maxBoatVisits = Math.max(...allStats.map(s => Object.values(s.boatVisits || {}).reduce((a,b) => a+b, 0)), 0);
+  const avgBoatVisits = allStats.length > 0
+    ? (allStats.reduce((sum, s) => sum + Object.values(s.boatVisits || {}).reduce((a,b) => a+b, 0), 0) / allStats.length).toFixed(1)
+    : 0;
+
   lastResult = {
     schedule, pairCount, stats,
     peopleGuards: people.filter(p => p.role==='W'),
@@ -710,6 +735,13 @@ function generate(startDay = 0){
         avgUniqueTowers: parseFloat(avgUniqueTowers),
         minUniqueTowers,
         distribution: towerDistribution
+      },
+      boatDistribution: {
+        avgUniqueBoats: parseFloat(avgUniqueBoats),
+        minUniqueBoats,
+        avgBoatVisits: parseFloat(avgBoatVisits),
+        maxBoatVisits,
+        distribution: boatDistribution
       }
     }
   };
