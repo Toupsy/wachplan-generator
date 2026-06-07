@@ -8,6 +8,8 @@
  */
 function seed(){
   people = [];
+  towers = [];
+  boats = [];
   uid = 0;
 
   // 7 Türme: 9/12 bis 9/18
