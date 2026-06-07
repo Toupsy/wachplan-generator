@@ -191,12 +191,12 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 
 ### `bestPair(tower, requireMix, currentDay)` – Scoring
 ```
-+ 1000  beide Unerfahren (UU) + requireMix=true  → Notlösung
++ 1000  beide Unerfahren (UU) + requireMix=true  → Notlösung (an HW nur +300, Issue #253)
 + 40    beide Erfahren (EE) + requireMix=true
-+ 120×  bisherige gemeinsame Turmdienste (Paar-Wiederholung vermeiden)
-+ 30×v  Turmbesuche Person A (v≥2 → +300)
-+ 30×v  Turmbesuche Person B (v≥2 → +300)
-+ 5×    Gesamteinsätze (Fairness: wer wenig hatte, kommt zuerst)
++ 250×  bisherige gemeinsame Turmdienste (Paar-Wiederholung vermeiden, Issue #253)
++ 200×v Turmbesuche Person A (linear: 1.=200, 2.=400, 3.=600 → Turm-Wiederholung vermeiden, Issue #253)
++ 200×v Turmbesuche Person B (linear)
++ 10×   Gesamteinsätze (Fairness: wer wenig hatte, kommt zuerst, Issue #253)
 + 800   surplusBF-Strafe (Turm mit aktivem Boot)
 - 350   surplusBF-Bonus (Turm mit deaktiviertem Boot)
 + 200×  konsekutive Tage auf gleichen Turm (+200/Person wenn Vortag selber Turm)
@@ -392,6 +392,18 @@ Ausführliche, benutzerfreundliche Datenschutzerklärung in deutscher Sprache (e
 - **VERSION:** v0.4.18
 
 ## Bugfixes
+
+### Bugfix: Fairness – zu häufige Turm-/Partner-Wiederholungen (Issue #253, v0.4.21)
+**Problem:** Personen besuchten denselben Turm 2–3× in 6 Tagen; Paare wiederholten sich. Ziel: möglichst neue Position + neuer Partner pro Tag.
+- **Ort:** `public/js/generate.js`, `bestPair()` + Boot-Zuweisung.
+- **Ursache:** Schwache „Klippe" beim Turm-Wiederholungs-Penalty (`v≥2?300:v*30`) → Clustering. Bootsführer konnten am Folgetag aufs selbe Boot.
+- **Lösung:**
+  - Turm-Wiederholung **linear** `v*200` (statt Klippe) → neue Türme klar bevorzugt.
+  - Fairness-Gewicht `(totalA+totalB)` ×5→×10.
+  - HW-UU-Penalty bei `isMain` auf 300 reduziert (greift mit Issue #251 ineinander: 3 Unerfahrene an HW zulässig).
+  - **Partner-Wiederholungs-Penalty ×120→×250** – nötig, weil die erhöhten Turm-/Fairness-Gewichte sonst Paar-Wiederholungen verschlechtert hätten (empirisch: ohne diese Anpassung stieg `pairRepeat` 21→42).
+  - **Boot-Rotation:** `lastBoatId`-Tracking + 300-Penalty, wenn BF am Folgetag aufs selbe Boot käme; Boot-Auswahl per Min-Score statt `shift()`. Neue Boot-Fairness-Tabelle (`renderBoatStatsPerPerson()`).
+- **Verifikation (5 Szenarien × 5 Seeds, aggregiert):** Turm-Wiederholer 267→**188**, Wiederholungs-Besuche 336→**216**, Paar-Wiederholungen 21→**14** (alle besser als Baseline). 11/11 Invarianten grün.
 
 ### Bugfix: Führungskräfte zählen als erfahren (Issue #251, v0.4.20)
 **Problem:** Führungskräfte (`role:'F'`) galten im Pairing-Scoring als eigene Kategorie ('F') statt als erfahren. Dadurch konnten 2 Führungskräfte an der HW zwei unerfahrene Wachgänger nicht „ausgleichen".
