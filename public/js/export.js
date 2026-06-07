@@ -44,6 +44,18 @@ function getStationColX(){
 
 // ── Hilfsfunktionen ──────────────────────────────────────────────
 
+/** Wartet bis JSZip verfügbar ist (max. 5s) */
+async function ensureJSZip(){
+  let attempts = 0;
+  while(typeof JSZip === 'undefined' && attempts < 50){
+    await new Promise(r => setTimeout(r, 100));
+    attempts++;
+  }
+  if(typeof JSZip === 'undefined'){
+    throw new Error('JSZip konnte nicht geladen werden. Bitte laden Sie die Seite neu.');
+  }
+}
+
 /** Spaltennummer → Excel-Buchstabe(n)  (1→A, 27→AA …) */
 function colLetter(n){
   let s=''; while(n>0){const r=(n-1)%26;s=String.fromCharCode(65+r)+s;n=Math.floor((n-1)/26);} return s;
@@ -381,12 +393,8 @@ async function exportOfficial(dayIdx){
     if(!ok) return;
   }
 
-  if(typeof JSZip === 'undefined'){
-    alert('JSZip lädt noch – bitte kurz warten.');
-    return;
-  }
-
   try {
+    await ensureJSZip();
     const arr = await _loadTemplate();
     const zip  = await JSZip.loadAsync(arr);
 
