@@ -383,6 +383,14 @@ Automatisierte Cleanup-Policy für inaktive Wachpläne zur Einhaltung des Datens
 - **Datenbank:** Spalten `marked_for_deletion`, `marked_for_deletion_at` in `plans`-Tabelle (idempotente `ALTER TABLE`-Migration in `db/init.js` für Bestands-DBs)
 - **VERSION:** v0.4.17
 
+### Feature 24: Umfassende Datenschutzerklärung (DSGVO Art. 13/14 – Transparenz)
+Ausführliche, benutzerfreundliche Datenschutzerklärung in deutscher Sprache (ersetzt die vorherige Kurzfassung).
+- **Datei:** `public/datenschutz.html` – standalone HTML-Seite, vollständig stilisiert mit Dark Theme + „← Zurück zur Anwendung"
+- **Inhalte:** Verantwortlicher, Datenverarbeitung (Auth/Wachpläne/Audit-Log), Rechtsgrundlagen, Speicherdauer, Betroffenenrechte (Art. 15–21), Sicherheitsmaßnahmen, Datenweitergabe, Datenminimierung, Cookies/LocalStorage, automatisierte Entscheidungsfindung (Art. 22), Kontakt/Beschwerde (BfDI)
+- **Zugang:** URL `/datenschutz.html`; verlinkt u. a. aus der Selbstregistrierungs-View (`#login-modal`)
+- **Responsive Design:** Desktop + Mobile, Dark Theme; Abdeckung DSGVO Art. 13/14, Art. 5, Art. 15–21
+- **VERSION:** v0.4.18
+
 ## Bugfixes
 
 ### Bugfix: Passwortlängen-Validierung inconsistent (Issue #234, v0.4.14)
