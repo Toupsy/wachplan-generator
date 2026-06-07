@@ -72,6 +72,13 @@ function initDatabase() {
 
       console.log('✓ Database connection established:', dbPath);
 
+      // Migration: Drop old incorrectly-structured sessions table from pre-#211 versions.
+      // connect-sqlite3 expects (sid, expired, sess) but old schema had (sid, session, expiryDate).
+      // Sessions are ephemeral → dropping is safe. connect-sqlite3 will create correct table.
+      db.run('DROP TABLE IF EXISTS sessions', () => {
+        // Ignore errors; table may not exist in fresh installs
+      });
+
       // Read and execute schema
       const schemaPath = path.join(__dirname, 'schema.sql');
       const schema = fs.readFileSync(schemaPath, 'utf-8');
