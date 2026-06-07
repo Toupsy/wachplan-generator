@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS plans (
   auth_tag BLOB NOT NULL,                -- Authentication Tag (16 bytes)
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  marked_for_deletion BOOLEAN DEFAULT 0, -- Plan ist markiert zur Löschung (Plan Retention)
+  marked_for_deletion_at DATETIME,       -- Zeitstempel der Markierung
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -41,7 +43,23 @@ CREATE TABLE IF NOT EXISTS plan_shares (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Audit Log (DSGVO Art. 5 Abs. 1 f – Accountability, Art. 32 – Sicherheit)
+CREATE TABLE IF NOT EXISTS audit_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER,                          -- NULL für System-Events (z.B. Cleanup)
+  action TEXT NOT NULL,                     -- 'login', 'logout', 'plan_create', 'plan_update', 'plan_delete', 'plan_share', 'plan_share_revoke', 'plan_import', 'admin_user_create', 'admin_user_delete', 'admin_password_reset', 'plan_cleanup'
+  entity_type TEXT,                         -- 'user', 'plan', 'plan_share', null für Login/Logout
+  entity_id INTEGER,                        -- user_id oder plan_id, null wenn nicht relevant
+  details TEXT,                             -- JSON-String mit zusätzlichen Infos (z.B. old_name, new_name, share_role, etc.)
+  ip_address TEXT,                          -- Client-IP (aus X-Forwarded-For oder req.ip)
+  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
 -- Indices für Performance
 CREATE INDEX IF NOT EXISTS idx_plans_user_id ON plans(user_id);
 CREATE INDEX IF NOT EXISTS idx_plan_shares_user ON plan_shares(user_id);
 CREATE INDEX IF NOT EXISTS idx_plan_shares_plan ON plan_shares(plan_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action);
+CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp ON audit_log(timestamp);

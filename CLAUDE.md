@@ -329,14 +329,67 @@ GDPR Art. 5 Abs. 1 c (Datenminimierung): Warnung gegen sensible Daten im Freitex
 - **Keine Logikänderung:** Speicherung, Export, Verarbeitung unverändert
 - **VERSION:** v0.4.13
 
-### Feature 21: Datenschutzerklärung (DSGVO Art. 13/14 – Transparenz)
-Umfassende, benutzerfreundliche Datenschutzerklärung in deutscher Sprache.
-- **Datei:** `public/datenschutz.html` – standalone HTML-Seite, vollständig stilisiert mit Dark Theme
-- **Inhalte:** Verantwortlicher, Datenverarbeitung, Rechtsgrundlagen, Speicherdauer, Benutzerdaten, Wachplan-Daten, Audit-Log, Ihre Rechte, Sicherheitsmaßnahmen, Datenweitergabe, Datenminimierung, Kontakt zur Behörde
-- **Zugang:** Verlinkt über Footer oder Navigation der Anwendung (URL: `/datenschutz.html`)
-- **Responsive Design:** Funktioniert auf Desktop und Mobile, passt sich Dark Theme an
-- **Inhalte:** Abdeckung DSGVO Art. 13/14, Art. 5, Art. 15–21 (Betroffenenrechte)
+### Feature 20: Login-Modal – „Merke mich"-Checkbox für persistenten Login
+Erweiterbare Session-TTL im Login-Modal für Wachdienst-Tablets/Handys auf dem Turm:
+- **UI:** Checkbox „Merke mich (30 Tage)" unter Passwort-Feld im Login-Modal (`#login-modal`)
+- **Aktiviert:** Session-Cookie läuft nach 30 Tagen ab (statt Standard 7 Tage)
+- **Deaktiviert:** Weiterhin Standard-Verhalten (7 Tage, wie bisher) – Rückwärtskompatibilität gewährleistet
+- **Backend:** `POST /api/auth/login` liest `rememberMe`-Flag aus Request-Body und setzt `req.session.cookie.maxAge` dynamisch
+- **Frontend:** `public/js/login-modal.js` `handleLogin()` sendet `rememberMe` Flag an Server
+- **Sicherheit:** Keine neuen Angriffsflächen – nur serverseitige Session-Verlängerung; HTTPOnly + SameSite:lax bleiben gesetzt
+- **Setup-Formular:** Unverändert (dort ist kein „Merke mich" nötig)
+- **Brute-Force-Schutz:** Weiterhin aktiv, unabhängig von `rememberMe`
+- **VERSION:** v0.4.14
+### Feature 21: Audit-Logging (DSGVO Art. 5 Abs. 1 f – Accountability)
+Umfassendes Audit-Log für Benutzeraktionen und Admin-Operationen zur Nachverfolgung und Compliance.
+- **Schema:** `audit_log`-Tabelle mit Spalten: `id`, `user_id` (NULL für System-Events), `action` (login/logout/plan_create/plan_update/plan_delete/plan_share/plan_share_revoke/plan_import/admin_user_create/admin_user_delete/admin_password_reset/plan_cleanup), `entity_type` (user/plan/plan_share), `entity_id` (user_id oder plan_id), `details` (JSON), `ip_address`, `timestamp`
+- **Indizes:** `user_id`, `action`, `timestamp` für schnelle Abfragen
+- **API:** `GET /api/admin/audit-log` – auflisten mit Filterung nach `action` und `user_id`; `limit` (1–500, default 100) und `offset` für Paginierung
+- **Admin-UI:** Tabellarische Anzeige im Admin-Panel mit Filteroptionen
+- **Datenspeicherung:** Audit-Einträge werden nicht automatisch gelöscht (dauerhafte Nachverfolgung); bei Plan-Deletion werden audit_log-Einträge mit `entity_type='plan'` beibehalten (Referential Integrity: `user_id` kann NULL werden, aber Datensatz bleibt)
+- **VERSION:** v0.4.15
+
+### Feature 22: Selbstregistrierung – Neue Nutzer können eigenständig einen Account erstellen
+Konfigurierbare Selbstregistrierung mit drei Sicherheitsmodi für Self-Hosting (NAS, vertrauenswürdige LAN).
+- **REGISTRATION_MODE** (ENV-Variable, Default `disabled`):
+  - `disabled` – Keine Selbstregistrierung; UI ausgeblendet, Endpoint 403
+  - `open` – Jeder kann sich registrieren (nur für vertrauenswürdige LAN/VPN)
+  - `code` – Registrierung nur mit gültigem `REGISTRATION_CODE`
+- **Backend:** `POST /api/auth/register` + `GET /api/auth/registration-status`
+  - Eingaben: `username`, `password` (≥10 Zeichen), optional `email`, optional `code`, `acceptedPrivacy: true`
+  - Neuer User immer `is_admin=0` (kein Self-Admin möglich)
+  - Rate-Limiting: 10 Versuche / 15 min (IP + Account)
+  - Non-enumerable Fehler (no user enumeration): Doppelter Username → "Registrierung nicht möglich"
+  - Auto-Login nach erfolgreicher Registrierung via `session.regenerate()`
+- **Frontend:** Register-View in `#login-modal`
+  - Zeigt sich nur wenn `enabled=true` (per `registration-status`)
+  - Formular: Username, Passwort, Passwort-Wiederholen, E-Mail (optional), Code (nur wenn `requiresCode`)
+  - **Datenschutz-Checkbox** mit Link zu `datenschutz.html` (Pflichtkontrolle, `acceptedPrivacy`)
+  - Fehleranzeige in `#register-error`, Back-Button zum Login
+  - Code-Feld sichtbar nur wenn `requiresCode=true`
+- **Umgebung:** `.env` mit `REGISTRATION_MODE` + `REGISTRATION_CODE` (wenn Mode=code)
+- **Validierung:** `db/init.js` prüft Mode auf erlaubte Werte; bei Mode=code ist CODE erforderlich
+- **DSGVO:** Datenschutz-Checkbox (Art. 13/Einwilligung), E-Mail optional (Datenminimierung)
 - **VERSION:** v0.4.16
+
+### Feature 23: Plan-Retention & Automatische Löschung (DSGVO Art. 5 Abs. 1 e – Speicherbegrenzung)
+Automatisierte Cleanup-Policy für inaktive Wachpläne zur Einhaltung des Datensparsamkeitsprinzips.
+- **Markierung:** Pläne, die > PLAN_RETENTION_DAYS inaktiv sind, werden mit `marked_for_deletion = 1` markiert
+- **Gnadenfrist:** 7 Tage zwischen Markierung und finaler Löschung (Nutzer können Plan bis dahin wieder aktualisieren → Markierung kann erneut greifen)
+- **Automatische Bereinigung:** Scheduler läuft täglich (24h Intervall), gestartet in `server/server.js` nach `initDatabase()`
+- **Konfiguration:** `PLAN_RETENTION_DAYS` (default: 90, disabled wenn ≤0 oder nicht gesetzt)
+- **Umgang mit geteilten Plänen:** Wenn Plan gelöscht wird, werden auch plan_shares-Einträge automatisch gelöscht (CASCADE)
+- **Audit-Logging:** Cleanup-Läufe werden im `audit_log` als System-Event protokolliert (action='plan_cleanup', entity_type='plan', user_id=NULL, details={marked, deleted})
+- **Datenbank:** Spalten `marked_for_deletion`, `marked_for_deletion_at` in `plans`-Tabelle (idempotente `ALTER TABLE`-Migration in `db/init.js` für Bestands-DBs)
+- **VERSION:** v0.4.17
+
+### Feature 24: Umfassende Datenschutzerklärung (DSGVO Art. 13/14 – Transparenz)
+Ausführliche, benutzerfreundliche Datenschutzerklärung in deutscher Sprache (ersetzt die vorherige Kurzfassung).
+- **Datei:** `public/datenschutz.html` – standalone HTML-Seite, vollständig stilisiert mit Dark Theme + „← Zurück zur Anwendung"
+- **Inhalte:** Verantwortlicher, Datenverarbeitung (Auth/Wachpläne/Audit-Log), Rechtsgrundlagen, Speicherdauer, Betroffenenrechte (Art. 15–21), Sicherheitsmaßnahmen, Datenweitergabe, Datenminimierung, Cookies/LocalStorage, automatisierte Entscheidungsfindung (Art. 22), Kontakt/Beschwerde (BfDI)
+- **Zugang:** URL `/datenschutz.html`; verlinkt u. a. aus der Selbstregistrierungs-View (`#login-modal`)
+- **Responsive Design:** Desktop + Mobile, Dark Theme; Abdeckung DSGVO Art. 13/14, Art. 5, Art. 15–21
+- **VERSION:** v0.4.18
 
 ## Bugfixes
 
@@ -638,7 +691,14 @@ Alle Secrets in `.env` (gitignored). Vorlage: `.env.example`.
 **Pflicht-Variablen** (von `db/init.js` `validateEnv()` geprüft):
 - `MASTER_SECRET` (≥32), `SALT` (≥16), `SESSION_SECRET` (≥16)
 
-**Optional:** `ADMIN_USERNAME`/`ADMIN_PASSWORD`, `ADMIN_PORT`, `NODE_ENV`/`PORT`/`HOST`, `DATABASE_PATH`
+**Optional:**
+- `ADMIN_USERNAME`/`ADMIN_PASSWORD`, `ADMIN_PORT`, `NODE_ENV`/`PORT`/`HOST`, `DATABASE_PATH`
+- **Selbstregistrierung** (Feature 22):
+  - `REGISTRATION_MODE` (disabled | open | code; Default: disabled)
+    - `disabled` – Keine Selbstregistrierung, UI ausgeblendet, Endpoint 403
+    - `open` – Jeder kann sich registrieren (nur für vertrauenswürdige LAN/VPN)
+    - `code` – Registrierung nur mit gültigem `REGISTRATION_CODE`
+  - `REGISTRATION_CODE` – Erforderlich wenn `REGISTRATION_MODE=code` (beliebiger String)
 
 `docker-compose.yml`: beide Services teilen Konfig per YAML-Anchor (`x-wachplan-base`) + `env_file: .env`.
 
@@ -665,11 +725,14 @@ Verschlüsselung immer mit dem **Owner-Key** (`plans.user_id`), auch bei geteilt
 
 #### Authentication
 ```
-POST /api/auth/login     – { username, password } → { userId, username, isAdmin } (≥10 Zeichen)
-POST /api/auth/logout    – Session zerstören
-GET  /api/auth/me        – Aktueller User oder 401
-POST /api/auth/init      – Ersten Admin anlegen (einmalig, public, ≥10 Zeichen)
-PUT  /api/auth/password  – { currentPassword, newPassword } (≥10 Zeichen)
+POST /api/auth/login                – { username, password, rememberMe? } → { userId, username, isAdmin } (≥10 Zeichen)
+POST /api/auth/logout               – Session zerstören
+GET  /api/auth/me                   – Aktueller User oder 401
+GET  /api/auth/needs-setup          – { needsSetup: bool } (Admin existiert noch nicht?)
+GET  /api/auth/registration-status  – { enabled: bool, requiresCode: bool } (selbstregistrierung aktiv?)
+POST /api/auth/init                 – Ersten Admin anlegen (einmalig, public, ≥10 Zeichen)
+POST /api/auth/register             – Selbstregistrierung: { username, password, email?, code?, acceptedPrivacy } (≥10 Zeichen, muss REGISTRATION_MODE !== 'disabled' sein)
+PUT  /api/auth/password             – { currentPassword, newPassword } (≥10 Zeichen)
 ```
 
 #### Plans (Authenticated)
