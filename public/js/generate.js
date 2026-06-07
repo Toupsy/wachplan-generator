@@ -320,8 +320,8 @@ function generate(startDay = 0){
           score += (pairCount[pairKey(A.id, B.id)] || 0) * 120;
           const vA = sA.towerVisits[t.id] || 0;
           const vB = sB.towerVisits[t.id] || 0;
-          score += vA >= 2 ? 300 : vA * 30;
-          score += vB >= 2 ? 300 : vB * 30;
+          score += vA * 150;  // 150 pts per visit: 1st=150, 2nd=300, 3rd=450 (linear, no cliff)
+          score += vB * 150;
           score += (sA.total + sB.total) * 5;
           score += surplusBFPenalty(A, t) + surplusBFPenalty(B, t);
           // Feature 12: Bevorzuge Führungskräfte auf Türmen mit leaderCount > 0
