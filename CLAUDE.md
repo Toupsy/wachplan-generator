@@ -339,6 +339,14 @@ GDPR Art. 5 Abs. 1 c (Datenminimierung): Warnung gegen sensible Daten im Freitex
 - **Lösung (Variante A):** `const need = Math.max(0, (t.slotCount || 2) + (t.leaderCount || 0) - preCount)` – konsistent mit Vorab-Schätzung (Zeile ~225) und tatsächlicher Turmbelegung
 - **Verifikation:** Alle 14 Tests grün, einschließlich Regressions-Szenarien aus `test/leaders.test.js`
 
+### Bugfix: `renderHWBoatSelector()` undefined ReferenceError (Issue #233, v0.4.14)
+**Problem:** In `state-io.js` Zeile 376 ruft `_rebuildAllUI()` die Funktion `renderHWBoatSelector()` auf, die nirgendwo im Code definiert ist.
+- **Ort:** `public/js/state-io.js`, Zeile 376
+- **Ursache:** Überbleibsel aus Feature 6 (HW-Boot, deprecated seit v0.4.13). Boote werden nun uniform via `towerId='HW'` behandelt; der Aufruf wurde beim Cleanup nicht entfernt.
+- **Symptom:** ReferenceError in drei kritischen Pfaden: `createNewPlan()`, `loadPlanById()`, `applyRemotePlanState()`. UI-Neu-Erstellung stoppt vorzeitig.
+- **Lösung:** Zeile 376 entfernt: `renderHWBoatSelector(); ←` gelöscht, da Funktion nicht existiert und nicht mehr benötigt wird.
+- **Verifikation:** Alle 16 Tests grün; keine Regressions-Szenarien.
+
 ---
 
 ## Manuelles Verschieben & Drag-and-Drop (move.js, render-output.js)
