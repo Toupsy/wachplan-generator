@@ -620,6 +620,7 @@ function openImportPeopleModal(){
 
     close();
     renderPeople();
+    generate();
     scheduleAutoSave();
     showToast(`✅ ${parsed.length} Person${parsed.length !== 1 ? 'en' : ''} importiert`);
   };
