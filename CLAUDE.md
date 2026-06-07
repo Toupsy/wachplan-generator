@@ -329,7 +329,18 @@ GDPR Art. 5 Abs. 1 c (Datenminimierung): Warnung gegen sensible Daten im Freitex
 - **Keine Logikänderung:** Speicherung, Export, Verarbeitung unverändert
 - **VERSION:** v0.4.13
 
-### Feature 20: Audit-Logging (DSGVO Art. 5 Abs. 1 f – Accountability)
+### Feature 20: Login-Modal – „Merke mich"-Checkbox für persistenten Login
+Erweiterbare Session-TTL im Login-Modal für Wachdienst-Tablets/Handys auf dem Turm:
+- **UI:** Checkbox „Merke mich (30 Tage)" unter Passwort-Feld im Login-Modal (`#login-modal`)
+- **Aktiviert:** Session-Cookie läuft nach 30 Tagen ab (statt Standard 7 Tage)
+- **Deaktiviert:** Weiterhin Standard-Verhalten (7 Tage, wie bisher) – Rückwärtskompatibilität gewährleistet
+- **Backend:** `POST /api/auth/login` liest `rememberMe`-Flag aus Request-Body und setzt `req.session.cookie.maxAge` dynamisch
+- **Frontend:** `public/js/login-modal.js` `handleLogin()` sendet `rememberMe` Flag an Server
+- **Sicherheit:** Keine neuen Angriffsflächen – nur serverseitige Session-Verlängerung; HTTPOnly + SameSite:lax bleiben gesetzt
+- **Setup-Formular:** Unverändert (dort ist kein „Merke mich" nötig)
+- **Brute-Force-Schutz:** Weiterhin aktiv, unabhängig von `rememberMe`
+- **VERSION:** v0.4.14
+### Feature 21: Audit-Logging (DSGVO Art. 5 Abs. 1 f – Accountability)
 Umfassendes Audit-Log für Benutzeraktionen und Admin-Operationen zur Nachverfolgung und Compliance.
 - **Schema:** `audit_log`-Tabelle mit Spalten: `id`, `user_id` (NULL für System-Events), `action` (login/logout/plan_create/plan_update/plan_delete/plan_share/plan_share_revoke/plan_import/admin_user_create/admin_user_delete/admin_password_reset/plan_cleanup), `entity_type` (user/plan/plan_share), `entity_id` (user_id oder plan_id), `details` (JSON), `ip_address`, `timestamp`
 - **Indizes:** `user_id`, `action`, `timestamp` für schnelle Abfragen
