@@ -540,8 +540,8 @@ function parsePeopleLine(line){
     else if(roleStr === 'W' || roleStr.includes('WACH')) role = 'W';
   }
 
-  // Parse experience (optional, defaults to true for non-F)
-  let experienced = role === 'F' ? true : true;  // Default: experienced
+  // Parse experience (optional, defaults to true)
+  let experienced = true;
   if(parts.length > 2){
     const expStr = parts[2].toLowerCase();
     if(expStr === 'nein' || expStr === 'false' || expStr === '0' || expStr === 'n') {
@@ -559,7 +559,7 @@ function openImportPeopleModal(){
   const modal = document.getElementById('import-people-modal');
   const textarea = document.getElementById('import-textarea');
   const preview = document.getElementById('import-count');
-  const cancelBtn = document.getElementById('import-people-modal-cancel');
+  const cancelBtn = document.getElementById('import-modal-cancel');
   const confirmBtn = document.getElementById('import-modal-confirm');
   const replaceChk = document.getElementById('import-replace-chk');
   const msgEl = document.getElementById('import-modal-msg');
@@ -603,7 +603,8 @@ function openImportPeopleModal(){
     // Replace or append
     if(replaceChk.checked){
       people = [];
-      uid = 0;  // Reset uid when replacing
+      dayState.forEach(d => { d.sick.clear(); d.closed.clear(); d.closedBoats.clear(); });
+      forcedPlacements.forEach(fp => fp.length = 0);
     }
 
     parsed.forEach(p => {
