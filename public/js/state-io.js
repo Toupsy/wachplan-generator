@@ -2,7 +2,7 @@
 // state-io.js – Planstatus-Import / Export (Feature 7) + Server-Sync
 // ============================================================
 
-const STATE_VERSION = 6;
+const STATE_VERSION = 7;
 
 // Migriert eine Person vom alten Rollenmodell (role 'E'/'U' + bfLevel) auf das
 // neue Modell (role 'F'|'B'|'W' + experienced:bool). Idempotent.
@@ -53,6 +53,7 @@ function _buildStateObject(){
     people:               people.map(p => {
       const obj = { ...p };
       if(obj.experienced === undefined) obj.experienced = (p.role !== 'F');  // Default erfahren (außer F)
+      if(obj.absentDays === undefined) obj.absentDays = [];  // Default keine Abwesenheiten
       return obj;
     }),
     towers:               towers.map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0 })),
@@ -128,7 +129,8 @@ function importStateJSON(json, silent = false){
   people = (s.people || []).map(p => ({
     ...migratePerson(p),   // altes Rollenmodell (E/U + bfLevel) → role 'W' + experienced
     labels: p.labels || '',
-    enableLabels: p.enableLabels !== undefined ? p.enableLabels : ((p.labels||'').trim().length > 0)  // Fallback für alte Exporte
+    enableLabels: p.enableLabels !== undefined ? p.enableLabels : ((p.labels||'').trim().length > 0),  // Fallback für alte Exporte
+    absentDays: Array.isArray(p.absentDays) ? p.absentDays : []  // Feature 20: Mehrtägige Abwesenheiten
   }));
   towers = (s.towers || []).map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0 }));
   boats  = (s.boats  || []).map(b => ({ ...b, slotCount: b.slotCount || 1 }));

@@ -117,6 +117,10 @@ function generate(startDay = 0){
 
   for(let d = startDay; d < DAYS; d++){
     const ds     = dayState[d] || { sick: new Set(), closed: new Set(), closedBoats: new Set() };
+    // Feature 20: Wende Abwesenheiten aus absentDays auf dayState.sick an
+    people.forEach(p => {
+      if(p.absentDays && p.absentDays.includes(d)) ds.sick.add(p.id);
+    });
     const isSick = id => ds.sick.has(id);
 
     // Türme mit aktivem Boot / außer-Dienst-Boot für DIESEN Tag vorberechnen

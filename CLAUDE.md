@@ -329,6 +329,20 @@ GDPR Art. 5 Abs. 1 c (Datenminimierung): Warnung gegen sensible Daten im Freitex
 - **Keine Logikänderung:** Speicherung, Export, Verarbeitung unverändert
 - **VERSION:** v0.4.13
 
+### Feature 20: Mehrtägige Abwesenheiten vorab markieren (Urlaub/Verfügbarkeit)
+Realistische Planung durch vorab definierte Abwesenheitsbereiche (anstatt tageweise manuell zu toggeln):
+- **State:** `people[i].absentDays: number[]` enthält Tag-Indizes (0-basiert) wo Person nicht verfügbar ist
+- **UI in `#section-people`:** Zwei Number-Inputs pro Person (von/bis Tag-Index) mit Validierung `0..DAYS-1`
+  - Inputs haben Label-Icons (🗓️), Input-Range-Hinweise, Styling mit `rgba(255,179,71,.05)` (Warn-Farbe)
+  - onChange: Array `[fromVal..toVal]` in `person.absentDays` schreiben; validate `fromVal <= toVal`
+- **Algorithmus in `generate.js`:** VOR dem Tagesloop wird `dayState[d].sick` mit Personen ergänzt, deren `absentDays` den Tag `d` enthalten
+  - Abwesenheiten werden **zusätzlich** zu manuell markierten kranken Personen berücksichtigt (Union-Operation)
+  - Fairness-Statistik zählt Abwesenheits-Tage NICHT als Dienst (Person wird wie sick/unavailable behandelt)
+- **Persistenz:** `STATE_VERSION` 6→7; `_buildStateObject()` serialisiert Arrays; `importStateJSON()` deserializiert mit Default `[]`
+- **Tests:** Invarianten-Suite validiert, dass Personen mit Abwesenheiten nicht aktiv eingeplant werden; alle 16 Tests grün
+- **Nutzen:** Z.B. 18 Wachgänger, 10 Tage, 3 Personen im Urlaub → einmal eingeben, Plan berücksichtigt automatisch verfügbare Personen
+- **VERSION:** v0.4.14
+
 ## Bugfixes
 
 ### Bugfix: openTowers-Bedarfsrechnung ignoriert leaderCount (Issue #117, v0.4.1)

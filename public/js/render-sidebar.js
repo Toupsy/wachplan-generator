@@ -45,6 +45,20 @@ function renderPeople(){
     labelsRow.innerHTML = `
       <input type="text" value="${escapeHtml(p.labels||'')}" data-id="${p.id}" class="plabels" placeholder="Labels (z.B. Sanitäter, Rettungsschwimmer)" maxlength="200">`;
     c.appendChild(labelsRow);
+
+    // Feature 20: Abwesenheits-Bereich (von–bis Tag)
+    const absenceRow = document.createElement('div');
+    absenceRow.className = 'person-absence-row';
+    absenceRow.setAttribute('data-id', p.id);
+    absenceRow.style.cssText = 'display:grid;grid-template-columns:20px minmax(0,2fr) minmax(0,2.1fr) minmax(0,1.2fr) minmax(0,0.6fr) 24px;gap:6px;align-items:center;margin-bottom:12px;padding:8px;background:rgba(255,179,71,.05);border-radius:6px;border-left:3px solid rgba(255,179,71,.3)';
+    const absFrom = (p.absentDays || []).length > 0 ? Math.min(...p.absentDays) : '';
+    const absTo = (p.absentDays || []).length > 0 ? Math.max(...p.absentDays) : '';
+    absenceRow.innerHTML = `
+      <span style="font-family:'Spline Sans Mono',monospace;font-size:.7rem;color:var(--warn);text-align:center;grid-column:1">🗓️</span>
+      <input type="number" min="0" max="${DAYS-1}" value="${absFrom}" data-id="${p.id}" class="abs-from" placeholder="Von (Tag)" style="grid-column:2;background:var(--deep);border:1px solid var(--line-strong);border-radius:6px;padding:6px 8px;color:var(--text);font-size:.8rem;width:100%">
+      <input type="number" min="0" max="${DAYS-1}" value="${absTo}" data-id="${p.id}" class="abs-to" placeholder="Bis (Tag)" style="grid-column:3;background:var(--deep);border:1px solid var(--line-strong);border-radius:6px;padding:6px 8px;color:var(--text);font-size:.8rem;width:100%">
+      <span style="grid-column:4/6;font-size:.7rem;color:var(--text-dim);padding:0 8px">Tage 0–${DAYS-1}</span>`;
+    c.appendChild(absenceRow);
   });
 
   // Event handler for label checkbox
@@ -75,6 +89,28 @@ function renderPeople(){
     });
   c.querySelectorAll('.exp-checkbox').forEach(cb =>
     cb.onchange = e => { getP(+e.target.dataset.id).experienced = e.target.checked; scheduleAutoSave(); renderOutput(); });
+  // Feature 20: Abwesenheits-Input Handler
+  const updateAbsenceDays = (personId) => {
+    const p = getP(personId);
+    const absenceRow = Array.from(c.querySelectorAll('.person-absence-row')).find(row => +row.getAttribute('data-id') === personId);
+    if(!absenceRow) return;
+    const fromInput = absenceRow.querySelector('.abs-from');
+    const toInput = absenceRow.querySelector('.abs-to');
+    const fromVal = fromInput.value !== '' ? parseInt(fromInput.value, 10) : null;
+    const toVal = toInput.value !== '' ? parseInt(toInput.value, 10) : null;
+    if(fromVal !== null && toVal !== null && fromVal <= toVal){
+      p.absentDays = Array.from({length: toVal - fromVal + 1}, (_, i) => fromVal + i);
+    } else {
+      p.absentDays = [];
+    }
+    scheduleAutoSave();
+    generate();  // Neu berechnen, um Abwesenheiten zu berücksichtigen
+    renderOutput();
+  };
+  c.querySelectorAll('.abs-from').forEach(input =>
+    input.onchange = e => updateAbsenceDays(+e.target.dataset.id));
+  c.querySelectorAll('.abs-to').forEach(input =>
+    input.onchange = e => updateAbsenceDays(+e.target.dataset.id));
   c.querySelectorAll('.del-p').forEach(b =>
     b.onclick = e => {
       const id = +e.target.dataset.id;
