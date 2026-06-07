@@ -497,11 +497,11 @@ HOUR_ROWS_X = { '09:00':[25,26], ... }     // Zeilen-Paare pro Stunde (oben/unte
 5. Verbleibende Template-Spalten → HW-Overflow (Personen 5+, inkl. Kranke)
 
 ### `autoFillExportColumns()` – Reihenfolge
-Pro Turm (Prio absteigend): erst zugeordnete Boote, dann Turm → Boot steht immer links von seinem Turm. Dann freie Boote, WF (→ WF2 nur wenn >2 Führungspersonen), HW (→ HW2 nur manuell hinzufügen falls nötig).
+Pro Turm (Prio absteigend): erst zugeordnete Boote, dann Turm → Boot steht immer links von seinem Turm. Dann freie Boote, WF (→ WF2 nur wenn >2 Führungspersonen), HW.
 
 ### `buildAssignments(dayIdx)` → `{ code: [Nr, ...] }`
 - Türme: **alle** Besatzer (kein slice); Überlauf >2 → adjacent via `effectiveCols`
-- HW: `mainGuards + base + bootsfLeft + sick` → WF/WF2 (Führung), HW (Rest inkl. Kranke), optional HW2
+- HW: `mainGuards + base + bootsfLeft + sick` → WF/WF2 (Führung), HW (Rest inkl. Kranke)
 
 ### Template-Caching
 - **Auto-Load:** `fetch('Wachplan Template.xlsx')` beim Seitenstart
