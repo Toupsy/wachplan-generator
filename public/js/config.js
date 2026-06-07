@@ -39,6 +39,8 @@ function seedFromConfig() {
   // Keine Wachgänger
   people = [];
   uid = 0;
+  towers = [];
+  boats = [];
 
   // Erstelle Türme mit IDs
   const towerMap = {};

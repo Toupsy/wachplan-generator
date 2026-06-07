@@ -339,6 +339,14 @@ GDPR Art. 5 Abs. 1 c (Datenminimierung): Warnung gegen sensible Daten im Freitex
 - **Lösung (Variante A):** `const need = Math.max(0, (t.slotCount || 2) + (t.leaderCount || 0) - preCount)` – konsistent mit Vorab-Schätzung (Zeile ~225) und tatsächlicher Turmbelegung
 - **Verifikation:** Alle 14 Tests grün, einschließlich Regressions-Szenarien aus `test/leaders.test.js`
 
+### Bugfix: seedFromConfig() löscht towers/boats nicht (Issue #232, v0.4.14)
+**Problem:** `seedFromConfig()` in `public/js/config.js` vergaß, `towers` und `boats` zu leeren, bevor Template-Türme und -Boote hinzugefügt wurden.
+- **Ort:** `public/js/config.js`, Zeilen 39–72
+- **Ursache:** `people = []` und `uid = 0` wurden zurückgesetzt, aber `towers` und `boats` blieben erhalten und wurden mit `.push()` erweitert
+- **Symptom:** Neuer Plan über Plan-Manager erbte Türme und Boote des zuvor geöffneten Plans → Duplizierung (z.B. 7→14 Türme, 3→6 Boote statt 7/3 wie in der Config)
+- **Lösung:** `towers = []` und `boats = []` vor dem Befüllen hinzufügen (Zeilen 41–42)
+- **Verifikation:** Alle 16 Tests grün
+
 ---
 
 ## Manuelles Verschieben & Drag-and-Drop (move.js, render-output.js)
