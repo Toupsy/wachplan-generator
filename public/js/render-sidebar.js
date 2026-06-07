@@ -427,7 +427,7 @@ function renderExportColumnUI(){
   const knownCodes = [
     ...boats.map(b => b.code).filter(Boolean),
     ...towers.map(t => t.code).filter(Boolean),
-    'WF','WF2','HW','HW2',
+    'WF','WF2','HW',
   ];
 
   c.innerHTML = '';
