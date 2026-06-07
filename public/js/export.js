@@ -470,3 +470,150 @@ function exportStatsCSV(){
   a.download = 'wachplan-statistik.csv';
   a.click();
 }
+
+// ── iCalendar (.ics) Export pro Person ───────────────────────────
+
+/** Generiert UUID v4 (für VEVENT-UIDs). */
+function _generateUUID(){
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+/** Konvertiert lokales Datum und Uhrzeit zu iCalendar FORMAT (YYYYMMDDTHHMMSS). */
+function _toICalDateTime(dateStr, hour, minute = 0){
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const padZero = (n) => String(n).padStart(2, '0');
+  return `${y}${padZero(m)}${padZero(d)}T${padZero(hour)}${padZero(minute)}00`;
+}
+
+/** Escaped iCalendar TEXT-Werte (Komma, Semikolon, Backslash, Zeilenumbruch). */
+function _escapeICalText(s){
+  return String(s)
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\n/g, '\\n');
+}
+
+/**
+ * Exportiert den Wachplan einer Person als .ics-Datei.
+ * Sammelt alle Tage, an denen die Person Dienst hat, und erzeugt ein VEVENT pro Dienst.
+ */
+function exportPersonalICS(personId){
+  if(!lastResult){ showToast('Erst einen Plan generieren'); return; }
+  if(!startDate){ showToast('Startdatum erforderlich'); return; }
+
+  const person = people.find(p => p.id === personId);
+  if(!person){ showToast('Person nicht gefunden'); return; }
+
+  const dayDates = computeDayDates();
+  const events = [];
+
+  lastResult.schedule.forEach((day, dayIdx) => {
+    const dateStr = dayDates[dayIdx];
+    if(!dateStr) return;
+
+    const dayServices = [];
+
+    day.assign.forEach(slot => {
+      // Türme
+      if(slot.kind === 'tower'){
+        const hasPersonId = slot.occupants.some(p => p.id === personId);
+        if(hasPersonId){
+          dayServices.push({
+            station: slot.tower,
+            code: slot.code || '',
+            type: 'Turm'
+          });
+        }
+      }
+      // Boote
+      else if(slot.kind === 'boat' && slot.occupants){
+        const hasPersonId = slot.occupants.some(p => p.id === personId);
+        if(hasPersonId){
+          dayServices.push({
+            station: slot.name,
+            code: slot.code || '',
+            type: 'Boot'
+          });
+        }
+      }
+      // Hauptwache (Führung, Wache, Bootsführer, etc.)
+      else if(slot.kind === 'main'){
+        const inFuehrung  = slot.fuehrung.some(p => p.id === personId);
+        const inGuards    = slot.mainGuards.some(p => p.id === personId);
+        const inBase      = slot.base.some(p => p.id === personId);
+        const inBootsfLeft = slot.bootsfLeft.some(p => p.id === personId);
+        const inHWBoat    = slot.hwBoatSlot?.bootsf?.id === personId;
+        const isSick      = slot.sick?.some(p => p.id === personId);
+
+        if(inFuehrung || inGuards || inBase || inBootsfLeft){
+          dayServices.push({
+            station: 'Hauptwache',
+            code: 'HW',
+            type: 'Wache'
+          });
+        }
+        if(inHWBoat){
+          const boatName = slot.hwBoatSlot?.name || 'HW-Boot';
+          const boatCode = slot.hwBoatSlot?.code || '';
+          dayServices.push({
+            station: boatName,
+            code: boatCode,
+            type: 'Boot'
+          });
+        }
+        // Kranke werden NICHT als Event exportiert
+      }
+    });
+
+    // Pro Dienst an diesem Tag ein VEVENT
+    dayServices.forEach(svc => {
+      const uid = _generateUUID();
+      const dtstart = _toICalDateTime(dateStr, serviceStartHour);
+      const dtend   = _toICalDateTime(dateStr, serviceEndHour);
+      const summary = `${svc.station} (${svc.type})`;
+      const location = svc.code;
+      const description = `${svc.type} Dienst: ${svc.station}`;
+
+      events.push({
+        uid, dtstart, dtend, summary, location, description
+      });
+    });
+  });
+
+  // iCalendar-Format
+  let ics = 'BEGIN:VCALENDAR\r\n';
+  ics += 'VERSION:2.0\r\n';
+  ics += 'PRODID:-//DLRG Wachplan Generator//EN\r\n';
+  ics += 'CALSCALE:GREGORIAN\r\n';
+  ics += `X-WR-CALNAME:Wachplan - ${_escapeICalText(person.name)}\r\n`;
+  ics += 'BEGIN:VTIMEZONE\r\nTZID:Europe/Berlin\r\n';
+  ics += 'BEGIN:STANDARD\r\nDTSTART:19701025T030000\r\nTZOFFSETFROM:+0200\r\nTZOFFSETTO:+0100\r\nRRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU\r\nEND:STANDARD\r\n';
+  ics += 'BEGIN:DAYLIGHT\r\nDTSTART:19700329T020000\r\nTZOFFSETFROM:+0100\r\nTZOFFSETTO:+0200\r\nRRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU\r\nEND:DAYLIGHT\r\n';
+  ics += 'END:VTIMEZONE\r\n';
+
+  events.forEach(e => {
+    ics += 'BEGIN:VEVENT\r\n';
+    ics += `UID:${e.uid}\r\n`;
+    ics += `DTSTART:${e.dtstart}\r\n`;
+    ics += `DTEND:${e.dtend}\r\n`;
+    ics += `SUMMARY:${_escapeICalText(e.summary)}\r\n`;
+    if(e.location) ics += `LOCATION:${_escapeICalText(e.location)}\r\n`;
+    ics += `DESCRIPTION:${_escapeICalText(e.description)}\r\n`;
+    ics += `DTSTAMP:${_toICalDateTime(new Date().toISOString().slice(0,10), new Date().getHours(), new Date().getMinutes())}\r\n`;
+    ics += 'END:VEVENT\r\n';
+  });
+
+  ics += 'END:VCALENDAR';
+
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `wachplan-${person.name.replace(/\s+/g, '-').toLowerCase()}.ics`;
+  a.click();
+
+  showToast(`📅 Kalender-Export für ${person.name} heruntergeladen`);
+}

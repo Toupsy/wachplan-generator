@@ -329,6 +329,26 @@ GDPR Art. 5 Abs. 1 c (Datenminimierung): Warnung gegen sensible Daten im Freitex
 - **Keine Logikänderung:** Speicherung, Export, Verarbeitung unverändert
 - **VERSION:** v0.4.13
 
+### Feature 20: Persönlicher Dienstplan-Export (.ics iCalendar)
+Jeder Wachgänger erhält seinen persönlichen Dienstplan als `.ics`-Datei für den Import in Telefon-Kalendaranwendungen.
+- **Export-Funktion:** `exportPersonalICS(personId)` in `public/js/export.js`
+  - Sammelt alle Dienst-Tage aus `lastResult.schedule` für die Person
+  - Berücksichtigt: Türme, Boote, Hauptwache-Rollen (Führung, Wache, BF)
+  - Ignoriert: kranke Personen
+- **iCalendar-Format:**
+  - Pro Dienst-Tag ein VEVENT
+  - DTSTART/DTEND: lokale Zeiten (aus `serviceStartHour`/`serviceEndHour`)
+  - SUMMARY: Stationsname + Typ (z.B. „Nord (Turm)")
+  - LOCATION: Stations-Code
+- **Zeitzone:** Berlin (mit Standard/Daylight-Switching per VTIMEZONE)
+- **UI:** Button „📅 .ics" in der Turm-Einsatzverteilung pro Person (renderTowerStatsPerPerson)
+- **Hilfsfunktionen:**
+  - `_generateUUID()` – UIDs für VEVENT
+  - `_toICalDateTime(dateStr, hour, minute)` – Konvertierung zu iCalendar-Format
+  - `_escapeICalText(s)` – Escaping von Sonderzeichen (RFC 5545)
+- **Dateiname:** `wachplan-<vorname-nachname>.ics` (Leerzeichen → Bindestriche)
+- **VERSION:** v0.4.14
+
 ## Bugfixes
 
 ### Bugfix: openTowers-Bedarfsrechnung ignoriert leaderCount (Issue #117, v0.4.1)
