@@ -24,7 +24,7 @@ function openDuplicatePlanModal(planId, planName){
   modal.dataset.planId = planId;
   modal.dataset.planName = planName;
   const titleEl = modal.querySelector('.modal-title');
-  if(titleEl) titleEl.textContent = 'Plan duplizieren: ' + escapeHtml(planName);
+  if(titleEl) titleEl.textContent = 'Plan duplizieren: ' + planName;
   modal.style.display = 'flex';
 }
 
