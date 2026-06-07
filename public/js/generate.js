@@ -117,11 +117,17 @@ function generate(startDay = 0){
 
   for(let d = startDay; d < DAYS; d++){
     const ds     = dayState[d] || { sick: new Set(), closed: new Set(), closedBoats: new Set() };
-    // Feature 20: Wende Abwesenheiten aus absentDays auf dayState.sick an
+    // Feature 20: Berechne lokal die Vereinigung von manuell kranken + abwesenden Personen
+    // OHNE ds.sick zu mutieren (verhindert State-Verschmelzung und Datenlecks)
+    const sickIds = new Set(ds.sick);
     people.forEach(p => {
-      if(p.absentDays && p.absentDays.includes(d)) ds.sick.add(p.id);
+      if(p.absentDays){
+        // Filtere absentDays auf gültige Indizes (0..DAYS-1) um stale Indizes zu ignorieren
+        const validAbsences = p.absentDays.filter(dayIdx => dayIdx >= 0 && dayIdx < DAYS);
+        if(validAbsences.includes(d)) sickIds.add(p.id);
+      }
     });
-    const isSick = id => ds.sick.has(id);
+    const isSick = id => sickIds.has(id);
 
     // Türme mit aktivem Boot / außer-Dienst-Boot für DIESEN Tag vorberechnen
     const activeBoatTowers = new Set();
