@@ -57,6 +57,19 @@ function validateEnv() {
     process.exit(1);
   }
 
+  // Validate REGISTRATION_MODE if set
+  const registrationMode = process.env.REGISTRATION_MODE || 'disabled';
+  if (!['disabled', 'open', 'code'].includes(registrationMode)) {
+    console.error('❌ REGISTRATION_MODE must be one of: disabled, open, code');
+    process.exit(1);
+  }
+
+  // If code mode, require REGISTRATION_CODE
+  if (registrationMode === 'code' && !process.env.REGISTRATION_CODE) {
+    console.error('❌ REGISTRATION_CODE required when REGISTRATION_MODE=code');
+    process.exit(1);
+  }
+
   console.log('✓ Environment variables validated');
 }
 
@@ -103,6 +116,11 @@ function initDatabase() {
         // Idempotente Migration: last_login-Spalte für users (alte DBs ohne last_login).
         // Fehler ("duplicate column name") wird bewusst ignoriert.
         db.run("ALTER TABLE users ADD COLUMN last_login DATETIME", () => {});
+
+        // Idempotente Migration: Plan-Retention-Spalten für plans (alte DBs ohne diese Spalten).
+        // Fehler ("duplicate column name") wird bewusst ignoriert.
+        db.run("ALTER TABLE plans ADD COLUMN marked_for_deletion BOOLEAN DEFAULT 0", () => {});
+        db.run("ALTER TABLE plans ADD COLUMN marked_for_deletion_at DATETIME", () => {});
 
         // Auto-create admin if ADMIN_USERNAME + ADMIN_PASSWORD are set
         db.get("SELECT COUNT(*) as count FROM users WHERE is_admin = 1", async (err, row) => {
@@ -164,6 +182,22 @@ async function main() {
   }
 }
 
+// Audit logging helper
+function auditLog(db, userId, action, entityType = null, entityId = null, details = null, ipAddress = null) {
+  return new Promise((resolve, reject) => {
+    const detailsStr = details ? JSON.stringify(details) : null;
+    db.run(
+      `INSERT INTO audit_log (user_id, action, entity_type, entity_id, details, ip_address)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [userId, action, entityType, entityId, detailsStr, ipAddress],
+      function(err) {
+        if (err) reject(err);
+        else resolve({ id: this.lastID });
+      }
+    );
+  });
+}
+
 // Plan retention cleanup helper – marks plans for deletion after N days of inactivity
 function startPlanRetentionCleanup(db, retentionDays = 90) {
   if (!retentionDays || retentionDays <= 0) {
@@ -179,7 +213,7 @@ function startPlanRetentionCleanup(db, retentionDays = 90) {
       const cutoffDate = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
 
       // Mark stale plans (not updated in retentionDays)
-      await new Promise((resolve, reject) => {
+      const marked = await new Promise((resolve, reject) => {
         db.run(
           `UPDATE plans
            SET marked_for_deletion = 1, marked_for_deletion_at = CURRENT_TIMESTAMP
@@ -189,7 +223,7 @@ function startPlanRetentionCleanup(db, retentionDays = 90) {
             if (err) reject(err);
             else {
               if (this.changes > 0) console.log(`✓ Plan retention: marked ${this.changes} stale plans for deletion`);
-              resolve();
+              resolve(this.changes);
             }
           }
         );
@@ -197,7 +231,7 @@ function startPlanRetentionCleanup(db, retentionDays = 90) {
 
       // Delete hard-marked plans (marked >7 days ago = grace period)
       const graceDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-      await new Promise((resolve, reject) => {
+      const deleted = await new Promise((resolve, reject) => {
         db.run(
           `DELETE FROM plans WHERE marked_for_deletion = 1 AND marked_for_deletion_at < ?`,
           [graceDate],
@@ -205,18 +239,24 @@ function startPlanRetentionCleanup(db, retentionDays = 90) {
             if (err) reject(err);
             else {
               if (this.changes > 0) console.log(`✓ Plan retention: permanently deleted ${this.changes} plans after grace period`);
-              resolve();
+              resolve(this.changes);
             }
           }
         );
       });
+
+      // Audit-Log: System-Event für Compliance (user_id=NULL = System-Event).
+      if (marked > 0 || deleted > 0) {
+        await auditLog(db, null, 'plan_cleanup', 'plan', null, { marked, deleted }, null)
+          .catch(err => console.error('❌ Plan retention audit log error:', err.message));
+      }
     } catch (error) {
       console.error('❌ Plan retention cleanup error:', error.message);
     }
   }, 24 * 60 * 60 * 1000);
 }
 
-module.exports = { initDatabase, validateEnv, startPlanRetentionCleanup };
+module.exports = { initDatabase, validateEnv, auditLog, startPlanRetentionCleanup };
 
 // Run if called directly
 if (require.main === module) {

@@ -4,6 +4,8 @@
 // POST /api/auth/logout
 // GET /api/auth/me
 // POST /api/auth/init (Initialize first admin user)
+// POST /api/auth/register (Self-service user registration)
+// GET /api/auth/registration-status (Check if registration enabled)
 // ============================================================
 
 const express = require('express');
@@ -15,6 +17,7 @@ const { dbRun, dbGet } = require('../db/connection');
 // Security Constants
 // ───────────────────────────────────────────────────────────
 const MIN_PASSWORD_LENGTH = 10;
+const REGISTRATION_MODE = process.env.REGISTRATION_MODE || 'disabled'; // disabled | open | code
 
 // ───────────────────────────────────────────────────────────
 // GET /api/auth/me – Check current session
@@ -97,7 +100,7 @@ const _resetAttempts = (ip, username) => {
 // ───────────────────────────────────────────────────────────
 router.post('/login', express.json(), async (req, res) => {
   const ip = req.ip || 'unknown';
-  const { username, password } = req.body;
+  const { username, password, rememberMe } = req.body;
 
   // Periodically clean up expired entries to prevent map unbounded growth
   _cleanupExpiredEntries();
@@ -143,6 +146,11 @@ router.post('/login', express.json(), async (req, res) => {
       }
       req.session.userId = user.id;
       req.session.isAdmin = user.is_admin === 1;
+
+      // Merke-mich: 30 Tage; Standard: 7 Tage (bestehende Konfig)
+      if (rememberMe === true) {
+        req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000; // 30 Tage
+      }
 
       req.session.save((err) => {
         if (err) {
@@ -194,6 +202,15 @@ router.get('/needs-setup', async (req, res) => {
 });
 
 // ───────────────────────────────────────────────────────────
+// GET /api/auth/registration-status – Check if registration enabled
+// ───────────────────────────────────────────────────────────
+router.get('/registration-status', (req, res) => {
+  const enabled = REGISTRATION_MODE !== 'disabled';
+  const requiresCode = REGISTRATION_MODE === 'code';
+  res.json({ enabled, requiresCode });
+});
+
+// ───────────────────────────────────────────────────────────
 // POST /api/auth/init – Create first admin user (one-time)
 // ───────────────────────────────────────────────────────────
 router.post('/init', express.json(), async (req, res) => {
@@ -233,6 +250,105 @@ router.post('/init', express.json(), async (req, res) => {
     }
     console.error('Init error:', error);
     res.status(500).json({ error: 'Failed to create admin user' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// POST /api/auth/register – Self-service user registration
+// ───────────────────────────────────────────────────────────
+router.post('/register', express.json(), async (req, res) => {
+  const ip = req.ip || 'unknown';
+  const { username, password, email, code, acceptedPrivacy } = req.body;
+
+  // Periodically clean up expired entries
+  _cleanupExpiredEntries();
+
+  // Check if registration is enabled
+  if (REGISTRATION_MODE === 'disabled') {
+    return res.status(403).json({ error: 'Registrierung ist deaktiviert' });
+  }
+
+  // Check rate limit
+  if (_isRateLimited(ip)) {
+    return res.status(429).json({ error: 'Zu viele Registrierungsversuche. Bitte später erneut versuchen.' });
+  }
+
+  try {
+    // Validate inputs
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Benutzername und Passwort erforderlich' });
+    }
+
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      return res.status(400).json({ error: `Passwort muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen haben` });
+    }
+
+    if (acceptedPrivacy !== true) {
+      return res.status(400).json({ error: 'Datenschutzhinweis muss akzeptiert werden' });
+    }
+
+    // Check code-based registration requirement
+    if (REGISTRATION_MODE === 'code') {
+      if (!code || code !== process.env.REGISTRATION_CODE) {
+        _recordFail(ip, username);
+        return res.status(403).json({ error: 'Registrierung nicht möglich' });
+      }
+    }
+
+    // Hash password
+    const passwordHash = await bcryptjs.hash(password, 10);
+
+    // Create user (always is_admin=0 for self-registration)
+    await dbRun(
+      'INSERT INTO users (username, password_hash, email, is_admin) VALUES (?, ?, ?, 0)',
+      [username, passwordHash, email || null]
+    );
+
+    _resetAttempts(ip, username);
+
+    // Auto-login after successful registration
+    const newUser = await dbGet(
+      'SELECT id, is_admin FROM users WHERE username = ?',
+      [username]
+    );
+
+    if (newUser) {
+      req.session.regenerate((regenErr) => {
+        if (regenErr) {
+          console.error('Session regenerate error:', regenErr);
+          return res.status(500).json({ error: 'Session initialization failed' });
+        }
+
+        req.session.userId = newUser.id;
+        req.session.isAdmin = newUser.is_admin === 1;
+
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            console.error('Session save error:', saveErr);
+            return res.status(500).json({ error: 'Session save failed' });
+          }
+
+          res.json({
+            success: true,
+            userId: newUser.id,
+            username: username,
+            isAdmin: false,
+            message: 'Registrierung erfolgreich'
+          });
+        });
+      });
+    } else {
+      res.status(500).json({ error: 'Registrierung fehlgeschlagen' });
+    }
+  } catch (error) {
+    // Non-enumerable error message for UNIQUE constraint (username already exists)
+    if (error.message.includes('UNIQUE constraint failed')) {
+      _recordFail(ip, username);
+      return res.status(400).json({ error: 'Registrierung nicht möglich' });
+    }
+    console.error('Registration error:', error);
+    _recordFail(ip, username);
+    res.status(500).json({ error: 'Registrierung fehlgeschlagen' });
   }
 });
 
