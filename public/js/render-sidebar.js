@@ -510,3 +510,119 @@ function renderPositionDescUI(){
   c.querySelectorAll('.pos-desc-input').forEach(i =>
     i.oninput = e => { positionDescriptions[+e.target.dataset.pos] = e.target.value; });
 }
+
+/**
+ * Parses a CSV/TSV line into { name, role, experienced }.
+ * Tolerates various delimiters (;, ,, tab) and role formats.
+ */
+function parsePeopleLine(line){
+  const trimmed = line.trim();
+  if(!trimmed) return null;
+
+  // Detect delimiter: prioritize ; then , then tab
+  let delimiter = ';';
+  if(!trimmed.includes(';')) {
+    delimiter = trimmed.includes(',') ? ',' : '\t';
+  }
+
+  const parts = trimmed.split(delimiter).map(p => p.trim());
+  if(parts.length === 0) return null;
+
+  const name = parts[0];
+  if(!name) return null;
+
+  // Parse role (abbreviation or full text)
+  let role = 'W';
+  if(parts.length > 1){
+    const roleStr = parts[1].toUpperCase();
+    if(roleStr === 'F' || roleStr.includes('FÜHRUNG')) role = 'F';
+    else if(roleStr === 'B' || roleStr.includes('BOOTS')) role = 'B';
+    else if(roleStr === 'W' || roleStr.includes('WACH')) role = 'W';
+  }
+
+  // Parse experience (optional, defaults to true for non-F)
+  let experienced = role === 'F' ? true : true;  // Default: experienced
+  if(parts.length > 2){
+    const expStr = parts[2].toLowerCase();
+    if(expStr === 'nein' || expStr === 'false' || expStr === '0' || expStr === 'n') {
+      experienced = false;
+    }
+  }
+
+  return { name, role, experienced };
+}
+
+/**
+ * Opens the import modal and sets up event listeners.
+ */
+function openImportPeopleModal(){
+  const modal = document.getElementById('import-people-modal');
+  const textarea = document.getElementById('import-textarea');
+  const preview = document.getElementById('import-count');
+  const cancelBtn = document.getElementById('import-people-modal-cancel');
+  const confirmBtn = document.getElementById('import-modal-confirm');
+  const replaceChk = document.getElementById('import-replace-chk');
+  const msgEl = document.getElementById('import-modal-msg');
+  const closeBtn = document.getElementById('import-people-modal-close-btn');
+
+  // Update preview on input
+  const updatePreview = () => {
+    const lines = textarea.value.split('\n');
+    const parsed = lines
+      .map(parsePeopleLine)
+      .filter(Boolean);
+    preview.textContent = `${parsed.length} Person${parsed.length !== 1 ? 'en' : ''} erkannt`;
+    msgEl.textContent = '';
+  };
+
+  textarea.oninput = updatePreview;
+  updatePreview();
+
+  const close = () => {
+    modal.style.display = 'none';
+    textarea.oninput = null;
+    cancelBtn.onclick = null;
+    confirmBtn.onclick = null;
+    closeBtn.onclick = null;
+  };
+
+  cancelBtn.onclick = close;
+  closeBtn.onclick = close;
+
+  confirmBtn.onclick = () => {
+    const lines = textarea.value.split('\n');
+    const parsed = lines
+      .map(parsePeopleLine)
+      .filter(Boolean);
+
+    if(parsed.length === 0){
+      msgEl.textContent = '⚠️ Keine gültigen Personen gefunden.';
+      return;
+    }
+
+    // Replace or append
+    if(replaceChk.checked){
+      people = [];
+      uid = 0;  // Reset uid when replacing
+    }
+
+    parsed.forEach(p => {
+      people.push({
+        id: ++uid,
+        name: p.name,
+        role: p.role,
+        experienced: p.experienced,
+        labels: '',
+        enableLabels: false
+      });
+    });
+
+    close();
+    renderPeople();
+    scheduleAutoSave();
+    showToast(`✅ ${parsed.length} Person${parsed.length !== 1 ? 'en' : ''} importiert`);
+  };
+
+  modal.style.display = 'flex';
+  textarea.focus();
+}

@@ -94,6 +94,10 @@ document.querySelectorAll('.quick-add button').forEach(b =>
     scheduleAutoSave();
   });
 
+// ── Bulk Import Wachgänger ──────────────────────────────────────
+const importPeopleBtn = document.getElementById('btn-import-people');
+if(importPeopleBtn) importPeopleBtn.onclick = openImportPeopleModal;
+
 // ── Sidebar – Türme & Boote ──────────────────────────────────────
 const addTowerBtn = document.getElementById('add-tower');
 if(addTowerBtn) addTowerBtn.onclick = () => {

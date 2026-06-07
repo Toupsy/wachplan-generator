@@ -329,6 +329,20 @@ GDPR Art. 5 Abs. 1 c (Datenminimierung): Warnung gegen sensible Daten im Freitex
 - **Keine Logikänderung:** Speicherung, Export, Verarbeitung unverändert
 - **VERSION:** v0.4.13
 
+### Feature 20: Bulk-Import Wachgänger-Liste (Issue #220, v0.4.14)
+Schnelles Aufsetzen eines neuen Plans aus einer Mitglieder-/Schichtliste statt manuelles einzelnes Eintippen.
+- **Modal:** Button „📋 Liste importieren" in `#section-people` öffnet Import-Dialog mit Textarea
+- **Format:** Eine Person pro Zeile; tolerant geparst mit Trennzeichen `;`, `,` oder Tab
+  - Format: `Name; Rolle; Erfahren`
+  - Rolle: `F`/`B`/`W` oder Klartext (`Führung`/`Bootsführer`/`Wachgänger`)
+  - Erfahren: `ja`/`nein`/`true`/`false` (optional, Default: erfahren)
+- **Vorschau:** Live-Zähler erkannter Personen; Option „Bestehende Liste ersetzen" oder anhängen
+- **Parsing-Logik:** `parsePeopleLine()` in `public/js/render-sidebar.js` – robuste Extraktion von Name/Rolle/Erfahrung
+- **XSS-Sicherheit:** Namen via `escapeHtml()` sicher gerendert; keine direkten HTML-Manipulationen
+- **Integration:** `openImportPeopleModal()` öffnet Modal; bestätigt mit `renderPeople()` + `scheduleAutoSave()`; zeigt Toast-Bestätigung
+- **Ort:** Modal-HTML in `public/Wachplan-Generator.html` (ab Zeile ~641); Button nach `#add-person`; Event-Handler in `public/js/init.js`
+- **Reihenfolge:** render-sidebar.js lädt vor init.js ✓
+
 ## Bugfixes
 
 ### Bugfix: openTowers-Bedarfsrechnung ignoriert leaderCount (Issue #117, v0.4.1)

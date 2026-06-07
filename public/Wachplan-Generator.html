@@ -462,7 +462,7 @@
     /* Nur der Plan: alles andere ausblenden */
     .wrap>header,.sidebar,.export-row,.day-tabs,.stats-bar,.out-header,.out-extras,
     #autosave-indicator,#user-info-header,.modal-overlay,.modal,#login-modal,
-    #move-modal,#confirm-modal,#pw-modal,#share-modal,#plans-modal,
+    #move-modal,#confirm-modal,#pw-modal,#share-modal,#plans-modal,#import-people-modal,
     .day-controls .dc-section,.move-btn,.mobile-switch{display:none !important}
     .notice:not(.bad):not(.warn-n){display:none !important}
     .wrap,.panel,#output-panel,.main-panels{display:block !important;max-width:none !important;width:auto !important;margin:0 !important;padding:0 !important;background:#fff !important;border:none !important;box-shadow:none !important;grid-template-columns:none !important;height:auto !important}
@@ -637,6 +637,34 @@
   </div>
 </div>
 
+<!-- ── Import-Personen-Modal ──────────────────────────────────── -->
+<div id="import-people-modal" class="modal-overlay modal panel panel-import-people-modal" data-panel-name="Liste importieren" style="display:none">
+  <div class="modal-box" style="max-width:560px">
+    <button class="modal-close-btn" id="import-people-modal-close-btn">×</button>
+    <div class="modal-title">Wachgänger-Liste importieren</div>
+    <div class="modal-sub">Eine Person pro Zeile. Trennzeichen: `;`, `,` oder Tab.</div>
+    <div class="info-box" style="margin-bottom:14px;font-size:.75rem">
+      <b>Format:</b> Name; Rolle; Erfahren<br>
+      <b>Rolle:</b> F/B/W (oder Führung/Bootsführer/Wachgänger)<br>
+      <b>Erfahren:</b> ja/nein/true/false (optional, Default: erfahren)
+    </div>
+    <textarea id="import-textarea" placeholder="Max Mustermann; W; ja&#10;Erika Beispiel; B; nein&#10;Lena Leitung; F"
+      style="width:100%;box-sizing:border-box;padding:10px;background:var(--navy);border:1px solid var(--line);border-radius:6px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.8rem;min-height:140px;resize:vertical;margin-bottom:12px"></textarea>
+    <div id="import-preview" style="background:var(--deep);border:1px solid var(--line);border-radius:6px;padding:12px;margin-bottom:12px;font-size:.78rem;color:var(--text-dim);min-height:30px">
+      <span id="import-count">0 Personen erkannt</span>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:14px;cursor:pointer;user-select:none">
+      <input type="checkbox" id="import-replace-chk" style="width:16px;height:16px;cursor:pointer;accent-color:var(--sea-bright)">
+      <span style="font-size:.85rem">Bestehende Liste ersetzen (sonst: anhängen)</span>
+    </label>
+    <div id="import-modal-msg" style="font-size:.78rem;color:var(--coral);min-height:1.1em;margin-bottom:12px"></div>
+    <div style="display:flex;gap:12px">
+      <button id="import-modal-cancel" class="modal-confirm" style="flex:1;background:rgba(127,212,232,.08);color:var(--sea-bright);border:1px solid var(--line-strong)">Abbrechen</button>
+      <button id="import-modal-confirm" class="modal-confirm" style="flex:1">Importieren</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Haupt-Layout ────────────────────────────────────────────── -->
 <div class="wrap">
   <header>
@@ -687,6 +715,7 @@
             <div id="people-edit" style="margin-top:14px;"></div>
           </div>
           <button class="add-btn" id="add-person">+ Wachgänger hinzufügen</button>
+          <button class="add-btn" id="btn-import-people" style="background:transparent;border:1px dashed rgba(24,168,216,.4);color:var(--sea-bright)">📋 Liste importieren</button>
           <div class="quick-add">
             <button data-role="F">+ Führung</button>
             <button data-role="B">+ Bootsf.</button>
