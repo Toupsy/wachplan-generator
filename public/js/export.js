@@ -581,8 +581,8 @@ function exportPersonalICS(personId){
   events.forEach(e => {
     ics += 'BEGIN:VEVENT\r\n';
     ics += `UID:${e.uid}\r\n`;
-    ics += `DTSTART:${e.dtstart}\r\n`;
-    ics += `DTEND:${e.dtend}\r\n`;
+    ics += `DTSTART;TZID=Europe/Berlin:${e.dtstart}\r\n`;
+    ics += `DTEND;TZID=Europe/Berlin:${e.dtend}\r\n`;
     ics += `SUMMARY:${_escapeICalText(e.summary)}\r\n`;
     if(e.location) ics += `LOCATION:${_escapeICalText(e.location)}\r\n`;
     ics += `DESCRIPTION:${_escapeICalText(e.description)}\r\n`;
