@@ -304,6 +304,49 @@ router.post('/reload-config', express.json(), async (req, res) => {
 });
 
 // ───────────────────────────────────────────────────────────
+// GET /api/admin/audit-log – Audit-Log-Einträge auflisten
+// Query-Parameter: action, user_id, limit (default 100), offset (default 0)
+// ───────────────────────────────────────────────────────────
+router.get('/audit-log', async (req, res) => {
+  try {
+    const { action, user_id, limit = 100, offset = 0 } = req.query;
+
+    // Validate limit (prevent abuse)
+    const safeLimit = Math.min(Math.max(1, parseInt(limit) || 100), 500);
+    const safeOffset = Math.max(0, parseInt(offset) || 0);
+
+    let query = 'SELECT * FROM audit_log WHERE 1=1';
+    const params = [];
+
+    if (action) {
+      query += ' AND action = ?';
+      params.push(action);
+    }
+
+    if (user_id) {
+      query += ' AND user_id = ?';
+      params.push(parseInt(user_id));
+    }
+
+    query += ' ORDER BY timestamp DESC LIMIT ? OFFSET ?';
+    params.push(safeLimit, safeOffset);
+
+    const logs = await dbAll(query, params);
+
+    // Parse JSON details field
+    const formattedLogs = logs.map(log => ({
+      ...log,
+      details: log.details ? JSON.parse(log.details) : null
+    }));
+
+    res.json({ logs: formattedLogs });
+  } catch (error) {
+    console.error('Audit log fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch audit log' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────
 // POST /api/admin/purge-orphans – Security net: remove orphaned data
 // Cleans up: plans without user, plan_shares without plan/user
 // ───────────────────────────────────────────────────────────
