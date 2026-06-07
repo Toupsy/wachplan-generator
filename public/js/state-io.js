@@ -435,7 +435,7 @@ async function deletePlanById(id){
 }
 
 /** Plan duplizieren: lädt den Plan, serialisiert seinen State, erstellt einen neuen Plan mit Kopie */
-async function duplicatePlanById(id, includeForcedPlacements = false){
+async function duplicatePlanById(id, includeForcedPlacements = true){
   try {
     const res = await fetch(`/api/plans/${id}`, { credentials:'include' });
     if(!res.ok){ showToast('Plan konnte nicht geladen werden', true); return false; }
