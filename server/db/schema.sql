@@ -28,13 +28,6 @@ CREATE TABLE IF NOT EXISTS plans (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Sessions Table (express-session mit connect-sqlite3)
-CREATE TABLE IF NOT EXISTS sessions (
-  sid TEXT PRIMARY KEY,
-  session TEXT NOT NULL,
-  expiryDate DATETIME
-);
-
 -- Plan-Freigaben (Mitbearbeiter eines Plans). Zugriff = Owner ODER Eintrag hier.
 -- Verschlüsselung bleibt mit dem Owner-Key (server-seitig aus plans.user_id ableitbar),
 -- daher kein Re-Encrypt beim Teilen nötig.

@@ -641,7 +641,7 @@ Alle Secrets in `.env` (gitignored). Vorlage: `.env.example`.
 
 **plan_shares:** `plan_id, user_id, role ('edit'|'view')`
 
-**sessions:** `sid, sess, expire`
+**sessions:** Managed exclusively by `connect-sqlite3` (created automatically); columns: `sid (TEXT PRIMARY KEY), expired (INTEGER), sess (TEXT)`. Note: Prior to v0.4.14, a hand-written schema caused column mismatch (Issue #211). The schema now allows `connect-sqlite3` to manage the table directly.
 
 ### Encryption Details
 
