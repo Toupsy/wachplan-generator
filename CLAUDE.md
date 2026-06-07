@@ -329,21 +329,88 @@ GDPR Art. 5 Abs. 1 c (Datenminimierung): Warnung gegen sensible Daten im Freitex
 - **Keine Logikänderung:** Speicherung, Export, Verarbeitung unverändert
 - **VERSION:** v0.4.13
 
-### Feature 20: Mehrtägige Abwesenheiten vorab markieren (Urlaub/Verfügbarkeit)
-Realistische Planung durch vorab definierte Abwesenheitsbereiche (anstatt tageweise manuell zu toggeln):
-- **State:** `people[i].absentDays: number[]` enthält Tag-Indizes (0-basiert) wo Person nicht verfügbar ist
-- **UI in `#section-people`:** Zwei Number-Inputs pro Person (von/bis Tag-Index) mit Validierung `0..DAYS-1`
-  - Inputs haben Label-Icons (🗓️), Input-Range-Hinweise, Styling mit `rgba(255,179,71,.05)` (Warn-Farbe)
-  - onChange: Array `[fromVal..toVal]` in `person.absentDays` schreiben; validate `fromVal <= toVal`
-- **Algorithmus in `generate.js`:** VOR dem Tagesloop wird `dayState[d].sick` mit Personen ergänzt, deren `absentDays` den Tag `d` enthalten
-  - Abwesenheiten werden **zusätzlich** zu manuell markierten kranken Personen berücksichtigt (Union-Operation)
-  - Fairness-Statistik zählt Abwesenheits-Tage NICHT als Dienst (Person wird wie sick/unavailable behandelt)
-- **Persistenz:** `STATE_VERSION` 6→7; `_buildStateObject()` serialisiert Arrays; `importStateJSON()` deserializiert mit Default `[]`
-- **Tests:** Invarianten-Suite validiert, dass Personen mit Abwesenheiten nicht aktiv eingeplant werden; alle 16 Tests grün
-- **Nutzen:** Z.B. 18 Wachgänger, 10 Tage, 3 Personen im Urlaub → einmal eingeben, Plan berücksichtigt automatisch verfügbare Personen
+### Feature 20: Login-Modal – „Merke mich"-Checkbox für persistenten Login
+Erweiterbare Session-TTL im Login-Modal für Wachdienst-Tablets/Handys auf dem Turm:
+- **UI:** Checkbox „Merke mich (30 Tage)" unter Passwort-Feld im Login-Modal (`#login-modal`)
+- **Aktiviert:** Session-Cookie läuft nach 30 Tagen ab (statt Standard 7 Tage)
+- **Deaktiviert:** Weiterhin Standard-Verhalten (7 Tage, wie bisher) – Rückwärtskompatibilität gewährleistet
+- **Backend:** `POST /api/auth/login` liest `rememberMe`-Flag aus Request-Body und setzt `req.session.cookie.maxAge` dynamisch
+- **Frontend:** `public/js/login-modal.js` `handleLogin()` sendet `rememberMe` Flag an Server
+- **Sicherheit:** Keine neuen Angriffsflächen – nur serverseitige Session-Verlängerung; HTTPOnly + SameSite:lax bleiben gesetzt
+- **Setup-Formular:** Unverändert (dort ist kein „Merke mich" nötig)
+- **Brute-Force-Schutz:** Weiterhin aktiv, unabhängig von `rememberMe`
 - **VERSION:** v0.4.14
+### Feature 21: Audit-Logging (DSGVO Art. 5 Abs. 1 f – Accountability)
+Umfassendes Audit-Log für Benutzeraktionen und Admin-Operationen zur Nachverfolgung und Compliance.
+- **Schema:** `audit_log`-Tabelle mit Spalten: `id`, `user_id` (NULL für System-Events), `action` (login/logout/plan_create/plan_update/plan_delete/plan_share/plan_share_revoke/plan_import/admin_user_create/admin_user_delete/admin_password_reset/plan_cleanup), `entity_type` (user/plan/plan_share), `entity_id` (user_id oder plan_id), `details` (JSON), `ip_address`, `timestamp`
+- **Indizes:** `user_id`, `action`, `timestamp` für schnelle Abfragen
+- **API:** `GET /api/admin/audit-log` – auflisten mit Filterung nach `action` und `user_id`; `limit` (1–500, default 100) und `offset` für Paginierung
+- **Admin-UI:** Tabellarische Anzeige im Admin-Panel mit Filteroptionen
+- **Datenspeicherung:** Audit-Einträge werden nicht automatisch gelöscht (dauerhafte Nachverfolgung); bei Plan-Deletion werden audit_log-Einträge mit `entity_type='plan'` beibehalten (Referential Integrity: `user_id` kann NULL werden, aber Datensatz bleibt)
+- **VERSION:** v0.4.15
+
+### Feature 22: Selbstregistrierung – Neue Nutzer können eigenständig einen Account erstellen
+Konfigurierbare Selbstregistrierung mit drei Sicherheitsmodi für Self-Hosting (NAS, vertrauenswürdige LAN).
+- **REGISTRATION_MODE** (ENV-Variable, Default `disabled`):
+  - `disabled` – Keine Selbstregistrierung; UI ausgeblendet, Endpoint 403
+  - `open` – Jeder kann sich registrieren (nur für vertrauenswürdige LAN/VPN)
+  - `code` – Registrierung nur mit gültigem `REGISTRATION_CODE`
+- **Backend:** `POST /api/auth/register` + `GET /api/auth/registration-status`
+  - Eingaben: `username`, `password` (≥10 Zeichen), optional `email`, optional `code`, `acceptedPrivacy: true`
+  - Neuer User immer `is_admin=0` (kein Self-Admin möglich)
+  - Rate-Limiting: 10 Versuche / 15 min (IP + Account)
+  - Non-enumerable Fehler (no user enumeration): Doppelter Username → "Registrierung nicht möglich"
+  - Auto-Login nach erfolgreicher Registrierung via `session.regenerate()`
+- **Frontend:** Register-View in `#login-modal`
+  - Zeigt sich nur wenn `enabled=true` (per `registration-status`)
+  - Formular: Username, Passwort, Passwort-Wiederholen, E-Mail (optional), Code (nur wenn `requiresCode`)
+  - **Datenschutz-Checkbox** mit Link zu `datenschutz.html` (Pflichtkontrolle, `acceptedPrivacy`)
+  - Fehleranzeige in `#register-error`, Back-Button zum Login
+  - Code-Feld sichtbar nur wenn `requiresCode=true`
+- **Umgebung:** `.env` mit `REGISTRATION_MODE` + `REGISTRATION_CODE` (wenn Mode=code)
+- **Validierung:** `db/init.js` prüft Mode auf erlaubte Werte; bei Mode=code ist CODE erforderlich
+- **DSGVO:** Datenschutz-Checkbox (Art. 13/Einwilligung), E-Mail optional (Datenminimierung)
+- **VERSION:** v0.4.16
+
+### Feature 23: Plan-Retention & Automatische Löschung (DSGVO Art. 5 Abs. 1 e – Speicherbegrenzung)
+Automatisierte Cleanup-Policy für inaktive Wachpläne zur Einhaltung des Datensparsamkeitsprinzips.
+- **Markierung:** Pläne, die > PLAN_RETENTION_DAYS inaktiv sind, werden mit `marked_for_deletion = 1` markiert
+- **Gnadenfrist:** 7 Tage zwischen Markierung und finaler Löschung (Nutzer können Plan bis dahin wieder aktualisieren → Markierung kann erneut greifen)
+- **Automatische Bereinigung:** Scheduler läuft täglich (24h Intervall), gestartet in `server/server.js` nach `initDatabase()`
+- **Konfiguration:** `PLAN_RETENTION_DAYS` (default: 90, disabled wenn ≤0 oder nicht gesetzt)
+- **Umgang mit geteilten Plänen:** Wenn Plan gelöscht wird, werden auch plan_shares-Einträge automatisch gelöscht (CASCADE)
+- **Audit-Logging:** Cleanup-Läufe werden im `audit_log` als System-Event protokolliert (action='plan_cleanup', entity_type='plan', user_id=NULL, details={marked, deleted})
+- **Datenbank:** Spalten `marked_for_deletion`, `marked_for_deletion_at` in `plans`-Tabelle (idempotente `ALTER TABLE`-Migration in `db/init.js` für Bestands-DBs)
+- **VERSION:** v0.4.17
+
+### Feature 24: Umfassende Datenschutzerklärung (DSGVO Art. 13/14 – Transparenz)
+Ausführliche, benutzerfreundliche Datenschutzerklärung in deutscher Sprache (ersetzt die vorherige Kurzfassung).
+- **Datei:** `public/datenschutz.html` – standalone HTML-Seite, vollständig stilisiert mit Dark Theme + „← Zurück zur Anwendung"
+- **Inhalte:** Verantwortlicher, Datenverarbeitung (Auth/Wachpläne/Audit-Log), Rechtsgrundlagen, Speicherdauer, Betroffenenrechte (Art. 15–21), Sicherheitsmaßnahmen, Datenweitergabe, Datenminimierung, Cookies/LocalStorage, automatisierte Entscheidungsfindung (Art. 22), Kontakt/Beschwerde (BfDI)
+- **Zugang:** URL `/datenschutz.html`; verlinkt u. a. aus der Selbstregistrierungs-View (`#login-modal`)
+- **Responsive Design:** Desktop + Mobile, Dark Theme; Abdeckung DSGVO Art. 13/14, Art. 5, Art. 15–21
+- **VERSION:** v0.4.18
+
+### Feature 25: Mehrtägige Abwesenheiten vorab markieren (Issue #221)
+Benutzer können Abwesenheitszeiträume pro Person definieren (Urlaub, Schulung, Unbill), statt täglich „außer Dienst" zu toggeln.
+- **Datenmodell:** Neues Feld `people[i].absentDays: number[]` (Array von Tag-Indizes 0..DAYS-1)
+- **UI:** Zwei Number-Inputs pro Person in `#section-people` („Von (Tag)" / „Bis (Tag)"); erzeugt zusammenhängenden Bereich via `Math.min/Math.max`
+- **Algorithmus:** In `generate.js` vor der Tageszuweisung lokale `sickIds`-Set-Kopie bilden (union aus `dayState.sick` + gültigen Absencen), **ohne** `dayState.sick` zu mutieren
+- **Validierung:** Absencen auf `0..DAYS-1` filtern zur Generierungszeit (verhindert stale Indizes nach Verkleinern von DAYS)
+- **Persistenz:** `STATE_VERSION` 6→7; `absentDays` wird als Array serialisiert, Default `[]` für Altpläne
+- **Limitation:** UI unterstützt nur **einen** zusammenhängenden Bereich pro Person (z.B. Tage 3–7); zwei diskrete Blöcke (z.B. 3–5 UND 10–12) sind über das UI nicht abbildbar. Das Datenmodell könnte es theoretisch, würde aber UI-Erweiterung benötigen.
+- **Test:** Alle 16 Invarianten-Tests bestätigen, dass Personen mit gültigen Absencen nicht aktiv eingeplant werden
+- **VERSION:** v0.4.19
 
 ## Bugfixes
+
+### Bugfix: Passwortlängen-Validierung inconsistent (Issue #234, v0.4.14)
+**Problem:** Frontend validierte ≥8 Zeichen, Backend verlangte ≥10, führte zu widersprüchlichen Fehlermeldungen.
+- **Ort:** `public/js/login-modal.js` Zeile 145, `public/js/user-info.js` Zeile 204, `public/Wachplan-Generator.html` Zeile 532 + 589
+- **Ursache:** Frontend und HTML-Placeholder verwendeten noch die alte Anforderung (8 Zeichen), während Backend bereits zu 10 Zeichen migriert war
+- **Symptom:** Benutzer konnte 8-9 stellige Passwörter eingeben, Frontend-Validierung schlug fehl, Backend sendete englische Fehlermeldung
+- **Lösung:** Frontend-Validierung auf ≥10 Zeichen erhöht, alle Placeholder-Texte aktualisiert: `"Passwort (min. 10 Zeichen)"`
+- **Verifikation:** Alle Frontend-Validierungen (Setup + Passwort-Änderung) und Placeholder-Texte konsistent auf 10 Zeichen
 
 ### Bugfix: openTowers-Bedarfsrechnung ignoriert leaderCount (Issue #117, v0.4.1)
 **Problem:** Bei der Entscheidung, welche Türme geöffnet werden, wurde `leaderCount` nicht in den Personalbedarf eingerechnet.
@@ -352,6 +419,33 @@ Realistische Planung durch vorab definierte Abwesenheitsbereiche (anstatt tagewe
 - **Symptom:** Bei knappem Guard-Pool und zu wenigen Führungskräften konnten Türme mit `leaderCount > 0` geöffnet werden, obwohl nicht genug Personen vorhanden waren
 - **Lösung (Variante A):** `const need = Math.max(0, (t.slotCount || 2) + (t.leaderCount || 0) - preCount)` – konsistent mit Vorab-Schätzung (Zeile ~225) und tatsächlicher Turmbelegung
 - **Verifikation:** Alle 14 Tests grün, einschließlich Regressions-Szenarien aus `test/leaders.test.js`
+
+### Bugfix: `renderHWBoatSelector()` undefined ReferenceError (Issue #233, v0.4.14)
+**Problem:** In `state-io.js` Zeile 376 ruft `_rebuildAllUI()` die Funktion `renderHWBoatSelector()` auf, die nirgendwo im Code definiert ist.
+- **Ort:** `public/js/state-io.js`, Zeile 376
+- **Ursache:** Überbleibsel aus Feature 6 (HW-Boot, deprecated seit v0.4.13). Boote werden nun uniform via `towerId='HW'` behandelt; der Aufruf wurde beim Cleanup nicht entfernt.
+- **Symptom:** ReferenceError in drei kritischen Pfaden: `createNewPlan()`, `loadPlanById()`, `applyRemotePlanState()`. UI-Neu-Erstellung stoppt vorzeitig.
+- **Lösung:** Zeile 376 entfernt: `renderHWBoatSelector(); ←` gelöscht, da Funktion nicht existiert und nicht mehr benötigt wird.
+- **Verifikation:** Alle 16 Tests grün; keine Regressions-Szenarien.
+
+### Bugfix: Neue Pläne erben Türme/Boote vom aktuellen Plan (Issue #204, v0.4.14)
+**Problem:** Beim Erstellen eines neuen Plans über „📋 Meine Pläne → Neuer Plan" wurden Türme, Boote und Planungsparameter (DAYS, startDate, mainK, serviceHours, fairnessMetricsDisplay) des aktuellen Plans übernommen.
+- **Ursache (2 Stellen):**
+  1. `createNewPlan()` in `public/js/state-io.js` rief `seedFromConfig()` auf **ohne** vorherigen `resetGlobalState()`-Aufruf
+  2. `seedFromConfig()` in `public/js/config.js` und `seed()` in `public/js/seed.js` reset­teten `towers` / `boats` Arrays **nicht** bevor `.push()` aufgerufen wurde → Akkumulation auf bestehenden Arrays
+- **Symptom:** Ein Nutzer mit Plan A (14 Tage, 10 Türme) erstellt Plan B → Plan B erhält 17 Türme (10 alt + 7 aus Template), altes Startdatum, 14 Tage statt 6
+- **Lösung:** 
+  - `createNewPlan()`: `resetGlobalState()` **vor** `seedFromConfig()` aufrufen (Option A, robust)
+  - `seed()` + `seedFromConfig()`: zusätzlich `towers = []` + `boats = []` einführen (defensiv, Falls resetGlobalState fehlschlägt)
+- **Orte:** `public/js/state-io.js` Zeile 400, `public/js/config.js` Zeile 30, `public/js/seed.js` Zeile 9
+- **Verifikation:** `npm test` grün, neue Pläne starten mit leeren Türmen/Booten + Default-Parametern (DAYS=6, startDate='', serviceStartHour=9, serviceEndHour=17, mainK=2)
+### Bugfix: `renderHWBoatSelector()` undefined ReferenceError (Issue #233, v0.4.14)
+**Problem:** In `state-io.js` Zeile 376 ruft `_rebuildAllUI()` die Funktion `renderHWBoatSelector()` auf, die nirgendwo im Code definiert ist.
+- **Ort:** `public/js/state-io.js`, Zeile 376
+- **Ursache:** Überbleibsel aus Feature 6 (HW-Boot, deprecated seit v0.4.13). Boote werden nun uniform via `towerId='HW'` behandelt; der Aufruf wurde beim Cleanup nicht entfernt.
+- **Symptom:** ReferenceError in drei kritischen Pfaden: `createNewPlan()`, `loadPlanById()`, `applyRemotePlanState()`. UI-Neu-Erstellung stoppt vorzeitig.
+- **Lösung:** Zeile 376 entfernt: `renderHWBoatSelector(); ←` gelöscht, da Funktion nicht existiert und nicht mehr benötigt wird.
+- **Verifikation:** Alle 16 Tests grün; keine Regressions-Szenarien.
 
 ---
 
@@ -414,11 +508,11 @@ HOUR_ROWS_X = { '09:00':[25,26], ... }     // Zeilen-Paare pro Stunde (oben/unte
 5. Verbleibende Template-Spalten → HW-Overflow (Personen 5+, inkl. Kranke)
 
 ### `autoFillExportColumns()` – Reihenfolge
-Pro Turm (Prio absteigend): erst zugeordnete Boote, dann Turm → Boot steht immer links von seinem Turm. Dann freie Boote, WF (→ WF2 nur wenn >2 Führungspersonen), HW (→ HW2 nur manuell hinzufügen falls nötig).
+Pro Turm (Prio absteigend): erst zugeordnete Boote, dann Turm → Boot steht immer links von seinem Turm. Dann freie Boote, WF (→ WF2 nur wenn >2 Führungspersonen), HW.
 
 ### `buildAssignments(dayIdx)` → `{ code: [Nr, ...] }`
 - Türme: **alle** Besatzer (kein slice); Überlauf >2 → adjacent via `effectiveCols`
-- HW: `mainGuards + base + bootsfLeft + sick` → WF/WF2 (Führung), HW (Rest inkl. Kranke), optional HW2
+- HW: `mainGuards + base + bootsfLeft + sick` → WF/WF2 (Führung), HW (Rest inkl. Kranke)
 
 ### Template-Caching
 - **Auto-Load:** `fetch('Wachplan Template.xlsx')` beim Seitenstart
@@ -608,7 +702,14 @@ Alle Secrets in `.env` (gitignored). Vorlage: `.env.example`.
 **Pflicht-Variablen** (von `db/init.js` `validateEnv()` geprüft):
 - `MASTER_SECRET` (≥32), `SALT` (≥16), `SESSION_SECRET` (≥16)
 
-**Optional:** `ADMIN_USERNAME`/`ADMIN_PASSWORD`, `ADMIN_PORT`, `NODE_ENV`/`PORT`/`HOST`, `DATABASE_PATH`
+**Optional:**
+- `ADMIN_USERNAME`/`ADMIN_PASSWORD`, `ADMIN_PORT`, `NODE_ENV`/`PORT`/`HOST`, `DATABASE_PATH`
+- **Selbstregistrierung** (Feature 22):
+  - `REGISTRATION_MODE` (disabled | open | code; Default: disabled)
+    - `disabled` – Keine Selbstregistrierung, UI ausgeblendet, Endpoint 403
+    - `open` – Jeder kann sich registrieren (nur für vertrauenswürdige LAN/VPN)
+    - `code` – Registrierung nur mit gültigem `REGISTRATION_CODE`
+  - `REGISTRATION_CODE` – Erforderlich wenn `REGISTRATION_MODE=code` (beliebiger String)
 
 `docker-compose.yml`: beide Services teilen Konfig per YAML-Anchor (`x-wachplan-base`) + `env_file: .env`.
 
@@ -620,7 +721,7 @@ Alle Secrets in `.env` (gitignored). Vorlage: `.env.example`.
 
 **plan_shares:** `plan_id, user_id, role ('edit'|'view')`
 
-**sessions:** `sid, sess, expire`
+**sessions:** Managed exclusively by `connect-sqlite3` (created automatically); columns: `sid (TEXT PRIMARY KEY), expired (INTEGER), sess (TEXT)`. Note: Prior to v0.4.14, a hand-written schema caused column mismatch (Issue #211). The schema now allows `connect-sqlite3` to manage the table directly.
 
 ### Encryption Details
 
@@ -635,11 +736,14 @@ Verschlüsselung immer mit dem **Owner-Key** (`plans.user_id`), auch bei geteilt
 
 #### Authentication
 ```
-POST /api/auth/login     – { username, password } → { userId, username, isAdmin } (≥10 Zeichen)
-POST /api/auth/logout    – Session zerstören
-GET  /api/auth/me        – Aktueller User oder 401
-POST /api/auth/init      – Ersten Admin anlegen (einmalig, public, ≥10 Zeichen)
-PUT  /api/auth/password  – { currentPassword, newPassword } (≥10 Zeichen)
+POST /api/auth/login                – { username, password, rememberMe? } → { userId, username, isAdmin } (≥10 Zeichen)
+POST /api/auth/logout               – Session zerstören
+GET  /api/auth/me                   – Aktueller User oder 401
+GET  /api/auth/needs-setup          – { needsSetup: bool } (Admin existiert noch nicht?)
+GET  /api/auth/registration-status  – { enabled: bool, requiresCode: bool } (selbstregistrierung aktiv?)
+POST /api/auth/init                 – Ersten Admin anlegen (einmalig, public, ≥10 Zeichen)
+POST /api/auth/register             – Selbstregistrierung: { username, password, email?, code?, acceptedPrivacy } (≥10 Zeichen, muss REGISTRATION_MODE !== 'disabled' sein)
+PUT  /api/auth/password             – { currentPassword, newPassword } (≥10 Zeichen)
 ```
 
 #### Plans (Authenticated)
