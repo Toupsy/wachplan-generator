@@ -373,7 +373,7 @@ function _rebuildAllUI(){
   if(typeof updateSeedDisplay === 'function') updateSeedDisplay();
   autoCodes();
   renderPeople(); renderTowerCfg(); renderBoatCfg();
-  renderHWBoatSelector(); renderPositionDescUI(); renderExportColumnUI();
+  renderPositionDescUI(); renderExportColumnUI();
 }
 
 /** Einen bestimmten Plan laden (ohne Speicher-Echo). */
