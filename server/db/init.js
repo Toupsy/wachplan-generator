@@ -164,7 +164,59 @@ async function main() {
   }
 }
 
-module.exports = { initDatabase, validateEnv };
+// Plan retention cleanup helper – marks plans for deletion after N days of inactivity
+function startPlanRetentionCleanup(db, retentionDays = 90) {
+  if (!retentionDays || retentionDays <= 0) {
+    console.log('ℹ Plan retention cleanup disabled (PLAN_RETENTION_DAYS not set or ≤0)');
+    return;
+  }
+
+  console.log(`✓ Plan retention cleanup scheduled (${retentionDays} days)`);
+
+  // Run cleanup every 24 hours (86400000 ms)
+  setInterval(async () => {
+    try {
+      const cutoffDate = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
+
+      // Mark stale plans (not updated in retentionDays)
+      await new Promise((resolve, reject) => {
+        db.run(
+          `UPDATE plans
+           SET marked_for_deletion = 1, marked_for_deletion_at = CURRENT_TIMESTAMP
+           WHERE marked_for_deletion = 0 AND updated_at < ?`,
+          [cutoffDate],
+          function(err) {
+            if (err) reject(err);
+            else {
+              if (this.changes > 0) console.log(`✓ Plan retention: marked ${this.changes} stale plans for deletion`);
+              resolve();
+            }
+          }
+        );
+      });
+
+      // Delete hard-marked plans (marked >7 days ago = grace period)
+      const graceDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      await new Promise((resolve, reject) => {
+        db.run(
+          `DELETE FROM plans WHERE marked_for_deletion = 1 AND marked_for_deletion_at < ?`,
+          [graceDate],
+          function(err) {
+            if (err) reject(err);
+            else {
+              if (this.changes > 0) console.log(`✓ Plan retention: permanently deleted ${this.changes} plans after grace period`);
+              resolve();
+            }
+          }
+        );
+      });
+    } catch (error) {
+      console.error('❌ Plan retention cleanup error:', error.message);
+    }
+  }, 24 * 60 * 60 * 1000);
+}
+
+module.exports = { initDatabase, validateEnv, startPlanRetentionCleanup };
 
 // Run if called directly
 if (require.main === module) {

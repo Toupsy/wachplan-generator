@@ -329,6 +329,17 @@ GDPR Art. 5 Abs. 1 c (Datenminimierung): Warnung gegen sensible Daten im Freitex
 - **Keine Logikänderung:** Speicherung, Export, Verarbeitung unverändert
 - **VERSION:** v0.4.13
 
+### Feature 22: Plan-Retention & Automatische Löschung (DSGVO Art. 5 Abs. 1 e – Speicherbegrenzung)
+Automatisierte Cleanup-Policy für inaktive Wachpläne zur Einhaltung des Datensparsamkeitsprinzips.
+- **Markierung:** Pläne, die > PLAN_RETENTION_DAYS inaktiv sind, werden mit `marked_for_deletion = 1` markiert
+- **Gnadenfrist:** 7 Tage zwischen Markierung und finaler Löschung (Nutzer können noch einmal auf Plan zugreifen und aktualisieren → Markierung aufgehoben)
+- **Automatische Bereinigung:** Scheduler läuft täglich (24h Intervall) nach Serverneustart; lädt sich selbst bei Server-Shutdown nicht
+- **Konfiguration:** `PLAN_RETENTION_DAYS` (default: 90, disabled wenn ≤0 oder nicht gesetzt)
+- **Umgang mit geteilten Plänen:** Wenn Plan gelöscht wird, werden auch plan_shares-Einträge automatisch gelöscht (CASCADE); Nutzer mit Zugriff können nicht mehr auf Plan zugreifen
+- **Audit-Logging:** Plan-Deletions werden im `audit_log` protokolliert (action='plan_cleanup', entity_type='plan', user_id=NULL für System-Events)
+- **Datenbank:** Spalten `marked_for_deletion`, `marked_for_deletion_at` in `plans`-Tabelle; Indizes auf `updated_at` für schnelle Queries
+- **VERSION:** v0.4.17
+
 ## Bugfixes
 
 ### Bugfix: Passwortlängen-Validierung inconsistent (Issue #234, v0.4.14)
