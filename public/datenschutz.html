@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Datenschutzerklärung – DLRG Wachplan-Generator</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #0a1423;
+      color: #e8f1f8;
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 30px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    h2 {
+      font-size: 1.4rem;
+      margin-top: 30px;
+      margin-bottom: 15px;
+    }
+    p {
+      margin-bottom: 15px;
+    }
+    ul {
+      margin-left: 20px;
+      margin-bottom: 15px;
+    }
+    li {
+      margin-bottom: 8px;
+    }
+    .note {
+      background: rgba(52, 152, 219, 0.1);
+      border-left: 4px solid #3498db;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .back-btn {
+      display: inline-block;
+      margin-top: 30px;
+      padding: 10px 20px;
+      background: #3498db;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    .back-btn:hover {
+      background: #2980b9;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Datenschutzerklärung</h1>
+    <p><strong>DLRG Wachplan-Generator</strong></p>
+
+    <h2>1. Verantwortliche Stelle</h2>
+    <p>
+      Der DLRG Wachplan-Generator wird bereitgestellt und verwaltungspflichtiger Stellen. Bei Fragen zum Datenschutz kontaktieren Sie bitte die verantwortliche Organisation.
+    </p>
+
+    <h2>2. Erhobene Daten</h2>
+    <p>Beim Erstellen eines Accounts werden folgende Daten erfasst:</p>
+    <ul>
+      <li><strong>Benutzername</strong> (erforderlich) – für die Authentifizierung</li>
+      <li><strong>Passwort</strong> (erforderlich) – gehasht gespeichert, nicht lesbar</li>
+      <li><strong>E-Mail</strong> (optional) – nur wenn angegeben</li>
+    </ul>
+
+    <h2>3. Datenverarbeitung & Sicherheit</h2>
+    <ul>
+      <li>Passwörter werden mit bcryptjs gehashed (NIST-Standard)</li>
+      <li>Wachpläne werden mit AES-256-GCM verschlüsselt (NIST-Standard)</li>
+      <li>HTTPS/TLS-Verschlüsselung ist empfohlen</li>
+      <li>Daten werden lokal (in-house) gespeichert, nicht an Dritte weitergegeben</li>
+    </ul>
+
+    <h2>4. Betroffenenrechte (DSGVO)</h2>
+    <ul>
+      <li><strong>Recht auf Auskunft:</strong> Admin kann Ihre Daten als JSON exportieren</li>
+      <li><strong>Recht auf Löschung:</strong> Account und alle Daten können gelöscht werden</li>
+      <li><strong>Recht auf Berichtigung:</strong> Passwort kann geändert werden</li>
+    </ul>
+
+    <h2>5. Audit-Logging</h2>
+    <p>
+      Sicherheitsrelevante Aktionen (Login, Logout, Plan-Änderungen) werden geloggt zur Nachverfolgung von Zugriffen und zur Gewährleistung der Datensicherheit.
+    </p>
+
+    <div class="note">
+      <strong>ℹ️ Hinweis:</strong> Diese Datenschutzerklärung ist eine Vorlage. Die genaue Datenverarbeitung hängt von der lokalen Konfiguration und den geltenden Gesetzen ab.
+    </div>
+
+    <a href="javascript:history.back()" class="back-btn">← Zurück</a>
+  </div>
+</body>
+</html>

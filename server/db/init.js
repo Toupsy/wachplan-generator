@@ -57,6 +57,19 @@ function validateEnv() {
     process.exit(1);
   }
 
+  // Validate REGISTRATION_MODE if set
+  const registrationMode = process.env.REGISTRATION_MODE || 'disabled';
+  if (!['disabled', 'open', 'code'].includes(registrationMode)) {
+    console.error('❌ REGISTRATION_MODE must be one of: disabled, open, code');
+    process.exit(1);
+  }
+
+  // If code mode, require REGISTRATION_CODE
+  if (registrationMode === 'code' && !process.env.REGISTRATION_CODE) {
+    console.error('❌ REGISTRATION_CODE required when REGISTRATION_MODE=code');
+    process.exit(1);
+  }
+
   console.log('✓ Environment variables validated');
 }
 

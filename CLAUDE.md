@@ -349,6 +349,29 @@ Umfassendes Audit-Log für Benutzeraktionen und Admin-Operationen zur Nachverfol
 - **Datenspeicherung:** Audit-Einträge werden nicht automatisch gelöscht (dauerhafte Nachverfolgung); bei Plan-Deletion werden audit_log-Einträge mit `entity_type='plan'` beibehalten (Referential Integrity: `user_id` kann NULL werden, aber Datensatz bleibt)
 - **VERSION:** v0.4.15
 
+### Feature 22: Selbstregistrierung – Neue Nutzer können eigenständig einen Account erstellen
+Konfigurierbare Selbstregistrierung mit drei Sicherheitsmodi für Self-Hosting (NAS, vertrauenswürdige LAN).
+- **REGISTRATION_MODE** (ENV-Variable, Default `disabled`):
+  - `disabled` – Keine Selbstregistrierung; UI ausgeblendet, Endpoint 403
+  - `open` – Jeder kann sich registrieren (nur für vertrauenswürdige LAN/VPN)
+  - `code` – Registrierung nur mit gültigem `REGISTRATION_CODE`
+- **Backend:** `POST /api/auth/register` + `GET /api/auth/registration-status`
+  - Eingaben: `username`, `password` (≥10 Zeichen), optional `email`, optional `code`, `acceptedPrivacy: true`
+  - Neuer User immer `is_admin=0` (kein Self-Admin möglich)
+  - Rate-Limiting: 10 Versuche / 15 min (IP + Account)
+  - Non-enumerable Fehler (no user enumeration): Doppelter Username → "Registrierung nicht möglich"
+  - Auto-Login nach erfolgreicher Registrierung via `session.regenerate()`
+- **Frontend:** Register-View in `#login-modal`
+  - Zeigt sich nur wenn `enabled=true` (per `registration-status`)
+  - Formular: Username, Passwort, Passwort-Wiederholen, E-Mail (optional), Code (nur wenn `requiresCode`)
+  - **Datenschutz-Checkbox** mit Link zu `datenschutz.html` (Pflichtkontrolle, `acceptedPrivacy`)
+  - Fehleranzeige in `#register-error`, Back-Button zum Login
+  - Code-Feld sichtbar nur wenn `requiresCode=true`
+- **Umgebung:** `.env` mit `REGISTRATION_MODE` + `REGISTRATION_CODE` (wenn Mode=code)
+- **Validierung:** `db/init.js` prüft Mode auf erlaubte Werte; bei Mode=code ist CODE erforderlich
+- **DSGVO:** Datenschutz-Checkbox (Art. 13/Einwilligung), E-Mail optional (Datenminimierung)
+- **VERSION:** v0.4.16
+
 ## Bugfixes
 
 ### Bugfix: Passwortlängen-Validierung inconsistent (Issue #234, v0.4.14)
@@ -649,7 +672,14 @@ Alle Secrets in `.env` (gitignored). Vorlage: `.env.example`.
 **Pflicht-Variablen** (von `db/init.js` `validateEnv()` geprüft):
 - `MASTER_SECRET` (≥32), `SALT` (≥16), `SESSION_SECRET` (≥16)
 
-**Optional:** `ADMIN_USERNAME`/`ADMIN_PASSWORD`, `ADMIN_PORT`, `NODE_ENV`/`PORT`/`HOST`, `DATABASE_PATH`
+**Optional:**
+- `ADMIN_USERNAME`/`ADMIN_PASSWORD`, `ADMIN_PORT`, `NODE_ENV`/`PORT`/`HOST`, `DATABASE_PATH`
+- **Selbstregistrierung** (Feature 22):
+  - `REGISTRATION_MODE` (disabled | open | code; Default: disabled)
+    - `disabled` – Keine Selbstregistrierung, UI ausgeblendet, Endpoint 403
+    - `open` – Jeder kann sich registrieren (nur für vertrauenswürdige LAN/VPN)
+    - `code` – Registrierung nur mit gültigem `REGISTRATION_CODE`
+  - `REGISTRATION_CODE` – Erforderlich wenn `REGISTRATION_MODE=code` (beliebiger String)
 
 `docker-compose.yml`: beide Services teilen Konfig per YAML-Anchor (`x-wachplan-base`) + `env_file: .env`.
 
@@ -676,11 +706,14 @@ Verschlüsselung immer mit dem **Owner-Key** (`plans.user_id`), auch bei geteilt
 
 #### Authentication
 ```
-POST /api/auth/login     – { username, password } → { userId, username, isAdmin } (≥10 Zeichen)
-POST /api/auth/logout    – Session zerstören
-GET  /api/auth/me        – Aktueller User oder 401
-POST /api/auth/init      – Ersten Admin anlegen (einmalig, public, ≥10 Zeichen)
-PUT  /api/auth/password  – { currentPassword, newPassword } (≥10 Zeichen)
+POST /api/auth/login                – { username, password, rememberMe? } → { userId, username, isAdmin } (≥10 Zeichen)
+POST /api/auth/logout               – Session zerstören
+GET  /api/auth/me                   – Aktueller User oder 401
+GET  /api/auth/needs-setup          – { needsSetup: bool } (Admin existiert noch nicht?)
+GET  /api/auth/registration-status  – { enabled: bool, requiresCode: bool } (selbstregistrierung aktiv?)
+POST /api/auth/init                 – Ersten Admin anlegen (einmalig, public, ≥10 Zeichen)
+POST /api/auth/register             – Selbstregistrierung: { username, password, email?, code?, acceptedPrivacy } (≥10 Zeichen, muss REGISTRATION_MODE !== 'disabled' sein)
+PUT  /api/auth/password             – { currentPassword, newPassword } (≥10 Zeichen)
 ```
 
 #### Plans (Authenticated)

@@ -101,6 +101,89 @@ Die Anwendung nutzt `trust proxy` automatisch (erkennt `X-Forwarded-Proto`). Mit
 
 **Lokale HTTP-Entwicklung:** `COOKIE_SECURE` nicht setzen oder explizit `false` → erlaubt HTTP ohne Secure-Flag
 
+## Selbstregistrierung (Feature 22)
+
+Neue Nutzer können sich selbstständig einen Account erstellen — mit drei konfigurierbaren Sicherheitsmodi.
+
+### Konfiguration
+
+In `.env`:
+```bash
+# Selbstregistrierungsmodus: disabled (default) | open | code
+REGISTRATION_MODE=disabled
+
+# Wenn REGISTRATION_MODE=code, eine Registrierungs-Code setzen
+# REGISTRATION_CODE=xyz123abc
+```
+
+### Modi erklärt
+
+#### 1. Disabled (Standard)
+```bash
+REGISTRATION_MODE=disabled
+```
+- ✅ **Sicher für öffentliches Internet** – Keine Selbstregistrierung
+- Neue User werden nur von Admin über `/admin.html` erstellt (`POST /api/admin/users`)
+- Registrierungs-Link versteckt, Endpoint antwortet 403
+
+#### 2. Open
+```bash
+REGISTRATION_MODE=open
+```
+- ⚠️ **Nur für vertrauenswürdige Umgebungen** (LAN mit Firewall, VPN)
+- Jeder, der Zugriff auf die App hat, kann einen Account erstellen
+- **Nicht geeignet für** produktive Instanzen im öffentlichen Internet
+
+#### 3. Code (Empfohlen für gemeinsame Nutzung)
+```bash
+REGISTRATION_MODE=code
+REGISTRATION_CODE=XyZ987mNaBc123
+```
+- ✅ **Kontrolliert + sicher** – Nur mit gültigem Code registrierbar
+- Admin teilt Code mit vertrauenswürdigen Personen
+- Code kann statisch sein oder regelmäßig rotiert werden
+- **Ideal für:** DLRG-Ortsgruppen, Sportvereine, kleine Teams
+
+### Beim Registrieren (Frontend)
+- **Formular:** Username, Passwort, Passwort-Wiederholen, E-Mail (optional), Code (nur wenn Mode=code erforderlich)
+- **Datenschutz-Checkbox:** Link zu `datenschutz.html`, **Pflichtfeld**
+- **Auto-Login:** Nach erfolgreicher Registrierung wird der User automatisch eingeloggt
+- **Fehlerbehandlung:** Non-enumerable Meldung ("Registrierung nicht möglich"), verhindert User-Enumeration
+
+### Rate-Limiting
+- 10 Registrierungs-Versuche pro IP / 15 Minuten
+- 10 Versuche pro Account / 15 Minuten (Account-Lockout)
+- Brute-Force-Schutz identisch mit Login
+
+### Passwort-Anforderung
+- Mindestens **10 Zeichen** (zentral erzwungen)
+- Keine Komplexitäts-Anforderung
+- Backend validiert auch, wenn Frontend validiert
+
+### Beispiel-Workflow
+
+**Szenario:** Ausbildungswoche mit 8 neuen Personen
+
+1. **Admin deaktiviert vorübergehend Disable, setzt Code:**
+   ```bash
+   REGISTRATION_MODE=code
+   REGISTRATION_CODE=Ausbildung2024
+   ```
+
+2. **Admin gibt Code an Personen weiter** (mündlich, Signal, etc.)
+
+3. **Personen registrieren sich selbst:**
+   - Browser: `http://your-app.local`
+   - Klick "Neuen Account erstellen"
+   - Eingabe: Username, Passwort, Code `Ausbildung2024`
+   - Datenschutz akzeptiert
+   - ✅ Account sofort aktiv, Auto-Login
+
+4. **Nach Event: Code ändern/zurücksetzen**
+   ```bash
+   REGISTRATION_MODE=disabled  # Oder neuer Code
+   ```
+
 ## Features nach Deployment
 
 ### Login
