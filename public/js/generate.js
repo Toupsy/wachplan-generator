@@ -338,7 +338,7 @@ function generate(startDay = 0){
             }
             else if(roles === 'EE') score += 40;
           }
-          score += (pairCount[pairKey(A.id, B.id)] || 0) * 120;
+          score += (pairCount[pairKey(A.id, B.id)] || 0) * 250;  // partner-repeat penalty (raised with tower/fairness weights, Issue #253)
           const vA = sA.towerVisits[t.id] || 0;
           const vB = sB.towerVisits[t.id] || 0;
           score += vA * 200;  // 200 pts per visit: 1st=200, 2nd=400, 3rd=600 (stronger penalty)

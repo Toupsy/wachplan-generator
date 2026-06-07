@@ -117,6 +117,11 @@ function initDatabase() {
         // Fehler ("duplicate column name") wird bewusst ignoriert.
         db.run("ALTER TABLE users ADD COLUMN last_login DATETIME", () => {});
 
+        // Idempotente Migration: Plan-Retention-Spalten für plans (alte DBs ohne diese Spalten).
+        // Fehler ("duplicate column name") wird bewusst ignoriert.
+        db.run("ALTER TABLE plans ADD COLUMN marked_for_deletion BOOLEAN DEFAULT 0", () => {});
+        db.run("ALTER TABLE plans ADD COLUMN marked_for_deletion_at DATETIME", () => {});
+
         // Auto-create admin if ADMIN_USERNAME + ADMIN_PASSWORD are set
         db.get("SELECT COUNT(*) as count FROM users WHERE is_admin = 1", async (err, row) => {
           if (err) {
@@ -193,7 +198,65 @@ function auditLog(db, userId, action, entityType = null, entityId = null, detail
   });
 }
 
-module.exports = { initDatabase, validateEnv, auditLog };
+// Plan retention cleanup helper – marks plans for deletion after N days of inactivity
+function startPlanRetentionCleanup(db, retentionDays = 90) {
+  if (!retentionDays || retentionDays <= 0) {
+    console.log('ℹ Plan retention cleanup disabled (PLAN_RETENTION_DAYS not set or ≤0)');
+    return;
+  }
+
+  console.log(`✓ Plan retention cleanup scheduled (${retentionDays} days)`);
+
+  // Run cleanup every 24 hours (86400000 ms)
+  setInterval(async () => {
+    try {
+      const cutoffDate = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
+
+      // Mark stale plans (not updated in retentionDays)
+      const marked = await new Promise((resolve, reject) => {
+        db.run(
+          `UPDATE plans
+           SET marked_for_deletion = 1, marked_for_deletion_at = CURRENT_TIMESTAMP
+           WHERE marked_for_deletion = 0 AND updated_at < ?`,
+          [cutoffDate],
+          function(err) {
+            if (err) reject(err);
+            else {
+              if (this.changes > 0) console.log(`✓ Plan retention: marked ${this.changes} stale plans for deletion`);
+              resolve(this.changes);
+            }
+          }
+        );
+      });
+
+      // Delete hard-marked plans (marked >7 days ago = grace period)
+      const graceDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const deleted = await new Promise((resolve, reject) => {
+        db.run(
+          `DELETE FROM plans WHERE marked_for_deletion = 1 AND marked_for_deletion_at < ?`,
+          [graceDate],
+          function(err) {
+            if (err) reject(err);
+            else {
+              if (this.changes > 0) console.log(`✓ Plan retention: permanently deleted ${this.changes} plans after grace period`);
+              resolve(this.changes);
+            }
+          }
+        );
+      });
+
+      // Audit-Log: System-Event für Compliance (user_id=NULL = System-Event).
+      if (marked > 0 || deleted > 0) {
+        await auditLog(db, null, 'plan_cleanup', 'plan', null, { marked, deleted }, null)
+          .catch(err => console.error('❌ Plan retention audit log error:', err.message));
+      }
+    } catch (error) {
+      console.error('❌ Plan retention cleanup error:', error.message);
+    }
+  }, 24 * 60 * 60 * 1000);
+}
+
+module.exports = { initDatabase, validateEnv, auditLog, startPlanRetentionCleanup };
 
 // Run if called directly
 if (require.main === module) {

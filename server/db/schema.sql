@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS plans (
   auth_tag BLOB NOT NULL,                -- Authentication Tag (16 bytes)
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  marked_for_deletion BOOLEAN DEFAULT 0, -- Plan ist markiert zur Löschung (Plan Retention)
+  marked_for_deletion_at DATETIME,       -- Zeitstempel der Markierung
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 

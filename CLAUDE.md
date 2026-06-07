@@ -191,12 +191,12 @@ Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) über
 
 ### `bestPair(tower, requireMix, currentDay)` – Scoring
 ```
-+ 1000  beide Unerfahren (UU) + requireMix=true  → Notlösung
++ 1000  beide Unerfahren (UU) + requireMix=true  → Notlösung (an HW nur +300, Issue #253)
 + 40    beide Erfahren (EE) + requireMix=true
-+ 120×  bisherige gemeinsame Turmdienste (Paar-Wiederholung vermeiden)
-+ 30×v  Turmbesuche Person A (v≥2 → +300)
-+ 30×v  Turmbesuche Person B (v≥2 → +300)
-+ 5×    Gesamteinsätze (Fairness: wer wenig hatte, kommt zuerst)
++ 250×  bisherige gemeinsame Turmdienste (Paar-Wiederholung vermeiden, Issue #253)
++ 200×v Turmbesuche Person A (linear: 1.=200, 2.=400, 3.=600 → Turm-Wiederholung vermeiden, Issue #253)
++ 200×v Turmbesuche Person B (linear)
++ 10×   Gesamteinsätze (Fairness: wer wenig hatte, kommt zuerst, Issue #253)
 + 800   surplusBF-Strafe (Turm mit aktivem Boot)
 - 350   surplusBF-Bonus (Turm mit deaktiviertem Boot)
 + 200×  konsekutive Tage auf gleichen Turm (+200/Person wenn Vortag selber Turm)
@@ -268,7 +268,7 @@ Stats-Bar zeigt `avgHwVisits | avgTowerWithBoatDays` (z.B. `0.9 | 0.9`) + Boot-P
 ### Feature 13: Vereinheitlichtes Erfahrungs-Flag (`experienced`)
 - `role: 'F'|'B'|'W'` (F = Führung, B = Bootsführer, **W = Wachgänger**) + `experienced: boolean`
 - `experienced` ersetzt das frühere E/U-Rollenmodell **und** `bfLevel`; gilt für **B und W** (bei F irrelevant)
-- **Helfer (state.js):** `effLevel(p)` → F bleibt 'F', B/W werden via `experienced` zu 'E'/'U' (für `bestPair`-Scoring); `roleDot(p)` → Dot-Farbe (F→f, B→b, W→e/u nach Erfahrung); `roleLabel(p)` → lesbares Label inkl. Erfahrung
+- **Helfer (state.js):** `effLevel(p)` → F zählt als **'E' (erfahren)** (Issue #251), B/W werden via `experienced` zu 'E'/'U' (für `bestPair`-Scoring); `roleDot(p)` → Dot-Farbe (F→f, B→b, W→e/u nach Erfahrung); `roleLabel(p)` → lesbares Label inkl. Erfahrung
 - **Algorithmus:** `availE`/`availU` werden in `generate.js` aus den W-Personen (`byRole['W']`) per `experienced` abgeleitet → tiefe Pool-Logik unverändert; UU/EE-Penalty greift wie zuvor
 - **Boot-Rotation:** `experienced` hat **keine** Auswirkung (faire Rotation für alle BF); Boot-Eignung weiter an `role='B'`
 - **UI:** Dropdown nur noch Führung/Bootsführer/Wachgänger + Checkbox „Erf." (sichtbar bei B und W, ausgeblendet bei F)
@@ -372,7 +372,45 @@ Konfigurierbare Selbstregistrierung mit drei Sicherheitsmodi für Self-Hosting (
 - **DSGVO:** Datenschutz-Checkbox (Art. 13/Einwilligung), E-Mail optional (Datenminimierung)
 - **VERSION:** v0.4.16
 
+### Feature 23: Plan-Retention & Automatische Löschung (DSGVO Art. 5 Abs. 1 e – Speicherbegrenzung)
+Automatisierte Cleanup-Policy für inaktive Wachpläne zur Einhaltung des Datensparsamkeitsprinzips.
+- **Markierung:** Pläne, die > PLAN_RETENTION_DAYS inaktiv sind, werden mit `marked_for_deletion = 1` markiert
+- **Gnadenfrist:** 7 Tage zwischen Markierung und finaler Löschung (Nutzer können Plan bis dahin wieder aktualisieren → Markierung kann erneut greifen)
+- **Automatische Bereinigung:** Scheduler läuft täglich (24h Intervall), gestartet in `server/server.js` nach `initDatabase()`
+- **Konfiguration:** `PLAN_RETENTION_DAYS` (default: 90, disabled wenn ≤0 oder nicht gesetzt)
+- **Umgang mit geteilten Plänen:** Wenn Plan gelöscht wird, werden auch plan_shares-Einträge automatisch gelöscht (CASCADE)
+- **Audit-Logging:** Cleanup-Läufe werden im `audit_log` als System-Event protokolliert (action='plan_cleanup', entity_type='plan', user_id=NULL, details={marked, deleted})
+- **Datenbank:** Spalten `marked_for_deletion`, `marked_for_deletion_at` in `plans`-Tabelle (idempotente `ALTER TABLE`-Migration in `db/init.js` für Bestands-DBs)
+- **VERSION:** v0.4.17
+
+### Feature 24: Umfassende Datenschutzerklärung (DSGVO Art. 13/14 – Transparenz)
+Ausführliche, benutzerfreundliche Datenschutzerklärung in deutscher Sprache (ersetzt die vorherige Kurzfassung).
+- **Datei:** `public/datenschutz.html` – standalone HTML-Seite, vollständig stilisiert mit Dark Theme + „← Zurück zur Anwendung"
+- **Inhalte:** Verantwortlicher, Datenverarbeitung (Auth/Wachpläne/Audit-Log), Rechtsgrundlagen, Speicherdauer, Betroffenenrechte (Art. 15–21), Sicherheitsmaßnahmen, Datenweitergabe, Datenminimierung, Cookies/LocalStorage, automatisierte Entscheidungsfindung (Art. 22), Kontakt/Beschwerde (BfDI)
+- **Zugang:** URL `/datenschutz.html`; verlinkt u. a. aus der Selbstregistrierungs-View (`#login-modal`)
+- **Responsive Design:** Desktop + Mobile, Dark Theme; Abdeckung DSGVO Art. 13/14, Art. 5, Art. 15–21
+- **VERSION:** v0.4.18
+
 ## Bugfixes
+
+### Bugfix: Fairness – zu häufige Turm-/Partner-Wiederholungen (Issue #253, v0.4.21)
+**Problem:** Personen besuchten denselben Turm 2–3× in 6 Tagen; Paare wiederholten sich. Ziel: möglichst neue Position + neuer Partner pro Tag.
+- **Ort:** `public/js/generate.js`, `bestPair()` + Boot-Zuweisung.
+- **Ursache:** Schwache „Klippe" beim Turm-Wiederholungs-Penalty (`v≥2?300:v*30`) → Clustering. Bootsführer konnten am Folgetag aufs selbe Boot.
+- **Lösung:**
+  - Turm-Wiederholung **linear** `v*200` (statt Klippe) → neue Türme klar bevorzugt.
+  - Fairness-Gewicht `(totalA+totalB)` ×5→×10.
+  - HW-UU-Penalty bei `isMain` auf 300 reduziert (greift mit Issue #251 ineinander: 3 Unerfahrene an HW zulässig).
+  - **Partner-Wiederholungs-Penalty ×120→×250** – nötig, weil die erhöhten Turm-/Fairness-Gewichte sonst Paar-Wiederholungen verschlechtert hätten (empirisch: ohne diese Anpassung stieg `pairRepeat` 21→42).
+  - **Boot-Rotation:** `lastBoatId`-Tracking + 300-Penalty, wenn BF am Folgetag aufs selbe Boot käme; Boot-Auswahl per Min-Score statt `shift()`. Neue Boot-Fairness-Tabelle (`renderBoatStatsPerPerson()`).
+- **Verifikation (5 Szenarien × 5 Seeds, aggregiert):** Turm-Wiederholer 267→**188**, Wiederholungs-Besuche 336→**216**, Paar-Wiederholungen 21→**14** (alle besser als Baseline). 11/11 Invarianten grün.
+
+### Bugfix: Führungskräfte zählen als erfahren (Issue #251, v0.4.20)
+**Problem:** Führungskräfte (`role:'F'`) galten im Pairing-Scoring als eigene Kategorie ('F') statt als erfahren. Dadurch konnten 2 Führungskräfte an der HW zwei unerfahrene Wachgänger nicht „ausgleichen".
+- **Ort:** `public/js/state.js`, `effLevel(p)`
+- **Lösung:** `effLevel` gibt für `role:'F'` jetzt `'E'` zurück. So zählen Führungskräfte als erfahren → an der HW sind 3 Unerfahrene mit 2 WF möglich, solange alle anderen Türme mindestens eine erfahrene Person haben.
+- **Wirkung:** Betrifft nur das Scoring/UU-Bewertung; `roleDot`/`roleLabel`/Paarungs-Matrix unverändert.
+- **Verifikation:** Alle 11 Invarianten-Tests grün.
 
 ### Bugfix: Passwortlängen-Validierung inconsistent (Issue #234, v0.4.14)
 **Problem:** Frontend validierte ≥8 Zeichen, Backend verlangte ≥10, führte zu widersprüchlichen Fehlermeldungen.
@@ -478,11 +516,11 @@ HOUR_ROWS_X = { '09:00':[25,26], ... }     // Zeilen-Paare pro Stunde (oben/unte
 5. Verbleibende Template-Spalten → HW-Overflow (Personen 5+, inkl. Kranke)
 
 ### `autoFillExportColumns()` – Reihenfolge
-Pro Turm (Prio absteigend): erst zugeordnete Boote, dann Turm → Boot steht immer links von seinem Turm. Dann freie Boote, WF (→ WF2 nur wenn >2 Führungspersonen), HW (→ HW2 nur manuell hinzufügen falls nötig).
+Pro Turm (Prio absteigend): erst zugeordnete Boote, dann Turm → Boot steht immer links von seinem Turm. Dann freie Boote, WF (→ WF2 nur wenn >2 Führungspersonen), HW.
 
 ### `buildAssignments(dayIdx)` → `{ code: [Nr, ...] }`
 - Türme: **alle** Besatzer (kein slice); Überlauf >2 → adjacent via `effectiveCols`
-- HW: `mainGuards + base + bootsfLeft + sick` → WF/WF2 (Führung), HW (Rest inkl. Kranke), optional HW2
+- HW: `mainGuards + base + bootsfLeft + sick` → WF/WF2 (Führung), HW (Rest inkl. Kranke)
 
 ### Template-Caching
 - **Auto-Load:** `fetch('Wachplan Template.xlsx')` beim Seitenstart
