@@ -331,6 +331,14 @@ GDPR Art. 5 Abs. 1 c (Datenminimierung): Warnung gegen sensible Daten im Freitex
 
 ## Bugfixes
 
+### Bugfix: Passwortlängen-Validierung inconsistent (Issue #234, v0.4.14)
+**Problem:** Frontend validierte ≥8 Zeichen, Backend verlangte ≥10, führte zu widersprüchlichen Fehlermeldungen.
+- **Ort:** `public/js/login-modal.js` Zeile 145, `public/js/user-info.js` Zeile 204, `public/Wachplan-Generator.html` Zeile 532 + 589
+- **Ursache:** Frontend und HTML-Placeholder verwendeten noch die alte Anforderung (8 Zeichen), während Backend bereits zu 10 Zeichen migriert war
+- **Symptom:** Benutzer konnte 8-9 stellige Passwörter eingeben, Frontend-Validierung schlug fehl, Backend sendete englische Fehlermeldung
+- **Lösung:** Frontend-Validierung auf ≥10 Zeichen erhöht, alle Placeholder-Texte aktualisiert: `"Passwort (min. 10 Zeichen)"`
+- **Verifikation:** Alle Frontend-Validierungen (Setup + Passwort-Änderung) und Placeholder-Texte konsistent auf 10 Zeichen
+
 ### Bugfix: openTowers-Bedarfsrechnung ignoriert leaderCount (Issue #117, v0.4.1)
 **Problem:** Bei der Entscheidung, welche Türme geöffnet werden, wurde `leaderCount` nicht in den Personalbedarf eingerechnet.
 - **Ort:** `public/js/generate.js`, Zeile 284
