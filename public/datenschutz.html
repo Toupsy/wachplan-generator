@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Datenschutzerklärung – DLRG Wachplan-Generator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black:wght@400&family=Spline+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Spline Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      line-height: 1.6;
+      color: #e8e8e8;
+      background: #0f1419;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #1a2432;
+      border-radius: 12px;
+      padding: 40px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    h1 {
+      font-family: 'Archivo Black', sans-serif;
+      font-size: 2.5em;
+      color: #e0f0ff;
+      margin-bottom: 30px;
+      border-bottom: 3px solid #2caeba;
+      padding-bottom: 15px;
+    }
+
+    h2 {
+      font-family: 'Archivo Black', sans-serif;
+      font-size: 1.8em;
+      color: #c8e0f0;
+      margin-top: 35px;
+      margin-bottom: 15px;
+    }
+
+    h3 {
+      font-family: 'Archivo Black', sans-serif;
+      font-size: 1.2em;
+      color: #a8c8e0;
+      margin-top: 20px;
+      margin-bottom: 10px;
+    }
+
+    p {
+      margin-bottom: 15px;
+      color: #d0d0d0;
+    }
+
+    ul, ol {
+      margin-left: 30px;
+      margin-bottom: 15px;
+    }
+
+    li {
+      margin-bottom: 8px;
+      color: #d0d0d0;
+    }
+
+    .intro-box {
+      background: #243448;
+      border-left: 4px solid #2caeba;
+      padding: 20px;
+      margin-bottom: 30px;
+      border-radius: 6px;
+    }
+
+    .contact-info {
+      background: #2a3f52;
+      padding: 20px;
+      margin-top: 30px;
+      border-radius: 6px;
+    }
+
+    .contact-info strong {
+      color: #c8e0f0;
+    }
+
+    .last-updated {
+      font-size: 0.9em;
+      color: #888;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid #333;
+    }
+
+    a {
+      color: #2caeba;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .back-button {
+      display: inline-block;
+      margin-bottom: 30px;
+      padding: 10px 20px;
+      background: #2caeba;
+      color: #fff;
+      border-radius: 6px;
+      text-decoration: none;
+    }
+
+    .back-button:hover {
+      background: #1fa0a0;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="/" class="back-button">← Zurück zur Anwendung</a>
+
+    <h1>Datenschutzerklärung</h1>
+
+    <div class="intro-box">
+      <p>
+        Der Schutz Ihrer Daten ist uns wichtig. Diese Datenschutzerklärung erläutert, wie der <strong>DLRG Wachplan-Generator</strong>
+        Ihre personenbezogenen Daten verarbeitet und welche Rechte Sie haben (DSGVO und deutsches BDSG).
+      </p>
+    </div>
+
+    <!-- 1. Verantwortlicher -->
+    <h2>1. Verantwortlicher und Datenschutzbeauftragter</h2>
+    <p>Verantwortliche Stelle für die Datenverarbeitung ist die DLRG-Ortsgruppe oder der Administrator der Wachplan-Generator-Instanz.</p>
+    <p>Für technische und datenschutzrechtliche Fragen kontaktieren Sie bitte den Administrator dieser Instanz.</p>
+
+    <!-- 2. Datenverarbeitung -->
+    <h2>2. Umfang der Datenverarbeitung</h2>
+
+    <h3>2.1 Authentifizierung &amp; Benutzerkonten</h3>
+    <ul>
+      <li><strong>Benutzername und Passwort:</strong> Zur Authentifizierung und Kontoverwaltung erforderlich. Passwörter werden gehasht (bcryptjs, 10 Runden) gespeichert – wir können Ihr Passwort nicht lesen.</li>
+      <li><strong>E-Mail (optional):</strong> Kann optional während der Benutzerregistrierung angegeben werden.</li>
+      <li><strong>Letzter Login:</strong> Zeitstempel des letzten erfolgreichen Logins (Admin-Transparenz).</li>
+    </ul>
+
+    <h3>2.2 Wachplan-Daten</h3>
+    <ul>
+      <li><strong>Verschlüsselte Speicherung:</strong> Wachpläne (Personenbelegung, Turnuspläne) werden mit <strong>AES-256-GCM</strong> verschlüsselt gespeichert. Nur Sie (der Plan-Eigentümer) und Personen mit Zugriff können den Inhalt entschlüsseln.</li>
+      <li><strong>Plan-Freigaben:</strong> Wenn Sie einen Plan mit anderen Benutzern teilen, wird ein Zugriffseintrag erstellt (read-only oder edit). Der Plan bleibt verschlüsselt mit Ihrem Schlüssel.</li>
+      <li><strong>Personendaten im Plan:</strong> Namen, Rollen, Qualifikationen und andere dienstrelevante Informationen werden in Ihrem verschlüsselten Plan gespeichert. <strong>Sie sollten keine sensiblen Gesundheitsdaten oder private Informationen im Label-Feld eintragen.</strong></li>
+    </ul>
+
+    <h3>2.3 Audit-Log (DSGVO Art. 5 Abs. 1 f – Accountability)</h3>
+    <ul>
+      <li>Alle administrativen Aktionen und kritischen Benutzerereignisse (Login, Plan-Erstellung, Plan-Löschung, Passwortänderung, Admin-Operationen) werden im Audit-Log protokolliert.</li>
+      <li>Das Audit-Log enthält: Aktion, Benutzer-ID, Entitätstyp, IP-Adresse und Zeitstempel.</li>
+      <li>Audit-Einträge werden längerfristig gespeichert und sind nur Administratoren zugänglich.</li>
+    </ul>
+
+    <!-- 3. Rechtsgrundlagen -->
+    <h2>3. Rechtsgrundlagen der Datenverarbeitung</h2>
+    <ul>
+      <li><strong>Art. 6 Abs. 1 c) DSGVO:</strong> Speicherung von Benutzerdaten (Benutzerkonten) zur Erfüllung rechtlicher Verpflichtungen (Admin-Transparenz, Audit-Trail).</li>
+      <li><strong>Art. 6 Abs. 1 b) DSGVO:</strong> Verarbeitung personenbezogener Daten in Wachplänen zur Erfüllung Ihres Auftrags (Diensteinteilung).</li>
+      <li><strong>Art. 6 Abs. 1 f) DSGVO:</strong> Berechtigtes Interesse an Sicherheit, Betrugsbekämpfung und Systemstabilität.</li>
+    </ul>
+
+    <!-- 4. Datenspeicherung -->
+    <h2>4. Speicherdauer</h2>
+    <ul>
+      <li><strong>Benutzerkonten:</strong> Solange das Benutzerkonto aktiv ist. Bei Löschung werden alle damit verbundenen Daten entfernt (GDPR Art. 17 – Recht auf Vergessenwerden).</li>
+      <li><strong>Wachpläne:</strong> Solange Sie diese nicht löschen. Gelöschte Pläne können nicht wiederhergestellt werden.</li>
+      <li><strong>Audit-Log:</strong> Unbegrenzte Speicherdauer zur Compliance und Nachverfolgung (Admin-Transparenz).</li>
+      <li><strong>Sessions:</strong> Maximal 7 Tage (automatischer Logout), danach werden Session-Daten gelöscht.</li>
+    </ul>
+
+    <!-- 5. Ihre Rechte -->
+    <h2>5. Ihre Rechte als betroffene Person</h2>
+    <p>Sie haben folgende Rechte gemäß DSGVO:</p>
+    <ul>
+      <li><strong>Auskunft (Art. 15):</strong> Sie können Auskunft über die von Ihnen verarbeiteten Daten verlangen.</li>
+      <li><strong>Berichtigung (Art. 16):</strong> Sie können die Korrektheit ungenauer Daten verlangen.</li>
+      <li><strong>Löschung (Art. 17):</strong> Sie können die Löschung Ihrer Daten verlangen (sofern keine anderen Gründe die Speicherung rechtfertigen).</li>
+      <li><strong>Datenportabilität (Art. 20):</strong> Sie können Ihre Daten in einem strukturierten Format anfordern.</li>
+      <li><strong>Einspruch (Art. 21):</strong> Sie können der Verarbeitung widersprechen.</li>
+    </ul>
+    <p>
+      Um diese Rechte auszuüben oder Fragen zu haben, kontaktieren Sie bitte den Administrator dieser Wachplan-Generator-Instanz.
+    </p>
+
+    <!-- 6. Sicherheit -->
+    <h2>6. Sicherheitsmaßnahmen</h2>
+    <ul>
+      <li><strong>Verschlüsslung (AES-256-GCM):</strong> Alle Wachpläne werden mit Authenticated Encryption (NIST-Standard) verschlüsselt.</li>
+      <li><strong>Passwort-Hashing (bcryptjs):</strong> Passwörter werden mit 10 Runden Salt gehasht; Original-Passwörter werden nicht gespeichert.</li>
+      <li><strong>Schlüsselableitung (PBKDF2):</strong> Verschlüsselungsschlüssel werden mit 100.000 Iterationen aus einem Master-Secret und individuellem Salt abgeleitet.</li>
+      <li><strong>Session-Schutz:</strong> Sessions sind HTTPOnly-Cookies mit `sameSite=lax` (CSRF-Schutz).</li>
+      <li><strong>Rate-Limiting:</strong> Login-Versuche sind auf 10 pro 15 Minuten pro IP und Account beschränkt (Brute-Force-Schutz).</li>
+      <li><strong>Security-Header:</strong> CSP, HSTS (TLS erzwungen), X-Frame-Options, Referrer-Policy.</li>
+    </ul>
+
+    <!-- 7. Datenweitergabe -->
+    <h2>7. Weitergabe Ihrer Daten</h2>
+    <ul>
+      <li><strong>Keine Weitergabe:</strong> Ihre Wachpläne werden nicht an Dritte weitergegeben, außer wenn Sie diese explizit mit anderen Benutzern teilen.</li>
+      <li><strong>Plan-Sharing:</strong> Wenn Sie einen Plan mit Kollegen oder Administratoren teilen, erhalten diese Zugriff auf den (verschlüsselten) Inhalt.</li>
+      <li><strong>Admin-Zugriff:</strong> Administratoren haben keinen Zugriff auf verschlüsselte Inhalte von Wachplänen, können aber Benutzer verwalten und Audit-Logs einsehen.</li>
+    </ul>
+
+    <!-- 8. Datenschutz-Anfragen -->
+    <h2>8. Bearbeitung von Datenschutz-Anfragen (DSGVO Art. 15)</h2>
+    <p>
+      Sie können einen Antrag auf Datenauskunft stellen. Der Administrator wird Ihnen folgende Informationen bereitstellen:
+    </p>
+    <ul>
+      <li>Zusammenfassung Ihres Benutzerkontos</li>
+      <li>Liste Ihrer Wachpläne (nur Metadaten)</li>
+      <li>Liste der Pläne, die mit Ihnen geteilt wurden</li>
+      <li>Liste der Pläne, die Sie mit anderen geteilt haben</li>
+    </ul>
+    <p>
+      <strong>Hinweis:</strong> Die tatsächlichen verschlüsselten Inhalte der Pläne sind Teil des Exports, können aber nur vom Plan-Eigentümer entschlüsselt werden.
+    </p>
+
+    <!-- 9. Datenminimierung -->
+    <h2>9. Datenminimierung (DSGVO Art. 5 Abs. 1 c)</h2>
+    <p>
+      Der Wachplan-Generator folgt dem Prinzip der Datenminimierung:
+    </p>
+    <ul>
+      <li><strong>Nur dienstrelevante Daten:</strong> Speichern Sie nur diensteinteilungsrelevante Informationen (Namen, Rollen, Qualifikationen).</li>
+      <li><strong>Keine sensiblen Daten:</strong> Tragen Sie keine Gesundheitsdaten, Krankengeschichte oder private Informationen ein.</li>
+      <li><strong>Warnung im UI:</strong> Das Label-Feld zeigt eine Warnung: „Nur dienstrelevante Qualifikationen – keine Gesundheits-/Privatdaten".</li>
+    </ul>
+
+    <!-- 10. Internationale Datenübertragung -->
+    <h2>10. Internationale Datenübertragung</h2>
+    <p>
+      Die Wachplan-Generator-Instanz wird typischerweise in Deutschland gehostet. Falls Ihre Daten in Länder außerhalb der EU/EWR übertragen werden,
+      erfolgt dies nur mit Ihrer Zustimmung und unter Einhaltung der DSGVO-Anforderungen (Standard-Vertragsklauseln oder Angemessenheitsbeschluss).
+    </p>
+
+    <!-- 11. Automatisierte Entscheidungsfindung -->
+    <h2>11. Automatisierte Entscheidungsfindung</h2>
+    <p>
+      Der Wachplan-Generator nutzt automatisierte Algorithmen zur fairen Rotation von Wachgängern auf Türmen, Booten und der Hauptwache.
+      Diese Entscheidungen sind <strong>nicht rechtsverbindlich</strong>; Sie können jederzeit manuell Anpassungen vornehmen.
+      Eine automatisierte Einzelfallentscheidung im Sinne von DSGVO Art. 22 liegt nicht vor.
+    </p>
+
+    <!-- 12. Cookies -->
+    <h2>12. Cookies und lokale Speicherung</h2>
+    <ul>
+      <li><strong>Session-Cookie:</strong> Ein HTTPOnly-Cookie speichert Ihre Session-ID (zum Authentifiziereien).</li>
+      <li><strong>LocalStorage:</strong> Falls Sie nicht angemeldet sind, kann die Anwendung einen Fallback-Plan lokal speichern (im Browser, nicht auf unserem Server).</li>
+      <li>Diese Daten werden <strong>nicht</strong> an uns übertragen, außer bei explizitem Hochladen in die Cloud oder Sharing.</li>
+    </ul>
+
+    <!-- 13. Kontakt & Beschwerden -->
+    <h2>13. Kontakt und Beschwerden</h2>
+
+    <div class="contact-info">
+      <h3>Datenschutzbeauftragter / Administrator dieser Instanz:</h3>
+      <p>Bitte kontaktieren Sie den Administrator der DLRG-Ortsgruppe oder Instanz, bei der Sie angemeldet sind.</p>
+
+      <h3>Beschwerde bei der Datenschutzbehörde:</h3>
+      <p>
+        Sie haben das Recht, sich bei der zuständigen Datenschutzbehörde zu beschweren (z. B. Landesdatenschutzbeauftragte oder Bundesdatenschutzbeauftragte):
+        <br><br>
+        <strong>Bundesrepublik Deutschland:</strong> <a href="https://www.bfdi.bund.de/" target="_blank">Bundesbeauftragter für Datenschutz und Informationsfreiheit (BfDI)</a>
+      </p>
+    </div>
+
+    <!-- 14. Änderungen -->
+    <h2>14. Änderungen dieser Datenschutzerklärung</h2>
+    <p>
+      Wir können diese Datenschutzerklärung jederzeit aktualisieren. Änderungen werden auf dieser Seite veröffentlicht.
+      Wesentliche Änderungen werden Ihnen mitgeteilt (sofern Sie eine E-Mail-Adresse angegeben haben).
+    </p>
+
+    <div class="last-updated">
+      Zuletzt aktualisiert: Juni 2026<br>
+      Version: 1.0
+    </div>
+  </div>
+</body>
+</html>

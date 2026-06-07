@@ -329,6 +329,15 @@ GDPR Art. 5 Abs. 1 c (Datenminimierung): Warnung gegen sensible Daten im Freitex
 - **Keine Logikänderung:** Speicherung, Export, Verarbeitung unverändert
 - **VERSION:** v0.4.13
 
+### Feature 21: Datenschutzerklärung (DSGVO Art. 13/14 – Transparenz)
+Umfassende, benutzerfreundliche Datenschutzerklärung in deutscher Sprache.
+- **Datei:** `public/datenschutz.html` – standalone HTML-Seite, vollständig stilisiert mit Dark Theme
+- **Inhalte:** Verantwortlicher, Datenverarbeitung, Rechtsgrundlagen, Speicherdauer, Benutzerdaten, Wachplan-Daten, Audit-Log, Ihre Rechte, Sicherheitsmaßnahmen, Datenweitergabe, Datenminimierung, Kontakt zur Behörde
+- **Zugang:** Verlinkt über Footer oder Navigation der Anwendung (URL: `/datenschutz.html`)
+- **Responsive Design:** Funktioniert auf Desktop und Mobile, passt sich Dark Theme an
+- **Inhalte:** Abdeckung DSGVO Art. 13/14, Art. 5, Art. 15–21 (Betroffenenrechte)
+- **VERSION:** v0.4.16
+
 ## Bugfixes
 
 ### Bugfix: Passwortlängen-Validierung inconsistent (Issue #234, v0.4.14)
