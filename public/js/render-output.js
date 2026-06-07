@@ -505,6 +505,7 @@ function renderOutput(){
     if(dragSrc.isBoat) {
       const boatId = dragSrc.boatId;
       const boat = boats.find(b => b.id === boatId);
+      const clearCard = () => { card.style.backgroundColor = ''; card.style.borderColor = ''; };
       if(!boat) {
         clearCard();
         dragSrc = null;
@@ -513,7 +514,6 @@ function renderOutput(){
 
       const targetKind = card.dataset.dropKind;
       const targetSlot = +card.dataset.dropSlot;
-      const clearCard = () => { card.style.backgroundColor = ''; card.style.borderColor = ''; };
 
       // Validierung
       if(!['tower', 'main', 'hwboat'].includes(targetKind)) {
