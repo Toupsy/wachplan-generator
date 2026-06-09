@@ -38,6 +38,85 @@ function setupMobileSwitch() {
   showPanel(0);  // Start: Einstellungen
 }
 
+// ── Version Update Check ─────────────────────────────────────────
+// Überprüft ob eine neuere Version verfügbar ist und zeigt eine Warnung
+async function checkForUpdate() {
+  try {
+    const res = await fetch('/api/version');
+    const data = await res.json();
+    const serverVersion = data.version;
+    const storedVersion = localStorage.getItem('app-version');
+
+    if (storedVersion && storedVersion !== serverVersion) {
+      // Neue Version verfügbar!
+      console.log(`🔄 Update verfügbar: ${storedVersion} → ${serverVersion}`);
+
+      // Zeige Banner mit Reload-Option
+      const banner = document.createElement('div');
+      banner.id = 'update-banner';
+      banner.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 12px 20px;
+        text-align: center;
+        z-index: 9999;
+        font-size: 14px;
+        font-weight: 500;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      `;
+      banner.innerHTML = `
+        <span style="margin-right: 10px;">✨ Neue Version verfügbar (${serverVersion})</span>
+        <button id="reload-app-btn" style="
+          background: white;
+          color: #667eea;
+          border: none;
+          padding: 6px 12px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-weight: 600;
+          transition: transform 0.2s;
+        " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+          Aktualisieren
+        </button>
+        <button id="dismiss-update-btn" style="
+          background: rgba(255,255,255,0.2);
+          color: white;
+          border: 1px solid white;
+          padding: 6px 12px;
+          margin-left: 8px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-weight: 600;
+        ">
+          Später
+        </button>
+      `;
+
+      document.body.insertBefore(banner, document.body.firstChild);
+
+      // Reload-Button
+      document.getElementById('reload-app-btn').onclick = () => {
+        localStorage.setItem('app-version', serverVersion);
+        location.reload();
+      };
+
+      // Dismiss-Button
+      document.getElementById('dismiss-update-btn').onclick = () => {
+        banner.remove();
+      };
+    } else if (!storedVersion) {
+      // Erste Nutzung — Version speichern
+      localStorage.setItem('app-version', serverVersion);
+    }
+  } catch (error) {
+    console.warn('Version check failed:', error);
+  }
+}
+
 // ── Startsequenz (nach Authentifizierung) ─────────────────────────
 // Muss VOR DOMContentLoaded definiert sein, damit es global sichtbar ist!
 async function initAfterAuth() {
@@ -72,6 +151,8 @@ async function initAfterAuth() {
   // Live-Update-Verbindung aufbauen (Session ist jetzt vorhanden)
   if(typeof realtimeConnect === 'function') realtimeConnect();
   if(typeof currentPlanId !== 'undefined' && currentPlanId != null && typeof realtimeJoin === 'function') realtimeJoin(currentPlanId);
+  // Überprüfe auf verfügbare Updates
+  checkForUpdate();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
