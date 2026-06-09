@@ -79,9 +79,8 @@ async function start() {
 
     // Version endpoint (public, no auth needed)
     app.get('/api/version', (req, res) => {
-      const versionPath = path.join(__dirname, '..', 'VERSION');
       try {
-        const version = fs.readFileSync(versionPath, 'utf-8').trim();
+        const { version } = require('../package.json');
         res.json({ version });
       } catch (error) {
         res.status(500).json({ error: 'Version not available' });
