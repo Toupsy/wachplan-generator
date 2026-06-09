@@ -2,7 +2,7 @@
 
 > **Wichtig für Claude:** Diese Datei nach jeder Änderung am Projekt aktualisieren
 > (neue Features, geänderte Funktionen, neue Dateien, Bugfixes).
-> **Versioning:** Nach jedem Commit die VERSION Datei um 1 erhöhen (z.B. 0.1002 → 0.1003)
+> **Versioning:** Automatisch via Semantic Release (s. Abschnitt „Versioning & Releases" unten)
 
 ## Git-Workflow
 
@@ -30,10 +30,12 @@ Seit v0.2.8 zweigeteilt: **`public/`** (Frontend, statisch serviert) und **`serv
 ### Root
 ```
 package.json / package-lock.json   – Deps + Scripts (start → server/server.js)
+.releaserc.json                    – Semantic Release Konfiguration
+.github/workflows/                 – GitHub Actions (release.yml für Auto-Versioning)
 Dockerfile / docker-compose.yml    – Container-Build + Compose (env_file, Anchors, Healthchecks)
 .env.example                       – Env-Vorlage (Secrets via .env, gitignored)
 .gitignore / .dockerignore
-README.md / CLAUDE.md / VERSION
+README.md / CLAUDE.md
 data/                              – SQLite-DB zur Laufzeit (gitignored)
 docs/                              – DEPLOYMENT.md, PORTAINER.md
 public/  server/                   – Frontend / Backend (s.u.)
@@ -718,6 +720,70 @@ GET    /api/admin/users/:id/export   – DSGVO Art. 15: Datenexport (JSON-Downlo
 - **Preview-Umgebung:** WebSocket automatisch deaktiviert in Cloudflare Workers (`.workers.dev` Host), graceful degradation ohne Console-Fehler
 
 **Druckansicht:** `@media print` (A4 landscape) – jeder Tag = eine Seite; Sidebar/Tabs/Stats/Matrix ausgeblendet.
+
+---
+
+## Versioning & Releases
+
+Versionen werden **automatisch** via **Semantic Release** nach Merge auf `main` aktualisiert (GitHub Action `.github/workflows/release.yml`).
+
+### Commit-Message-Konventionen (für Semantic Release)
+
+**patch-Version** (0.4.21 → 0.4.22) — Bugfixes:
+```
+fix: CSP Header Fehler gelöst
+fix(export): XLSX-Export bei leeren Plänen
+Bugfix: Session-Cookie Länge
+```
+
+**minor-Version** (0.4.21 → 0.5.0) — Neue Features:
+```
+feat: Plan-Teilen mit Rollen-Support
+feat(ui): Neue Fairness-Visualisierung
+Feature: Mehrtägige Abwesenheiten
+```
+
+**major-Version** (0.4.21 → 1.0.0) — Breaking Changes:
+```
+feat!: Alte API v1 entfernt
+BREAKING CHANGE: Datenbankschema migriert
+```
+
+### Workflow für KI-generierte PRs
+
+**KI befolgt diese Regeln automatisch:**
+- **Branch-Name:** `fix/…` für Bugfixes, `feature/…` für Features
+- **Commit-Message:** Beginnt mit `fix:` / `feat:` / `chore:` (s.o.)
+- **Merge auf main:** → GitHub Action analysiert Commits → auto-Tag + auto-Release
+
+**Beispiele:**
+```bash
+# Bugfix → patch Version
+git commit -m "fix: Session timeout bei inaktiven Tabs
+
+- Rate limiting now checks both IP and username
+- Frontend validation matches backend (10 chars min)"
+
+# Feature → minor Version
+git commit -m "feat: User registration mit konfigurierbaren Security Modes
+
+- Support für 3 Sicherheitsstufen
+- Admin kann Registrierung aktivieren/deaktivieren
+- Automated email verification optional"
+
+# Chore (kein Version-Bump)
+git commit -m "chore: Dokumentation aktualisiert"
+```
+
+### Implementierung
+
+- **Config:** `.releaserc.json` (GitHub Plugin, no npm publish)
+- **Packages:** `semantic-release`, `@semantic-release/commit-analyzer`, `@semantic-release/release-notes-generator`, `@semantic-release/github`
+- **Source of Truth:** `package.json:version` (Semantic Release updated it)
+- **Server:** Liest Version via `require('../package.json').version` in `server/server.js`
+- **Frontend:** Zeigt Version im UI-Badge (fetch `/api/version`)
+
+---
 
 ### Deployment
 
