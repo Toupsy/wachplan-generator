@@ -22,6 +22,16 @@ app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 
+// Load app version at startup (not cached in require)
+const APP_VERSION = (() => {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8'));
+    return pkg.version;
+  } catch {
+    return 'unknown';
+  }
+})();
+
 // ── Umgebungsvariablen validieren ──────────────────────────────
 validateEnv();
 
@@ -79,12 +89,7 @@ async function start() {
 
     // Version endpoint (public, no auth needed)
     app.get('/api/version', (req, res) => {
-      try {
-        const { version } = require('../package.json');
-        res.json({ version });
-      } catch (error) {
-        res.status(500).json({ error: 'Version not available' });
-      }
+      res.json({ version: APP_VERSION });
     });
 
     // Config endpoint (public, no auth needed)
