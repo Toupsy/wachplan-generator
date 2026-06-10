@@ -37,7 +37,7 @@ Realtime-Kollaboration (WebSocket), Admin-Panel.
 **Frontend `public/js/`** — Ladereihenfolge in der HTML beachten (s.u.):
 ```
 state.js          Globale Variablen & Datenmodell (s. „Globaler Zustand")
-utils.js          escapeHtml, showToast, seededRand, personNr, showConfirmation, Lookups
+utils.js          escapeHtml, showToast, seededRand, personNr, showConfirmation, downloadBlob, Lookups
 dates.js          Datumsberechnung (lokale Arithmetik, kein UTC-Shift)
 autoCodes.js      Automatische Stationscodes + freshDayState()
 config.js         seedFromConfig() (Template-Config laden)

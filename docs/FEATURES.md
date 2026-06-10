@@ -289,3 +289,12 @@ zeigt bei Truncation eine `confirm()`-Warnung (analog zur >28-Personen-Warnung).
 State-Größe (max. 1 MB → 413) gegen Storage-Exhaustion (`validatePlanInput`). Neuer gemeinsamer
 Helfer `server/db/ids.js` (`parsePositiveInt`) ersetzt `parseInt(req.params.id)` in `admin.js`
 (DELETE/PUT-password/GET-export) → `'5abc'`/`NaN`/`≤0` fließen nicht mehr in Queries.
+
+### Wartung: Plan-API auf strikten ID-Parser vereinheitlicht + Blob-URL-Leak behoben
+Folgearbeit zu #218: `api/plans.js` nutzte noch lokale `parsePlanId`/`parseUserId`, die
+teilgeparste IDs (`parseInt('5abc') → 5`) durchließen. Jetzt durchgängig `parsePositiveInt`
+aus `db/ids.js` (DRY, konsistent mit `admin.js`). Neue Unit-Tests `test/ids.test.js` decken den
+zuvor ungetesteten Parser ab. Zusätzlich Memory-Leak behoben: alle Datei-Downloads
+(`export.js` XLSX/CSV/Statistik, `state-io.js` JSON) liefen über `URL.createObjectURL` ohne
+`revokeObjectURL` → Blob-URLs blieben bis zum Reload gebunden. Neuer Helfer
+`utils.js:downloadBlob()` zentralisiert den Download und gibt die URL frei.

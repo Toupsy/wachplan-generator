@@ -11,8 +11,18 @@
 > Doku-Wartungsvertrag s. CLAUDE.md.
 
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
-`main` ist nach dem Review-Lauf vom 2026-06-10 sauber: **34/34 Tests grün**, alle Server
-parsen (`node -c`). **Keine offenen PRs.**
+`main` ist sauber. **Aktueller Branch `claude/kind-allen-g5jv05`: 37/37 Tests grün**, alle
+Server parsen (`node -c`). **Keine offenen PRs** (Branch gepusht, PR nur auf Wunsch).
+
+**Letzter Lauf (2026-06-10, autonomer Quality-Lauf, Branch `claude/kind-allen-g5jv05`):**
+- **ID-Parser vereinheitlicht:** `api/plans.js` nutzte noch lokale `parsePlanId`/`parseUserId`,
+  die teilgeparste IDs (`parseInt('5abc') → 5`) durchließen — der genau von `db/ids.js`
+  (`parsePositiveInt`) behobene Bug, aber nur in `admin.js` migriert. Jetzt durchgängig
+  `parsePositiveInt`. **Neue Tests `test/ids.test.js`** (zuvor ungetestet, +3 Tests → 37).
+- **Blob-URL-Memory-Leak behoben:** alle 4 Datei-Downloads (`export.js` XLSX/CSV/Statistik,
+  `state-io.js` JSON) liefen über `URL.createObjectURL` ohne `revokeObjectURL`. Neuer Helfer
+  `utils.js:downloadBlob(blob, filename)` zentralisiert Download + Freigabe (DRY).
+- Doku: FEATURES.md + CLAUDE.md (Codebase-Map: `downloadBlob`) aktualisiert.
 
 **Letzter Lauf (2026-06-10, Maintainer-Review):**
 - **PR #231 gemergt** → Feature 28 **Fairness-Visualisierung** (SVG-Balkendiagramme: Einsätze/
