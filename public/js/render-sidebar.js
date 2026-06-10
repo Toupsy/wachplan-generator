@@ -26,14 +26,16 @@ function renderPeople(){
         <option value="B" ${p.role==='B'?'selected':''}>Bootsführer</option>
         <option value="W" ${p.role==='W'?'selected':''}>Wachgänger</option>
       </select>
-      ${p.role!=='F' ? `<label class="exp-toggle" title="Erfahren?">
-        <input type="checkbox" data-id="${p.id}" class="exp-checkbox" ${p.experienced?'checked':''}>
-        <span>Erf.</span>
-      </label>` : `<div class="exp-placeholder"></div>`}
-      ${p.role==='B' ? `<label class="hw-wish-toggle" title="HW-Wunsch: bei BF-Überzahl mindestens 1× aktiver Hauptwache-Dienst pro Woche">
-        <input type="checkbox" data-id="${p.id}" class="hwwish-checkbox" ${p.wantsHW?'checked':''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0">
-        <span style="font-size:0.7rem;color:var(--text-dim)">🏠</span>
-      </label>` : ''}
+      ${p.role==='F' ? `<div class="exp-placeholder"></div>` : `<div class="exp-group">
+        <label class="exp-toggle" title="Erfahren?">
+          <input type="checkbox" data-id="${p.id}" class="exp-checkbox" ${p.experienced?'checked':''}>
+          <span>Erf.</span>
+        </label>
+        ${p.role==='B' ? `<label class="hw-wish-toggle" title="HW-Wunsch: bei BF-Überzahl mindestens 1× aktiver Hauptwache-Dienst pro Woche">
+          <input type="checkbox" data-id="${p.id}" class="hwwish-checkbox" ${p.wantsHW?'checked':''}>
+          <span>🏠</span>
+        </label>` : ''}
+      </div>`}
       <label class="label-toggle" title="Labels bearbeiten">
         <input type="checkbox" data-id="${p.id}" class="labels-checkbox" ${hasLabels ? 'checked' : ''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0">
         <span style="font-size:0.7rem;color:var(--text-dim)">🏷️</span>
