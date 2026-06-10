@@ -112,6 +112,26 @@ v0.4.17.
 Rechtsgrundlagen, Speicherdauer, Betroffenenrechte (Art. 15–21), Sicherheit, Cookies,
 Art. 22, Kontakt/Beschwerde. URL `/datenschutz.html`, verlinkt aus Register-View. v0.4.18.
 
+### Feature 25: Komplett-Abwesenheit (zusätzlich zu „außer Dienst")
+Bislang wurden Personen mit „außer Dienst" (`dayState[d].sick`) immer an der Hauptwache
+geführt (durchgestrichen, im XLSX/Druck sichtbar). Neu: pro Tag lässt sich eine Person als
+**komplett abwesend** (`dayState[d].absent`) markieren – sie wird **gar nicht** eingeplant,
+zählt nicht in der Statistik (`total`/`hwVisits` bleiben 0) und taucht **weder im XLSX-Export
+noch in der Druckvariante** auf.
+- **Datenmodell:** neues `absent:Set` in `dayState` (state.js/autoCodes.js `freshDayState`,
+  init.js, render-output.js Fallbacks). Serialisierung in state-io.js + `STATE_VERSION 6→7`
+  (Altpläne: `absent` defaultet auf leer).
+- **Algorithmus (generate.js):** `isAbsent(id)` schließt Personen aus allen Pools, aus
+  forced placements und aus `sickToday` aus (`isSick` gilt nur noch für nicht-Abwesende).
+  Neues `absentCount` pro Schedule-Tag.
+- **UI (render-output.js):** eigene Sektion „👋 Komplett abwesend" in der Tages-Steuerung;
+  `sick`/`absent` sind **gegenseitig exklusiv** (Aktivieren der einen löscht die andere).
+  Day-Tab-Flag `👋`. Chip-Style `.toggle-chip.absent`.
+- **Export/Druck:** keine Änderung nötig – Abwesende landen in keinem Slot und nicht in
+  `main.sick`, daher automatisch ausgeschlossen.
+- **Tests:** Harness-Option `absentPersonIds`, Invariante `checkAbsentNotAssigned`
+  (Abwesende nirgends im Plan), Szenario 4b + Fuzz-Abdeckung.
+
 ---
 
 ## Bugfixes

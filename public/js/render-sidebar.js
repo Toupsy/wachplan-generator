@@ -79,7 +79,7 @@ function renderPeople(){
     b.onclick = e => {
       const id = +e.target.dataset.id;
       people = people.filter(p => p.id !== id);
-      dayState.forEach(d => d.sick.delete(id));
+      dayState.forEach(d => { d.sick.delete(id); d.absent.delete(id); });
       forcedPlacements.forEach(fp => {
         const idx = fp.findIndex(f => f.personId === id);
         if(idx >= 0) fp.splice(idx, 1);

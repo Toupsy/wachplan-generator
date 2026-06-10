@@ -2,7 +2,7 @@
 // state-io.js – Planstatus-Import / Export (Feature 7) + Server-Sync
 // ============================================================
 
-const STATE_VERSION = 6;
+const STATE_VERSION = 7;
 
 // Migriert eine Person vom alten Rollenmodell (role 'E'/'U' + bfLevel) auf das
 // neue Modell (role 'F'|'B'|'W' + experienced:bool). Idempotent.
@@ -59,6 +59,7 @@ function _buildStateObject(){
     boats:                boats.map(b => ({ ...b, slotCount: b.slotCount || 1 })),
     dayState: dayState.map(d => ({
       sick:        [...d.sick],
+      absent:      [...(d.absent || [])],
       closed:      [...d.closed],
       closedBoats: [...d.closedBoats],
     })),
@@ -149,11 +150,12 @@ function importStateJSON(json, silent = false){
   // dayState mit Sets rekonstruieren
   dayState = (s.dayState || []).map(d => ({
     sick:        new Set(d.sick        || []),
+    absent:      new Set(d.absent      || []),
     closed:      new Set(d.closed      || []),
     closedBoats: new Set(d.closedBoats || []),
   }));
   // Fehlende Tage auffüllen
-  while(dayState.length < DAYS) dayState.push({ sick:new Set(), closed:new Set(), closedBoats:new Set() });
+  while(dayState.length < DAYS) dayState.push({ sick:new Set(), absent:new Set(), closed:new Set(), closedBoats:new Set() });
 
   // forcedPlacements
   forcedPlacements = (s.forcedPlacements || []).map(fp => (fp || []).map(f => ({ ...f })));

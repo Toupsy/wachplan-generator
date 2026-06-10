@@ -89,7 +89,9 @@ Modals `#login-modal`/`#move-modal`/`#share-modal`/`#plans-modal` …) sind eind
 people[]    // { id, name, role:'F'|'B'|'W', experienced:bool } (experienced gilt für B & W; bei F egal)
 towers[]    // { id, name, prio, code, slotCount(1–10,Def2), leaderCount(0–3,Def0) }
 boats[]     // { id, name, code, towerId:number|'HW'|null, prio, slotCount(1–3,Def1) }
-dayState[]      // Array[DAYS]: { sick:Set, closed:Set, closedBoats:Set }
+dayState[]      // Array[DAYS]: { sick:Set, absent:Set, closed:Set, closedBoats:Set }
+                //   sick   = außer Dienst → wird an der HW geführt (zählt im Plan/Export)
+                //   absent = komplett abwesend → NICHT eingeplant, nicht im XLSX/Druck (Feature 25)
 forcedPlacements[] // Array[DAYS]: [{ personId, kind, slotId, transparent:bool }]
 positionDescriptions   // { 3..7 } → XLSX C11,C13,C15,C17,C19
 fairnessMetricsDisplay // { hwBoatBalance, towerDistribution, boatPairingDiversity }
@@ -163,7 +165,7 @@ via `renderInlineBoat()`; per D&D auf anderen Turm/HW ziehbar (`kind:'boat-reass
 
 **Autosave/State-IO (state-io.js):** `autoSave()` nach jeder `generate()` → `PUT /api/plans/:id`
 (localStorage-Fallback). `autoLoad()` beim Start. `_buildStateObject()` zentrale Serialisierung;
-Sets als Arrays. `STATE_VERSION = 6`; `migratePerson()` für Altpläne.
+Sets als Arrays. `STATE_VERSION = 7`; `migratePerson()` für Altpläne.
 
 **Auth/Encryption:** Session-Cookies (HTTPOnly, sameSite:lax, 7d / 30d „Merke mich"), bcryptjs
 (10 Rounds), Passwort ≥10 Zeichen, AES-256-GCM mit **Owner-Key** (kein Re-Encrypt beim Teilen),

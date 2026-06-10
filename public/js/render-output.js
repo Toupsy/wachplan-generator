@@ -8,12 +8,13 @@ function renderOutput(){
   if(!dayState || dayState.length === 0){
     dayState = Array.from({ length: DAYS }, () => ({
       sick: new Set(),
+      absent: new Set(),
       closed: new Set(),
       closedBoats: new Set()
     }));
   }
   while(dayState.length < DAYS){
-    dayState.push({ sick: new Set(), closed: new Set(), closedBoats: new Set() });
+    dayState.push({ sick: new Set(), absent: new Set(), closed: new Set(), closedBoats: new Set() });
   }
 
   const panel = document.getElementById('output-panel');
@@ -131,6 +132,7 @@ function renderOutput(){
           ${schedule.map((d,i) => {
             const flags = [];
             if(d.sickCount > 0)            flags.push('🤒');
+            if(d.absentCount > 0)          flags.push('👋');
             if(d.manualClosed.length > 0)  flags.push('⛔');
             return `<button class="day-tab ${i===activeDay?'active':''}" data-day="${i}">${dayLabel(i)}${flags.length?`<span class="flag">${flags.join('')}</span>`:''}</button>`;
           }).join('')}
@@ -170,11 +172,19 @@ function renderOutput(){
           <input type="date" value="${computeDayDates()[di]||''}" readonly title="Aus Startdatum berechnet"></div>
       </div>
       <div class="dc-section">
-        <div class="lbl">🚫 Außer Dienst melden</div>
+        <div class="lbl">🚫 Außer Dienst melden <span style="text-transform:none;letter-spacing:0;color:var(--text-dim)">(wird an der Hauptwache geführt)</span></div>
         <div class="toggle-grid">
           ${people.map(p=>`<span class="toggle-chip ${dayState[di].sick.has(p.id)?'sick':''}" data-sick="${p.id}" data-day="${di}">
             <i class="role-dot rd-${roleDot(p)}"></i><span class="nm">${escapeHtml(p.name)}</span>
             ${dayState[di].sick.has(p.id)?'<span class="x">a. D.</span>':''}</span>`).join('')}
+        </div>
+      </div>
+      <div class="dc-section">
+        <div class="lbl">👋 Komplett abwesend <span style="text-transform:none;letter-spacing:0;color:var(--text-dim)">(nicht im Plan, Export & Druck)</span></div>
+        <div class="toggle-grid">
+          ${people.map(p=>`<span class="toggle-chip ${dayState[di].absent.has(p.id)?'absent':''}" data-absent="${p.id}" data-day="${di}">
+            <i class="role-dot rd-${roleDot(p)}"></i><span class="nm">${escapeHtml(p.name)}</span>
+            ${dayState[di].absent.has(p.id)?'<span class="x">abw.</span>':''}</span>`).join('')}
         </div>
       </div>
       <div class="dc-section">
@@ -315,16 +325,24 @@ function renderOutput(){
     t.onclick = e => { activeDay = +e.currentTarget.dataset.day; renderOutput(); });
 
   const togSets = [
-    { sel: '[data-sick]',    key: 'sick',        getter: d => dayState[d].sick },
+    // exclusive: beim Aktivieren wird die jeweils andere Personen-Markierung entfernt
+    //   (eine Person ist entweder "außer Dienst" ODER "komplett abwesend", nicht beides).
+    { sel: '[data-sick]',    key: 'sick',        getter: d => dayState[d].sick,        exclusive: d => dayState[d].absent },
+    { sel: '[data-absent]',  key: 'absent',      getter: d => dayState[d].absent,      exclusive: d => dayState[d].sick },
     { sel: '[data-closet]',  key: 'closet',      getter: d => dayState[d].closed },
     { sel: '[data-closeb]',  key: 'closeb',      getter: d => dayState[d].closedBoats },
   ];
-  togSets.forEach(({ sel, key, getter }) => {
+  togSets.forEach(({ sel, key, getter, exclusive }) => {
     panel.querySelectorAll(sel).forEach(el =>
       el.onclick = e => {
         const id = +e.currentTarget.dataset[key], day = +e.currentTarget.dataset.day;
         const s = getter(day);
-        s.has(id) ? s.delete(id) : s.add(id);
+        if(s.has(id)){
+          s.delete(id);
+        } else {
+          s.add(id);
+          if(exclusive) exclusive(day).delete(id);
+        }
         generate();
       });
   });

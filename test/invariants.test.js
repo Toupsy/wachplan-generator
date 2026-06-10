@@ -101,6 +101,36 @@ function checkNoSickAssigned(schedule, dayState, dayIdx) {
 }
 
 /**
+ * Invariant 2b: Fully absent persons appear NOWHERE in the schedule
+ *   (not in active slots, not at the HW / main.sick) → excluded from plan & export.
+ */
+function checkAbsentNotAssigned(schedule, dayState, dayIdx) {
+  const absentSet = dayState[dayIdx].absent;
+  const failures = [];
+
+  if (!absentSet || absentSet.size === 0) return failures;
+
+  schedule[dayIdx].assign.forEach(slot => {
+    const everywhere = [
+      ...(slot.occupants || []),
+      ...(slot.fuehrung || []),
+      ...(slot.mainGuards || []),
+      ...(slot.base || []),
+      ...(slot.bootsfLeft || []),
+      ...(slot.sick || []),
+      ...(slot.bootsf ? [slot.bootsf] : []),
+    ];
+    everywhere.forEach(p => {
+      if (absentSet.has(p.id)) {
+        failures.push(`Absent person ${p.id} appears in ${slot.kind} on day ${dayIdx}`);
+      }
+    });
+  });
+
+  return failures;
+}
+
+/**
  * Invariant 3: No closed tower/boat assigned
  */
 function checkNoClosedAssigned(schedule, dayState, dayIdx, towers, boats) {
@@ -322,6 +352,40 @@ test('Scenario 4: Sick persons', (t) => {
   assert.equal(allFailures.length, 0, `Sick persons scenario should have no invariant violations:\n${allFailures.join('\n')}`);
 });
 
+test('Scenario 4b: Absent persons excluded from plan & HW', (t) => {
+  const absentPersonIds = new Set([1, 2, 3]);
+
+  const { schedule, stats, dayState, towers, boats } = setupScenario(ctx, {
+    numPeople: 20,
+    numTowers: 7,
+    numBoats: 3,
+    days: 6,
+    mainK: 2,
+    absentPersonIds
+  });
+
+  let allFailures = [];
+
+  for (let d = 0; d < 6; d++) {
+    allFailures.push(...checkNoDuplicates(schedule, d));
+    allFailures.push(...checkNoSickAssigned(schedule, dayState, d));
+    allFailures.push(...checkAbsentNotAssigned(schedule, dayState, d));
+    allFailures.push(...checkNoClosedAssigned(schedule, dayState, d, towers, boats));
+    allFailures.push(...checkSlotCounts(schedule, d, towers));
+  }
+
+  assert.equal(allFailures.length, 0, `Absent persons scenario should have no invariant violations:\n${allFailures.join('\n')}`);
+
+  // Absent persons must not accumulate any duty stats
+  [1, 2, 3].forEach(pid => {
+    const s = stats[pid];
+    if (s) {
+      assert.equal(s.total || 0, 0, `Absent person ${pid} should have 0 total duties`);
+      assert.equal(s.hwVisits || 0, 0, `Absent person ${pid} should have 0 HW visits`);
+    }
+  });
+});
+
 test('Scenario 5: Closed tower', (t) => {
   const closedTowerIds = new Set([1, 3]);
 
@@ -442,6 +506,14 @@ test('Scenario 9: Fuzz test (100 iterations)', (t) => {
       }
     }
 
+    // Random fully-absent persons (disjoint from sick)
+    const absentPersonIds = new Set();
+    for (let i = 1; i <= numPeople; i++) {
+      if (!sickPersonIds.has(i) && Math.random() < sicknessRate * 0.15) {
+        absentPersonIds.add(i);
+      }
+    }
+
     const closedTowerIds = new Set();
     for (let i = 1; i <= numTowers; i++) {
       if (Math.random() < 0.15) {
@@ -465,6 +537,7 @@ test('Scenario 9: Fuzz test (100 iterations)', (t) => {
       days,
       mainK,
       sickPersonIds,
+      absentPersonIds,
       closedTowerIds,
       closedBoatIds,
       randomSeed
@@ -475,6 +548,7 @@ test('Scenario 9: Fuzz test (100 iterations)', (t) => {
     for (let d = 0; d < days; d++) {
       iterFailures.push(...checkNoDuplicates(schedule, d));
       iterFailures.push(...checkNoSickAssigned(schedule, dayState, d));
+      iterFailures.push(...checkAbsentNotAssigned(schedule, dayState, d));
       iterFailures.push(...checkNoClosedAssigned(schedule, dayState, d, towers, boats));
       iterFailures.push(...checkSlotCounts(schedule, d, towers));
     }
