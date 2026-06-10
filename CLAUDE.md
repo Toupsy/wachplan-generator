@@ -216,6 +216,10 @@ kein geschlossener Turm/Boot belegt, `slotCount`+`leaderCount` eingehalten. Perf
 `node -c` + manuell. `npm install` im frischen Container nötig (sonst `sqlite3`-Fehler in
 `session-user-deletion.test.js`); dieser Test ist gelegentlich flaky (IPC-Serialisierung) →
 erneut laufen lassen, grün = alle.
+**CI:** `.github/workflows/test.yml` führt `npm ci` + `npm test` bei jedem `push`/`pull_request`
+aus (Node 20) → roter Test blockt den Merge. (GDPR-Art.-17-Löschung ist über
+`session-user-deletion.test.js` Teil von `npm test`; das alte Standalone-Skript
+`test/gdpr-deletion-verification.js` ist veraltet/kaputt und nicht in CI eingebunden.)
 
 ---
 
