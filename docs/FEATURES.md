@@ -127,6 +127,11 @@ noch in der Druckvariante** auf.
 - **UI (render-output.js):** eigene Sektion „👋 Komplett abwesend" in der Tages-Steuerung;
   `sick`/`absent` sind **gegenseitig exklusiv** (Aktivieren der einen löscht die andere).
   Day-Tab-Flag `👋`. Chip-Style `.toggle-chip.absent`.
+- **Einklappbare Steuerung:** alle Status-Sektionen (außer Dienst / abwesend / Turm zu /
+  Boot zu / manuelle Zuweisungen) sind jetzt `<details>`-Sektionen (`dcSection()`-Helper),
+  **standardmäßig zugeklappt** mit Count-Badge der aktiven Einträge → weniger Überfrachtung,
+  v. a. da „außer Dienst" und „abwesend" beide die volle Personenliste zeigen. Auf-/Zu-Zustand
+  überdauert Re-Renders (`dcSectionOpen` pro Sektionstyp).
 - **Export/Druck:** keine Änderung nötig – Abwesende landen in keinem Slot und nicht in
   `main.sick`, daher automatisch ausgeschlossen.
 - **Tests:** Harness-Option `absentPersonIds`, Invariante `checkAbsentNotAssigned`

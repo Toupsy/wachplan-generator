@@ -18,6 +18,9 @@ XLSX-Export noch im Druck. UI: eigene Sektion „👋 Komplett abwesend" (exklus
 Dienst"). `STATE_VERSION 6→7`. Neue Invariante `checkAbsentNotAssigned` + Szenario 4b + Fuzz;
 `npm test` 14/14 Invarianten grün (nur der bekannte flaky `session-user-deletion` rot →
 `npm install` nötig). Details s. docs/FEATURES.md (Feature 25).
+**Nachtrag:** Tages-Steuerung entrümpelt – alle Status-Sektionen sind jetzt einklappbare
+`<details>` (Helper `dcSection()`, default zu, Count-Badge, Zustand gemerkt in `dcSectionOpen`).
+PR #263.
 
 ---
 
