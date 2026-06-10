@@ -55,7 +55,7 @@ function _buildStateObject(){
       if(obj.experienced === undefined) obj.experienced = (p.role !== 'F');  // Default erfahren (außer F)
       return obj;
     }),
-    towers:               towers.map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0 })),
+    towers:               towers.map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0, mainBeach: !!t.mainBeach })),
     boats:                boats.map(b => ({ ...b, slotCount: b.slotCount || 1 })),
     dayState: dayState.map(d => ({
       sick:        [...d.sick],
@@ -131,7 +131,7 @@ function importStateJSON(json, silent = false){
     enableLabels: p.enableLabels !== undefined ? p.enableLabels : ((p.labels||'').trim().length > 0),  // Fallback für alte Exporte
     wantsHW: !!p.wantsHW    // BF-HW-Wunsch (Default false für Altpläne)
   }));
-  towers = (s.towers || []).map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0 }));
+  towers = (s.towers || []).map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0, mainBeach: !!t.mainBeach }));
   boats  = (s.boats  || []).map(b => ({ ...b, slotCount: b.slotCount || 1 }));
 
   // Migration v5→v6: hwBoatId → Boote mit towerId='HW' einheitlich behandeln

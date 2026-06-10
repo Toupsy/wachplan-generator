@@ -248,6 +248,59 @@ test('Experience coverage: no experienced wasted at HW (6/7/14 days)', (t) => {
   }
 });
 
+test('Hauptstrand-Türme: fairer Ausgleich Hauptstrand ↔ Außentürme', (t) => {
+  // 7 Türme, davon 3 als Hauptstrand markiert (mainBeach). Über die Woche soll
+  // niemand einen großen Außen-Überhang ansammeln (kein „4 Tage Außenturm am Stück").
+  for (const days of [6, 14]) {
+    const setup = `
+      resetGlobalState();
+      uid = 0; people = []; towers = []; boats = [];
+      for(let i=0;i<7;i++){ towers.push({ id:++uid, name:'T'+(i+1), prio:i+1, code:'T'+(i+1), slotCount:2, leaderCount:0, mainBeach: i < 3 }); }
+      boats.push({ id:++uid, name:'B1', code:'B1', towerId: towers[0].id, prio:1, slotCount:1 });
+      boats.push({ id:++uid, name:'B2', code:'B2', towerId: towers[3].id, prio:2, slotCount:1 });
+      people.push({ id:++uid, name:'F1', role:'F', experienced:true });
+      people.push({ id:++uid, name:'F2', role:'F', experienced:true });
+      for(let i=0;i<3;i++) people.push({ id:++uid, name:'BF'+i, role:'B', experienced:i<2 });
+      for(let i=0;i<7;i++) people.push({ id:++uid, name:'E'+i, role:'W', experienced:true });
+      for(let i=0;i<10;i++) people.push({ id:++uid, name:'U'+i, role:'W', experienced:false });
+      DAYS = ${days}; mainK = 2; randomSeed = 0;
+      dayState = freshDayState();
+      forcedPlacements = freshForcedPlacements();
+      exportColumns = Array(16).fill('');
+      generate();
+      lastResult;
+    `;
+    const res = vm.runInContext(setup, ctx);
+    const schedule = res.schedule;
+    const stats = res.stats;
+    const towers = vm.runInContext('towers', ctx);
+    const dayState = vm.runInContext('dayState', ctx);
+    const boats = vm.runInContext('boats', ctx);
+
+    // Kern-Invarianten bleiben unverletzt
+    let failures = [];
+    for (let d = 0; d < days; d++) {
+      failures.push(...checkNoDuplicates(schedule, d));
+      failures.push(...checkNoSickAssigned(schedule, dayState, d));
+      failures.push(...checkNoClosedAssigned(schedule, dayState, d, towers, boats));
+      failures.push(...checkSlotCounts(schedule, d, towers));
+    }
+    assert.equal(failures.length, 0,
+      `${days}-Tage Hauptstrand: Kern-Invarianten verletzt:\n${failures.join('\n')}`);
+
+    // Außen-Überhang (outer - main) pro Person prüfen. Es gibt 4 Außen- (8 Sitze)
+    // und 3 Hauptstrand-Türme (6 Sitze) → ein kleiner Außen-Überschuss ist
+    // unvermeidbar. Erwartung: deutlich kleiner als ein „jeden-Tag-Außen"-Plan.
+    let maxOver = 0;
+    Object.values(stats).forEach(s => {
+      if (((s.mainBeachDays||0) + (s.outerBeachDays||0)) === 0) return;
+      maxOver = Math.max(maxOver, (s.outerBeachDays||0) - (s.mainBeachDays||0));
+    });
+    assert.ok(maxOver <= 5,
+      `${days}-Tage: Außen-Überhang einer Person zu groß (${maxOver} > 5) – Ausgleich greift nicht`);
+  }
+});
+
 test('BF-HW-Wunsch: BF mit wantsHW bekommt bei Überzahl ≥1 aktiven HW-Dienst', (t) => {
   // 7 Türme, NUR 2 Boote, 5 BF → 3 überzählig. 3 BF mit wantsHW. Über die Woche
   // soll jeder Wunsch-BF mindestens einen aktiven HW-Dienst (hwGuardDays>=1) erhalten.
