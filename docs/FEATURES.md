@@ -112,6 +112,22 @@ v0.4.17.
 Rechtsgrundlagen, Speicherdauer, Betroffenenrechte (Art. 15–21), Sicherheit, Cookies,
 Art. 22, Kontakt/Beschwerde. URL `/datenschutz.html`, verlinkt aus Register-View. v0.4.18.
 
+### Feature 25: Hauptstrand-Türme (fairer Hauptstrand-/Außen-Ausgleich)
+Türme lassen sich per Checkbox „🏖️ Hauptstrand" (`towers[].mainBeach`) markieren. Praxis-
+Feedback: Wachgänger sitzen sonst mehrere Tage in Folge auf Außentürmen. Der Algorithmus
+hält pro Person das Verhältnis Hauptstrand- ↔ Außentürme im Gleichgewicht.
+- Neue Stats `mainBeachDays` / `outerBeachDays` (in `ensure()`, `commitPerson()`,
+  `_reAccumulateDayStats()`).
+- `beachBalancePenalty(candidate, tower)` in `generate.js`: symmetrische Strafe
+  `overhang * 60` (Außenturm → bestraft, wer schon viel außen war; Hauptstrandturm
+  umgekehrt). Eingebaut in `bestPair` (Turm-Zweig) und die Turm-Einzelbefüllung.
+- Nur aktiv, wenn BEIDE Turm-Sorten existieren (`beachBalanceActive`).
+- UI: Toggle in der Turmzeile (`render-sidebar.js`), Badge „🏖️" auf der Turmkarte
+  (`render-output.js`). Persistenz in `state-io.js` + `config.js`.
+- Effekt (Messung, 7 Türme/3 Hauptstrand): avg|Überhang| 6 T. ~4.9→~0.9, 14 T. ~11.5→~1.7,
+  ohne Verschlechterung von Turm-/Partner-Wiederholung oder Experience-Abdeckung.
+- Test: `test/invariants.test.js` „Hauptstrand-Türme: fairer Ausgleich …".
+
 ---
 
 ## Bugfixes

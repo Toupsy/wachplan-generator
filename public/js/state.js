@@ -35,7 +35,7 @@ let randomSeed = 0;
 
 // Stammdaten
 let people   = [];   // [{ id, name, role:'F'|'B'|'W', experienced:bool, labels:'', enableLabels:true }] (experienced gilt für B und W; F ignoriert. labels Komma-getrennt, enableLabels steuert Sichtbarkeit)
-let towers   = [];   // [{ id, name, prio, code, slotCount, leaderCount }]
+let towers   = [];   // [{ id, name, prio, code, slotCount, leaderCount, mainBeach:bool }] (mainBeach: Hauptstrand-Turm für fairen Ausgleich)
 let boats    = [];   // [{ id, name, code, towerId, prio, slotCount }]
 
 // Hauptwache-Konfiguration
