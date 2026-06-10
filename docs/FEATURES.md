@@ -94,6 +94,11 @@ timestamp`); Indizes auf `user_id`/`action`/`timestamp`. `GET /api/admin/audit-l
 Filter (action, user_id) + Paginierung (limit 1–500, offset). Einträge werden nicht
 automatisch gelöscht. v0.4.15.
 
+**Audit-Log-Ansicht im Admin-Panel (Issue #154):** Ergänzend zum Logging-Backend zeigt
+`public/admin.html` jetzt eine read-only Audit-Log-Tabelle (neueste zuerst) mit Aktions-Filter
+und Aktualisieren-Button (`loadAuditLog()`, `AUDIT_ACTION_LABELS`). Nur Metadaten, alle Werte
+via `textContent` (XSS-sicher). Damit ist Akzeptanzkriterium „Admin kann Log einsehen" erfüllt.
+
 ### Feature 22: Selbstregistrierung
 `REGISTRATION_MODE` (disabled|open|code, Default disabled). `POST /api/auth/register` +
 `GET /api/auth/registration-status`. Neuer User immer `is_admin=0`; Rate-Limit 10/15min;
@@ -263,3 +268,24 @@ deprecated). Zeile entfernt → kein ReferenceError mehr in `createNewPlan()`/`l
 `seedFromConfig()` reseteten `towers`/`boats` nicht vor `.push()`. **Lösung:**
 `resetGlobalState()` vor `seedFromConfig()`; zusätzlich `towers=[]`/`boats=[]` defensiv.
 Neue Pläne starten leer mit Default-Parametern (DAYS=6, mainK=2, 9/17).
+
+### Mobile/Touch: ↕-Verschieben-Button war hover-only (Issue #181)
+`.move-btn` war nur per `:hover` sichtbar (`opacity:0`) → auf Touch-Geräten unbenutzbar.
+**Lösung:** `@media (hover:none),(pointer:coarse)` zeigt den Button dort dauerhaft und
+vergrößert das Touch-Target; zusätzlich `:focus-visible` für Tastatur-Zugänglichkeit.
+
+### Header-Subtitle: Abkürzung „a. D." entfernt (Issue #194)
+Untertitel ausgeschrieben und auf Wachgänger/Turm bezogen statt „jeder Tag"; verunglücktes
+„außer Dienst.- und Schließstatus" korrigiert. Reine Text-Änderung.
+
+### XLSX-Export: stille Truncation jenseits der 16 Template-Spalten (Issue #215)
+`_patchSheetXml` brach beim Erreichen von `TEMPLATE_STATION_COLS.length` still ab → überzählige
+Stationen/Personen fielen kommentarlos aus dem amtlichen Formular. **Lösung:** `truncated`-Flag
+an allen drei Abbruchpfaden; `_patchSheetXml` gibt `{ xml, truncated }` zurück; `exportOfficial`
+zeigt bei Truncation eine `confirm()`-Warnung (analog zur >28-Personen-Warnung).
+
+### Security: Plan-Name/State-Größe unbeschränkt + nacktes parseInt in Admin-Routen (Issue #218)
+`POST/PUT /api/plans` validieren jetzt `name` (String, max. 200 → 400) und serialisierte
+State-Größe (max. 1 MB → 413) gegen Storage-Exhaustion (`validatePlanInput`). Neuer gemeinsamer
+Helfer `server/db/ids.js` (`parsePositiveInt`) ersetzt `parseInt(req.params.id)` in `admin.js`
+(DELETE/PUT-password/GET-export) → `'5abc'`/`NaN`/`≤0` fließen nicht mehr in Queries.
