@@ -116,6 +116,40 @@ Art. 22, Kontakt/Beschwerde. URL `/datenschutz.html`, verlinkt aus Register-View
 
 ## Bugfixes
 
+### Fairness – Bootsführer-Rotation zu eng (Lookback + Matching, v0.4.24)
+**Problem:** Ein Bootsführer stand teils zwei Tage hintereinander am selben Boot; der
+Rotations-Penalty prüfte nur den Vortag (`lastBoatId`). Gewünscht: bei 3 Booten frühestens
+nach 3 Tagen wieder aufs gleiche Boot (Mo → frühestens Do).
+- **Ort:** `generate.js`, `boatRotationPenalty()` + Boot-Zuweisung.
+- **Ursachen:** (1) Penalty nur 1 Tag Rückblick; (2) gierige Boot-für-Boot-Vergabe – das
+  zuletzt verarbeitete Boot bekam den einzig übrigen BF, auch wenn das die Rotation verletzte.
+- **Lösung:** (1) `boatRotationPenalty` blickt über das **Rotationsfenster** zurück
+  (`boatRotationLookback = offene Boote − 1`, bei 3 Booten also 2 Tage), gestern am stärksten
+  bestraft. (2) **Min-Cost-Matching** (Branch-and-Bound) ordnet alle Boote+BF eines Tages
+  global optimal zu statt gierig – nur im Standardfall (keine Zwangsboote, je 1 BF/Boot, ≤8
+  Boote), sonst Fallback auf die bisherige Vergabe.
+- **Verifikation (5 Seeds):** Boot-Rückkehr in <3 Tagen **10→0**, kleinster Gap **1→3**;
+  jeder BF läuft einen sauberen 3er-Zyklus. Neue Invariante in `test/invariants.test.js`
+  (24/24 grün, schlägt ohne Fix fehl). Messskript `/tmp/measure_boats.js`.
+
+### Fairness – Türme ohne Erfahrenen (Experience-Reservierung, v0.4.24)
+**Problem:** Auf der Standard-Besetzung (7 erfahrene WG, 7 Türme, 2 Führung an HW) blieb
+regelmäßig ein Turm (meist der Turm mit niedrigster Prio) **ohne Erfahrenen** – obwohl genug
+Erfahrene da waren. Messung: 36 unbesetzte Turm-Tage / 5 Läufe × 6 Tage.
+- **Ort:** `generate.js`, HW-Befüllung + `bestPair()`.
+- **Ursache:** Die Hauptwache wird VOR den Türmen befüllt und zog dabei erfahrene
+  Wachgänger aus dem Guard-Pool → für die 7 Türme blieben nur 6 Erfahrene → ein Turm UU.
+- **Lösung – Experience-Reservierung:** Sind Erfahrene knapp (`availE ≤ offene Türme,
+  abzgl. Leader-gedeckter Türme`), werden sie an der HW **nicht verbraucht**: großer
+  endlicher Penalty (+5000) für E an HW in `bestPair` + U-zuerst-Sortierung in der
+  HW-Einzelbefüllung. Zusätzlich EE-Paar-Penalty bei Knappheit `40→1500`, damit nicht zwei
+  Erfahrene auf einem Turm landen und ein anderer leer bleibt. „Bis zu 3 Unerfahrene an der
+  HW" ist dabei explizit gewollt.
+- **Verifikation (5 Seeds):** Türme ohne Erfahrenen **36→0** (6 T.) und **92→0** (14 T.);
+  Turm-Wiederholungen 38→16 (6 T.). Fuzz 80 Läufe (4 Tageslängen × 20 Seeds) = 0 Verstöße.
+  Neue Invariante `checkExperienceNotWastedAtHW` in `test/invariants.test.js` (23/23 grün,
+  schlägt ohne Fix fehl). Messskript `/tmp/measure.js`.
+
 ### Fairness – zu häufige Turm-/Partner-Wiederholungen (Issue #253, v0.4.21)
 **Problem:** Personen besuchten denselben Turm 2–3× in 6 Tagen; Paare wiederholten sich.
 - **Ort:** `generate.js`, `bestPair()` + Boot-Zuweisung.
