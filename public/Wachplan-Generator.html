@@ -60,7 +60,10 @@
   .person-edit input:focus{outline:none;border-color:var(--sea-bright);box-shadow:0 0 0 3px rgba(24,168,216,.15)}
   .person-edit select{background:var(--deep);border:1px solid var(--line-strong);border-radius:8px;padding:9px 11px;padding-right:28px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.74rem;cursor:pointer;width:100%;height:36px;box-sizing:border-box;text-align:left}
   .person-edit .prole{grid-column:3}
-  .person-edit .exp-toggle{grid-column:4}
+  .person-edit .exp-group{grid-column:4;display:flex;align-items:center;justify-content:center;gap:8px;height:36px;min-width:0}
+  .person-edit .exp-group .exp-toggle{height:auto}
+  .person-edit .hw-wish-toggle{display:flex;align-items:center;gap:3px;font-size:.7rem;color:var(--text-dim);cursor:pointer;user-select:none}
+  .person-edit .hw-wish-toggle input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0}
   .person-edit .exp-placeholder{grid-column:4}
   .person-edit .label-toggle{grid-column:5;display:flex;align-items:center;gap:4px;justify-content:center}
   .person-edit .del-p{grid-column:6}
@@ -151,12 +154,25 @@
   .date-pick input{background:var(--navy-2);border:1px solid rgba(255,179,71,.35);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.82rem;padding:6px 9px;color-scheme:dark}
   .dc-section{margin-top:12px}
   .dc-section .lbl{font-size:.72rem;color:var(--foam);font-family:'Spline Sans Mono',monospace;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px}
+  /* Einklappbare Sektionen (<details>/<summary>) */
+  details.dc-section{margin-top:8px;border:1px solid var(--line);border-radius:8px;background:var(--navy-2);padding:8px 12px}
+  details.dc-section[open]{padding-bottom:12px}
+  .dc-summary{display:flex;align-items:center;gap:8px;cursor:pointer;list-style:none;user-select:none}
+  .dc-summary::-webkit-details-marker{display:none}
+  .dc-summary::before{content:'▸';color:var(--text-dim);font-size:.7rem;transition:transform .15s;flex:0 0 auto}
+  details.dc-section[open] .dc-summary::before{transform:rotate(90deg)}
+  .dc-summary .lbl{margin-bottom:0}
+  .dc-count{margin-left:auto;background:var(--deep);border:1px solid var(--line-strong);border-radius:10px;padding:1px 8px;font-size:.68rem;color:var(--foam);font-family:'Spline Sans Mono',monospace}
+  details.dc-section[open] .toggle-grid{margin-top:10px}
   .toggle-grid{display:flex;flex-wrap:wrap;gap:6px}
   .toggle-chip{display:inline-flex;align-items:center;gap:6px;background:var(--navy-2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:.78rem;transition:all .15s;user-select:none}
   .toggle-chip:hover{border-color:var(--line-strong)}
   .toggle-chip .role-dot{width:8px;height:8px;border-radius:50%}
   .toggle-chip.sick{background:rgba(216,57,44,.13);border-color:var(--coral-deep)}
   .toggle-chip.sick .nm{text-decoration:line-through;color:var(--text-dim)}
+  .toggle-chip.absent{background:rgba(150,150,150,.16);border-color:var(--line-strong)}
+  .toggle-chip.absent .nm{text-decoration:line-through;color:var(--text-dim)}
+  .toggle-chip.absent .x{color:var(--text-dim)}
   .toggle-chip.closed-t{background:rgba(216,57,44,.13);border-color:var(--coral-deep)}
   .toggle-chip .x{font-family:'Spline Sans Mono',monospace;font-size:.6rem;color:var(--coral)}
   .towers-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
@@ -410,10 +426,11 @@
       grid-row: 2;
     }
 
-    /* Row 2: Erf.-Toggle rechts */
-    .person-edit .exp-toggle {
+    /* Row 2: Erf.-/HW-Wunsch-Toggles rechts */
+    .person-edit .exp-group {
       grid-column: 4;
       grid-row: 2;
+      height: 42px;
     }
 
     .person-edit .exp-placeholder {
@@ -540,9 +557,16 @@
       <form id="login-form" class="login-form">
         <input id="login-username" type="text" placeholder="Username" autocomplete="username" required>
         <input id="login-password" type="password" placeholder="Passwort" autocomplete="current-password" required>
+        <label style="display:flex;align-items:center;gap:.5rem;font-size:.875rem;cursor:pointer;margin-top:8px">
+          <input type="checkbox" id="login-remember" name="remember">
+          Angemeldet bleiben
+        </label>
         <button type="submit">Anmelden</button>
         <div id="login-error" style="color:var(--coral);font-size:.85rem;min-height:1.2em"></div>
       </form>
+      <div id="login-footer" style="text-align:center;margin-top:16px;font-size:.875rem;color:var(--text-dim)">
+        <span id="register-link-text"></span>
+      </div>
     </div>
 
     <!-- Setup View (erster Start, kein Admin vorhanden) -->
@@ -551,11 +575,35 @@
       <p class="subtitle">Kein Admin-Account gefunden. Bitte erstellen Sie jetzt Ihren Admin-Account.</p>
       <form id="setup-form" class="login-form">
         <input id="setup-username" type="text" placeholder="Admin-Username" autocomplete="username" required>
-        <input id="setup-password" type="password" placeholder="Passwort (min. 8 Zeichen)" autocomplete="new-password" required>
+        <input id="setup-password" type="password" placeholder="Passwort (min. 10 Zeichen)" autocomplete="new-password" required>
         <input id="setup-password2" type="password" placeholder="Passwort wiederholen" autocomplete="new-password" required>
         <button type="submit">Admin-Account erstellen</button>
         <div id="setup-error" style="color:var(--coral);font-size:.85rem;min-height:1.2em"></div>
       </form>
+    </div>
+
+    <!-- Register View (Selbstregistrierung) -->
+    <div id="register-view" style="display:none">
+      <h2>✨ Neuer Account</h2>
+      <p class="subtitle">Erstellen Sie einen neuen Account</p>
+      <form id="register-form" class="login-form">
+        <input id="register-username" type="text" placeholder="Username" autocomplete="username" required>
+        <input id="register-password" type="password" placeholder="Passwort (min. 10 Zeichen)" autocomplete="new-password" required>
+        <input id="register-password2" type="password" placeholder="Passwort wiederholen" autocomplete="new-password" required>
+        <input id="register-email" type="email" placeholder="E-Mail (optional)" autocomplete="email">
+        <div id="register-code-field" style="display:none">
+          <input id="register-code" type="text" placeholder="Einladungs-Code" required>
+        </div>
+        <label style="display:flex;align-items:flex-start;gap:.5rem;font-size:.875rem;cursor:pointer;margin-top:8px">
+          <input type="checkbox" id="register-privacy" style="margin-top:4px">
+          <span>Ich habe den <a href="datenschutz.html" target="_blank" style="color:var(--sea-bright);text-decoration:underline">Datenschutzhinweis</a> gelesen und akzeptiert</span>
+        </label>
+        <button type="submit">Account erstellen</button>
+        <div id="register-error" style="color:var(--coral);font-size:.85rem;min-height:1.2em"></div>
+      </form>
+      <div id="register-footer" style="text-align:center;margin-top:16px;font-size:.875rem;color:var(--text-dim)">
+        <button type="button" id="back-to-login-btn" style="background:none;border:none;color:var(--sea-bright);cursor:pointer;text-decoration:underline;font-size:inherit">← Zurück zum Login</button>
+      </div>
     </div>
 
   </div>
@@ -608,7 +656,7 @@
   <div class="modal-box" style="max-width:420px">
     <button class="modal-close-btn" id="pw-modal-close-btn">×</button>
     <div class="modal-title">Passwort ändern</div>
-    <div class="modal-sub">Neues Passwort: mindestens 8 Zeichen.</div>
+    <div class="modal-sub">Neues Passwort: mindestens 10 Zeichen.</div>
     <input type="password" id="pw-current" placeholder="Aktuelles Passwort" autocomplete="current-password"
       style="width:100%;box-sizing:border-box;padding:10px;background:var(--navy);border:1px solid var(--line);border-radius:6px;color:var(--text);margin-bottom:10px">
     <input type="password" id="pw-new" placeholder="Neues Passwort" autocomplete="new-password"
@@ -720,6 +768,7 @@
           <div id="section-towers" class="section section-towers">
             <div class="section-label" style="margin-top:26px;">Türme &amp; Priorität</div>
             <div class="info-box">Bei Personalmangel schließen Türme mit <b>niedrigster Priorität</b> zuerst.</div>
+            <div class="info-box">🏖️ Türme als <b>Hauptstrand</b> markieren → der Plan gleicht pro Person Hauptstrand- und Außentürme fair aus (niemand sitzt mehrere Tage am Stück nur auf Außentürmen).</div>
             <div class="main-cfg">
               <div class="mc-label">⛱ Hauptwache · Guard-Slots
                 <span class="sub">zusätzliche Wachgänger (k) neben der Führung</span>

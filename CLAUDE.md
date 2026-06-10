@@ -1,699 +1,234 @@
 # DLRG Wachplan-Generator – Projektkontext
 
-> **Wichtig für Claude:** Diese Datei nach jeder Änderung am Projekt aktualisieren
-> (neue Features, geänderte Funktionen, neue Dateien, Bugfixes).
-> **Versioning:** Nach jedem Commit die VERSION Datei um 1 erhöhen (z.B. 0.1002 → 0.1003)
+> **Doku-Landkarte (Token-sparend lesen!):**
+> - **CLAUDE.md** (diese Datei, immer geladen): Architektur, Datenmodell, Algorithmus-Kern,
+>   Konventionen & Fallen. Schlank halten.
+> - **HANDOFF.md**: Schnelleinstieg + aktueller Arbeits-/Review-Stand. **Zuerst lesen.**
+> - **docs/FEATURES.md**: ausführliche Feature- & Bugfix-Historie (nur bei Bedarf öffnen).
+> - **README.md / docs/**: Deployment, Datenschutz, Preview-Workflow.
+>
+> **Wartungsvertrag (jede Session/jeder Agent):** s. Abschnitt „Doku aktuell halten" unten.
 
 ## Git-Workflow
-
-- **Niemals direkt auf `main` committen oder pushen**
-- Zu Beginn jeder Aufgabe Branch erstellen: `git checkout -b feature/<kurzname>` oder `git checkout -b fix/<kurzname>`
-- Am Ende: `git push origin <branch>` → `gh pr create` gegen `main`
+- **Niemals direkt auf `main` committen/pushen.** Branch: `feature/<name>` oder `fix/<name>`.
+- Ende: `git push origin <branch>` → `gh pr create` gegen `main`. PRs nur auf ausdrücklichen Wunsch.
 - Remote: `https://github.com/Toupsy/Wachplan-Generator`
+- **Versioning:** automatisch via Semantic Release nach Merge auf `main` (Commit-Prefix
+  `fix:` → patch, `feat:` → minor, `feat!:`/`BREAKING CHANGE:` → major, `chore:` → kein Bump).
+  Source of Truth: `package.json:version`. Aktuell **0.5.1**.
 
 ---
 
 ## Was ist das?
+Single-Page-App (reines **Vanilla-JS**, kein Framework) für die DLRG. Erstellt faire,
+rotierende Wachpläne für **1–14 Tage** und verteilt Personen auf **Türme, Boote, Hauptwache (HW)**.
+Export als offizielles **DLRG-XLSX-Formular** (XML-Patch der Vorlage via JSZip) + CSV.
+Backend: **Express + SQLite**, Multi-User mit **AES-256-GCM at rest**, Sessions, Sharing,
+Realtime-Kollaboration (WebSocket), Admin-Panel.
 
-Single-Page-Application (reines Vanilla-JS, kein Framework) für die **DLRG (Deutsche Lebens-Rettungs-Gesellschaft)**. Sie erstellt automatisch Wachpläne für Wasserrettungsdienste über **1–14 Tage**. Der Plan weist Personen fair rotierend auf Türme, Boote und die Hauptwache zu und kann als offizielles **DLRG-XLSX-Formular** exportiert werden.
-
-Einstiegspunkt: `public/Wachplan-Generator.html` (Server serviert `public/` statisch).
-Template-Datei: `public/Wachplan Template.xlsx` (DLRG-Formular, wird gepatcht).
-Backend-Start: `npm start` → `server/server.js`.
-
----
-
-## Dateistruktur
-
-Seit v0.2.8 zweigeteilt: **`public/`** (Frontend, statisch serviert) und **`server/`** (Backend). Root enthält nur noch Pflicht-/Deployment-Dateien.
-
-### Root
-```
-package.json / package-lock.json   – Deps + Scripts (start → server/server.js)
-Dockerfile / docker-compose.yml    – Container-Build + Compose (env_file, Anchors, Healthchecks)
-.env.example                       – Env-Vorlage (Secrets via .env, gitignored)
-.gitignore / .dockerignore
-README.md / CLAUDE.md / VERSION
-data/                              – SQLite-DB zur Laufzeit (gitignored)
-docs/                              – DEPLOYMENT.md, PORTAINER.md
-public/  server/                   – Frontend / Backend (s.u.)
-```
-
-### Frontend – `public/`
-```
-public/Wachplan-Generator.html  – Layout, CSS (dark theme), Script-Ladereihenfolge
-public/admin.html               – Admin-Panel UI
-public/Wachplan Template.xlsx   – DLRG-XLSX-Vorlage (per fetch geladen)
-public/js/state.js              – Globale Variablen & Datenstrukturen
-public/js/utils.js              – escapeHtml, showToast, seededRand, Lookup-Helfer
-public/js/dates.js              – Datumsberechnung (lokale Arithmetik, kein UTC-Shift)
-public/js/autoCodes.js          – Automatische Stationscodes + freshDayState()
-public/js/seed.js               – Beispieldatensatz (Fallback ohne Autosave)
-public/js/render-sidebar.js     – Sidebar-UI: Personen, Türme, Boote, XLSX-Config
-public/js/generate.js           – KERN-ALGORITHMUS: Wachplan berechnen (Scoring, Rotation)
-public/js/render-output.js      – Ausgabe-Panel: Tages-Karten, Steuerung, Matrix
-public/js/export.js             – XLSX- (XML-Patch via JSZip) und CSV-Export
-public/js/move.js               – Modal zum manuellen Verschieben (↕-Button)
-public/js/state-io.js           – Server-Sync (autoSave via PUT /api/plans/:id)
-public/js/login-modal.js        – Login-Modal UI & Auth-Flow
-public/js/user-info.js          – User-Info Header, Admin-Link, Plan-Import, Logout
-public/js/share.js              – Plan-Teilen-Modal (👥)
-public/js/realtime.js           – Live-Update-Client (WebSocket); deaktiviert in Preview-Umgebungen (.workers.dev)
-public/js/plans-ui.js           – Plan-Manager (📋 Meine Pläne)
-public/js/init.js               – Event-Listener + Startsequenz (autoLoad → seed fallback)
-```
-
-### Backend – `server/`
-```
-server/server.js          – Express-Server (Port 3000), Static aus ../public, Route-Registration
-server/admin-server.js    – Admin-Server (Port 3001), gleiches Image, anderer Entry-Point
-server/realtime.js        – WebSocket-Server (setupRealtime, broadcastPlanUpdate)
-server/config.json        – Template-Config (Türme/Boote/exportColumns) → GET /api/config
-server/db/connection.js   – Zentrale SQLite-Verbindung (dbPath → ../../data)
-server/db/init.js         – SQLite-Init, Schema-Migration, Admin-Seed
-server/db/schema.sql      – Schema (users, plans, plan_shares, sessions)
-server/db/crypto.js       – AES-256-GCM + deriveKey (mit Key-Cache pro userId)
-server/db/session.js      – createSessionMiddleware (SQLite-Store, DRY für beide Server)
-server/db/access.js       – getPlanAccess() zentral (Owner/Share-Prüfung)
-server/api/auth.js        – Auth-Endpoints (login/logout/init/me/password)
-server/api/plans.js       – Plan-CRUD mit Verschlüsselung + Sharing
-server/api/admin.js       – Admin-Endpoints (Admin-only)
-server/api/import.js      – Plan-Import für alte .json-Dateien
-```
-
-**Pfad-Konvention:** Backend liegt in `server/`, daher zeigen Daten/Public-Pfade via `..` nach Root (`server/server.js` → `../public`, `../data`, `../VERSION`; `server/db/*` → `../../data`). Interne `require('./api/…')`/`require('./db/…')` bleiben relativ.
-
-**Script-Ladereihenfolge beachten:** state → utils → dates → autoCodes → seed → render-sidebar → generate → render-output → export → move → state-io → user-info → share → realtime → plans-ui → login-modal → init
+- Frontend-Einstieg: `public/Wachplan-Generator.html` (statisch serviert), Template `public/Wachplan Template.xlsx`
+- Backend: `npm start` → `server/server.js` (Port 3000); Admin: `server/admin-server.js` (Port 3001)
+- Tests: `npm test` (Node `--test`)
 
 ---
 
-## HTML Panel-Naming (Issue #61)
+## Codebase-Map (1 Zeile pro Modul)
 
-Alle UI-Panels haben eindeutige IDs, CSS-Klassen und optionale `data-panel-name` Attribute für bessere Dokumentation und Referenzierung.
+**Frontend `public/js/`** — Ladereihenfolge in der HTML beachten (s.u.):
+```
+state.js          Globale Variablen & Datenmodell (s. „Globaler Zustand")
+utils.js          escapeHtml, showToast, seededRand, personNr, showConfirmation, Lookups
+dates.js          Datumsberechnung (lokale Arithmetik, kein UTC-Shift)
+autoCodes.js      Automatische Stationscodes + freshDayState()
+config.js         seedFromConfig() (Template-Config laden)
+seed.js           Beispieldatensatz (Fallback ohne Autosave)
+render-sidebar.js Sidebar-UI: Personen, Türme, Boote, Export-Spalten, Positionen
+generate.js       *** KERN-ALGORITHMUS *** Scoring, Rotation, Fairness
+render-output.js  Ausgabe: Tageskarten, Stats-Bar, Pro-Person-/Matrix-Statistiken
+export.js         XLSX (XML-Patch via JSZip) + CSV-Export
+move.js           Modal „Person verschieben" (↕) + D&D-Logik
+state-io.js       Server-Sync (autoSave/autoLoad), Plan-Manager, State-Serialisierung
+user-info.js      User-Header, Admin-Link, Logout, Passwort
+share.js          Plan-Teilen-Modal (👥)
+realtime.js       WebSocket-Client (deaktiviert in .workers.dev Preview)
+plans-ui.js       Plan-Manager (📋 Meine Pläne)
+login-modal.js    Login/Setup/Register-Modal
+init.js           Event-Listener + Startsequenz (autoLoad → seed fallback)
+```
+**Ladereihenfolge:** state → utils → dates → autoCodes → config → seed → render-sidebar →
+generate → render-output → export → move → state-io → user-info → share → realtime →
+plans-ui → login-modal → init
 
-### Hauptpanels
-| ID | Klasse | Name | Funktion |
-|---|---|---|---|
-| `#sidebar-panel` | `main-panel main-panel-0 active panel-sidebar` | Wachgänger & Konfiguration | Einstellungen: Personen, Türme, Boote, Export, Datum |
-| `#output-panel` | `main-panel main-panel-1 panel panel-output` | Tages-Wachplan | Ausgabe: Tages-Karten, Stats, Krank/Schließ-Status |
+**Backend `server/`:**
+```
+server.js          Express (Port 3000), Static aus ../public, Route-Registration, Scheduler
+admin-server.js    Admin-Server (Port 3001), gleiches Image, anderer Entry-Point
+realtime.js        WebSocket-Server (setupRealtime, broadcastPlanUpdate)
+config.json        Template-Config (Türme/Boote/exportColumns) → GET /api/config
+db/connection.js   Zentrale SQLite-Verbindung
+db/init.js         Init, Schema-Migration (idempotente ALTER TABLE), Admin-Seed, validateEnv()
+db/schema.sql      Schema (users, plans, plan_shares, audit_log; sessions via connect-sqlite3)
+db/crypto.js       AES-256-GCM + deriveKey (PBKDF2 100k, Key-Cache pro userId)
+db/session.js      createSessionMiddleware (SQLite-Store, DRY für beide Server)
+db/access.js       getPlanAccess() zentral (Owner/Share-Prüfung, kein IDOR)
+api/auth.js        login/logout/init/me/register/password + Rate-Limiting
+api/plans.js       Plan-CRUD mit Verschlüsselung + Sharing
+api/admin.js       Admin-Endpoints (Admin-only) inkl. audit-log, DSGVO-Export
+api/import.js      Bulk-Import alter .json-Pläne
+```
+**Pfad-Konvention:** `server/server.js` → `../public`/`../data`; `server/db/*` → `../../data`.
 
-### Sidebar-Sektionen
-| ID | Klasse | Name | Funktion |
-|---|---|---|---|
-| `#section-people` | `section section-people` | Wachgänger | Personen-Liste mit Rollen (F/B/E/U) |
-| `#section-towers` | `section section-towers` | Türme & Priorität | Turm-Konfiguration + Hauptwache Guard-Slots |
-| `#section-boats` | `section section-boats` | Boote | Boot-Konfiguration + Turm/HW-Zuordnung |
-| `#section-positions` | `section section-positions` | Zusatzbezeichnungen | XLSX-Positionsbeschriftungen (3–7) |
-| `#section-export-columns` | `section section-export-columns` | XLSX · Stationsspalten | Station-Code zu Template-Spalten Mapping |
-| `#section-fairness-metrics` | `section section-fairness-metrics` | Fairness-Metriken | Toggle für Anzeigeoptionen (HW, Türme, Paare) |
-| `#section-schedule` | `section section-schedule` | Datum & Tageanzahl | Startdatum, Tagezahl, Seed, Generate-Button |
-| `#section-import-export` | `section section-import-export` | Planstatus | Export/Import JSON, Autosave-Status |
-
-### Modals
-| ID | Typ | Name | Funktion |
-|---|---|---|---|
-| `#login-modal` | Modal | Login / Setup | Authentifizierung oder erste Admin-Erstellung |
-| `#move-modal` | Modal | Person verschieben | Dialog zum Wechsel von Slot/Tag mit Berechnung |
-| `#confirm-modal` | Modal | Regel überschreiben | Bestätigung bei ungültigen D&D-Vorgängen |
-| `#pw-modal` | Modal | Passwort ändern | Passwort-Änderung für Login-Benutzer |
-| `#share-modal` | Modal | Plan teilen | Plan mit anderen Benutzern teilen (edit/view) |
-| `#plans-modal` | Modal | Meine Pläne | Plan-Manager: rename, new, list, load |
-
-### Dynamische Inhalte (aus render-output.js)
-- **Tages-Panels:** `class="day-panel"` mit `data-panel` Attribut (Tag-Index)
-- **Stats-Bar:** `class="stats-bar"` mit `.stat` Einträge
-- **Tower-Cards:** `class="tower-card"` mit `data-drop-kind="tower|boat|main"`, `data-drop-slot="<towerId|boatId>"`
-- **Occupants:** `class="occupant"` mit `data-person-id`, `data-source-kind`, `data-source-slot`
-- **Inline-Boote:** `class="boat-inline"` mit `data-boat-id`, `data-boat-name`, `data-boat-code`
-
-### Kontextreferenzen
-In Code und Issues kann jetzt präzise auf UI-Elemente verwiesen werden:
-- "In `#section-people` kannst du Personen hinzufügen"
-- "Das `#output-panel` zeigt Tages-Karten mit `.tower-card` für jeden Turm"
-- "Boote ziehen: `#section-boats` → `#section-towers` via `boat-inline` D&D"
+UI-Panel-IDs (`#sidebar-panel`, `#output-panel`, `#section-people/-towers/-boats/...`,
+Modals `#login-modal`/`#move-modal`/`#share-modal`/`#plans-modal` …) sind eindeutig benannt
+(Issue #61) → in Issues/Code präzise referenzierbar.
 
 ---
 
 ## Globaler Zustand (state.js)
-
 ```js
-people[]           // { id, name, role:'F'|'B'|'W', experienced:boolean } (experienced gilt für B und W; bei F ignoriert)
-towers[]           // { id, name, prio:number, code:string, slotCount:number (Default 2, 1–10), leaderCount:number (Default 0, 0–3) }
-boats[]            // { id, name, code, towerId:number|'HW'|null, prio, slotCount:number (Default 1, 1–3) }
-dayState[]         // Array[DAYS]: { sick:Set, closed:Set, closedBoats:Set }
-forcedPlacements[] // Array[DAYS]: [{ personId, kind:'tower'|'boat'|'main'|'hwboat'|'boat-reassign', slotId, transparent:bool }]
-positionDescriptions // { 3:'', 4:'', 5:'', 6:'', 7:'' } → XLSX-Zellen C11,C13,C15,C17,C19
-fairnessMetricsDisplay // { hwBoatBalance:bool, towerDistribution:bool, boatPairingDiversity:bool }
-exportColumns[]    // 16 Stationscodes → Template-Spalten (TEMPLATE_STATION_COLS)
-lastResult         // { schedule, pairCount, stats, peopleGuards, fairnessMetrics }
-activeDay          // aktuell sichtbarer Tab (0-basiert)
-DAYS               // 1–14 (veränderbar zur Laufzeit)
-uid                // monoton steigender ID-Counter
-randomSeed         // 0 = kein Seed; >0 = deterministischer Tiebreaker für Tag 1
-mainK              // Anzahl Guard-Slots neben der Führung an der Hauptwache
-serviceStartHour   // Startstunde Dienstzeit (Default 9 = 09:00); clampt auf 8–19
-serviceEndHour     // Endstunde Dienstzeit (Default 17 = 17:00); clampt auf 8–19
+people[]    // { id, name, role:'F'|'B'|'W', experienced:bool, wantsHW:bool } (experienced gilt für B & W; wantsHW nur für B: ≥1 aktiver HW-Dienst bei BF-Überzahl)
+towers[]    // { id, name, prio, code, slotCount(1–10,Def2), leaderCount(0–3,Def0), mainBeach(bool,Def false) }
+boats[]     // { id, name, code, towerId:number|'HW'|null, prio, slotCount(1–3,Def1) }
+dayState[]      // Array[DAYS]: { sick:Set, absent:Set, closed:Set, closedBoats:Set }
+                //   sick   = außer Dienst → wird an der HW geführt (zählt im Plan/Export)
+                //   absent = komplett abwesend → NICHT eingeplant, nicht im XLSX/Druck (Feature 27)
+forcedPlacements[] // Array[DAYS]: [{ personId, kind, slotId, transparent:bool }]
+positionDescriptions   // { 3..7 } → XLSX C11,C13,C15,C17,C19
+fairnessMetricsDisplay // { hwBoatBalance, towerDistribution, boatPairingDiversity }
+exportColumns[] // 16 Stationscodes → Template-Spalten
+lastResult      // { schedule, pairCount, stats, peopleGuards, fairnessMetrics }
+activeDay, DAYS(1–14), uid, randomSeed(0=keiner), mainK
+serviceStartHour/EndHour // Def 9/17, clamp 8–19
 ```
+**Rollen:** F=Führung, B=Bootsführer, W=Wachgänger · **MAIN_ID = 0** (HW-Pseudo-ID).
+**Helfer:** `effLevel(p)` (F→'E', B/W via experienced→'E'/'U'), `roleDot(p)`, `roleLabel(p)`.
 
-**Rollen:** F = Führung, B = Bootsführer, W = Wachgänger · `experienced:boolean` (für B & W) ersetzt E/U + bfLevel  
-**MAIN_ID = 0** (Pseudo-ID der Hauptwache)
-
-**`lastResult.stats[personId]`** (pro Person akkumuliert über alle Tage):
-`{ total, towerVisits:{towerId→count}, boatVisits:{boatId→count}, hwVisits, towerWithBoatDays, boatCaptainPairings:{captainId→count} }`.
-Hinweis: HW-Overflow (Personen in `main.base`) erhöht `total` NICHT – nur aktive Dienste (Turm, Boot, k-Guard-Slots an HW) zählen. Das ist Absicht: wer „nur" an der HW saß, gilt als unterbeschäftigt und wird für Folgetage bevorzugt aktiv eingeplant.
+`lastResult.stats[personId]` (über alle Tage akkumuliert): `{ total, towerVisits{tId→n},
+boatVisits{bId→n}, hwVisits, towerWithBoatDays, boatCaptainPairings{capId→n},
+mainBeachDays, outerBeachDays, hwGuardDays }`.
+(`hwGuardDays` = aktive HW-Dienste, für BF-HW-Wunsch; `mainBeachDays`/`outerBeachDays` für Strandausgleich).
+**Wichtig:** HW-Overflow (`main.base`) erhöht `total` NICHT (nur aktive Dienste zählen) →
+„nur an HW gesessen" gilt als unterbeschäftigt → Folgetage bevorzugt aktiv eingeplant.
 
 ---
 
 ## Kern-Algorithmus (generate.js)
+Läuft **sequenziell** über alle Tage; akkumulierte `stats` übertragen sich auf Folgetage → faire Rotation.
 
-Läuft **sequenziell** über alle Tage. Akkumulierte Statistiken (`stats`) übertragen sich auf Folgetage → faire Rotation.
+**Zuweisung pro Tag (Reihenfolge):**
+0. **BF-Fairness-Sort** – `availB` nach `(boatDays*50 - hwVisits*10)` VOR activeBF/surplusBF-Split
+1. **Hauptwache** – forced → Paare via `bestPair` → Einzelpersonen
+2. **Türme** – je `slotCount + leaderCount` via `bestPair(t, true)`, Türme nach prio **ASC** (Prio 1 = wichtigster, öffnet zuerst). `leaderCount`-Slots vorab aus separatem `poolF`.
+3. **Boote** – je 1 BF pro aktivem Boot (inkl. HW-Boote `towerId==='HW'`); im Standardfall **Min-Cost-Matching** (global optimal) statt gieriger Vergabe + Lookback-Rotation (`boatRotationPenalty` meidet die letzten `Boote−1` Tage → frühestens nach #Boote Tagen wieder)
+4. Boot-Captain-Paarungen-Tracking
+5. **HW finalize** – forced → Rest + Overflow; alle in `main.base`/`poolB` bekommen `hwVisits++`
+6. **Transparente Zuweisungen** (visueller Swap nach dem Algorithmus)
 
-### Fairness-Tracking pro Person
-- `total` – Gesamteinsätze (Türme + Boot + aktive HW-Slots)
-- `towerVisits` – Turmbesuche pro Turm-ID
-- `boatVisits` – Bootseinsätze pro Boot-ID
-- `hwVisits` – Tage an der Hauptwache (inkl. Overflow; HW-Overflow-Personen zählen mit!)
-- `towerWithBoatDays` – Tage auf Turm mit aktivem Boot
-- `boatCaptainPairings` – Häufigkeit (Captain-ID → Count) mit bestimmtem Bootsführer zusammen
-
-### BF-Aufteilung
-- `activeBF` = Bootsführer die für Boote gebraucht werden
-- `surplusBF` = übrige BF, landen an Türmen/HW
-- **Vorab-Schätzung (`tempOpen`)** schätzt öffenbare Türme über `(t.slotCount||2)+(t.leaderCount||0)` Plätze (kein hartkodiertes `+2`) und zählt als verfügbare Turm-Körper `E + U + alle BF` (`availBodiesPre`, da `surplusBF` an dieser Stelle noch nicht existiert) → korrekte BF-Reservierung auch bei knappen E/U bzw. nicht-Standard-`slotCount`
-- `availB` wird VOR dem activeBF/surplusBF-Split nach `(boatDays*50 - hwVisits*10)` sortiert → faire BF-Rotation
-- surplusBF bekommen +800 Penalty wenn sie in Turm mit **aktivem** Boot landen würden
-- surplusBF bekommen -350 Bonus wenn Turm-Boot **außer Dienst** → 1150 Punkte Swing stellt sicher, dass BF bei deaktiviertem Boot zum richtigen Turm geht
-- Boote mit `towerId === 'HW'` werden wie normale Boote behandelt: ein BF pro aktivem HW-Boot
-
-### Zwangszuweisungen (forcedPlacements)
-- `transparent: false` (effektiv) → Person aus Pool entfernen, fest vorab platzieren, Statistik zählt mit → Folgetage berücksichtigen den Wechsel
-- `transparent: true` → Person bleibt im Pool, Algorithmus läuft normal, danach **nur visuell** in Zielslot verschoben → Folgetage identisch zum Originalplan
-
-### `bestPair(tower, requireMix, currentDay)` – Scoring
+**`bestPair(tower, requireMix, currentDay)` – niedrigster Score gewinnt** (Gewichte empirisch getunt, Issue #253):
 ```
-+ 1000  beide Unerfahren (UU) + requireMix=true  → Notlösung
-+ 40    beide Erfahren (EE) + requireMix=true
-+ 120×  bisherige gemeinsame Turmdienste (Paar-Wiederholung vermeiden)
-+ 30×v  Turmbesuche Person A (v≥2 → +300)
-+ 30×v  Turmbesuche Person B (v≥2 → +300)
-+ 5×    Gesamteinsätze (Fairness: wer wenig hatte, kommt zuerst)
-+ 800   surplusBF-Strafe (Turm mit aktivem Boot)
-- 350   surplusBF-Bonus (Turm mit deaktiviertem Boot)
-+ 200×  konsekutive Tage auf gleichen Turm (+200/Person wenn Vortag selber Turm)
-+ 150   beide haben viele Boot-Tage (Tower+Boat balance)
-- 60×   hwVisits (proportionaler Bonus für Tower-Zuweisung)
-- 100   Führungskraft (role='F') wenn Tower leaderCount > 0
-+ 60×   hwVisits (HW-k-Slots: Strafe für erneute HW-Zuweisung)
-+ Tiebreaker (deterministisch oder seededRand() für Tag 1)
++1000  UU + requireMix (Notlösung; an HW nur +300)      +40/1500 EE + requireMix (1500 bei E-Knappheit)
++250×  bisherige gemeinsame Turmdienste (Paar-Wdh.)     +200×v Turmbesuche A/B (linear)
++10×   (totalA+totalB) Fairness                         +800/-350 surplusBF aktiv/inaktiv-Boot
++200×  konsekutive Tage gleicher Turm (Feature 8)       +150 beide viele Boot-Tage
+-60×   hwVisits (Bonus für Turm)  / +60× an HW-k-Slots  -100 F wenn Tower leaderCount>0
++5000  E an HW wenn reserveExpAtHW (Experience-Reservierung, s. u.)
++60×   Außen-/Hauptstrand-Überhang (Feature 25, nur wenn beide Turm-Sorten existieren)
++ Tiebreaker (deterministisch bzw. seededRand() für Tag 1)
 ```
-**Niedrigster Score gewinnt.**
+**Hauptstrand-Türme (Feature 25):** Türme mit `mainBeach:true` bilden den „Hauptstrand".
+`beachBalancePenalty` hält pro Person `outerBeachDays`/`mainBeachDays` im Gleichgewicht
+(Strafe `overhang*60`), nur aktiv wenn Hauptstrand- UND Außentürme existieren → niemand
+sitzt mehrere Tage in Folge nur auf Außentürmen.
+**Experience-Reservierung (v0.4.24):** Vor der HW-Befüllung wird `reserveExpAtHW =
+availE.length ≤ expDemand` gesetzt (`expDemand` = offene Türme ohne Leader-Deckung). Ist es
+`true`, dürfen Erfahrene nicht an der HW „verbraucht" werden (+5000 in `bestPair`, U-zuerst in
+der HW-Einzelbefüllung) und zwei Erfahrene werden nicht gepaart (EE-Penalty 1500) → jeder Turm
+bekommt einen Erfahrenen, überzählige Unerfahrene gehen an die HW (bis zu 3 sind gewollt).
 
-### Zuweisung pro Tag (Reihenfolge)
-0. **BF-Fairness-Sort** – `availB` nach `(boatDays*50 - hwVisits*10)` sortieren VOR activeBF/surplusBF-Split
-1. **Hauptwache** – Zwangszuweisungen → Paare via bestPair → Einzelpersonen
-2. **Türme** – je `slotCount + leaderCount` Wachgänger via bestPair(t, true), Türme nach prio **ASC** sortiert (Prio 1 = wichtigster, öffnet zuerst)
-3. **Boote** – je 1 BF pro aktives Boot (inkl. HW-Boote mit `towerId === 'HW'`), sortiert nach Gesamteinsätzen + Boot-Rotation
-4. **Boot-Captain-Paarungen-Tracking** – registriere Turm-Personen × Captain
-5. **HW finalize** – Zwangszuweisungen → verbleibende Personen + alle Overflow; alle in `main.base`/`poolB` bekommen `hwVisits++`
-6. **Transparente Zuweisungen** anwenden (visueller Tausch nach dem Algorithmus)
+**BF-HW-Wunsch (Feature 26):** BF mit `wantsHW:true` sollen bei BF-Überzahl ≥1 aktiven
+HW-Dienst (`mainGuards`) bekommen. `hwWishBonus` gibt noch unerfüllten Wünschen einen zum
+Wochenende eskalierenden HW-Bonus (600→6000→100000), eingebaut in `bestPair` (HW-Zweig) +
+HW-Einzelbefüllung. Sicherheitsnetz im `availB`-Sort drückt unerfüllte Wunsch-BF bei echter
+Überzahl in den letzten 2 Tagen in die surplus-Hälfte. `hwGuardDays==0` = noch offen.
 
-**Prioritäts-Semantik:** Prio 1 = wichtigster Turm → öffnet zuerst, schließt zuletzt. Niedrig besetzte Tage → höhere Prio-Nummern schließen zuerst.
+**Zwangszuweisungen (forcedPlacements):** `transparent:false` → Person aus Pool, fest
+vorab platziert, zählt in Statistik (Folgetage berücksichtigen Wechsel). `transparent:true`
+→ bleibt im Pool, Algorithmus normal, danach **nur visuell** in Zielslot verschoben.
 
----
+**BF-Schutz:** surplusBF +800 auf Turm mit aktivem Boot, -350 wenn Boot außer Dienst
+(1150 Swing). **Vorab-Schätzung** `tempOpen` über `(slotCount||2)+(leaderCount||0)` Plätze.
 
-## Features
-
-### Feature 5: BF-Schutz (surplusBF-Penalty)
-Übrige Bootsführer (nicht auf Booten) sollen nicht an Türmen mit aktivem Boot stehen.
-- +800 Penalty auf aktive-Boot-Türmen; -350 auf deaktivierten-Boot-Türmen → 1150 Swing sichert korrekte Zuweisung.
-
-### Feature 6 (deprecated): HW-Boot
-Ehemals dediziertes Feature mit separater `hwBoatId` Variable. Seit v0.4.13 obsolet: Boote werden der Hauptwache uniform über `towerId='HW'` zugeordnet (wie jedem Turm). Mehrere Boote an HW möglich, jedes bekommt einen eigenen BF.
-
-### Feature 7: Erweiterte Fairness-Metriken
-Stats-Bar zeigt `avgHwVisits | avgTowerWithBoatDays` (z.B. `0.9 | 0.9`) + Boot-Paarungen-Diversität %.
-- Grün = ausgeglichen, Orange = Schieflage
-
-### Feature 8: Konsekutive-Tage-Regel
-`checkConsecutiveTowerPenalty(personA, personB, towerId, currentDay)` in `generate.js`:
-- +200 Punkte pro Person wenn Vortag auf selben Turm → Personen verteilen sich über Türme
-- Soft-Constraint: weicht bei knapper Besetzung (normal 0% Verstöße, Extremdruck ~2,4%)
-
-### Feature 9: Metriken-Toggle
-`fairnessMetricsDisplay`-Flags in `state.js` steuern, welche Metriken in der Stats-Bar sichtbar sind:
-- `hwBoatBalance` / `towerDistribution` / `boatPairingDiversity`
-- Checkboxes in Sidebar: `#metric-hw-balance`, `#metric-tower-dist`, `#metric-boat-pairing`
-- `syncMetricCheckboxes()` synchronisiert Checkbox-Zustände nach State-Import
-
-### Feature 10: Pro-Person Tower-Statistik
-`renderTowerStatsPerPerson()` in `render-output.js`: Tabelle Person | Gesamt-Tage | Unique Türme | Details.
-- Details: Turm-Namen + Besuchsanzahl, sortiert nach Prio
-- Farb-Coding: Grün wenn ≥50% der Türme besucht, Orange sonst
-
-### Feature 11: Seed-basierte Start-Konstellationen
-`applySeedConstraints(seed)` in `init.js` (Seed-Input 0–999):
-- `0` = Standard (kein Seed), `1–999` = deterministische Fisher-Yates Permutation der E/U + BF auf Tag 1
-- Alle Seeds erzeugen identische Gesamtfairness über alle Tage (Balancierung durch Scoring auf Tag 2+)
-- LCG: `rng = (rng * 1664525 + 1013904223) & 0x7fffffff`; EU mit `seed*1`, BF mit `seed*2`
-
-### Feature 12: Pro-Turm Führungskräfte-Einstellung
-- `leaderCount` pro Tower (0–3, Default 0) – zusätzlich zu `slotCount`
-- Tower mit `slotCount=2, leaderCount=1` → 3 Personen total (1 F + 2 andere)
-- **Platzierung:** Führungskräfte liegen in einem **separaten** `poolF` (NICHT im allgemeinen `getGuardPool`). Pro offenem Turm werden `leaderCount`-Slots gezielt mit F aus `poolF` vorbesetzt (faire Auswahl: wenig `total`, dann wenig `towerVisits[t]`), bevor die restlichen Slots regulär per `bestPair` gefüllt werden.
-- **HW behält Führung:** Nur so viele F wie Leader-Slots verlassen die HW; übrige F bleiben `fuehrung:poolF` an der Hauptwache. Ohne `leaderCount`-Türme bleiben alle F an der HW.
-- Reichen die F nicht für alle Leader-Slots, werden die übrigen regulär besetzt (Turm bleibt voll).
-- Führung an der HW zählt als aktiver Dienst (`total++ + hwVisits++`, konsistent mit `_reAccumulateDayStats`) → faire Leader-Rotation über die Tage.
-- UI: Spinner in Sidebar neben slotCount (Label 👔); Export/Import via `state-io.js`
-
-### Feature 13: Vereinheitlichtes Erfahrungs-Flag (`experienced`)
-- `role: 'F'|'B'|'W'` (F = Führung, B = Bootsführer, **W = Wachgänger**) + `experienced: boolean`
-- `experienced` ersetzt das frühere E/U-Rollenmodell **und** `bfLevel`; gilt für **B und W** (bei F irrelevant)
-- **Helfer (state.js):** `effLevel(p)` → F bleibt 'F', B/W werden via `experienced` zu 'E'/'U' (für `bestPair`-Scoring); `roleDot(p)` → Dot-Farbe (F→f, B→b, W→e/u nach Erfahrung); `roleLabel(p)` → lesbares Label inkl. Erfahrung
-- **Algorithmus:** `availE`/`availU` werden in `generate.js` aus den W-Personen (`byRole['W']`) per `experienced` abgeleitet → tiefe Pool-Logik unverändert; UU/EE-Penalty greift wie zuvor
-- **Boot-Rotation:** `experienced` hat **keine** Auswirkung (faire Rotation für alle BF); Boot-Eignung weiter an `role='B'`
-- **UI:** Dropdown nur noch Führung/Bootsführer/Wachgänger + Checkbox „Erf." (sichtbar bei B und W, ausgeblendet bei F)
-- **Migration:** `migratePerson()` in `state-io.js` wandelt Altpläne (E/U + bfLevel) → `role:'W'` + `experienced`; `STATE_VERSION` 4→5
-
-### Feature 14: Konsolidiertes Single-Page Layout mit mobiler Tab-Umschaltung
-Sidebar (Einstellungen) und Output-Panel (Wachplan) auf einer Seite nebeneinander (Desktop) oder per Tab-Umschalter (Mobile).
-- **Desktop (≥768px):** Sidebar + Output-Panel Side-by-Side, Grid-Layout mit unabhängigem Scrolling
-- **Mobile (<768px):** Nur ein Panel sichtbar gleichzeitig; Umschaltung via sticky Segment-Leiste (⚙️ Einstellungen | 📋 Wachplan)
-  - Leiste bleibt beim Scrollen erreichbar (sticky positioning, z-index:20)
-  - Beide Panels scrollen natürlich als Ganzes (`height:auto`, keine verschachtelten Scroll-Container)
-  - Nach „Plan generieren" automatischer Wechsel zur Wachplan-Ansicht (optional, mit `matchMedia` Guard)
-- **UI-Elemente:** `.mobile-switch` Container mit `.ms-btn` Buttons; `data-target` Attribute für Panel-Index
-- **JS-Logik:** `setupMobileSwitch()` in `init.js` verdrahtet Event-Listener und Klassen-Toggle (`mobile-active`)
-- **CSS:** Mobile-Switch nur `display:none` auf Desktop; auf Mobile: grid mit 2 Spalten, `position:sticky`
-- **Print-Modus:** `@media print` blendet Sidebar und Mobile-Switch aus, zeigt nur Output-Panel
-
-### Feature 15: Konfigurierbare Dienstzeiten
-Flexibles Stundenraster für XLSX-Export; ersetzt hardcoded `09:00–17:00`:
-- `serviceStartHour` / `serviceEndHour` in `state.js` (Default 9/17)
-- Zwei Number-Inputs in `#section-schedule` mit min=8, max=19 (verfügbare HOUR_ROWS_X-Stunden)
-- `fillHours()` Funktion in `export.js`: clampt Werte, erzwingt `end >= start`
-- Validierung in `init.js`: gegenseitige Anpassung bei Verstöße (Falls start>end, ende=start, etc.)
-- Persistenz: `_buildStateObject()` speichert beide Werte; `importStateJSON()` mit Defaults 9/17 für Altpläne
-- `STATE_VERSION` 3→4: fehlende Felder bei älteren Exporten automatisch gefüllt
-
-### Feature 16: CSV-Export Pro-Person Fairness-Statistik
-`exportStatsCSV()` in `export.js` exportiert aggregierte Fairness-Kennzahlen pro Person als CSV:
-- Spalten: Nr | Person | Rolle | Einsätze gesamt | HW-Tage | Türme (unique) | Turmbesuche gesamt | Boot-Tage | Tage Turm+Boot
-- Zahlen exakt wie in `renderTowerStatsPerPerson()` (render-output.js Zeile 720) berechnet
-- Button `#btn-export-stats-csv` („📊 Statistik (CSV)") in Export-Zeile neben regulärem CSV-Button
-- Guard: Toast-Hinweis wenn `lastResult?.stats` nicht verfügbar
-- UTF-8 mit BOM für Excel-Kompatibilität; Dateiname: `wachplan-statistik.csv`
-
-### Feature 17: Reset aller manuellen Zuweisungen
-Button „↺ Manuelle Zuweisungen zurücksetzen" in der Export-Row (neben XLSX/CSV/Print-Buttons):
-- `countForced()` – zählt alle aktiven Zwangszuweisungen über alle Tage
-- `clearAllForced()` – leert `forcedPlacements` komplett und generiert Plan neu
-- Button zeigt Anzahl: `↺ Manuelle Zuweisungen zurücksetzen (n)` oder `↺ Keine manuellen Zuweisungen` wenn leer
-- Button ist disabled wenn keine Fixierungen existieren
-- Klick öffnet Bestätigungsdialog (ohne Recalc-Checkbox, da global wirksam)
-- Autosave erfolgt automatisch via `generate()` → bestehender Hook
-
-### Feature 18: Letzter Login im Admin-Panel
-Tracking und Anzeige des letzten erfolgreichen Logins pro Benutzer im Admin-Panel:
-- `users`-Tabelle erhält Spalte `last_login DATETIME` (NULL = noch nie eingeloggt)
-- Login wird nur bei erfolgreicher Authentifizierung (`POST /api/auth/login`) aktualisiert, nicht bei Session-Resume
-- Admin-API (`GET /api/admin/users`) gibt `lastLogin`-Feld aus
-- Admin-UI (`/admin.html`) zeigt neue Spalte „Letzter Login" mit Datum und Uhrzeit (Lokalzeit-Konvertierung mit UTC-String-Parsing)
-- Fallback: „Noch nie" für Benutzer, die sich nie eingeloggt haben
-- Idempotente Migration für bestehende DBs via `ALTER TABLE ... ADD COLUMN last_login DATETIME` in `init.js`
-
-### Feature 19: DSGVO-Härtung – Datenminimierungs-Hinweis im Labels-Feld
-GDPR Art. 5 Abs. 1 c (Datenminimierung): Warnung gegen sensible Daten im Freitext-Feld `people[].labels`.
-- **UI-Hinweis:** In der Sektions-Infobox „Wachgänger" wird ein Warungstext angezeigt: „ℹ️ Nur dienstrelevante Qualifikationen – keine Gesundheits-/Privatdaten"
-- **Längenbegrenzung:** `maxlength="200"` auf dem Labels-Input (weiche Begrenzung für dienstrelevante Qualifikationen)
-- **Ort:** `public/Wachplan-Generator.html`, Infobox in `#section-people` (einmalig zentral, nicht pro Person)
-- **Keine Logikänderung:** Speicherung, Export, Verarbeitung unverändert
-- **VERSION:** v0.4.13
-
-### Feature 20: Fairness-Visualisierung – Balkendiagramme für Einsatzverteilung (Issue #225, v0.4.14)
-Visuelle SVG-Balkendiagramme zur schnellen Kontrolle der Schichtverteilung über den Planungszeitraum.
-- **3 Diagramme** (alle togglebar):
-  1. **Einsätze gesamt pro Person** – horizontal gestapelter Wachplan, sortiert absteigend, mit Durchschnittslinie (Ø)
-  2. **HW-Tage pro Person** – zeigt Imbalancen bei Dauerlast an der Hauptwache
-  3. **Turmauslastung** – je nach Turm-Prio sortiert; Über/Unterauslastung sichtbar
-- **Farbcoding:**
-  - Grün: Ausgeglichene Verteilung (±30% vom Durchschnitt)
-  - Orange: Schieflage erkannt (>30% Abweichung)
-  - Rote Durchschnittslinie (Ø) als Referenz
-- **Toggle**: 3 Checkboxen in `#section-fairness-metrics` (sub-Bereich „Visualisierungen")
-- **Print-Modus:** `@media print { .charts-container { display: none } }` – Charts im Druck ausgeblendet
-- **Implementierung**: Reines SVG/CSS, keine externen Libs (CSP-konform `default-src 'self'`)
-  - `renderAssignmentsChart()`, `renderHWDaysChart()`, `renderTowerUtilizationChart()` in `render-output.js`
-  - `fairnessChartsDisplay` in `state.js` + Import/Export via `state-io.js` (STATE_VERSION 6)
-  - Event-Listener in `init.js` (Toggle → re-render)
-- **Design:** Dark-Theme mit CSS-Variablen (grün/orange/coral wie bestehende Metriken)
-- **UX:** Nach Plan-Generierung sofort sichtbar; hilft bei manuellen Optimierungen (Move-Modal ↕)
-- **VERSION:** v0.4.14
-
-## Bugfixes
-
-### Bugfix: openTowers-Bedarfsrechnung ignoriert leaderCount (Issue #117, v0.4.1)
-**Problem:** Bei der Entscheidung, welche Türme geöffnet werden, wurde `leaderCount` nicht in den Personalbedarf eingerechnet.
-- **Ort:** `public/js/generate.js`, Zeile 284
-- **Ursache:** `const need = Math.max(0, (t.slotCount || 2) - preCount)` berechnete nur `slotCount`, ignorierte `leaderCount`
-- **Symptom:** Bei knappem Guard-Pool und zu wenigen Führungskräften konnten Türme mit `leaderCount > 0` geöffnet werden, obwohl nicht genug Personen vorhanden waren
-- **Lösung (Variante A):** `const need = Math.max(0, (t.slotCount || 2) + (t.leaderCount || 0) - preCount)` – konsistent mit Vorab-Schätzung (Zeile ~225) und tatsächlicher Turmbelegung
-- **Verifikation:** Alle 14 Tests grün, einschließlich Regressions-Szenarien aus `test/leaders.test.js`
+Detail-Historie aller Features/Bugfixes → **docs/FEATURES.md**.
 
 ---
 
-## Manuelles Verschieben & Drag-and-Drop (move.js, render-output.js)
+## Wichtige Subsysteme (Kurzreferenz)
 
-### Move-Modal (↕-Button)
-- Erscheint bei hover auf `.occupant`
-- `openMoveModal(personId, dayIdx, fromKind, fromSlotId)` → Dropdown aller validen Zielslots
-- Checkbox **"Folgetage neu berechnen"** steuert `transparent`-Flag
-- `_applyMove()` → schreibt in `forcedPlacements[dayIdx]`, ruft ggf. `generate()` auf
-- `clearForced(personId, fromDay, scope)` → entfernt Fixierungen ('today' | 'forward')
+**XLSX-Export (export.js):** Template als ZIP (JSZip) laden, nur `xl/worksheets/sheet1.xml`
+per Regex patchen → Styles/Bilder/Schutz bleiben. Konstanten: `SLOT_ROWS_X`, `SLOT_NAMECOL`
+(4 Blöcke à 7 Personen = max 28), `TEMPLATE_STATION_COLS` (16 Spalten), `HOUR_ROWS_X`.
+`effectiveCols[]` regelt Overflow: >2 Personen/Station → nächste Template-Spalte rechts;
+Rest = HW-Overflow (Personen 5+, inkl. Kranke). Template auto-geladen via `fetch` +
+localStorage-Cache (`dlrg_wachplan_template_b64`).
 
-### Personen-D&D
-Personen direkt per Drag-and-Drop zwischen Slots verschieben:
-- Rollenvalidierung: Nicht-Bootsführer zu Boot → Confirmation-Dialog
-- Checkbox "Folgetage neu berechnen" im Confirmation-Dialog
-- `showConfirmation(message, onConfirm, onCancel, showRecalcCheckbox)`
-- **Wichtig:** `dragSrc` wird vor `showConfirmation()` in lokale Variablen gesichert (`srcPersonId`, `srcKind`, `srcSlot`), da `dragend` asynchron `dragSrc = null` setzt
+**Manuelles Verschieben (move.js + render-output.js):** ↕-Button öffnet `openMoveModal()`;
+Checkbox „Folgetage neu berechnen" steuert `transparent`. D&D: `dragSrc` VOR
+`showConfirmation()` in lokale Vars sichern (`dragend` nullt async). Boote inline unter Turm
+via `renderInlineBoat()`; per D&D auf anderen Turm/HW ziehbar (`kind:'boat-reassign'`, immer transparent).
 
-### Boot-D&D (Inline-Darstellung)
-Boote erscheinen **inline** unter ihrem Turm (nicht als separate Karten):
-- `boatsByTower`-Map (towerId → [Boot-Slots]) vor der Render-Schleife
-- `renderInlineBoat()` zeichnet Boot als `.hq-divider.boat-inline` + Bootsführer-Occupant in der Turm-Card
-- Boote sind per D&D auf anderen Turm oder die HW ziehbar (nur aktueller Tag, transparent)
-- `_applyBoatReassignment(boatId, dayIdx, kind, slotId)` → `forcedPlacements` mit `kind:'boat-reassign'`, immer `transparent:true`
-- HW-Boot wird als `towerId='HW'` normalisiert und via `renderInlineBoat()` in der Main-Card angezeigt → mehrere HW-Boote möglich, keins überschreibt das andere
+**Autosave/State-IO (state-io.js):** `autoSave()` nach jeder `generate()` → `PUT /api/plans/:id`
+(localStorage-Fallback). `autoLoad()` beim Start. `_buildStateObject()` zentrale Serialisierung;
+Sets als Arrays. `STATE_VERSION = 7`; `migratePerson()` für Altpläne.
 
-### Transparentes vs. effektives Verschieben
-- **transparent=true (Case 1):** `generate()` wird NICHT aufgerufen; `renderOutput()` klont Schedule und wendet visuellen Swap an → Folgetage komplett unverändert
-- **transparent=false (Case 2):** `generate()` aufgerufen; Tage VOR dem Änderungstag werden aus dem alten Schedule wiederhergestellt
+**Auth/Encryption:** Session-Cookies (HTTPOnly, sameSite:lax, 7d / 30d „Merke mich"), bcryptjs
+(10 Rounds), Passwort ≥10 Zeichen, AES-256-GCM mit **Owner-Key** (kein Re-Encrypt beim Teilen),
+PBKDF2 100k (gecacht pro userId), Rate-Limit IP+Account (10/15min), Session-Fixation-Schutz,
+CSP/HSTS/Security-Header. **Secrets in `.env`** (Pflicht: `MASTER_SECRET`≥32, `SALT`≥16,
+`SESSION_SECRET`≥16; geprüft von `validateEnv()`). API-Endpoints s. README/Code.
 
 ---
 
-## XLSX-Export (export.js)
-
-**Strategie:** Template als ZIP laden (JSZip), nur `xl/worksheets/sheet1.xml` per Regex patchen → Styles/Farben/Bilder bleiben erhalten.
-
-### Wichtige Konstanten
-```js
-SLOT_ROWS_X = [7,9,11,13,15,17,19]        // Zeilen der Namens-Slots
-SLOT_NAMECOL = [43,76,109,142]             // Spalten der 4 Namens-Blöcke (à 7 Personen)
-TEMPLATE_STATION_COLS = [21,27,33,39,45,51,57,63,69,75,81,87,93,99,117,123]  // 16 Stationsspalten
-FILL_HOURS = ['09:00',...,'17:00']         // Stundenraster das befüllt wird
-HOUR_ROWS_X = { '09:00':[25,26], ... }     // Zeilen-Paare pro Stunde (oben/unten)
-```
-
-### Was wird gepatcht?
-- `EE3` → Datum (Excel-Seriennummer via `excelSerial()`)
-- `slotNameRef(n)` → Personennamen 1–28
-- `C11,C13,C15,C17,C19` → Positionsbeschriftungen
-- Zeile 21 + Stundendaten → via `effectiveCols`
-- HW-Overflow → Personen 5+ (inkl. Kranke) in verbleibende Template-Spalten
-
-### Overflow-Strategie & effektives Layout (`_patchSheetXml`)
-`effectiveCols[]` wird beim Export berechnet, `exportColumns` bleibt unberührt:
-1. Iteriere `exportColumns` der Reihe nach; leere Slots überspringen
-2. Jede Station belegt eine Template-Spalte (primär: Personen 1–2)
-3. Hat die Station >2 Personen → Überlauf-Paare belegen die **nächste** Template-Spalte direkt rechts (adjacent)
-4. Nachfolgende Stationen rücken entsprechend nach rechts
-5. Verbleibende Template-Spalten → HW-Overflow (Personen 5+, inkl. Kranke)
-
-### `autoFillExportColumns()` – Reihenfolge
-Pro Turm (Prio absteigend): erst zugeordnete Boote, dann Turm → Boot steht immer links von seinem Turm. Dann freie Boote, WF (→ WF2 nur wenn >2 Führungspersonen), HW (→ HW2 nur manuell hinzufügen falls nötig).
-
-### `buildAssignments(dayIdx)` → `{ code: [Nr, ...] }`
-- Türme: **alle** Besatzer (kein slice); Überlauf >2 → adjacent via `effectiveCols`
-- HW: `mainGuards + base + bootsfLeft + sick` → WF/WF2 (Führung), HW (Rest inkl. Kranke), optional HW2
-
-### Template-Caching
-- **Auto-Load:** `fetch('Wachplan Template.xlsx')` beim Seitenstart
-- **Caching:** Base64 in `localStorage` (Key: `dlrg_wachplan_template_b64`) für Offline-Verfügbarkeit
-- Chunks: 9000 Bytes (Vielfaches von 3 → kein btoa-Padding-Problem)
+## Konventionen & Fallen (haben schon Bugs verursacht)
+- **DB-Migrationen:** `schema.sql` nutzt `CREATE TABLE IF NOT EXISTS` → neue Spalten greifen
+  NICHT auf Bestands-DBs. Für jede neue Spalte **idempotente `ALTER TABLE ... ADD COLUMN`** in
+  `db/init.js` (Muster: `last_login`, `marked_for_deletion`).
+- **CSP divergiert je Server:** public-Server erlaubt `script-src 'self' 'unsafe-inline'
+  https://cdnjs.cloudflare.com` (JSZip von cdnjs!); admin-Server nur `script-src 'self'`. Beim
+  Zentralisieren der Header diese Differenz erhalten, sonst **bricht der XLSX-Export**.
+- **Neue State-Felder** an 3 Stellen pflegen: `state.js` (Default + `resetGlobalState`),
+  `state-io.js` `_buildStateObject()` (serialisieren) + `importStateJSON()` (deserialisieren mit
+  Default für Altpläne); ggf. `STATE_VERSION` erhöhen.
+- **Timezone:** lokale Datumsarithmetik, nie `toISOString()` für Tagesdaten (UTC-Off-by-one).
+- `personNr()` / `showConfirmation()` NUR in `utils.js` (lädt früh) – nicht duplizieren.
+- **Kein Framework:** Re-Renders via komplettem `innerHTML`-Replace; alle User-Inputs via
+  `escapeHtml()`/`textContent` (XSS).
+- **Constraints:** max 28 Personen (XLSX), 16 Stationsspalten, Paarungs-Matrix nur bei 2–18 E/U,
+  DAYS 1–14, Turm slotCount 1–10, Boot 1–3.
 
 ---
 
-## Autosave & State-IO (state-io.js)
-
-- `autoSave()` – nach jeder `generate()`-Ausführung → Server-Sync (`PUT /api/plans/:id`); localStorage als Fallback
-- `autoLoad()` – beim Seitenstart; bei Erfolg: silent import + generate + Toast
-- `exportStateJSON()` / `importStateJSON()` – vollständiger Status als `.json`-Datei
-- `_buildStateObject()` – zentrale Serialisierung (von autoSave UND exportStateJSON genutzt)
-- Sets (sick/closed/closedBoats) werden als Arrays serialisiert, beim Import rekonstruiert
-- `STATE_VERSION = 3` – fehlende Felder in alten Exports werden mit Defaults gefüllt
-- `fetchPlansList` / `loadPlanById` / `createNewPlan` / `renameCurrentPlan` / `deletePlanById` – Plan-Manager-Funktionen
+## Testing
+`npm test` → Node `--test`, Algorithmus-Invarianten sind die eigentliche Absicherung
+(`test/harness.js` lädt Browser-Globals via vm.Context; `test/invariants.test.js`: Checks über
+9 Szenarien + 100 Fuzz). Invarianten: keine Person doppelt/Tag, keine Kranken in aktiven Slots,
+kein geschlossener Turm/Boot belegt, `slotCount`+`leaderCount` eingehalten. Perf-Baseline
+~20ms für 28 Pers. × 14 Tage. **Backend kaum automatisiert** → bei Server-Änderungen mind.
+`node -c` + manuell. `npm install` im frischen Container nötig (sonst `sqlite3`-Fehler in
+`session-user-deletion.test.js`); dieser Test ist gelegentlich flaky (IPC-Serialisierung) →
+erneut laufen lassen, grün = alle.
 
 ---
 
-## Sidebar-Rendering (render-sidebar.js)
+## Doku aktuell halten (Wartungsvertrag – gilt für JEDE Session/JEDEN Agenten)
+Nach Abschluss einer Aufgabe die **passende** Datei aktualisieren (so wenig wie möglich,
+damit die immer-geladene CLAUDE.md schlank bleibt):
 
-| Funktion | Was sie tut |
+| Was hat sich geändert? | Datei |
 |---|---|
-| `renderPeople()` | Personenliste neu zeichnen; beim Löschen: aus dayState.sick + forcedPlacements bereinigen |
-| `renderTowerCfg()` | Turm-Zeilen (Name / CODE / PRIO / Slot-Spinner / Leader-Spinner / ×); Spinner ändert slotCount/leaderCount + generate(); beim Löschen: verknüpfte Boote trennen |
-| `renderBoatCfg()` | Boot-Zeilen (Name / CODE / Turm/HW-Dropdown / Slot-Spinner / ×); Spinner ändert slotCount (1–3) |
-| `autoFillExportColumns()` | Füllt exportColumns: Boote → Türme (Prio↓) → HW-Boote → WF → HW |
-| `renderExportColumnUI()` | 16 Felder für manuelles Stationscode-Mapping (Drag & Drop per ⠿-Handle) |
-| `renderPositionDescUI()` | 5 Felder für XLSX-Positionsbeschriftungen (Pos. 3–7) |
+| Neues Feature / Bugfix (funktional) | **docs/FEATURES.md** (Eintrag mit Issue-Nr. + VERSION) |
+| Architektur, Datenmodell, Algorithmus-Verhalten, neue Konvention/Falle, neue/umbenannte Moduldatei | **CLAUDE.md** (entspr. Abschnitt + Codebase-Map) |
+| Arbeitsstand, PR-Review, offene ToDos | **HANDOFF.md** |
+| Deployment / Datenschutz / Preview | `docs/*` |
 
----
-
-## Ausgabe-Rendering (render-output.js)
-
-- `renderOutput()` – zeichnet gesamten Output-Bereich neu (innerHTML-Replace)
-- Karten-Typen: `main` (gold, span-2), `tower` (normal, mit inline Booten), `closed` (ausgegraut)
-- **Stats-Bar:** 4 feste Metriken (Paare, Wiederholungen, U+U, Turm>2×) + 3 optionale (via `fairnessMetricsDisplay`): 🏠 HW|Boot-Turm, 📍 Ø Türme, 👥 Boot-Paare-unique
-- `renderTowerStatsPerPerson()` – Tabelle Person | Gesamt | Unique-Türme | Details
-- `renderMatrix()` – Paarungs-Kreuztabelle aller E+U-Personen (grün=1×, rot≥2×); nur bei 2–18 E/U
-- `renderOccupant(p, label, kind, slotId)` – dedupliziertes Occupant-Markup für main/tower/boat
-- Event-Listener direkt in renderOutput() verdrahtet (Tabs, Chips, Move-Buttons, D&D)
-
----
-
-## Startsequenz (init.js)
-
-```
-autoLoad()
-  ├─ Erfolg → importStateJSON(silent) → generate() → Toast "wiederhergestellt"
-  └─ Kein Speicherstand → seed() → freshDayState() → freshForcedPlacements()
-                          → render* → autoFillExportColumns()
-_updateSaveIndicator()
-```
-
----
-
-## Design-Entscheidungen & Besonderheiten
-
-| Aspekt | Lösung |
-|---|---|
-| Faire Rotation | Akkumulierte stats (total, towerVisits, boatVisits, hwVisits) über alle Tage |
-| BF-Fairness | `availB` vor activeBF/surplusBF-Split nach `(boatDays*50 - hwVisits*10)` sortieren |
-| HW-Overflow-Tracking | `leftovers` + `poolB` bekommen nach HW-finalize `hwVisits++` |
-| Konsekutiv-Regel | +200/Person Penalty wenn Vortag selber Turm; soft → weicht bei knapper Besetzung |
-| BF-Schutz | +800 Penalty aktiver Boot-Turm; -350 deaktivierter Boot-Turm (1150 Swing) |
-| Turm-Prio-Semantik | Prio 1 = wichtigster → ASC-Sort → öffnet zuerst, schließt zuletzt |
-| Variable Slots | `slotCount` pro Turm (1–10) / Boot (1–3); `leaderCount` pro Turm (0–3) additiv |
-| Seed-Konstellationen | Fisher-Yates LCG; alle Seeds → identische Gesamtfairness nach Ausbalancierung |
-| UU-Warnung | +1000 wenn beide Unerfahren → nur als Notlösung |
-| Transparenter Swap | Nur Darstellung überschreiben; kein generate() → Folgetage unverändert. **Achtung:** transparentes Verschieben auf vollen Turm zeigt `slotCount+1` Belegung (visueller Overlay) – Absicht |
-| D&D dragSrc capture | srcPersonId/srcKind/srcSlot in lokale Vars VOR showConfirmation sichern (dragend nullt async) |
-| Boot inline | Boote in Turm-Card via renderInlineBoat(); Boote an HW auch inline unter Hauptwache |
-| Kein Framework | Vanilla-JS; Re-Renders via komplettem innerHTML-Replace |
-| XLSX-Integrität | XML-Patch statt SheetJS-Write → Styles/Bilder/Schutz erhalten |
-| Timezone-Bug | Lokale Datumsarithmetik statt toISOString() → kein UTC-Off-by-one |
-| Template-Auto-Load | fetch('Wachplan Template.xlsx') → localStorage cache (kein Nutzer-Upload) |
-| `personNr()` | NUR in utils.js definiert (utils lädt vor export) – nicht duplizieren |
-| `showConfirmation()` | NUR in utils.js definiert (utils lädt vor move) – nicht duplizieren |
-| Crypto Key-Caching | PBKDF2 100k Iterationen werden pro userId gecacht (~109.000× schneller ab 2. Aufruf) |
-| Session-Setup DRY | `createSessionMiddleware()` in db/session.js für beide Server-Entry-Points |
-| Perf-Optimierungen | `poolSBFIds`-Set (O(1)); `guardPoolSize()`; `pairKey` ohne Array-Sort → ~15ms für 20 Pers./14 Tage |
-
----
-
-## CSS-Design
-
-Dark-Theme mit CSS-Variables:
-- `--navy`, `--navy-2`, `--deep`, `--sea`, `--sea-bright`, `--foam` (Blautöne)
-- `--coral`, `--coral-deep` (Rot/Fehler), `--warn` (Orange), `--green` (Erfolg)
-- `--sand`, `--text`, `--text-dim`, `--line`, `--line-strong`, `--paper`
-- Fonts: Archivo Black (Überschriften), Spline Sans (Text), Spline Sans Mono (Code/Labels)
-
----
-
-## Bekannte Constraints
-
-- Max. 28 Personen im XLSX-Namensblock (4 Blöcke × 7 Zeilen)
-- Max. 16 Stationsspalten im Template (`TEMPLATE_STATION_COLS`)
-- Paarungs-Matrix nur angezeigt wenn 2–18 Erfahren/Unerfahren-Personen
-- DAYS max 14, min 1
-- Turm `slotCount` 1–10, Boot `slotCount` 1–3
-- Transparentes Verschieben auf vollen Turm → Overflow-Darstellung (Export verarbeitet zu Nachbarspalte)
-- Max. ~1000 concurrent users (SQLite limit)
-
----
-
-## Testing & Performance
-
-**Test-Strategie:** Zwei-Ebenen-Ansatz: headless Node.js-Suite für Algorithmus-Invarianten, Browser-Preview für Rendering/UX.
-
-### Automatisierte Test-Suite (Node.js, CI/CD)
-**Laufzeit:** `npm test` → ~175ms für 9 Test-Szenarien (davon 100 Fuzz-Durchläufe).
-
-**Aufbau:**
-- `test/harness.js` – vm.Context-Loader für Browser-Globals (`state.js` → `utils.js` → `dates.js` → `autoCodes.js` → `generate.js`); `setupScenario()` Helper für deterministisches Setup
-- `test/invariants.test.js` – Node.js TAP-Tests mit 4 Invarianten über 9 Szenarien + 100 Fuzz-Iterationen
-
-**Invarianten-Tests nach `generate()`:**
-1. Keine Person doppelt eingeteilt am selben Tag (alle Slots: towers, boats, main)
-2. Keine kranke Person in aktiven Slots (nur main.sick erlaubt)
-3. Kein geschlossener Turm/Boot belegt
-4. `slotCount` eingehalten pro Turm (`occupants.length ≤ slotCount + leaderCount`)
-
-**Test-Szenarien (8 deterministisch + 1 Fuzzing):**
-- Baseline 6-Tage (20 Personen, 7 Türme, 3 Boote)
-- 14-Tage (lange Planungshorizonte)
-- 1-Tag (minimal)
-- Kranke Personen (3 fixed)
-- Geschlossener Turm (2 fixed)
-- Geschlossenes Boot (2 fixed)
-- Minimal crew (1 Person)
-- Alle krank (Extremfall)
-- Fuzz-Test (100 Iterationen: 8–27 Personen, 3–8 Türme, 1–4 Boote, 1–6 Tage, random sick/closed/mainK)
-
-**CI-Integration:** `.github/workflows/test.yml` (GitHub Actions) triggert auf `push` / `pull_request`, Node 20.
-
-**Browser-Preview (manuell):** `.claude/launch.json` Server „wachplan" (Port 3000), dann `/Wachplan-Generator.html`. localStorage-Key `dlrg_wachplan_autosave` vor manuellen Tests löschen für sauberen Seed.
-
-**Performance-Baseline:** ~20 ms für 28 Personen × 14 Tage. Bei Regressionen >100 ms: Hot-Loop in `bestPair` (O(n²) über Guard-Pool pro Turm) prüfen.
-
----
-
-## Authentication & Encryption
-
-### Übersicht
-
-**Multi-User System mit Encryption-at-Rest:**
-- Session-basierte Authentifizierung (HTTPOnly Cookies, 7 Tage TTL, `sameSite:lax`)
-- Pro-User verschlüsselte Plandaten (AES-256-GCM)
-- Admin-Panel für User-Management (`/admin.html`, Port 3001)
-- Fallback-Import für alte localStorage-Pläne
-
-### Sicherheitsmaßnahmen (implementiert)
-- ✅ bcryptjs Passwort-Hashing (10 Rounds)
-- ✅ Passwort-Mindestlänge: ≥10 Zeichen (zentral in `auth.js` + `admin.js`)
-- ✅ AES-256-GCM Encryption at rest (NIST-Standard, Authenticated Encryption)
-- ✅ PBKDF2 Key Derivation (100k iterations, SHA-256, pro userId gecacht)
-- ✅ HTTPOnly Cookies (CSRF-Grundschutz via `sameSite:lax`)
-- ✅ Per-User Encryption Keys
-- ✅ Rate-Limiting (zwei Ebenen):
-  - IP-basiert: 10 Versuche / 15 min → 429 (`auth.js`)
-  - Account-basiert: 10 Versuche / 15 min pro Username → 429 (verhindert verteilte Angriffe)
-- ✅ Session-Fixation-Schutz (`req.session.regenerate()` nach Login)
-- ✅ Security-Header: `X-Content-Type-Options:nosniff`, `X-Frame-Options:SAMEORIGIN`, `Referrer-Policy:same-origin`, `Content-Security-Policy`, `Strict-Transport-Security`
-- ✅ CSP-Header mit pragmatischer Policy:
-  - `default-src 'self'` – nur interne Ressourcen
-  - `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com` – Inline-Styles + Google Fonts CSS
-  - `font-src 'self' https://fonts.gstatic.com` – Font-Dateien von Google
-  - `connect-src 'self' ws: wss:` – WebSocket für Live-Collaboration
-  - Weitere: `img-src`, `script-src`, `frame-ancestors` (s. `server/server.js` Z. 34–42)
-- ✅ HSTS-Header (Produktion): `max-age=31536000; includeSubDomains` (nur bei `NODE_ENV=production`)
-- ✅ SQL durchgehend parametrisiert (keine Injection)
-- ✅ `getPlanAccess()` zentralisiert in `db/access.js` (Owner/Share, kein IDOR)
-- ✅ Non-root Docker User
-- ✅ XSS-Schutz: alle User-Inputs via `escapeHtml()` oder `textContent`
-
-**Empfehlungen (Infra):**
-- Cookie `secure:true` + `trust proxy` in Produktion aktivieren (bei TLS-terminierendem Proxy)
-- `MASTER_SECRET` + `SALT` nur mit Re-Encryption-Migration rotieren (gehen in `deriveKey` ein → Änderung macht bestehende Pläne unlesbar)
-- Mittelfristig: Inline-Styles in `admin.html` refaktorieren für strikte CSP (`style-src 'self'` ohne `unsafe-inline`)
-
-### Konfiguration & Secrets
-
-Alle Secrets in `.env` (gitignored). Vorlage: `.env.example`.
-
-**Pflicht-Variablen** (von `db/init.js` `validateEnv()` geprüft):
-- `MASTER_SECRET` (≥32), `SALT` (≥16), `SESSION_SECRET` (≥16)
-
-**Optional:** `ADMIN_USERNAME`/`ADMIN_PASSWORD`, `ADMIN_PORT`, `NODE_ENV`/`PORT`/`HOST`, `DATABASE_PATH`
-
-`docker-compose.yml`: beide Services teilen Konfig per YAML-Anchor (`x-wachplan-base`) + `env_file: .env`.
-
-### Database Schema (SQLite)
-
-**users:** `id, username (UNIQUE), password_hash, email, is_admin, last_login (NULL = noch nie), created_at, updated_at`
-
-**plans:** `id, user_id (FK CASCADE), name, encrypted_state (BLOB), iv (BLOB), auth_tag (BLOB), created_at, updated_at`
-
-**plan_shares:** `plan_id, user_id, role ('edit'|'view')`
-
-**sessions:** `sid, sess, expire`
-
-### Encryption Details
-
-**Key Derivation (PBKDF2):**
-```javascript
-key = PBKDF2(password: userId + MASTER_SECRET, salt: SALT, iterations: 100000, keyLen: 32, digest: 'sha256')
-```
-
-Verschlüsselung immer mit dem **Owner-Key** (`plans.user_id`), auch bei geteilten Plänen → kein Re-Encrypt beim Teilen.
-
-### API Endpoints
-
-#### Authentication
-```
-POST /api/auth/login     – { username, password } → { userId, username, isAdmin } (≥10 Zeichen)
-POST /api/auth/logout    – Session zerstören
-GET  /api/auth/me        – Aktueller User oder 401
-POST /api/auth/init      – Ersten Admin anlegen (einmalig, public, ≥10 Zeichen)
-PUT  /api/auth/password  – { currentPassword, newPassword } (≥10 Zeichen)
-```
-
-#### Plans (Authenticated)
-```
-GET    /api/plans                    – Eigene + geteilte Pläne (isOwner, ownerName, canEdit)
-POST   /api/plans                    – { name, state } → verschlüsselter Plan
-GET    /api/plans/:id                – Entschlüsselt zurückgeben
-PUT    /api/plans/:id                – { state, name } → Update (view-only → 403)
-DELETE /api/plans/:id                – Löschen (nur Owner)
-GET    /api/plans/:id/shares         – Mitbearbeiter auflisten
-POST   /api/plans/:id/share          – { username, role:'edit'|'view' } → teilen (nur Owner)
-DELETE /api/plans/:id/share/:userId  – Mitbearbeiter entfernen (nur Owner)
-```
-
-#### Import & Admin
-```
-POST   /api/import/plans             – { plans: [{ name, state }] } → Bulk-Import alter .json
-GET    /api/admin/users              – Alle User auflisten
-POST   /api/admin/users              – User erstellen (≥10 Zeichen)
-DELETE /api/admin/users/:id          – User löschen (cascade plans, GDPR Art. 17)
-PUT    /api/admin/users/:id/password – Fremdes Passwort setzen (≥10 Zeichen)
-GET    /api/admin/users/:id/export   – DSGVO Art. 15: Datenexport (JSON-Download, Admin-only)
-```
-
-### Plan-Sharing & Live-Kollaboration
-
-**Plan-Sharing (plan_shares):** Zugriff = Owner ODER `plan_shares`-Eintrag. Rollen: `edit` (Default) / `view`. UI: `public/js/share.js` + `#share-modal`.
-
-**Plan-Manager:** `public/js/plans-ui.js` + `#plans-modal` (📋 Meine Pläne): umbenennen, neuer Plan, Liste eigener + geteilter Pläne.
-
-**Echtzeit-Kollaboration (WebSocket `/ws`):**
-- Backend: `server/realtime.js` – Räume pro planId, Auth beim Upgrade via Session, `broadcastPlanUpdate()` nach jedem PUT
-- Frontend: `public/js/realtime.js` – `realtimeConnect` nach Login, `realtimeJoin` bei Plan-Wechsel; bei `{type:'plan-updated'}` → Re-Fetch + `importStateJSON` + `generate`
-- Echo-Schutz: Speichernder User bekommt kein Broadcast; Auto-Reconnect (3 s)
-- **Preview-Umgebung:** WebSocket automatisch deaktiviert in Cloudflare Workers (`.workers.dev` Host), graceful degradation ohne Console-Fehler
-
-**Druckansicht:** `@media print` (A4 landscape) – jeder Tag = eine Seite; Sidebar/Tabs/Stats/Matrix ausgeblendet.
-
-### Deployment
-
-```bash
-docker-compose up -d
-# Secrets generieren:
-openssl rand -base64 32  # MASTER_SECRET
-openssl rand -base64 16  # SALT
-openssl rand -base64 32  # SESSION_SECRET
-```
-
-Volume: `wachplan-data:/app/data` (SQLite DB + Sessions persistent)
-
-Health Check: `GET /health → { status: "ok", timestamp: "..." }`
+Faustregel: **CLAUDE.md = stabiles Wissen**, **FEATURES.md = Historie**, **HANDOFF.md = aktueller
+Stand**. Keine Feature-Changelogs in CLAUDE.md anhäufen.

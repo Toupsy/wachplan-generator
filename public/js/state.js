@@ -6,11 +6,12 @@ let DAYS = 6;
 const ROLE = { F:'Führung', B:'Bootsführer', W:'Wachgänger' };
 const MAIN_ID = 0;
 
-// Effektives Pairing-Level für den Algorithmus: Führung bleibt 'F';
+// Effektives Pairing-Level für den Algorithmus: Führungskräfte zählen als erfahren (E);
 // Bootsführer (B) und Wachgänger (W) werden über das experienced-Flag zu 'E'/'U'.
 // Ersetzt das frühere getEffectiveRole + bfLevel (Feature 13).
+// Feature 251: Führung ('F') → immer 'E' (erfahren), ermöglicht HW-Optimierung (2 WF balancieren 3 unerfahrene)
 function effLevel(p){
-  if(p.role === 'F') return 'F';
+  if(p.role === 'F') return 'E';
   return p.experienced ? 'E' : 'U';
 }
 
@@ -33,8 +34,8 @@ let uid = 0;
 let randomSeed = 0;
 
 // Stammdaten
-let people   = [];   // [{ id, name, role:'F'|'B'|'W', experienced:bool, labels:'', enableLabels:true }] (experienced gilt für B und W; F ignoriert. labels Komma-getrennt, enableLabels steuert Sichtbarkeit)
-let towers   = [];   // [{ id, name, prio, code, slotCount, leaderCount }]
+let people   = [];   // [{ id, name, role:'F'|'B'|'W', experienced:bool, labels:'', enableLabels:true, wantsHW:bool }] (experienced gilt für B und W; F ignoriert. wantsHW nur für B: Wunsch auf ≥1 aktiven HW-Dienst bei BF-Überzahl. labels Komma-getrennt, enableLabels steuert Sichtbarkeit)
+let towers   = [];   // [{ id, name, prio, code, slotCount, leaderCount, mainBeach:bool }] (mainBeach: Hauptstrand-Turm für fairen Ausgleich)
 let boats    = [];   // [{ id, name, code, towerId, prio, slotCount }]
 
 // Hauptwache-Konfiguration
@@ -45,7 +46,9 @@ let serviceStartHour = 9;   // Default 09:00
 let serviceEndHour   = 17;  // Default 17:00
 
 // Pro-Tag-Status
-let dayState = [];   // Array[DAYS] von { sick:Set, closed:Set, closedBoats:Set }
+let dayState = [];   // Array[DAYS] von { sick:Set, absent:Set, closed:Set, closedBoats:Set }
+                     // sick   = außer Dienst → wird an der HW geführt (zählt im Plan/Export)
+                     // absent = komplett abwesend → NICHT eingeplant, nicht im XLSX/Druck sichtbar
 
 // Manuelle Zwangszuweisungen (Feature 3 & 4)
 // forcedPlacements[day] = [{ personId, kind:'tower'|'boat'|'main', slotId }]
@@ -84,6 +87,7 @@ let startDate  = '';
 function freshDayState(){
   return Array.from({ length: DAYS }, () => ({
     sick:        new Set(),
+    absent:      new Set(),
     closed:      new Set(),
     closedBoats: new Set(),
   }));

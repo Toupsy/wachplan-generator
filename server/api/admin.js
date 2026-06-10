@@ -130,9 +130,17 @@ router.delete('/users/:id', async (req, res) => {
     }
 
     // Check if user exists
-    const user = await dbGet('SELECT id FROM users WHERE id = ?', [userId]);
+    const user = await dbGet('SELECT id, is_admin FROM users WHERE id = ?', [userId]);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Prevent deleting the last remaining admin (Issue #216)
+    if (user.is_admin) {
+      const { c } = await dbGet('SELECT COUNT(*) AS c FROM users WHERE is_admin = 1');
+      if (c <= 1) {
+        return res.status(400).json({ error: 'Der letzte Administrator kann nicht gelöscht werden' });
+      }
     }
 
     // Delete in cascading order (GDPR Art. 17 – Recht auf Löschung)
@@ -300,6 +308,49 @@ router.post('/reload-config', express.json(), async (req, res) => {
     }
     console.error('Reload config error:', error);
     res.status(500).json({ error: 'Failed to reload configuration' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// GET /api/admin/audit-log – Audit-Log-Einträge auflisten
+// Query-Parameter: action, user_id, limit (default 100), offset (default 0)
+// ───────────────────────────────────────────────────────────
+router.get('/audit-log', async (req, res) => {
+  try {
+    const { action, user_id, limit = 100, offset = 0 } = req.query;
+
+    // Validate limit (prevent abuse)
+    const safeLimit = Math.min(Math.max(1, parseInt(limit) || 100), 500);
+    const safeOffset = Math.max(0, parseInt(offset) || 0);
+
+    let query = 'SELECT * FROM audit_log WHERE 1=1';
+    const params = [];
+
+    if (action) {
+      query += ' AND action = ?';
+      params.push(action);
+    }
+
+    if (user_id) {
+      query += ' AND user_id = ?';
+      params.push(parseInt(user_id));
+    }
+
+    query += ' ORDER BY timestamp DESC LIMIT ? OFFSET ?';
+    params.push(safeLimit, safeOffset);
+
+    const logs = await dbAll(query, params);
+
+    // Parse JSON details field
+    const formattedLogs = logs.map(log => ({
+      ...log,
+      details: log.details ? JSON.parse(log.details) : null
+    }));
+
+    res.json({ logs: formattedLogs });
+  } catch (error) {
+    console.error('Audit log fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch audit log' });
   }
 });
 

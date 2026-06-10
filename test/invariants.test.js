@@ -101,6 +101,36 @@ function checkNoSickAssigned(schedule, dayState, dayIdx) {
 }
 
 /**
+ * Invariant 2b: Fully absent persons appear NOWHERE in the schedule
+ *   (not in active slots, not at the HW / main.sick) → excluded from plan & export.
+ */
+function checkAbsentNotAssigned(schedule, dayState, dayIdx) {
+  const absentSet = dayState[dayIdx].absent;
+  const failures = [];
+
+  if (!absentSet || absentSet.size === 0) return failures;
+
+  schedule[dayIdx].assign.forEach(slot => {
+    const everywhere = [
+      ...(slot.occupants || []),
+      ...(slot.fuehrung || []),
+      ...(slot.mainGuards || []),
+      ...(slot.base || []),
+      ...(slot.bootsfLeft || []),
+      ...(slot.sick || []),
+      ...(slot.bootsf ? [slot.bootsf] : []),
+    ];
+    everywhere.forEach(p => {
+      if (absentSet.has(p.id)) {
+        failures.push(`Absent person ${p.id} appears in ${slot.kind} on day ${dayIdx}`);
+      }
+    });
+  });
+
+  return failures;
+}
+
+/**
  * Invariant 3: No closed tower/boat assigned
  */
 function checkNoClosedAssigned(schedule, dayState, dayIdx, towers, boats) {
@@ -146,6 +176,37 @@ function checkSlotCounts(schedule, dayIdx, towers) {
     }
   });
 
+  return failures;
+}
+
+/**
+ * Invariant 6: Experience coverage – kein Erfahrener wird an der Hauptwache
+ * „verschwendet", während ein Turm ohne Erfahrenen dasteht. Genau dieser Fall
+ * (Erfahrene am HW statt auf einem unbesetzten Turm) war der Fairness-Bug, den
+ * die Experience-Reservierung in generate.js behebt.
+ */
+function checkExperienceNotWastedAtHW(schedule, dayIdx, people) {
+  const byId = Object.fromEntries(people.map(p => [p.id, p]));
+  const isExp = p => byId[p.id].role === 'F' || byId[p.id].experienced;
+  const failures = [];
+  const day = schedule[dayIdx];
+
+  const uncovered = day.assign.filter(
+    s => s.kind === 'tower' && s.occupants.length > 0 && !s.occupants.some(isExp)
+  );
+  if (uncovered.length === 0) return failures;
+
+  const main = day.assign.find(s => s.kind === 'main');
+  // Erfahrene Wachgänger (role 'W' + experienced) an aktiven/Overflow-HW-Plätzen
+  const wastedExp = [...(main?.mainGuards || []), ...(main?.base || [])]
+    .filter(p => byId[p.id].role === 'W' && byId[p.id].experienced);
+
+  if (wastedExp.length > 0) {
+    failures.push(
+      `Day ${dayIdx}: ${uncovered.length} Turm(e) ohne Erfahrenen, ` +
+      `während ${wastedExp.length} erfahrene WG an der HW sitzen`
+    );
+  }
   return failures;
 }
 
@@ -200,6 +261,154 @@ test('Scenario 2: 14 days', (t) => {
   assert.equal(allFailures.length, 0, `14-day scenario should have no invariant violations:\n${allFailures.join('\n')}`);
 });
 
+test('Experience coverage: no experienced wasted at HW (6/7/14 days)', (t) => {
+  // Standard-ähnliche Besetzung: ~7 erfahrene WG für 7 Türme → jeder Turm muss
+  // einen Erfahrenen bekommen; HW nimmt Unerfahrene. Über mehrere Tageslängen.
+  for (const days of [6, 7, 14]) {
+    const { schedule } = setupScenario(ctx, {
+      numPeople: 22, numTowers: 7, numBoats: 3, days, mainK: 2
+    });
+    const people = vm.runInContext('people', ctx);
+    let failures = [];
+    for (let d = 0; d < days; d++) {
+      failures.push(...checkExperienceNotWastedAtHW(schedule, d, people));
+    }
+    assert.equal(failures.length, 0,
+      `${days}-Tage: Erfahrene dürfen nicht an der HW sitzen, wenn ein Turm leer ist:\n${failures.join('\n')}`);
+  }
+});
+
+test('Hauptstrand-Türme: fairer Ausgleich Hauptstrand ↔ Außentürme', (t) => {
+  // 7 Türme, davon 3 als Hauptstrand markiert (mainBeach). Über die Woche soll
+  // niemand einen großen Außen-Überhang ansammeln (kein „4 Tage Außenturm am Stück").
+  for (const days of [6, 14]) {
+    const setup = `
+      resetGlobalState();
+      uid = 0; people = []; towers = []; boats = [];
+      for(let i=0;i<7;i++){ towers.push({ id:++uid, name:'T'+(i+1), prio:i+1, code:'T'+(i+1), slotCount:2, leaderCount:0, mainBeach: i < 3 }); }
+      boats.push({ id:++uid, name:'B1', code:'B1', towerId: towers[0].id, prio:1, slotCount:1 });
+      boats.push({ id:++uid, name:'B2', code:'B2', towerId: towers[3].id, prio:2, slotCount:1 });
+      people.push({ id:++uid, name:'F1', role:'F', experienced:true });
+      people.push({ id:++uid, name:'F2', role:'F', experienced:true });
+      for(let i=0;i<3;i++) people.push({ id:++uid, name:'BF'+i, role:'B', experienced:i<2 });
+      for(let i=0;i<7;i++) people.push({ id:++uid, name:'E'+i, role:'W', experienced:true });
+      for(let i=0;i<10;i++) people.push({ id:++uid, name:'U'+i, role:'W', experienced:false });
+      DAYS = ${days}; mainK = 2; randomSeed = 0;
+      dayState = freshDayState();
+      forcedPlacements = freshForcedPlacements();
+      exportColumns = Array(16).fill('');
+      generate();
+      lastResult;
+    `;
+    const res = vm.runInContext(setup, ctx);
+    const schedule = res.schedule;
+    const stats = res.stats;
+    const towers = vm.runInContext('towers', ctx);
+    const dayState = vm.runInContext('dayState', ctx);
+    const boats = vm.runInContext('boats', ctx);
+
+    // Kern-Invarianten bleiben unverletzt
+    let failures = [];
+    for (let d = 0; d < days; d++) {
+      failures.push(...checkNoDuplicates(schedule, d));
+      failures.push(...checkNoSickAssigned(schedule, dayState, d));
+      failures.push(...checkNoClosedAssigned(schedule, dayState, d, towers, boats));
+      failures.push(...checkSlotCounts(schedule, d, towers));
+    }
+    assert.equal(failures.length, 0,
+      `${days}-Tage Hauptstrand: Kern-Invarianten verletzt:\n${failures.join('\n')}`);
+
+    // Außen-Überhang (outer - main) pro Person prüfen. Es gibt 4 Außen- (8 Sitze)
+    // und 3 Hauptstrand-Türme (6 Sitze) → ein kleiner Außen-Überschuss ist
+    // unvermeidbar. Erwartung: deutlich kleiner als ein „jeden-Tag-Außen"-Plan.
+    let maxOver = 0;
+    Object.values(stats).forEach(s => {
+      if (((s.mainBeachDays||0) + (s.outerBeachDays||0)) === 0) return;
+      maxOver = Math.max(maxOver, (s.outerBeachDays||0) - (s.mainBeachDays||0));
+    });
+    assert.ok(maxOver <= 5,
+      `${days}-Tage: Außen-Überhang einer Person zu groß (${maxOver} > 5) – Ausgleich greift nicht`);
+  }
+});
+
+test('BF-HW-Wunsch: BF mit wantsHW bekommt bei Überzahl ≥1 aktiven HW-Dienst', (t) => {
+  // 7 Türme, NUR 2 Boote, 5 BF → 3 überzählig. 3 BF mit wantsHW. Über die Woche
+  // soll jeder Wunsch-BF mindestens einen aktiven HW-Dienst (hwGuardDays>=1) erhalten.
+  for (const days of [6, 14]) {
+    const setup = `
+      resetGlobalState();
+      uid = 0; people = []; towers = []; boats = [];
+      for(let i=0;i<7;i++){ towers.push({ id:++uid, name:'T'+(i+1), prio:i+1, code:'T'+(i+1), slotCount:2, leaderCount:0 }); }
+      boats.push({ id:++uid, name:'B1', code:'B1', towerId: towers[0].id, prio:1, slotCount:1 });
+      boats.push({ id:++uid, name:'B2', code:'B2', towerId: towers[3].id, prio:2, slotCount:1 });
+      people.push({ id:++uid, name:'F1', role:'F', experienced:true });
+      people.push({ id:++uid, name:'F2', role:'F', experienced:true });
+      for(let i=0;i<5;i++) people.push({ id:++uid, name:'BF'+i, role:'B', experienced:true, wantsHW: i < 3 });
+      for(let i=0;i<7;i++) people.push({ id:++uid, name:'E'+i, role:'W', experienced:true });
+      for(let i=0;i<10;i++) people.push({ id:++uid, name:'U'+i, role:'W', experienced:false });
+      DAYS = ${days}; mainK = 2; randomSeed = 0;
+      dayState = freshDayState();
+      forcedPlacements = freshForcedPlacements();
+      exportColumns = Array(16).fill('');
+      generate();
+      lastResult;
+    `;
+    const res = vm.runInContext(setup, ctx);
+    const stats = res.stats;
+    const schedule = res.schedule;
+    const people = vm.runInContext('people', ctx);
+    const towers = vm.runInContext('towers', ctx);
+    const dayState = vm.runInContext('dayState', ctx);
+    const boats = vm.runInContext('boats', ctx);
+
+    // Kern-Invarianten bleiben unverletzt (insb. kein Boot bleibt unbesetzt durch das
+    // Surplus-Sicherheitsnetz)
+    let failures = [];
+    for (let d = 0; d < days; d++) {
+      failures.push(...checkNoDuplicates(schedule, d));
+      failures.push(...checkNoClosedAssigned(schedule, dayState, d, towers, boats));
+      failures.push(...checkSlotCounts(schedule, d, towers));
+    }
+    assert.equal(failures.length, 0,
+      `${days}-Tage BF-HW-Wunsch: Kern-Invarianten verletzt:\n${failures.join('\n')}`);
+
+    // Jeder wantsHW-BF hat ≥1 aktiven HW-Dienst
+    const wishBFs = people.filter(p => p.role === 'B' && p.wantsHW);
+    const unmet = wishBFs.filter(p => (stats[p.id]?.hwGuardDays || 0) < 1);
+    assert.equal(unmet.length, 0,
+      `${days}-Tage: HW-Wunsch nicht erfüllt für: ${unmet.map(p => p.name).join(', ')}`);
+  }
+});
+
+test('Boat rotation: a captain returns to the same boat no sooner than #boats days', (t) => {
+  // 3 Boote → ein BF darf frühestens nach 3 Tagen wieder aufs gleiche Boot
+  // (Mo → frühestens Do). Über mehrere Tageslängen.
+  for (const days of [6, 7, 14]) {
+    const { schedule } = setupScenario(ctx, {
+      numPeople: 22, numTowers: 7, numBoats: 3, days, mainK: 2
+    });
+    // Anzahl tatsächlich vorhandener Boote aus dem Schedule ableiten
+    const boatIds = new Set();
+    schedule.forEach(day => day.assign.forEach(s => { if (s.kind === 'boat') boatIds.add(s.boatId); }));
+    const nBoats = boatIds.size;
+
+    const lastDayOnBoat = {}; // `${bfId}|${boatId}` -> dayIdx
+    const failures = [];
+    schedule.forEach((day, d) => {
+      day.assign.filter(s => s.kind === 'boat' && s.bootsf).forEach(b => {
+        const key = `${b.bootsf.id}|${b.boatId}`;
+        if (key in lastDayOnBoat) {
+          const gap = d - lastDayOnBoat[key];
+          if (gap < nBoats) failures.push(`BF ${b.bootsf.id} zurück auf Boot ${b.boatId} nach nur ${gap} Tag(en) (Tag ${d})`);
+        }
+        lastDayOnBoat[key] = d;
+      });
+    });
+    assert.equal(failures.length, 0,
+      `${days}-Tage / ${nBoats} Boote: BF-Boot-Rückkehr zu früh:\n${failures.join('\n')}`);
+  }
+});
+
 test('Scenario 3: Single day', (t) => {
   const { schedule, stats, dayState, towers, boats } = setupScenario(ctx, {
     numPeople: 15,
@@ -243,6 +452,40 @@ test('Scenario 4: Sick persons', (t) => {
   }
 
   assert.equal(allFailures.length, 0, `Sick persons scenario should have no invariant violations:\n${allFailures.join('\n')}`);
+});
+
+test('Scenario 4b: Absent persons excluded from plan & HW', (t) => {
+  const absentPersonIds = new Set([1, 2, 3]);
+
+  const { schedule, stats, dayState, towers, boats } = setupScenario(ctx, {
+    numPeople: 20,
+    numTowers: 7,
+    numBoats: 3,
+    days: 6,
+    mainK: 2,
+    absentPersonIds
+  });
+
+  let allFailures = [];
+
+  for (let d = 0; d < 6; d++) {
+    allFailures.push(...checkNoDuplicates(schedule, d));
+    allFailures.push(...checkNoSickAssigned(schedule, dayState, d));
+    allFailures.push(...checkAbsentNotAssigned(schedule, dayState, d));
+    allFailures.push(...checkNoClosedAssigned(schedule, dayState, d, towers, boats));
+    allFailures.push(...checkSlotCounts(schedule, d, towers));
+  }
+
+  assert.equal(allFailures.length, 0, `Absent persons scenario should have no invariant violations:\n${allFailures.join('\n')}`);
+
+  // Absent persons must not accumulate any duty stats
+  [1, 2, 3].forEach(pid => {
+    const s = stats[pid];
+    if (s) {
+      assert.equal(s.total || 0, 0, `Absent person ${pid} should have 0 total duties`);
+      assert.equal(s.hwVisits || 0, 0, `Absent person ${pid} should have 0 HW visits`);
+    }
+  });
 });
 
 test('Scenario 5: Closed tower', (t) => {
@@ -365,6 +608,14 @@ test('Scenario 9: Fuzz test (100 iterations)', (t) => {
       }
     }
 
+    // Random fully-absent persons (disjoint from sick)
+    const absentPersonIds = new Set();
+    for (let i = 1; i <= numPeople; i++) {
+      if (!sickPersonIds.has(i) && Math.random() < sicknessRate * 0.15) {
+        absentPersonIds.add(i);
+      }
+    }
+
     const closedTowerIds = new Set();
     for (let i = 1; i <= numTowers; i++) {
       if (Math.random() < 0.15) {
@@ -388,6 +639,7 @@ test('Scenario 9: Fuzz test (100 iterations)', (t) => {
       days,
       mainK,
       sickPersonIds,
+      absentPersonIds,
       closedTowerIds,
       closedBoatIds,
       randomSeed
@@ -398,6 +650,7 @@ test('Scenario 9: Fuzz test (100 iterations)', (t) => {
     for (let d = 0; d < days; d++) {
       iterFailures.push(...checkNoDuplicates(schedule, d));
       iterFailures.push(...checkNoSickAssigned(schedule, dayState, d));
+      iterFailures.push(...checkAbsentNotAssigned(schedule, dayState, d));
       iterFailures.push(...checkNoClosedAssigned(schedule, dayState, d, towers, boats));
       iterFailures.push(...checkSlotCounts(schedule, d, towers));
     }

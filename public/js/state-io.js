@@ -2,7 +2,7 @@
 // state-io.js – Planstatus-Import / Export (Feature 7) + Server-Sync
 // ============================================================
 
-const STATE_VERSION = 6;
+const STATE_VERSION = 7;
 
 // Migriert eine Person vom alten Rollenmodell (role 'E'/'U' + bfLevel) auf das
 // neue Modell (role 'F'|'B'|'W' + experienced:bool). Idempotent.
@@ -56,10 +56,11 @@ function _buildStateObject(){
       if(obj.experienced === undefined) obj.experienced = (p.role !== 'F');  // Default erfahren (außer F)
       return obj;
     }),
-    towers:               towers.map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0 })),
+    towers:               towers.map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0, mainBeach: !!t.mainBeach })),
     boats:                boats.map(b => ({ ...b, slotCount: b.slotCount || 1 })),
     dayState: dayState.map(d => ({
       sick:        [...d.sick],
+      absent:      [...(d.absent || [])],
       closed:      [...d.closed],
       closedBoats: [...d.closedBoats],
     })),
@@ -132,9 +133,10 @@ function importStateJSON(json, silent = false){
   people = (s.people || []).map(p => ({
     ...migratePerson(p),   // altes Rollenmodell (E/U + bfLevel) → role 'W' + experienced
     labels: p.labels || '',
-    enableLabels: p.enableLabels !== undefined ? p.enableLabels : ((p.labels||'').trim().length > 0)  // Fallback für alte Exporte
+    enableLabels: p.enableLabels !== undefined ? p.enableLabels : ((p.labels||'').trim().length > 0),  // Fallback für alte Exporte
+    wantsHW: !!p.wantsHW    // BF-HW-Wunsch (Default false für Altpläne)
   }));
-  towers = (s.towers || []).map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0 }));
+  towers = (s.towers || []).map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0, mainBeach: !!t.mainBeach }));
   boats  = (s.boats  || []).map(b => ({ ...b, slotCount: b.slotCount || 1 }));
 
   // Migration v5→v6: hwBoatId → Boote mit towerId='HW' einheitlich behandeln
@@ -153,11 +155,12 @@ function importStateJSON(json, silent = false){
   // dayState mit Sets rekonstruieren
   dayState = (s.dayState || []).map(d => ({
     sick:        new Set(d.sick        || []),
+    absent:      new Set(d.absent      || []),
     closed:      new Set(d.closed      || []),
     closedBoats: new Set(d.closedBoats || []),
   }));
   // Fehlende Tage auffüllen
-  while(dayState.length < DAYS) dayState.push({ sick:new Set(), closed:new Set(), closedBoats:new Set() });
+  while(dayState.length < DAYS) dayState.push({ sick:new Set(), absent:new Set(), closed:new Set(), closedBoats:new Set() });
 
   // forcedPlacements
   forcedPlacements = (s.forcedPlacements || []).map(fp => (fp || []).map(f => ({ ...f })));
@@ -377,7 +380,7 @@ function _rebuildAllUI(){
   if(typeof updateSeedDisplay === 'function') updateSeedDisplay();
   autoCodes();
   renderPeople(); renderTowerCfg(); renderBoatCfg();
-  renderHWBoatSelector(); renderPositionDescUI(); renderExportColumnUI();
+  renderPositionDescUI(); renderExportColumnUI();
 }
 
 /** Einen bestimmten Plan laden (ohne Speicher-Echo). */
@@ -402,12 +405,10 @@ async function loadPlanById(id){
 
 /** Neuen, leeren Plan aus der Config-Vorlage erstellen (wird beim ersten Speichern angelegt). */
 function createNewPlan(name){
-  currentPlanId = null;             // → autoSave POST erstellt neuen Plan
+  resetGlobalState();               // Reset all state to defaults (towers, boats, DAYS, etc.)
   currentPlanName = (name||'').trim() || 'Wachplan';
   currentPlanCanEdit = true;
   if(typeof seedFromConfig === 'function') seedFromConfig();
-  forcedPlacements = freshForcedPlacements();
-  dayState = freshDayState();
   _rebuildAllUI();
   generate();                       // ruft autoSave → POST → setzt currentPlanId + realtimeJoin
   _updateSaveIndicator();

@@ -31,11 +31,13 @@ function _reAccumulateDayStats(daySchedule, dayIdx, stats, pairCount, ensure, pa
     if(slot.kind === 'tower'){
       const tId = slot.towerId;
       const hasBoat = tId in activeTowerBoats;
+      const isMainBeach = !!(towers.find(t => t.id === tId)?.mainBeach);
       slot.occupants.forEach(p => {
         const s = ensure(p.id);
         s.total++;
         s.towerVisits[tId] = (s.towerVisits[tId] || 0) + 1;
         if(hasBoat) s.towerWithBoatDays++;
+        if(isMainBeach) s.mainBeachDays++; else s.outerBeachDays++;
       });
       // Paar-Zähler
       for(let i = 0; i < slot.occupants.length - 1; i++){
@@ -63,13 +65,15 @@ function _reAccumulateDayStats(daySchedule, dayIdx, stats, pairCount, ensure, pa
         const s = ensure(p.id);
         s.total++;
         s.boatVisits[slot.boatId] = (s.boatVisits[slot.boatId] || 0) + 1;
+        s.lastBoatId = slot.boatId;  // Track for rotation penalty on next day
       });
     } else if(slot.kind === 'main'){
-      // Aktive HW-Personen (Führung + mainGuards): total++ + hwVisits++
+      // Aktive HW-Personen (Führung + mainGuards): total++ + hwVisits++ + hwGuardDays++
       [...(slot.fuehrung || []), ...(slot.mainGuards || [])].forEach(p => {
         const s = ensure(p.id);
         s.total++;
         s.hwVisits++;
+        s.hwGuardDays++;
       });
       // Overflow (base + bootsfLeft): nur hwVisits++
       [...(slot.base || []), ...(slot.bootsfLeft || [])].forEach(p => {
@@ -98,7 +102,11 @@ function generate(startDay = 0){
       boatVisits: {},
       hwVisits: 0,
       towerWithBoatDays: 0,
-      boatCaptainPairings: {}
+      boatCaptainPairings: {},
+      lastBoatId: null,  // Track BF's previous boat for rotation penalty
+      mainBeachDays: 0,  // Feature: Hauptstrand-Türme – Tage auf Hauptstrand-Türmen
+      outerBeachDays: 0, // Feature: Hauptstrand-Türme – Tage auf Außen-Türmen
+      hwGuardDays: 0     // Feature: BF-HW-Wunsch – Anzahl AKTIVER HW-Dienste (mainGuards/Führung)
     };
     return stats[id];
   };
@@ -106,6 +114,11 @@ function generate(startDay = 0){
 
   const schedule = [];
   const k = Math.max(0, mainK | 0);
+
+  // Feature: Hauptstrand-Türme – fairer Ausgleich Hauptstrand ↔ Außentürme.
+  // Nur aktiv, wenn es BEIDE Sorten gibt (sonst kein Ausgleich nötig/sinnvoll).
+  const beachBalanceActive = towers.some(t => t.mainBeach) && towers.some(t => !t.mainBeach);
+  const BEACH_BALANCE_WEIGHT = 60;  // Strafe pro Überhangs-Tag (empirisch, siehe Tests)
 
   // Wenn startDay > 0: bestehende Tage übernehmen + Stats daraus akkumulieren
   if(startDay > 0 && lastResult?.schedule){
@@ -116,8 +129,10 @@ function generate(startDay = 0){
   }
 
   for(let d = startDay; d < DAYS; d++){
-    const ds     = dayState[d] || { sick: new Set(), closed: new Set(), closedBoats: new Set() };
-    const isSick = id => ds.sick.has(id);
+    const ds       = dayState[d] || { sick: new Set(), absent: new Set(), closed: new Set(), closedBoats: new Set() };
+    const isAbsent = id => (ds.absent || new Set()).has(id);
+    // "außer Dienst" (HW-Anzeige) gilt nur für nicht komplett abwesende Personen.
+    const isSick   = id => ds.sick.has(id) && !isAbsent(id);
 
     // Türme mit aktivem Boot / außer-Dienst-Boot für DIESEN Tag vorberechnen
     const activeBoatTowers = new Set();
@@ -132,7 +147,7 @@ function generate(startDay = 0){
     // ── Zwangszuweisungen für diesen Tag vorbereiten ──────────────
     const dayForced = (forcedPlacements[d] || []).filter(f => {
       const p = people.find(x => x.id === f.personId);
-      return p && !isSick(p.id);
+      return p && !isSick(p.id) && !isAbsent(p.id);
     });
 
     // transparent=true → Person bleibt im Pool; wird erst NACH dem Algorithmus
@@ -149,7 +164,8 @@ function generate(startDay = 0){
     // Verfügbare Personen OHNE effektiv-zwangsweise zugewiesene
     const byRole = {};
     people.forEach(p => {
-      if(isSick(p.id) || isForced(p)) return;
+      // Komplett abwesende Personen werden gar nicht eingeplant (auch nicht an der HW).
+      if(isAbsent(p.id) || isSick(p.id) || isForced(p)) return;
       (byRole[p.role] || (byRole[p.role] = [])).push(p);
     });
     // availE/availU werden aus den Wachgängern (role 'W') über das experienced-Flag
@@ -226,6 +242,16 @@ function generate(startDay = 0){
       towersWithPreOpen.has(b.towerId)
     );
 
+    // BF-HW-Wunsch-Sicherheitsnetz: Gibt es echte BF-Überzahl und nähert sich die Woche
+    // dem Ende, werden BF mit noch offenem HW-Wunsch in die surplus-Hälfte gedrückt (höherer
+    // Sortwert = später = surplus), damit sie überhaupt für die HW verfügbar sind. Nur bei
+    // Überzahl, sonst bliebe ein Boot unbesetzt.
+    const hasSurplusBF = availB.length > boatsPre.length;
+    const daysLeftBF   = DAYS - d;
+    const hwWishSurplusBias = bf => (
+      hasSurplusBF && daysLeftBF <= 2 && bf.wantsHW && (ensure(bf.id).hwGuardDays || 0) === 0
+    ) ? 1e6 : 0;
+
     // BFs nach Fairness sortieren, BEVOR aktiveBF/surplusBF-Aufteilung:
     // Wer weniger Bootstage hat UND mehr HW-Tage, kommt zuerst in den Boot-Pool.
     // Ohne diese Sortierung bekäme immer die erste Person in der Liste den Boot-Slot.
@@ -233,7 +259,8 @@ function generate(startDay = 0){
       const sa = ensure(a.id), sb = ensure(b.id);
       const boatA = Object.values(sa.boatVisits||{}).reduce((s,v)=>s+v,0);
       const boatB = Object.values(sb.boatVisits||{}).reduce((s,v)=>s+v,0);
-      return (boatA * 50 - (sa.hwVisits||0) * 10) - (boatB * 50 - (sb.hwVisits||0) * 10)
+      return (boatA * 50 - (sa.hwVisits||0) * 10 + hwWishSurplusBias(a))
+           - (boatB * 50 - (sb.hwVisits||0) * 10 + hwWishSurplusBias(b))
           || (a.id - b.id);
     });
     const neededBF  = Math.min(boatsPre.length, availB.length);
@@ -280,6 +307,14 @@ function generate(startDay = 0){
       .sort((a,b) => (a.prio-b.prio)||(a.id-b.id));
     const manualClosed = towers.filter(t => ds.closed.has(t.id));
 
+    // Boot-Rotation: Anzahl heute besetzbarer Boote bestimmt, wie viele Tage ein
+    // Bootsführer dasselbe Boot meiden soll. Bei 3 Booten → die letzten 2 Tage meiden,
+    // d. h. frühestens am 4. Tag wieder auf dem gleichen Boot (Mo → frühestens Do).
+    const rotatableBoats = boats.filter(b =>
+      !ds.closedBoats.has(b.id) &&
+      (b.towerId === 'HW' || (b.towerId && openTowers.some(t => t.id === b.towerId))));
+    const boatRotationLookback = Math.max(1, rotatableBoats.length - 1);
+
     const dayAssign = [];
 
     // ── Scoring ──────────────────────────────────────────────────
@@ -293,6 +328,62 @@ function generate(startDay = 0){
       if(!poolSBFIds.has(candidate.id)) return 0;
       if(!tower || tower.id === MAIN_ID) return 0;
       return towerHasActiveBoat(tower.id) ? 800 : 0;
+    }
+
+    /**
+     * Feature: Hauptstrand-Türme. Hält pro Person das Verhältnis Hauptstrand- ↔
+     * Außentürme im Gleichgewicht. imbalance = bisherige Außen- minus Hauptstrand-Tage:
+     *  - Zielturm = Außenturm → wer ohnehin viel Außen hatte (imbalance>0) wird bestraft.
+     *  - Zielturm = Hauptstrand → wer ohnehin viel Hauptstrand hatte (imbalance<0) wird bestraft.
+     * Symmetrisch → niemand sammelt mehrere Tage in Folge nur Außentürme.
+     * @returns {number} Zusatzstrafe (höher = schlechter)
+     */
+    function beachBalancePenalty(candidate, tower){
+      if(!beachBalanceActive || !tower || tower.id === MAIN_ID) return 0;
+      const s = ensure(candidate.id);
+      const imbalance = (s.outerBeachDays || 0) - (s.mainBeachDays || 0);
+      const overhang = tower.mainBeach ? Math.max(0, -imbalance) : Math.max(0, imbalance);
+      return overhang * BEACH_BALANCE_WEIGHT;
+    }
+
+    /**
+     * Feature: BF-HW-Wunsch. Überzählige Bootsführer mit gesetztem Wunsch (wantsHW)
+     * sollen in der Woche mindestens EINMAL aktiven HW-Dienst bekommen. Liefert einen
+     * Bonus (positiver Rückgabewert, wird vom HW-Score ABGEZOGEN) für noch nicht
+     * erfüllte Wünsche; eskaliert zum Wochenende, damit der Wunsch zuverlässig greift.
+     * Nur überzählige BF stehen überhaupt im HW-Guard-Pool → automatisches Gating.
+     * @returns {number} Bonus (0 = kein Wunsch / bereits erfüllt)
+     */
+    function hwWishBonus(candidate){
+      if(!candidate.wantsHW) return 0;
+      if((ensure(candidate.id).hwGuardDays || 0) > 0) return 0;  // Wunsch erfüllt
+      const daysLeft = DAYS - d;  // inkl. heute
+      if(daysLeft <= 1) return 100000;  // letzter Tag → erzwingen
+      if(daysLeft <= 2) return 6000;
+      return 600;
+    }
+
+    /**
+     * Boat rotation penalty: hält einen Bootsführer über das ganze Rotationsfenster
+     * (boatRotationLookback Tage) von einem zuletzt gefahrenen Boot fern. Bei 3 Booten
+     * sind das die letzten 2 Tage → derselbe BF kehrt frühestens nach 3 Tagen aufs
+     * gleiche Boot zurück. Gestern wiegt am schwersten, weiter zurück abnehmend.
+     * Großer, aber endlicher Penalty → weicht nur, wenn keine Alternative existiert.
+     * @param {object} candidate  – BF candidate
+     * @param {object} boat       – Target boat
+     * @returns {number} Penalty score (higher = worse)
+     */
+    function boatRotationPenalty(candidate, boat){
+      let penalty = 0;
+      for(let back = 1; back <= boatRotationLookback; back++){
+        const prevDay = schedule[d - back];
+        if(!prevDay) break;  // weniger Vortage als das Fenster → fertig
+        const onSameBoat = prevDay.assign.some(sl =>
+          sl.kind === 'boat' && sl.boatId === boat.id &&
+          (sl.occupants || []).some(o => o.id === candidate.id));
+        if(onSameBoat) penalty += 1000 * (boatRotationLookback - back + 1);
+      }
+      return penalty;
     }
 
     function bestPair(t, requireMix, currentDay){
@@ -314,16 +405,24 @@ function generate(startDay = 0){
           const sA = ensure(A.id), sB = ensure(B.id);
           let score = 0;
           if(requireMix){
-            if(roles === 'UU') score += 1000;
-            else if(roles === 'EE') score += 40;
+            if(roles === 'UU'){
+              // For HW: prefer 3 inexperienced over towers with 2 inexperienced
+              // Reduced penalty for HW (isMain=true) to make it more attractive
+              score += isMain ? 300 : 1000;
+            }
+            // EE-Paar normalerweise nur leicht gebremst; sind Erfahrene aber knapp
+            // (reserveExpAtHW), zwei Erfahrene NICHT zusammenlegen → jeder Turm bekommt
+            // genau einen Erfahrenen, statt einen Turm doppelt und einen leer zu lassen.
+            else if(roles === 'EE') score += reserveExpAtHW ? 1500 : 40;
           }
-          score += (pairCount[pairKey(A.id, B.id)] || 0) * 120;
+          score += (pairCount[pairKey(A.id, B.id)] || 0) * 250;  // partner-repeat penalty (raised with tower/fairness weights, Issue #253)
           const vA = sA.towerVisits[t.id] || 0;
           const vB = sB.towerVisits[t.id] || 0;
-          score += vA >= 2 ? 300 : vA * 30;
-          score += vB >= 2 ? 300 : vB * 30;
-          score += (sA.total + sB.total) * 5;
+          score += vA * 200;  // 200 pts per visit: 1st=200, 2nd=400, 3rd=600 (stronger penalty)
+          score += vB * 200;
+          score += (sA.total + sB.total) * 10;  // Stronger fairness weight (was 5)
           score += surplusBFPenalty(A, t) + surplusBFPenalty(B, t);
+          score += beachBalancePenalty(A, t) + beachBalancePenalty(B, t);  // Hauptstrand-Ausgleich
           // Feature 12: Bevorzuge Führungskräfte auf Türmen mit leaderCount > 0
           const needsLeader = t.leaderCount && t.leaderCount > 0;
           if(!isMain && needsLeader){
@@ -350,6 +449,16 @@ function generate(startDay = 0){
             // HW k-Slot-Auswahl: Personen mit vielen HW-Tagen NICHT nochmal auf HW
             score += sA.hwVisits * 60;
             score += sB.hwVisits * 60;
+            // BF-HW-Wunsch: noch nicht erfüllte Wünsche bevorzugt an die HW holen
+            score -= hwWishBonus(A);
+            score -= hwWishBonus(B);
+            // Experience-Reservierung: Sind Erfahrene knapp (≤ offene Türme), dürfen
+            // sie nicht an der HW „verbraucht" werden – jeder Turm braucht ≥1 Erfahrenen.
+            // Großer, aber endlicher Penalty → Unerfahrene zuerst, Erfahrene nur als Notnagel.
+            if(reserveExpAtHW){
+              if(getEffectiveRole(A) === 'E') score += 5000;
+              if(getEffectiveRole(B) === 'E') score += 5000;
+            }
           }
           score += (d === 0 && randomSeed !== 0)
             ? seededRand(randomSeed, A.id*31 + B.id*97 + t.id*13) * 30
@@ -364,15 +473,25 @@ function generate(startDay = 0){
       s.total++;
       if(t.id === MAIN_ID){
         s.hwVisits++;
+        s.hwGuardDays++;  // aktiver HW-Dienst (für BF-HW-Wunsch)
       } else {
         s.towerVisits[t.id] = (s.towerVisits[t.id] || 0) + 1;
         if(towerHasActiveBoat(t.id)){
           s.towerWithBoatDays++;
         }
+        if(t.mainBeach) s.mainBeachDays++; else s.outerBeachDays++;
       }
     }
 
     // ── 1) HAUPTWACHE ──────────────────────────────────────────────
+    // Experience-Abdeckung: Wie viele Erfahrene brauchen die Türme zwingend?
+    // Türme mit Leader-Slot (leaderCount>0) werden durch eine Führungskraft (poolF)
+    // erfahren abgedeckt; alle anderen offenen Türme brauchen je 1 Erfahrenen aus dem
+    // Guard-Pool. Sind nicht mehr Erfahrene als diese Nachfrage verfügbar → reservieren,
+    // d. h. an der HW bevorzugt Unerfahrene einsetzen (bis zu 3 U an der HW sind ok).
+    const expDemand = openTowers.filter(t => !(((t.leaderCount || 0) > 0) && poolF.length > 0)).length;
+    const reserveExpAtHW = availE.length <= expDemand;
+
     const mainPseudo = { id: MAIN_ID };
     const mainGuards = [];
 
@@ -393,9 +512,18 @@ function generate(startDay = 0){
         commitPerson(A, mainPseudo); commitPerson(B, mainPseudo);
         mainGuards.push(A, B);
       } else {
-        const cand = getGuardPool().sort((a,b) =>
-          (ensure(a.id).total - ensure(b.id).total) ||
-          ((ensure(a.id).hwVisits||0) - (ensure(b.id).hwVisits||0))); // weniger HW → bevorzugt
+        const cand = getGuardPool().sort((a,b) => {
+          // BF-HW-Wunsch: noch offener Wunsch hat Vorrang vor allem anderen
+          const wa = hwWishBonus(a), wb = hwWishBonus(b);
+          if(wa !== wb) return wb - wa;  // höherer Bonus zuerst
+          // Experience-Reservierung (s. o.): Unerfahrene zuerst an die HW
+          if(reserveExpAtHW){
+            const ae = effLevel(a) === 'E' ? 1 : 0, be = effLevel(b) === 'E' ? 1 : 0;
+            if(ae !== be) return ae - be;
+          }
+          return (ensure(a.id).total - ensure(b.id).total) ||
+                 ((ensure(a.id).hwVisits||0) - (ensure(b.id).hwVisits||0)); // weniger HW → bevorzugt
+        });
         const P = cand[0]; if(!P) break;
         removeAll(P); commitPerson(P, mainPseudo); mainGuards.push(P);
       }
@@ -403,7 +531,7 @@ function generate(startDay = 0){
 
     // ── 2) TÜRME (je 2 Wachgänger) ────────────────────────────────
     for(const t of openTowers){
-      const slot = { kind:'tower', towerId:t.id, tower:t.name, code:t.code, prio:t.prio, occupants:[], warn:null };
+      const slot = { kind:'tower', towerId:t.id, tower:t.name, code:t.code, prio:t.prio, mainBeach:!!t.mainBeach, occupants:[], warn:null };
 
       // Zwangsbelegte Plätze bereits vorab eintragen
       const pre = (forcedByTower[t.id] || []);
@@ -455,8 +583,8 @@ function generate(startDay = 0){
         } else {
           const cand = getGuardPool().sort((a,b) => {
             const getEffectiveRole = effLevel;
-            let scoreA = ensure(a.id).total + surplusBFPenalty(a, t);
-            let scoreB = ensure(b.id).total + surplusBFPenalty(b, t);
+            let scoreA = ensure(a.id).total + surplusBFPenalty(a, t) + beachBalancePenalty(a, t);
+            let scoreB = ensure(b.id).total + surplusBFPenalty(b, t) + beachBalancePenalty(b, t);
             // Feature 13a: Wenn bereits zwei Unerfahrene auf Turm → BF-U Penalty, BF-E Bonus
             const occupantRoles = slot.occupants.map(occ => getEffectiveRole(occ)).join('');
             if(occupantRoles === 'UU'){
@@ -510,6 +638,46 @@ function generate(startDay = 0){
       }
     });
 
+    // ── Globale (optimale) Boot→BF-Zuordnung statt gieriger Einzelvergabe ──
+    // Die gierige Vergabe ließ das zuletzt verarbeitete Boot den einzig übrigen
+    // BF bekommen → Rotation verletzt (BF zwei Tage hintereinander am selben Boot).
+    // Min-Cost-Matching über alle Boote+BF des Tages findet die fairste Gesamt-
+    // Zuordnung; zusammen mit dem Lookback-Penalty ergibt das die saubere Rotation.
+    // Nur im Standardfall: keine Zwangsboote, je 1 BF pro Boot, kleine Anzahl.
+    const useBoatMatching =
+      boatsProcessed.length > 0 && poolB.length > 0 && boatsProcessed.length <= 8 &&
+      boatsProcessed.every(bo => !(forcedByBoat[bo.id]?.length) && (bo.slotCount || 1) === 1);
+    const boatMatch = new Map();  // boatId → BF
+    if(useBoatMatching){
+      const boatCost = (bo, bf) => {
+        const s = ensure(bf.id);
+        return s.total + (s.boatVisits[bo.id] || 0) * 50 - (s.hwVisits || 0) * 10
+             + boatRotationPenalty(bf, bo) + bf.id * 0.001;  // deterministischer Tiebreak
+      };
+      // Wichtige Boote (prio ASC) zuerst → bei BF-Mangel gehen die unwichtigsten leer aus
+      const ordered = [...boatsProcessed].sort((a,b) => (a.prio - b.prio) || (a.id - b.id));
+      const bfs = [...poolB];
+      const usedBf = new Array(bfs.length).fill(false);
+      let best = { total: Infinity, map: null };
+      const cur = {};
+      const dfs = (i, acc) => {
+        if(acc >= best.total) return;  // Branch-and-Bound
+        if(i === ordered.length){ best = { total: acc, map: { ...cur } }; return; }
+        const bo = ordered[i];
+        let anyFree = false;
+        for(let j = 0; j < bfs.length; j++){
+          if(usedBf[j]) continue;
+          anyFree = true;
+          usedBf[j] = true; cur[bo.id] = bfs[j];
+          dfs(i + 1, acc + boatCost(bo, bfs[j]));
+          usedBf[j] = false; delete cur[bo.id];
+        }
+        if(!anyFree) dfs(i + 1, acc);  // mehr Boote als BF → dieses Boot bleibt leer
+      };
+      dfs(0, 0);
+      if(best.map) Object.entries(best.map).forEach(([bid, bf]) => boatMatch.set(+bid, bf));
+    }
+
     for(const bo of boatsProcessed){
       const slot = {
         kind:'boat', boatId:bo.id, name:bo.name, code:bo.code, prio:bo.prio,
@@ -530,6 +698,22 @@ function generate(startDay = 0){
         dayAssign.push(slot);
         continue;
       }
+      // Optimale Zuordnung (Min-Cost-Matching) verwenden, falls aktiv
+      if(useBoatMatching){
+        const bf = boatMatch.get(bo.id);
+        if(bf){
+          const idx = poolB.findIndex(x => x.id === bf.id);
+          if(idx >= 0) poolB.splice(idx, 1);
+          slot.occupants.push(bf);
+          slot.bootsf = bf;
+          const s = ensure(bf.id);
+          s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id] || 0) + 1;
+          s.lastBoatId = bo.id;
+        }
+        if(slot.occupants.length > 0) dayAssign.push(slot);
+        else                         boatsNoBootsf.push(bo);
+        continue;
+      }
       // Fülle Boot bis slotCount mit fairness-Scoring
       const neededSlots = bo.slotCount || 1;
       poolB.sort((a,b) => {
@@ -540,18 +724,36 @@ function generate(startDay = 0){
         scoreB += (sb.boatVisits[bo.id] || 0) * 50;
         scoreA -= (sa.hwVisits || 0) * 10;
         scoreB -= (sb.hwVisits || 0) * 10;
+        scoreA += boatRotationPenalty(a, bo);  // Rotation penalty
+        scoreB += boatRotationPenalty(b, bo);
         // Feature 13: bfLevel hat KEINE Auswirkung auf Boot-Rotation (nur auf Turm-Zuweisen)
         return scoreA - scoreB || (a.id - b.id);
       });
 
       let assigned = 0;
       while(assigned < neededSlots && poolB.length > 0){
-        const bf = poolB.shift();
+        // Find best BF for this boat considering rotation penalty
+        let bestBFIdx = 0;
+        let bestBFScore = Infinity;
+        for(let i = 0; i < poolB.length; i++){
+          const bf = poolB[i];
+          const s = ensure(bf.id);
+          let score = s.total;
+          score += (s.boatVisits[bo.id] || 0) * 50;
+          score -= (s.hwVisits || 0) * 10;
+          score += boatRotationPenalty(bf, bo);  // Penalty for same boat consecutive days
+          if(score < bestBFScore){
+            bestBFScore = score;
+            bestBFIdx = i;
+          }
+        }
+        const bf = poolB.splice(bestBFIdx, 1)[0];
         if(bf){
           slot.occupants.push(bf);
           if(assigned === 0) slot.bootsf = bf;  // Erste Person als Bootsführer
           const s = ensure(bf.id);
           s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id]||0)+1;
+          s.lastBoatId = bo.id;  // Update for next day's rotation penalty
           assigned++;
         } else {
           break;
@@ -643,6 +845,7 @@ function generate(startDay = 0){
       day:d, assign:dayAssign, openTowers, personnelClosed, manualClosed,
       boatsNoBootsf, boatsClosedTower, boatsManualClosed,
       availB, sickCount:sickToday.length,
+      absentCount: people.filter(p => isAbsent(p.id)).length,
     });
   }
 
@@ -657,6 +860,20 @@ function generate(startDay = 0){
       towerDistribution[p.id] = Object.keys(stat.towerVisits).length;
     } else {
       towerDistribution[p.id] = 0;
+    }
+  });
+
+  // Boat distribution: count unique boats per person
+  const boatDistribution = {};
+  const boatCounts = {};
+  people.forEach(p => {
+    const stat = stats[p.id];
+    if(stat && stat.boatVisits) {
+      boatDistribution[p.id] = Object.keys(stat.boatVisits).length;
+      boatCounts[p.id] = Object.values(stat.boatVisits).reduce((a,b) => a+b, 0);
+    } else {
+      boatDistribution[p.id] = 0;
+      boatCounts[p.id] = 0;
     }
   });
 
@@ -694,6 +911,17 @@ function generate(startDay = 0){
     };
   })();
 
+  // Boat fairness: distribution of boat visits across BFs
+  const boatDistVals = Object.values(boatDistribution);
+  const avgUniqueBoats = boatDistVals.length > 0
+    ? (boatDistVals.reduce((a,b) => a+b, 0) / boatDistVals.length).toFixed(1)
+    : 0;
+  const minUniqueBoats = boatDistVals.length > 0 ? Math.min(...boatDistVals) : 0;
+  const maxBoatVisits = Math.max(...allStats.map(s => Object.values(s.boatVisits || {}).reduce((a,b) => a+b, 0)), 0);
+  const avgBoatVisits = allStats.length > 0
+    ? (allStats.reduce((sum, s) => sum + Object.values(s.boatVisits || {}).reduce((a,b) => a+b, 0), 0) / allStats.length).toFixed(1)
+    : 0;
+
   lastResult = {
     schedule, pairCount, stats,
     peopleGuards: people.filter(p => p.role==='W'),
@@ -710,6 +938,13 @@ function generate(startDay = 0){
         avgUniqueTowers: parseFloat(avgUniqueTowers),
         minUniqueTowers,
         distribution: towerDistribution
+      },
+      boatDistribution: {
+        avgUniqueBoats: parseFloat(avgUniqueBoats),
+        minUniqueBoats,
+        avgBoatVisits: parseFloat(avgBoatVisits),
+        maxBoatVisits,
+        distribution: boatDistribution
       }
     }
   };

@@ -72,7 +72,8 @@ function loadAlgoContext() {
  *   - numBoats: number of boats (default 3)
  *   - days: number of days (default 6)
  *   - mainK: number of main guard slots (default 2)
- *   - sickPersonIds: Set of person IDs to mark sick
+ *   - sickPersonIds: Set of person IDs to mark sick (außer Dienst → an der HW geführt)
+ *   - absentPersonIds: Set of person IDs to mark fully absent (nicht eingeplant, nicht im Export/Druck)
  *   - closedTowerIds: Set of tower IDs to mark closed
  *   - closedBoatIds: Set of boat IDs to mark closed
  *   - forcedAssignments: array of { personId, kind, slotId, day, transparent }
@@ -162,10 +163,12 @@ function setupScenario(ctx, opts = {}) {
 
   // Convert options to injectable code
   const sickPersonIds = opts.sickPersonIds || new Set();
+  const absentPersonIds = opts.absentPersonIds || new Set();
   const closedTowerIds = opts.closedTowerIds || new Set();
   const closedBoatIds = opts.closedBoatIds || new Set();
 
   const sickArray = Array.from(sickPersonIds);
+  const absentArray = Array.from(absentPersonIds);
   const closedTowerArray = Array.from(closedTowerIds);
   const closedBoatArray = Array.from(closedBoatIds);
 
@@ -187,6 +190,9 @@ function setupScenario(ctx, opts = {}) {
 
     // Mark sick persons
     ${sickArray.map(pid => `dayState.forEach(ds => ds.sick.add(${pid}));`).join('\n    ')}
+
+    // Mark fully absent persons (excluded from plan entirely)
+    ${absentArray.map(pid => `dayState.forEach(ds => ds.absent.add(${pid}));`).join('\n    ')}
 
     // Mark closed towers
     ${closedTowerArray.map(tid => `dayState.forEach(ds => ds.closed.add(${tid}));`).join('\n    ')}

@@ -1,6 +1,6 @@
 {
   "name": "dlrg-wachplan-generator",
-  "version": "2.0.0",
+  "version": "0.5.1",
   "description": "Single-Page Application für automatische DLRG Wachplangeneration",
   "main": "server/server.js",
   "scripts": {
@@ -34,6 +34,11 @@
     "node": ">=20.0.0"
   },
   "devDependencies": {
-    "playwright": "^1.60.0"
+    "playwright": "^1.60.0",
+    "semantic-release": "^23.0.0",
+    "@semantic-release/commit-analyzer": "^13.0.0",
+    "@semantic-release/release-notes-generator": "^14.0.0",
+    "@semantic-release/npm": "^12.0.0",
+    "@semantic-release/github": "^10.0.0"
   }
 }

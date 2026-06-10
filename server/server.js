@@ -11,7 +11,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const { createSessionMiddleware } = require('./db/session');
-const { initDatabase, validateEnv } = require('./db/init');
+const { initDatabase, validateEnv, startPlanRetentionCleanup } = require('./db/init');
 const authApi = require('./api/auth');
 const plansApi = require('./api/plans');
 const adminApi = require('./api/admin');
@@ -21,6 +21,16 @@ const app = express();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
+
+// Load app version at startup (not cached in require)
+const APP_VERSION = (() => {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8'));
+    return pkg.version;
+  } catch {
+    return 'unknown';
+  }
+})();
 
 // ── Umgebungsvariablen validieren ──────────────────────────────
 validateEnv();
@@ -36,7 +46,7 @@ app.use((req, res, next) => {
   res.setHeader('Referrer-Policy', 'same-origin');
   res.setHeader('Content-Security-Policy',
     "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-    "font-src 'self' https://fonts.gstatic.com; script-src 'self'; " +
+    "font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; " +
     "connect-src 'self' ws: wss:; frame-ancestors 'self'");
   if (process.env.NODE_ENV === 'production')
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
@@ -59,6 +69,11 @@ async function start() {
     await initDatabase();
     console.log('✓ Database ready');
 
+    // Start plan retention cleanup (if configured)
+    const retentionDays = parseInt(process.env.PLAN_RETENTION_DAYS) || 0;
+    const db = require('./db/connection').db;
+    startPlanRetentionCleanup(db, retentionDays);
+
     // Session middleware (SQLite-Store, zentral in db/session.js).
     // resave/saveUninitialized=true für SQLite-Reliability.
     // Referenz behalten → wird vom WebSocket-Upgrade (Realtime) zur Auth genutzt.
@@ -74,13 +89,7 @@ async function start() {
 
     // Version endpoint (public, no auth needed)
     app.get('/api/version', (req, res) => {
-      const versionPath = path.join(__dirname, '..', 'VERSION');
-      try {
-        const version = fs.readFileSync(versionPath, 'utf-8').trim();
-        res.json({ version });
-      } catch (error) {
-        res.status(500).json({ error: 'Version not available' });
-      }
+      res.json({ version: APP_VERSION });
     });
 
     // Config endpoint (public, no auth needed)

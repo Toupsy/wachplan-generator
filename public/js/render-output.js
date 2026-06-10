@@ -2,18 +2,40 @@
 // render-output.js – Hauptbereich: Tages-Ansicht + Matrix
 // ============================================================
 
+// Merkt sich, welche Tages-Steuerungs-Sektionen aufgeklappt sind (UI-only, pro Sektionstyp).
+// Überdauert die innerHTML-Neuaufbauten bei jeder generate()/renderOutput(), damit eine
+// gerade geöffnete Sektion nach einem Klick nicht wieder zuklappt. Default: alles zu.
+const dcSectionOpen = {};
+
+/**
+ * Rendert eine einklappbare Sektion der Tages-Steuerung als <details>/<summary>.
+ * @param {string} key   eindeutiger Sektionstyp (z. B. 'sick') → Auf/Zu-Zustand wird gemerkt
+ * @param {string} label HTML des Titels (kommt in das .lbl-Element)
+ * @param {string} body  HTML des aufklappbaren Inhalts (z. B. die toggle-grid)
+ * @param {number} count Anzahl aktiver Einträge → als Badge neben dem Titel (0 = keins)
+ */
+function dcSection(key, label, body, count){
+  const open  = dcSectionOpen[key] ? ' open' : '';
+  const badge = count > 0 ? `<span class="dc-count">${count}</span>` : '';
+  return `<details class="dc-section" data-dc-section="${key}"${open}>
+      <summary class="dc-summary"><span class="lbl">${label}</span>${badge}</summary>
+      ${body}
+    </details>`;
+}
+
 /** Rendert den kompletten Ausgabe-Bereich neu. */
 function renderOutput(){
   // Sicherstelle dass dayState korrekt initialisiert ist
   if(!dayState || dayState.length === 0){
     dayState = Array.from({ length: DAYS }, () => ({
       sick: new Set(),
+      absent: new Set(),
       closed: new Set(),
       closedBoats: new Set()
     }));
   }
   while(dayState.length < DAYS){
-    dayState.push({ sick: new Set(), closed: new Set(), closedBoats: new Set() });
+    dayState.push({ sick: new Set(), absent: new Set(), closed: new Set(), closedBoats: new Set() });
   }
 
   const panel = document.getElementById('output-panel');
@@ -131,6 +153,7 @@ function renderOutput(){
           ${schedule.map((d,i) => {
             const flags = [];
             if(d.sickCount > 0)            flags.push('🤒');
+            if(d.absentCount > 0)          flags.push('👋');
             if(d.manualClosed.length > 0)  flags.push('⛔');
             return `<button class="day-tab ${i===activeDay?'active':''}" data-day="${i}">${dayLabel(i)}${flags.length?`<span class="flag">${flags.join('')}</span>`:''}</button>`;
           }).join('')}
@@ -169,33 +192,41 @@ function renderOutput(){
         <div class="date-pick"><label>📅 Datum</label>
           <input type="date" value="${computeDayDates()[di]||''}" readonly title="Aus Startdatum berechnet"></div>
       </div>
-      <div class="dc-section">
-        <div class="lbl">🚫 Außer Dienst melden</div>
-        <div class="toggle-grid">
+      ${dcSection('sick',
+        '🚫 Außer Dienst melden <span style="text-transform:none;letter-spacing:0;color:var(--text-dim)">(wird an der Hauptwache geführt)</span>',
+        `<div class="toggle-grid">
           ${people.map(p=>`<span class="toggle-chip ${dayState[di].sick.has(p.id)?'sick':''}" data-sick="${p.id}" data-day="${di}">
             <i class="role-dot rd-${roleDot(p)}"></i><span class="nm">${escapeHtml(p.name)}</span>
             ${dayState[di].sick.has(p.id)?'<span class="x">a. D.</span>':''}</span>`).join('')}
-        </div>
-      </div>
-      <div class="dc-section">
-        <div class="lbl">⛔ Turm schließen</div>
-        <div class="toggle-grid">
+        </div>`,
+        dayState[di].sick.size)}
+      ${dcSection('absent',
+        '👋 Komplett abwesend <span style="text-transform:none;letter-spacing:0;color:var(--text-dim)">(nicht im Plan, Export & Druck)</span>',
+        `<div class="toggle-grid">
+          ${people.map(p=>`<span class="toggle-chip ${dayState[di].absent.has(p.id)?'absent':''}" data-absent="${p.id}" data-day="${di}">
+            <i class="role-dot rd-${roleDot(p)}"></i><span class="nm">${escapeHtml(p.name)}</span>
+            ${dayState[di].absent.has(p.id)?'<span class="x">abw.</span>':''}</span>`).join('')}
+        </div>`,
+        dayState[di].absent.size)}
+      ${dcSection('closet',
+        '⛔ Turm schließen',
+        `<div class="toggle-grid">
           ${towers.map(t=>`<span class="toggle-chip ${dayState[di].closed.has(t.id)?'closed-t':''}" data-closet="${t.id}" data-day="${di}">
             🗼 <span class="nm">${escapeHtml(t.name)}</span>
             ${dayState[di].closed.has(t.id)?'<span class="x">ZU</span>':''}</span>`).join('')}
-        </div>
-      </div>
-      ${boats.length?`<div class="dc-section">
-        <div class="lbl">🚤 Boot außer Dienst</div>
-        <div class="toggle-grid">
+        </div>`,
+        dayState[di].closed.size)}
+      ${boats.length ? dcSection('closeb',
+        '🚤 Boot außer Dienst',
+        `<div class="toggle-grid">
           ${boats.map(b=>`<span class="toggle-chip ${dayState[di].closedBoats.has(b.id)?'closed-t':''}" data-closeb="${b.id}" data-day="${di}">
             🚤 <span class="nm">${escapeHtml(b.name)}</span>
             ${dayState[di].closedBoats.has(b.id)?'<span class="x">ZU</span>':''}</span>`).join('')}
-        </div>
-      </div>`:''}
-      ${dayForced.length?`<div class="dc-section">
-        <div class="lbl" style="color:var(--warn)">🔒 Manuelle Zuweisungen aktiv</div>
-        <div class="toggle-grid">
+        </div>`,
+        dayState[di].closedBoats.size) : ''}
+      ${dayForced.length ? dcSection('forced',
+        '<span style="color:var(--warn)">🔒 Manuelle Zuweisungen aktiv</span>',
+        `<div class="toggle-grid">
           ${dayForced.map(f=>{
             const p=getP(f.personId); if(!p) return '';
             let dest = f.kind==='tower' ? `🗼 ${escapeHtml(getT(f.slotId)?.name||'?')}` :
@@ -207,8 +238,8 @@ function renderOutput(){
           }).join('')}
         </div>
         <button class="add-btn" style="margin-top:6px;border-color:rgba(255,179,71,0.4);color:var(--warn)"
-          data-clear-all-day="${di}">Alle Fixierungen heute aufheben</button>
-      </div>`:''}
+          data-clear-all-day="${di}">Alle Fixierungen heute aufheben</button>`,
+        dayForced.length) : ''}
     </div>`;
 
     // Warn-Notices
@@ -284,7 +315,7 @@ function renderOutput(){
       // ─ Turm (inkl. inline Boot, falls vorhanden) ─
       else if(slot.kind === 'tower'){
         html += `<div class="tower-card" id="card-tower-${di}-${slot.towerId}" data-drop-kind="tower" data-drop-slot="${slot.towerId}" data-panel-name="Turm: ${escapeHtml(slot.tower)}" data-card-type="tower" data-tower-id="${slot.towerId}">
-          <div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="tower" data-card-slot="${slot.towerId}" title="Zum Sortieren ziehen"><span class="tc-name">🗼 ${escapeHtml(slot.tower)}</span><span class="tc-type normal">Turm · ${escapeHtml(slot.code||'?')} · P${slot.prio}</span></div>
+          <div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="tower" data-card-slot="${slot.towerId}" title="Zum Sortieren ziehen"><span class="tc-name">🗼 ${escapeHtml(slot.tower)}</span><span class="tc-type normal">${slot.mainBeach?'🏖️ ':''}Turm · ${escapeHtml(slot.code||'?')} · P${slot.prio}</span></div>
           ${slot.occupants.map(p=>renderOccupant(p, null, 'tower', slot.towerId)).join('')}
           ${slot.warn?`<div class="warn-pair">⚠ ${slot.warn}</div>`:''}
           ${renderInlineBoat(boatsByTower[slot.towerId])}
@@ -307,24 +338,36 @@ function renderOutput(){
   });
 
   // Zusatz-Auswertungen (im Druck ausgeblendet via .out-extras)
-  html += `<div class="out-extras">${renderFairnessCharts()}${renderTowerStatsPerPerson()}${renderMatrix()}</div>`;
+  html += `<div class="out-extras">${renderFairnessCharts()}${renderTowerStatsPerPerson()}${renderBoatStatsPerPerson()}${renderMatrix()}</div>`;
   panel.innerHTML = html;
 
   // ── Event-Listener ─────────────────────────────────────────────
   panel.querySelectorAll('.day-tab').forEach(t =>
     t.onclick = e => { activeDay = +e.currentTarget.dataset.day; renderOutput(); });
 
+  // Auf-/Zuklapp-Zustand der Tages-Steuerungs-Sektionen merken (überdauert Re-Renders)
+  panel.querySelectorAll('details[data-dc-section]').forEach(dt =>
+    dt.addEventListener('toggle', () => { dcSectionOpen[dt.dataset.dcSection] = dt.open; }));
+
   const togSets = [
-    { sel: '[data-sick]',    key: 'sick',        getter: d => dayState[d].sick },
+    // exclusive: beim Aktivieren wird die jeweils andere Personen-Markierung entfernt
+    //   (eine Person ist entweder "außer Dienst" ODER "komplett abwesend", nicht beides).
+    { sel: '[data-sick]',    key: 'sick',        getter: d => dayState[d].sick,        exclusive: d => dayState[d].absent },
+    { sel: '[data-absent]',  key: 'absent',      getter: d => dayState[d].absent,      exclusive: d => dayState[d].sick },
     { sel: '[data-closet]',  key: 'closet',      getter: d => dayState[d].closed },
     { sel: '[data-closeb]',  key: 'closeb',      getter: d => dayState[d].closedBoats },
   ];
-  togSets.forEach(({ sel, key, getter }) => {
+  togSets.forEach(({ sel, key, getter, exclusive }) => {
     panel.querySelectorAll(sel).forEach(el =>
       el.onclick = e => {
         const id = +e.currentTarget.dataset[key], day = +e.currentTarget.dataset.day;
         const s = getter(day);
-        s.has(id) ? s.delete(id) : s.add(id);
+        if(s.has(id)){
+          s.delete(id);
+        } else {
+          s.add(id);
+          if(exclusive) exclusive(day).delete(id);
+        }
         generate();
       });
   });
@@ -505,6 +548,7 @@ function renderOutput(){
     if(dragSrc.isBoat) {
       const boatId = dragSrc.boatId;
       const boat = boats.find(b => b.id === boatId);
+      const clearCard = () => { card.style.backgroundColor = ''; card.style.borderColor = ''; };
       if(!boat) {
         clearCard();
         dragSrc = null;
@@ -513,7 +557,6 @@ function renderOutput(){
 
       const targetKind = card.dataset.dropKind;
       const targetSlot = +card.dataset.dropSlot;
-      const clearCard = () => { card.style.backgroundColor = ''; card.style.borderColor = ''; };
 
       // Validierung
       if(!['tower', 'main', 'hwboat'].includes(targetKind)) {
@@ -733,6 +776,38 @@ function renderTowerStatsPerPerson(){
       .map(([tid,c])=>(tMap[tid]?.name||`T${tid}`)+'('+c+')').join(', ');
     html += `<tr style="border-bottom:1px solid var(--line-strong)"><td style="padding:6px">${escapeHtml(p.name)}</td>`;
     html += `<td style="text-align:center;padding:6px">${stat.total}</td><td style="text-align:center;padding:6px;color:${cnt>=threshold?'var(--green)':'var(--warn)'};font-weight:bold">${cnt}</td>`;
+    html += `<td style="padding:6px;font-size:.75rem;color:var(--text-dim)">${escapeHtml(deets)}</td></tr>`;
+  });
+  html += '</table></div>';
+  return html;
+}
+
+/** Boat & BF Fairness Distribution */
+function renderBoatStatsPerPerson(){
+  if(!lastResult?.stats) return '';
+  const bMap = {}; boats.forEach(b => bMap[b.id] = b);
+  const bfOnlyStats = Object.entries(lastResult.stats)
+    .filter(([pid, stat]) => Object.values(stat.boatVisits||{}).reduce((a,b)=>a+b,0) > 0)
+    .map(([pid, stat]) => ({ pid: +pid, stat }));
+
+  if(bfOnlyStats.length === 0) return '';
+
+  let html = '<div class="section-label" style="margin-top:30px;">Boot & Bootsführer-Fairness</div>';
+  html += '<div style="font-size:.85rem;overflow-x:auto"><table style="width:100%;border-collapse:collapse">';
+  html += '<tr style="border-bottom:1px solid var(--line)"><th style="text-align:left;padding:6px;font-weight:bold">Bootsführer</th>';
+  html += '<th style="text-align:center;padding:6px;font-weight:bold">Boot-Tage</th><th style="text-align:center;padding:6px;font-weight:bold">Verschiedene Boote</th>';
+  html += '<th style="text-align:left;padding:6px;font-weight:bold">Boot-Details</th></tr>';
+
+  const threshold = boats.length * 0.5;
+  bfOnlyStats.forEach(({ pid, stat }) => {
+    const person = people.find(p => p.id === pid);
+    if(!person) return;
+    const cnt = Object.keys(stat.boatVisits||{}).length;
+    const total = Object.values(stat.boatVisits||{}).reduce((a,b)=>a+b,0);
+    const deets = Object.entries(stat.boatVisits||{}).sort(([a],[b])=>bMap[b]?.prio-bMap[a]?.prio)
+      .map(([bid,c])=>(bMap[bid]?.name||`B${bid}`)+'('+c+')').join(', ');
+    html += `<tr style="border-bottom:1px solid var(--line-strong)"><td style="padding:6px">${escapeHtml(person.name)}</td>`;
+    html += `<td style="text-align:center;padding:6px">${total}</td><td style="text-align:center;padding:6px;color:${cnt>=threshold?'var(--green)':'var(--warn)'};font-weight:bold">${cnt}</td>`;
     html += `<td style="padding:6px;font-size:.75rem;color:var(--text-dim)">${escapeHtml(deets)}</td></tr>`;
   });
   html += '</table></div>';
