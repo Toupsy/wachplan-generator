@@ -128,7 +128,8 @@ function importStateJSON(json, silent = false){
   people = (s.people || []).map(p => ({
     ...migratePerson(p),   // altes Rollenmodell (E/U + bfLevel) → role 'W' + experienced
     labels: p.labels || '',
-    enableLabels: p.enableLabels !== undefined ? p.enableLabels : ((p.labels||'').trim().length > 0)  // Fallback für alte Exporte
+    enableLabels: p.enableLabels !== undefined ? p.enableLabels : ((p.labels||'').trim().length > 0),  // Fallback für alte Exporte
+    wantsHW: !!p.wantsHW    // BF-HW-Wunsch (Default false für Altpläne)
   }));
   towers = (s.towers || []).map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0 }));
   boats  = (s.boats  || []).map(b => ({ ...b, slotCount: b.slotCount || 1 }));

@@ -10,14 +10,13 @@
 > **Pflege:** Diese Datei nach jeder Aufgabe auf den aktuellen Stand bringen (Abschnitt 4/5);
 > Doku-Wartungsvertrag s. CLAUDE.md.
 
-**Stand:** VERSION **0.4.23**, Branch `claude/happy-wozniak-d6la3r` (PR offen).
-**Letzte Aufgabe:** Fairness-Optimierung im Kern-Algorithmus (`generate.js`):
-(1) **Experience-Reservierung** – Erfahrene werden nicht mehr an der HW „verbraucht", wenn
-ein Turm sonst ohne Erfahrenen bliebe (Türme ohne Erfahrenen 36→0 / 92→0).
-(2) **Bootsführer-Rotation** – Lookback über das Rotationsfenster + Min-Cost-Matching →
-BF kehrt frühestens nach #Boote Tagen aufs gleiche Boot zurück (Rückkehr <3 T.: 10→0).
-Neue Invarianten `checkExperienceNotWastedAtHW` + Boot-Rotation (test/invariants.test.js,
-24/24 grün). Details s. docs/FEATURES.md.
+**Stand:** VERSION **0.5.1**, Branch `feature/bf-hw-wunsch` (PR gegen `main`).
+**Letzte Aufgabe:** Feature 26 **Bootsführer mit HW-Wunsch** – Haken „🏠 HW-Wunsch" pro BF
+(`people[].wantsHW`). Bei BF-Überzahl bekommt jeder Wunsch-BF ≥1 aktiven HW-Dienst: neue Stat
+`hwGuardDays`, `hwWishBonus` (eskalierend 600→6000→100000) in `bestPair` (HW-Zweig) +
+HW-Einzelbefüllung, plus `availB`-Sort-Sicherheitsnetz (nur bei echter Überzahl, sonst bleibt
+ein Boot unbesetzt). UI-Checkbox in `render-sidebar.js`. Neue Invariante in
+`test/invariants.test.js` (25/25 grün). Details s. docs/FEATURES.md.
 
 ---
 

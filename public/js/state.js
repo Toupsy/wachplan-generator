@@ -34,7 +34,7 @@ let uid = 0;
 let randomSeed = 0;
 
 // Stammdaten
-let people   = [];   // [{ id, name, role:'F'|'B'|'W', experienced:bool, labels:'', enableLabels:true }] (experienced gilt für B und W; F ignoriert. labels Komma-getrennt, enableLabels steuert Sichtbarkeit)
+let people   = [];   // [{ id, name, role:'F'|'B'|'W', experienced:bool, labels:'', enableLabels:true, wantsHW:bool }] (experienced gilt für B und W; F ignoriert. wantsHW nur für B: Wunsch auf ≥1 aktiven HW-Dienst bei BF-Überzahl. labels Komma-getrennt, enableLabels steuert Sichtbarkeit)
 let towers   = [];   // [{ id, name, prio, code, slotCount, leaderCount }]
 let boats    = [];   // [{ id, name, code, towerId, prio, slotCount }]
 

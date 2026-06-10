@@ -86,7 +86,7 @@ Modals `#login-modal`/`#move-modal`/`#share-modal`/`#plans-modal` …) sind eind
 
 ## Globaler Zustand (state.js)
 ```js
-people[]    // { id, name, role:'F'|'B'|'W', experienced:bool } (experienced gilt für B & W; bei F egal)
+people[]    // { id, name, role:'F'|'B'|'W', experienced:bool, wantsHW:bool } (experienced gilt für B & W; wantsHW nur für B: ≥1 aktiver HW-Dienst bei BF-Überzahl)
 towers[]    // { id, name, prio, code, slotCount(1–10,Def2), leaderCount(0–3,Def0) }
 boats[]     // { id, name, code, towerId:number|'HW'|null, prio, slotCount(1–3,Def1) }
 dayState[]      // Array[DAYS]: { sick:Set, closed:Set, closedBoats:Set }
@@ -102,7 +102,8 @@ serviceStartHour/EndHour // Def 9/17, clamp 8–19
 **Helfer:** `effLevel(p)` (F→'E', B/W via experienced→'E'/'U'), `roleDot(p)`, `roleLabel(p)`.
 
 `lastResult.stats[personId]` (über alle Tage akkumuliert): `{ total, towerVisits{tId→n},
-boatVisits{bId→n}, hwVisits, towerWithBoatDays, boatCaptainPairings{capId→n} }`.
+boatVisits{bId→n}, hwVisits, towerWithBoatDays, boatCaptainPairings{capId→n}, hwGuardDays }`
+(`hwGuardDays` = aktive HW-Dienste, für BF-HW-Wunsch).
 **Wichtig:** HW-Overflow (`main.base`) erhöht `total` NICHT (nur aktive Dienste zählen) →
 „nur an HW gesessen" gilt als unterbeschäftigt → Folgetage bevorzugt aktiv eingeplant.
 
@@ -135,6 +136,12 @@ availE.length ≤ expDemand` gesetzt (`expDemand` = offene Türme ohne Leader-De
 `true`, dürfen Erfahrene nicht an der HW „verbraucht" werden (+5000 in `bestPair`, U-zuerst in
 der HW-Einzelbefüllung) und zwei Erfahrene werden nicht gepaart (EE-Penalty 1500) → jeder Turm
 bekommt einen Erfahrenen, überzählige Unerfahrene gehen an die HW (bis zu 3 sind gewollt).
+
+**BF-HW-Wunsch (Feature 26):** BF mit `wantsHW:true` sollen bei BF-Überzahl ≥1 aktiven
+HW-Dienst (`mainGuards`) bekommen. `hwWishBonus` gibt noch unerfüllten Wünschen einen zum
+Wochenende eskalierenden HW-Bonus (600→6000→100000), eingebaut in `bestPair` (HW-Zweig) +
+HW-Einzelbefüllung. Sicherheitsnetz im `availB`-Sort drückt unerfüllte Wunsch-BF bei echter
+Überzahl in den letzten 2 Tagen in die surplus-Hälfte. `hwGuardDays==0` = noch offen.
 
 **Zwangszuweisungen (forcedPlacements):** `transparent:false` → Person aus Pool, fest
 vorab platziert, zählt in Statistik (Folgetage berücksichtigen Wechsel). `transparent:true`

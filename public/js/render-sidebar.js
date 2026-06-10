@@ -30,6 +30,10 @@ function renderPeople(){
         <input type="checkbox" data-id="${p.id}" class="exp-checkbox" ${p.experienced?'checked':''}>
         <span>Erf.</span>
       </label>` : `<div class="exp-placeholder"></div>`}
+      ${p.role==='B' ? `<label class="hw-wish-toggle" title="HW-Wunsch: bei BF-Überzahl mindestens 1× aktiver Hauptwache-Dienst pro Woche">
+        <input type="checkbox" data-id="${p.id}" class="hwwish-checkbox" ${p.wantsHW?'checked':''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0">
+        <span style="font-size:0.7rem;color:var(--text-dim)">🏠</span>
+      </label>` : ''}
       <label class="label-toggle" title="Labels bearbeiten">
         <input type="checkbox" data-id="${p.id}" class="labels-checkbox" ${hasLabels ? 'checked' : ''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0">
         <span style="font-size:0.7rem;color:var(--text-dim)">🏷️</span>
@@ -75,6 +79,8 @@ function renderPeople(){
     });
   c.querySelectorAll('.exp-checkbox').forEach(cb =>
     cb.onchange = e => { getP(+e.target.dataset.id).experienced = e.target.checked; scheduleAutoSave(); renderOutput(); });
+  c.querySelectorAll('.hwwish-checkbox').forEach(cb =>
+    cb.onchange = e => { getP(+e.target.dataset.id).wantsHW = e.target.checked; generate(); scheduleAutoSave(); });
   c.querySelectorAll('.del-p').forEach(b =>
     b.onclick = e => {
       const id = +e.target.dataset.id;

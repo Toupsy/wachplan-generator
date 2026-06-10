@@ -112,6 +112,24 @@ v0.4.17.
 Rechtsgrundlagen, Speicherdauer, Betroffenenrechte (Art. 15–21), Sicherheit, Cookies,
 Art. 22, Kontakt/Beschwerde. URL `/datenschutz.html`, verlinkt aus Register-View. v0.4.18.
 
+### Feature 26: Bootsführer mit HW-Wunsch
+Pro Bootsführer aktivierbarer Haken „🏠 HW-Wunsch" (`people[].wantsHW`). Praxis: Bei
+BF-Überzahl (mehr Bootsführer als Boote) möchten einige BF in der Woche mindestens **einmal
+aktiven Hauptwache-Dienst** leisten. „Erfüllt" = echter `mainGuards`-Slot; reines Sitzen im
+HW-Overflow zählt nicht.
+- Neue Stat `hwGuardDays` = Anzahl aktiver HW-Dienste (`ensure()`, `commitPerson(MAIN)`,
+  `_reAccumulateDayStats()`).
+- `hwWishBonus(candidate)`: eskalierender Bonus für noch offene Wünsche (Restwoche
+  `daysLeft<=1 → 100000`, `<=2 → 6000`, sonst `600`), eingebaut in `bestPair` (HW-Zweig) und
+  die HW-Einzelbefüllung. Nur überzählige BF stehen im HW-Guard-Pool → automatisches Gating.
+- Sicherheitsnetz im `availB`-Sort: bei echter BF-Überzahl UND `daysLeft<=2` werden noch
+  unerfüllte Wunsch-BF in die surplus-Hälfte gedrückt (damit überhaupt HW-fähig). Nur bei
+  Überzahl, sonst bliebe ein Boot unbesetzt.
+- UI: Checkbox in der Personenzeile (nur Rolle B), `render-sidebar.js`. Persistenz in
+  `state-io.js` (Default false für Altpläne).
+- Test: `test/invariants.test.js` „BF-HW-Wunsch: … ≥1 aktiven HW-Dienst" (inkl. Edge:
+  kein Surplus → nicht erzwungen, kein Boot bleibt leer).
+
 ---
 
 ## Bugfixes
