@@ -68,11 +68,12 @@ function _reAccumulateDayStats(daySchedule, dayIdx, stats, pairCount, ensure, pa
         s.lastBoatId = slot.boatId;  // Track for rotation penalty on next day
       });
     } else if(slot.kind === 'main'){
-      // Aktive HW-Personen (Führung + mainGuards): total++ + hwVisits++
+      // Aktive HW-Personen (Führung + mainGuards): total++ + hwVisits++ + hwGuardDays++
       [...(slot.fuehrung || []), ...(slot.mainGuards || [])].forEach(p => {
         const s = ensure(p.id);
         s.total++;
         s.hwVisits++;
+        s.hwGuardDays++;
       });
       // Overflow (base + bootsfLeft): nur hwVisits++
       [...(slot.base || []), ...(slot.bootsfLeft || [])].forEach(p => {
@@ -104,7 +105,8 @@ function generate(startDay = 0){
       boatCaptainPairings: {},
       lastBoatId: null,  // Track BF's previous boat for rotation penalty
       mainBeachDays: 0,  // Feature: Hauptstrand-Türme – Tage auf Hauptstrand-Türmen
-      outerBeachDays: 0  // Feature: Hauptstrand-Türme – Tage auf Außen-Türmen
+      outerBeachDays: 0, // Feature: Hauptstrand-Türme – Tage auf Außen-Türmen
+      hwGuardDays: 0     // Feature: BF-HW-Wunsch – Anzahl AKTIVER HW-Dienste (mainGuards/Führung)
     };
     return stats[id];
   };
@@ -237,6 +239,16 @@ function generate(startDay = 0){
       towersWithPreOpen.has(b.towerId)
     );
 
+    // BF-HW-Wunsch-Sicherheitsnetz: Gibt es echte BF-Überzahl und nähert sich die Woche
+    // dem Ende, werden BF mit noch offenem HW-Wunsch in die surplus-Hälfte gedrückt (höherer
+    // Sortwert = später = surplus), damit sie überhaupt für die HW verfügbar sind. Nur bei
+    // Überzahl, sonst bliebe ein Boot unbesetzt.
+    const hasSurplusBF = availB.length > boatsPre.length;
+    const daysLeftBF   = DAYS - d;
+    const hwWishSurplusBias = bf => (
+      hasSurplusBF && daysLeftBF <= 2 && bf.wantsHW && (ensure(bf.id).hwGuardDays || 0) === 0
+    ) ? 1e6 : 0;
+
     // BFs nach Fairness sortieren, BEVOR aktiveBF/surplusBF-Aufteilung:
     // Wer weniger Bootstage hat UND mehr HW-Tage, kommt zuerst in den Boot-Pool.
     // Ohne diese Sortierung bekäme immer die erste Person in der Liste den Boot-Slot.
@@ -244,7 +256,8 @@ function generate(startDay = 0){
       const sa = ensure(a.id), sb = ensure(b.id);
       const boatA = Object.values(sa.boatVisits||{}).reduce((s,v)=>s+v,0);
       const boatB = Object.values(sb.boatVisits||{}).reduce((s,v)=>s+v,0);
-      return (boatA * 50 - (sa.hwVisits||0) * 10) - (boatB * 50 - (sb.hwVisits||0) * 10)
+      return (boatA * 50 - (sa.hwVisits||0) * 10 + hwWishSurplusBias(a))
+           - (boatB * 50 - (sb.hwVisits||0) * 10 + hwWishSurplusBias(b))
           || (a.id - b.id);
     });
     const neededBF  = Math.min(boatsPre.length, availB.length);
@@ -328,6 +341,23 @@ function generate(startDay = 0){
       const imbalance = (s.outerBeachDays || 0) - (s.mainBeachDays || 0);
       const overhang = tower.mainBeach ? Math.max(0, -imbalance) : Math.max(0, imbalance);
       return overhang * BEACH_BALANCE_WEIGHT;
+    }
+
+    /**
+     * Feature: BF-HW-Wunsch. Überzählige Bootsführer mit gesetztem Wunsch (wantsHW)
+     * sollen in der Woche mindestens EINMAL aktiven HW-Dienst bekommen. Liefert einen
+     * Bonus (positiver Rückgabewert, wird vom HW-Score ABGEZOGEN) für noch nicht
+     * erfüllte Wünsche; eskaliert zum Wochenende, damit der Wunsch zuverlässig greift.
+     * Nur überzählige BF stehen überhaupt im HW-Guard-Pool → automatisches Gating.
+     * @returns {number} Bonus (0 = kein Wunsch / bereits erfüllt)
+     */
+    function hwWishBonus(candidate){
+      if(!candidate.wantsHW) return 0;
+      if((ensure(candidate.id).hwGuardDays || 0) > 0) return 0;  // Wunsch erfüllt
+      const daysLeft = DAYS - d;  // inkl. heute
+      if(daysLeft <= 1) return 100000;  // letzter Tag → erzwingen
+      if(daysLeft <= 2) return 6000;
+      return 600;
     }
 
     /**
@@ -416,6 +446,9 @@ function generate(startDay = 0){
             // HW k-Slot-Auswahl: Personen mit vielen HW-Tagen NICHT nochmal auf HW
             score += sA.hwVisits * 60;
             score += sB.hwVisits * 60;
+            // BF-HW-Wunsch: noch nicht erfüllte Wünsche bevorzugt an die HW holen
+            score -= hwWishBonus(A);
+            score -= hwWishBonus(B);
             // Experience-Reservierung: Sind Erfahrene knapp (≤ offene Türme), dürfen
             // sie nicht an der HW „verbraucht" werden – jeder Turm braucht ≥1 Erfahrenen.
             // Großer, aber endlicher Penalty → Unerfahrene zuerst, Erfahrene nur als Notnagel.
@@ -437,6 +470,7 @@ function generate(startDay = 0){
       s.total++;
       if(t.id === MAIN_ID){
         s.hwVisits++;
+        s.hwGuardDays++;  // aktiver HW-Dienst (für BF-HW-Wunsch)
       } else {
         s.towerVisits[t.id] = (s.towerVisits[t.id] || 0) + 1;
         if(towerHasActiveBoat(t.id)){
@@ -476,6 +510,9 @@ function generate(startDay = 0){
         mainGuards.push(A, B);
       } else {
         const cand = getGuardPool().sort((a,b) => {
+          // BF-HW-Wunsch: noch offener Wunsch hat Vorrang vor allem anderen
+          const wa = hwWishBonus(a), wb = hwWishBonus(b);
+          if(wa !== wb) return wb - wa;  // höherer Bonus zuerst
           // Experience-Reservierung (s. o.): Unerfahrene zuerst an die HW
           if(reserveExpAtHW){
             const ae = effLevel(a) === 'E' ? 1 : 0, be = effLevel(b) === 'E' ? 1 : 0;

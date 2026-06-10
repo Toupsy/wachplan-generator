@@ -10,12 +10,10 @@
 > **Pflege:** Diese Datei nach jeder Aufgabe auf den aktuellen Stand bringen (Abschnitt 4/5);
 > Doku-Wartungsvertrag s. CLAUDE.md.
 
-**Stand:** VERSION **0.5.1**, Branch `feature/hauptstrand-tuerme` (PR gegen `main`).
-**Letzte Aufgabe:** Feature 25 **Hauptstrand-Türme** – Türme als „🏖️ Hauptstrand"
-markierbar (`towers[].mainBeach`); `beachBalancePenalty` in `generate.js` hält pro Person
-`outerBeachDays`/`mainBeachDays` im Gleichgewicht (Strafe `overhang*60`, nur aktiv wenn beide
-Turm-Sorten existieren) → kein „mehrere Tage am Stück auf Außentürmen". UI-Toggle
-(`render-sidebar.js`) + Output-Badge (`render-output.js`). Neue Invariante in
+**Stand:** VERSION **0.5.1**, Branch `feature/bf-hw-wunsch` (PR gegen `main`).
+**Letzte Aufgaben:**
+- Feature 25 **Hauptstrand-Türme** (auf `main`): Türme als „🏖️ Hauptstrand" markierbar (`towers[].mainBeach`); `beachBalancePenalty` in `generate.js` hält `outerBeachDays`/`mainBeachDays` im Gleichgewicht (Strafe `overhang*60`). UI-Toggle + Output-Badge.
+- Feature 26 **Bootsführer mit HW-Wunsch** (dieser Branch): Haken „🏠 HW-Wunsch" pro BF (`people[].wantsHW`). Bei BF-Überzahl bekommt jeder Wunsch-BF ≥1 aktiven HW-Dienst: neue Stat `hwGuardDays`, `hwWishBonus` (eskalierend 600→6000→100000) in `bestPair` (HW-Zweig) + HW-Einzelbefüllung, plus `availB`-Sort-Sicherheitsnetz. UI-Checkbox in `render-sidebar.js`. Neue Invariante in
 `test/invariants.test.js` (25/25 grün). Details s. docs/FEATURES.md.
 
 ---

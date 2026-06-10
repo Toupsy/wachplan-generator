@@ -301,6 +301,55 @@ test('Hauptstrand-Türme: fairer Ausgleich Hauptstrand ↔ Außentürme', (t) =>
   }
 });
 
+test('BF-HW-Wunsch: BF mit wantsHW bekommt bei Überzahl ≥1 aktiven HW-Dienst', (t) => {
+  // 7 Türme, NUR 2 Boote, 5 BF → 3 überzählig. 3 BF mit wantsHW. Über die Woche
+  // soll jeder Wunsch-BF mindestens einen aktiven HW-Dienst (hwGuardDays>=1) erhalten.
+  for (const days of [6, 14]) {
+    const setup = `
+      resetGlobalState();
+      uid = 0; people = []; towers = []; boats = [];
+      for(let i=0;i<7;i++){ towers.push({ id:++uid, name:'T'+(i+1), prio:i+1, code:'T'+(i+1), slotCount:2, leaderCount:0 }); }
+      boats.push({ id:++uid, name:'B1', code:'B1', towerId: towers[0].id, prio:1, slotCount:1 });
+      boats.push({ id:++uid, name:'B2', code:'B2', towerId: towers[3].id, prio:2, slotCount:1 });
+      people.push({ id:++uid, name:'F1', role:'F', experienced:true });
+      people.push({ id:++uid, name:'F2', role:'F', experienced:true });
+      for(let i=0;i<5;i++) people.push({ id:++uid, name:'BF'+i, role:'B', experienced:true, wantsHW: i < 3 });
+      for(let i=0;i<7;i++) people.push({ id:++uid, name:'E'+i, role:'W', experienced:true });
+      for(let i=0;i<10;i++) people.push({ id:++uid, name:'U'+i, role:'W', experienced:false });
+      DAYS = ${days}; mainK = 2; randomSeed = 0;
+      dayState = freshDayState();
+      forcedPlacements = freshForcedPlacements();
+      exportColumns = Array(16).fill('');
+      generate();
+      lastResult;
+    `;
+    const res = vm.runInContext(setup, ctx);
+    const stats = res.stats;
+    const schedule = res.schedule;
+    const people = vm.runInContext('people', ctx);
+    const towers = vm.runInContext('towers', ctx);
+    const dayState = vm.runInContext('dayState', ctx);
+    const boats = vm.runInContext('boats', ctx);
+
+    // Kern-Invarianten bleiben unverletzt (insb. kein Boot bleibt unbesetzt durch das
+    // Surplus-Sicherheitsnetz)
+    let failures = [];
+    for (let d = 0; d < days; d++) {
+      failures.push(...checkNoDuplicates(schedule, d));
+      failures.push(...checkNoClosedAssigned(schedule, dayState, d, towers, boats));
+      failures.push(...checkSlotCounts(schedule, d, towers));
+    }
+    assert.equal(failures.length, 0,
+      `${days}-Tage BF-HW-Wunsch: Kern-Invarianten verletzt:\n${failures.join('\n')}`);
+
+    // Jeder wantsHW-BF hat ≥1 aktiven HW-Dienst
+    const wishBFs = people.filter(p => p.role === 'B' && p.wantsHW);
+    const unmet = wishBFs.filter(p => (stats[p.id]?.hwGuardDays || 0) < 1);
+    assert.equal(unmet.length, 0,
+      `${days}-Tage: HW-Wunsch nicht erfüllt für: ${unmet.map(p => p.name).join(', ')}`);
+  }
+});
+
 test('Boat rotation: a captain returns to the same boat no sooner than #boats days', (t) => {
   // 3 Boote → ein BF darf frühestens nach 3 Tagen wieder aufs gleiche Boot
   // (Mo → frühestens Do). Über mehrere Tageslängen.
