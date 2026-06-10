@@ -115,7 +115,7 @@ Läuft **sequenziell** über alle Tage; akkumulierte `stats` übertragen sich au
 0. **BF-Fairness-Sort** – `availB` nach `(boatDays*50 - hwVisits*10)` VOR activeBF/surplusBF-Split
 1. **Hauptwache** – forced → Paare via `bestPair` → Einzelpersonen
 2. **Türme** – je `slotCount + leaderCount` via `bestPair(t, true)`, Türme nach prio **ASC** (Prio 1 = wichtigster, öffnet zuerst). `leaderCount`-Slots vorab aus separatem `poolF`.
-3. **Boote** – je 1 BF pro aktivem Boot (inkl. HW-Boote `towerId==='HW'`), Min-Score-Auswahl, `lastBoatId`-Rotation
+3. **Boote** – je 1 BF pro aktivem Boot (inkl. HW-Boote `towerId==='HW'`); im Standardfall **Min-Cost-Matching** (global optimal) statt gieriger Vergabe + Lookback-Rotation (`boatRotationPenalty` meidet die letzten `Boote−1` Tage → frühestens nach #Boote Tagen wieder)
 4. Boot-Captain-Paarungen-Tracking
 5. **HW finalize** – forced → Rest + Overflow; alle in `main.base`/`poolB` bekommen `hwVisits++`
 6. **Transparente Zuweisungen** (visueller Swap nach dem Algorithmus)

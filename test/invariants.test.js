@@ -248,6 +248,35 @@ test('Experience coverage: no experienced wasted at HW (6/7/14 days)', (t) => {
   }
 });
 
+test('Boat rotation: a captain returns to the same boat no sooner than #boats days', (t) => {
+  // 3 Boote → ein BF darf frühestens nach 3 Tagen wieder aufs gleiche Boot
+  // (Mo → frühestens Do). Über mehrere Tageslängen.
+  for (const days of [6, 7, 14]) {
+    const { schedule } = setupScenario(ctx, {
+      numPeople: 22, numTowers: 7, numBoats: 3, days, mainK: 2
+    });
+    // Anzahl tatsächlich vorhandener Boote aus dem Schedule ableiten
+    const boatIds = new Set();
+    schedule.forEach(day => day.assign.forEach(s => { if (s.kind === 'boat') boatIds.add(s.boatId); }));
+    const nBoats = boatIds.size;
+
+    const lastDayOnBoat = {}; // `${bfId}|${boatId}` -> dayIdx
+    const failures = [];
+    schedule.forEach((day, d) => {
+      day.assign.filter(s => s.kind === 'boat' && s.bootsf).forEach(b => {
+        const key = `${b.bootsf.id}|${b.boatId}`;
+        if (key in lastDayOnBoat) {
+          const gap = d - lastDayOnBoat[key];
+          if (gap < nBoats) failures.push(`BF ${b.bootsf.id} zurück auf Boot ${b.boatId} nach nur ${gap} Tag(en) (Tag ${d})`);
+        }
+        lastDayOnBoat[key] = d;
+      });
+    });
+    assert.equal(failures.length, 0,
+      `${days}-Tage / ${nBoats} Boote: BF-Boot-Rückkehr zu früh:\n${failures.join('\n')}`);
+  }
+});
+
 test('Scenario 3: Single day', (t) => {
   const { schedule, stats, dayState, towers, boats } = setupScenario(ctx, {
     numPeople: 15,

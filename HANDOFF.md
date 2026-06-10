@@ -11,11 +11,13 @@
 > Doku-Wartungsvertrag s. CLAUDE.md.
 
 **Stand:** VERSION **0.4.23**, Branch `claude/happy-wozniak-d6la3r` (PR offen).
-**Letzte Aufgabe:** Fairness-Optimierung im Kern-Algorithmus (`generate.js`) –
-**Experience-Reservierung**: Erfahrene werden nicht mehr an der HW „verbraucht", wenn ein
-Turm sonst ohne Erfahrenen bliebe. Türme ohne Erfahrenen 36→0 (6 T.) / 92→0 (14 T.),
-Turm-Wiederholungen 38→16 (6 T.). Neue Invariante `checkExperienceNotWastedAtHW`
-(test/invariants.test.js, 23/23 grün). Details s. docs/FEATURES.md.
+**Letzte Aufgabe:** Fairness-Optimierung im Kern-Algorithmus (`generate.js`):
+(1) **Experience-Reservierung** – Erfahrene werden nicht mehr an der HW „verbraucht", wenn
+ein Turm sonst ohne Erfahrenen bliebe (Türme ohne Erfahrenen 36→0 / 92→0).
+(2) **Bootsführer-Rotation** – Lookback über das Rotationsfenster + Min-Cost-Matching →
+BF kehrt frühestens nach #Boote Tagen aufs gleiche Boot zurück (Rückkehr <3 T.: 10→0).
+Neue Invarianten `checkExperienceNotWastedAtHW` + Boot-Rotation (test/invariants.test.js,
+24/24 grün). Details s. docs/FEATURES.md.
 
 ---
 

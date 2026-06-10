@@ -282,6 +282,14 @@ function generate(startDay = 0){
       .sort((a,b) => (a.prio-b.prio)||(a.id-b.id));
     const manualClosed = towers.filter(t => ds.closed.has(t.id));
 
+    // Boot-Rotation: Anzahl heute besetzbarer Boote bestimmt, wie viele Tage ein
+    // Bootsführer dasselbe Boot meiden soll. Bei 3 Booten → die letzten 2 Tage meiden,
+    // d. h. frühestens am 4. Tag wieder auf dem gleichen Boot (Mo → frühestens Do).
+    const rotatableBoats = boats.filter(b =>
+      !ds.closedBoats.has(b.id) &&
+      (b.towerId === 'HW' || (b.towerId && openTowers.some(t => t.id === b.towerId))));
+    const boatRotationLookback = Math.max(1, rotatableBoats.length - 1);
+
     const dayAssign = [];
 
     // ── Scoring ──────────────────────────────────────────────────
@@ -298,18 +306,26 @@ function generate(startDay = 0){
     }
 
     /**
-     * Boat rotation penalty: avoid assigning same BF to same boat on consecutive days
+     * Boat rotation penalty: hält einen Bootsführer über das ganze Rotationsfenster
+     * (boatRotationLookback Tage) von einem zuletzt gefahrenen Boot fern. Bei 3 Booten
+     * sind das die letzten 2 Tage → derselbe BF kehrt frühestens nach 3 Tagen aufs
+     * gleiche Boot zurück. Gestern wiegt am schwersten, weiter zurück abnehmend.
+     * Großer, aber endlicher Penalty → weicht nur, wenn keine Alternative existiert.
      * @param {object} candidate  – BF candidate
      * @param {object} boat       – Target boat
      * @returns {number} Penalty score (higher = worse)
      */
     function boatRotationPenalty(candidate, boat){
-      const s = ensure(candidate.id);
-      // If this BF was on this exact boat yesterday, add penalty
-      if(d > 0 && schedule[d-1] && s.lastBoatId === boat.id){
-        return 300;  // Strong penalty to encourage rotation
+      let penalty = 0;
+      for(let back = 1; back <= boatRotationLookback; back++){
+        const prevDay = schedule[d - back];
+        if(!prevDay) break;  // weniger Vortage als das Fenster → fertig
+        const onSameBoat = prevDay.assign.some(sl =>
+          sl.kind === 'boat' && sl.boatId === boat.id &&
+          (sl.occupants || []).some(o => o.id === candidate.id));
+        if(onSameBoat) penalty += 1000 * (boatRotationLookback - back + 1);
       }
-      return 0;
+      return penalty;
     }
 
     function bestPair(t, requireMix, currentDay){
@@ -555,6 +571,46 @@ function generate(startDay = 0){
       }
     });
 
+    // ── Globale (optimale) Boot→BF-Zuordnung statt gieriger Einzelvergabe ──
+    // Die gierige Vergabe ließ das zuletzt verarbeitete Boot den einzig übrigen
+    // BF bekommen → Rotation verletzt (BF zwei Tage hintereinander am selben Boot).
+    // Min-Cost-Matching über alle Boote+BF des Tages findet die fairste Gesamt-
+    // Zuordnung; zusammen mit dem Lookback-Penalty ergibt das die saubere Rotation.
+    // Nur im Standardfall: keine Zwangsboote, je 1 BF pro Boot, kleine Anzahl.
+    const useBoatMatching =
+      boatsProcessed.length > 0 && poolB.length > 0 && boatsProcessed.length <= 8 &&
+      boatsProcessed.every(bo => !(forcedByBoat[bo.id]?.length) && (bo.slotCount || 1) === 1);
+    const boatMatch = new Map();  // boatId → BF
+    if(useBoatMatching){
+      const boatCost = (bo, bf) => {
+        const s = ensure(bf.id);
+        return s.total + (s.boatVisits[bo.id] || 0) * 50 - (s.hwVisits || 0) * 10
+             + boatRotationPenalty(bf, bo) + bf.id * 0.001;  // deterministischer Tiebreak
+      };
+      // Wichtige Boote (prio ASC) zuerst → bei BF-Mangel gehen die unwichtigsten leer aus
+      const ordered = [...boatsProcessed].sort((a,b) => (a.prio - b.prio) || (a.id - b.id));
+      const bfs = [...poolB];
+      const usedBf = new Array(bfs.length).fill(false);
+      let best = { total: Infinity, map: null };
+      const cur = {};
+      const dfs = (i, acc) => {
+        if(acc >= best.total) return;  // Branch-and-Bound
+        if(i === ordered.length){ best = { total: acc, map: { ...cur } }; return; }
+        const bo = ordered[i];
+        let anyFree = false;
+        for(let j = 0; j < bfs.length; j++){
+          if(usedBf[j]) continue;
+          anyFree = true;
+          usedBf[j] = true; cur[bo.id] = bfs[j];
+          dfs(i + 1, acc + boatCost(bo, bfs[j]));
+          usedBf[j] = false; delete cur[bo.id];
+        }
+        if(!anyFree) dfs(i + 1, acc);  // mehr Boote als BF → dieses Boot bleibt leer
+      };
+      dfs(0, 0);
+      if(best.map) Object.entries(best.map).forEach(([bid, bf]) => boatMatch.set(+bid, bf));
+    }
+
     for(const bo of boatsProcessed){
       const slot = {
         kind:'boat', boatId:bo.id, name:bo.name, code:bo.code, prio:bo.prio,
@@ -573,6 +629,22 @@ function generate(startDay = 0){
           s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id]||0)+1;
         }
         dayAssign.push(slot);
+        continue;
+      }
+      // Optimale Zuordnung (Min-Cost-Matching) verwenden, falls aktiv
+      if(useBoatMatching){
+        const bf = boatMatch.get(bo.id);
+        if(bf){
+          const idx = poolB.findIndex(x => x.id === bf.id);
+          if(idx >= 0) poolB.splice(idx, 1);
+          slot.occupants.push(bf);
+          slot.bootsf = bf;
+          const s = ensure(bf.id);
+          s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id] || 0) + 1;
+          s.lastBoatId = bo.id;
+        }
+        if(slot.occupants.length > 0) dayAssign.push(slot);
+        else                         boatsNoBootsf.push(bo);
         continue;
       }
       // Fülle Boot bis slotCount mit fairness-Scoring
