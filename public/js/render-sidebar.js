@@ -121,6 +121,7 @@ function renderTowerCfg(){
           <button class="slot-btn slot-plus" data-id="${t.id}" data-type="tower">+</button>
           <span style="font-size:.65rem;color:var(--text-dim)">Wachgänger</span>
           ${(t.leaderCount||0)===0?`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-left:8px"><input type="checkbox" class="leader-checkbox" data-id="${t.id}" style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0"><span style="font-size:.75rem;color:var(--text-dim)">👔</span></label>`:''}
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-left:8px" title="Als Hauptstrand-Turm markieren – fairer Ausgleich Hauptstrand ↔ Außentürme"><input type="checkbox" class="mainbeach-checkbox" data-id="${t.id}" ${t.mainBeach?'checked':''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0"><span style="font-size:.75rem;color:var(--text-dim)">🏖️</span></label>
         </div>
         <button class="mini-btn del-t" data-id="${t.id}">×</button>
       </div>
@@ -219,6 +220,11 @@ function renderTowerCfg(){
     b.onclick = e => { const t = getT(+e.target.dataset.id); if(t.slotCount > 1) { t.slotCount--; generate(); renderTowerCfg(); } });
   c.querySelectorAll('.slot-plus[data-type="tower"]').forEach(b =>
     b.onclick = e => { const t = getT(+e.target.dataset.id); if(t.slotCount < 10) { t.slotCount++; generate(); renderTowerCfg(); } });
+  c.querySelectorAll('.mainbeach-checkbox').forEach(cb =>
+    cb.onchange = e => {
+      getT(+e.target.dataset.id).mainBeach = e.target.checked;
+      generate(); renderTowerCfg(); scheduleAutoSave();
+    });
   c.querySelectorAll('.leader-checkbox').forEach(cb =>
     cb.onchange = e => {
       const t = getT(+e.target.dataset.id);

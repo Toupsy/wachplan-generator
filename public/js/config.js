@@ -51,7 +51,8 @@ function seedFromConfig() {
       prio: towerCfg.prio,
       code: towerCfg.name,  // Code = Name (z.B. "9/12")
       slotCount: towerCfg.slotCount || 2,
-      leaderCount: towerCfg.leaderCount || 0
+      leaderCount: towerCfg.leaderCount || 0,
+      mainBeach: !!towerCfg.mainBeach
     };
     towerMap[towerCfg.name] = tower;
     towers.push(tower);
