@@ -122,13 +122,19 @@ Läuft **sequenziell** über alle Tage; akkumulierte `stats` übertragen sich au
 
 **`bestPair(tower, requireMix, currentDay)` – niedrigster Score gewinnt** (Gewichte empirisch getunt, Issue #253):
 ```
-+1000  UU + requireMix (Notlösung; an HW nur +300)      +40  EE + requireMix
++1000  UU + requireMix (Notlösung; an HW nur +300)      +40/1500 EE + requireMix (1500 bei E-Knappheit)
 +250×  bisherige gemeinsame Turmdienste (Paar-Wdh.)     +200×v Turmbesuche A/B (linear)
 +10×   (totalA+totalB) Fairness                         +800/-350 surplusBF aktiv/inaktiv-Boot
 +200×  konsekutive Tage gleicher Turm (Feature 8)       +150 beide viele Boot-Tage
 -60×   hwVisits (Bonus für Turm)  / +60× an HW-k-Slots  -100 F wenn Tower leaderCount>0
++5000  E an HW wenn reserveExpAtHW (Experience-Reservierung, s. u.)
 + Tiebreaker (deterministisch bzw. seededRand() für Tag 1)
 ```
+**Experience-Reservierung (v0.4.24):** Vor der HW-Befüllung wird `reserveExpAtHW =
+availE.length ≤ expDemand` gesetzt (`expDemand` = offene Türme ohne Leader-Deckung). Ist es
+`true`, dürfen Erfahrene nicht an der HW „verbraucht" werden (+5000 in `bestPair`, U-zuerst in
+der HW-Einzelbefüllung) und zwei Erfahrene werden nicht gepaart (EE-Penalty 1500) → jeder Turm
+bekommt einen Erfahrenen, überzählige Unerfahrene gehen an die HW (bis zu 3 sind gewollt).
 
 **Zwangszuweisungen (forcedPlacements):** `transparent:false` → Person aus Pool, fest
 vorab platziert, zählt in Statistik (Folgetage berücksichtigen Wechsel). `transparent:true`

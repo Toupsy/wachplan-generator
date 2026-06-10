@@ -149,6 +149,37 @@ function checkSlotCounts(schedule, dayIdx, towers) {
   return failures;
 }
 
+/**
+ * Invariant 6: Experience coverage – kein Erfahrener wird an der Hauptwache
+ * „verschwendet", während ein Turm ohne Erfahrenen dasteht. Genau dieser Fall
+ * (Erfahrene am HW statt auf einem unbesetzten Turm) war der Fairness-Bug, den
+ * die Experience-Reservierung in generate.js behebt.
+ */
+function checkExperienceNotWastedAtHW(schedule, dayIdx, people) {
+  const byId = Object.fromEntries(people.map(p => [p.id, p]));
+  const isExp = p => byId[p.id].role === 'F' || byId[p.id].experienced;
+  const failures = [];
+  const day = schedule[dayIdx];
+
+  const uncovered = day.assign.filter(
+    s => s.kind === 'tower' && s.occupants.length > 0 && !s.occupants.some(isExp)
+  );
+  if (uncovered.length === 0) return failures;
+
+  const main = day.assign.find(s => s.kind === 'main');
+  // Erfahrene Wachgänger (role 'W' + experienced) an aktiven/Overflow-HW-Plätzen
+  const wastedExp = [...(main?.mainGuards || []), ...(main?.base || [])]
+    .filter(p => byId[p.id].role === 'W' && byId[p.id].experienced);
+
+  if (wastedExp.length > 0) {
+    failures.push(
+      `Day ${dayIdx}: ${uncovered.length} Turm(e) ohne Erfahrenen, ` +
+      `während ${wastedExp.length} erfahrene WG an der HW sitzen`
+    );
+  }
+  return failures;
+}
+
 // Note: Invariant 5 (stats.total consistency) is complex due to HW-overflow handling.
 // HW overflow (main.base) increments hwVisits but NOT total, by design.
 // See CLAUDE.md: "HW-Overflow-Personen erhöht `total` NICHT"
@@ -198,6 +229,23 @@ test('Scenario 2: 14 days', (t) => {
   }
 
   assert.equal(allFailures.length, 0, `14-day scenario should have no invariant violations:\n${allFailures.join('\n')}`);
+});
+
+test('Experience coverage: no experienced wasted at HW (6/7/14 days)', (t) => {
+  // Standard-ähnliche Besetzung: ~7 erfahrene WG für 7 Türme → jeder Turm muss
+  // einen Erfahrenen bekommen; HW nimmt Unerfahrene. Über mehrere Tageslängen.
+  for (const days of [6, 7, 14]) {
+    const { schedule } = setupScenario(ctx, {
+      numPeople: 22, numTowers: 7, numBoats: 3, days, mainK: 2
+    });
+    const people = vm.runInContext('people', ctx);
+    let failures = [];
+    for (let d = 0; d < days; d++) {
+      failures.push(...checkExperienceNotWastedAtHW(schedule, d, people));
+    }
+    assert.equal(failures.length, 0,
+      `${days}-Tage: Erfahrene dürfen nicht an der HW sitzen, wenn ein Turm leer ist:\n${failures.join('\n')}`);
+  }
 });
 
 test('Scenario 3: Single day', (t) => {

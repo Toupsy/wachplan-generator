@@ -116,6 +116,24 @@ Art. 22, Kontakt/Beschwerde. URL `/datenschutz.html`, verlinkt aus Register-View
 
 ## Bugfixes
 
+### Fairness – Türme ohne Erfahrenen (Experience-Reservierung, v0.4.24)
+**Problem:** Auf der Standard-Besetzung (7 erfahrene WG, 7 Türme, 2 Führung an HW) blieb
+regelmäßig ein Turm (meist der Turm mit niedrigster Prio) **ohne Erfahrenen** – obwohl genug
+Erfahrene da waren. Messung: 36 unbesetzte Turm-Tage / 5 Läufe × 6 Tage.
+- **Ort:** `generate.js`, HW-Befüllung + `bestPair()`.
+- **Ursache:** Die Hauptwache wird VOR den Türmen befüllt und zog dabei erfahrene
+  Wachgänger aus dem Guard-Pool → für die 7 Türme blieben nur 6 Erfahrene → ein Turm UU.
+- **Lösung – Experience-Reservierung:** Sind Erfahrene knapp (`availE ≤ offene Türme,
+  abzgl. Leader-gedeckter Türme`), werden sie an der HW **nicht verbraucht**: großer
+  endlicher Penalty (+5000) für E an HW in `bestPair` + U-zuerst-Sortierung in der
+  HW-Einzelbefüllung. Zusätzlich EE-Paar-Penalty bei Knappheit `40→1500`, damit nicht zwei
+  Erfahrene auf einem Turm landen und ein anderer leer bleibt. „Bis zu 3 Unerfahrene an der
+  HW" ist dabei explizit gewollt.
+- **Verifikation (5 Seeds):** Türme ohne Erfahrenen **36→0** (6 T.) und **92→0** (14 T.);
+  Turm-Wiederholungen 38→16 (6 T.). Fuzz 80 Läufe (4 Tageslängen × 20 Seeds) = 0 Verstöße.
+  Neue Invariante `checkExperienceNotWastedAtHW` in `test/invariants.test.js` (23/23 grün,
+  schlägt ohne Fix fehl). Messskript `/tmp/measure.js`.
+
 ### Fairness – zu häufige Turm-/Partner-Wiederholungen (Issue #253, v0.4.21)
 **Problem:** Personen besuchten denselben Turm 2–3× in 6 Tagen; Paare wiederholten sich.
 - **Ort:** `generate.js`, `bestPair()` + Boot-Zuweisung.

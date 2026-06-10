@@ -336,7 +336,10 @@ function generate(startDay = 0){
               // Reduced penalty for HW (isMain=true) to make it more attractive
               score += isMain ? 300 : 1000;
             }
-            else if(roles === 'EE') score += 40;
+            // EE-Paar normalerweise nur leicht gebremst; sind Erfahrene aber knapp
+            // (reserveExpAtHW), zwei Erfahrene NICHT zusammenlegen → jeder Turm bekommt
+            // genau einen Erfahrenen, statt einen Turm doppelt und einen leer zu lassen.
+            else if(roles === 'EE') score += reserveExpAtHW ? 1500 : 40;
           }
           score += (pairCount[pairKey(A.id, B.id)] || 0) * 250;  // partner-repeat penalty (raised with tower/fairness weights, Issue #253)
           const vA = sA.towerVisits[t.id] || 0;
@@ -371,6 +374,13 @@ function generate(startDay = 0){
             // HW k-Slot-Auswahl: Personen mit vielen HW-Tagen NICHT nochmal auf HW
             score += sA.hwVisits * 60;
             score += sB.hwVisits * 60;
+            // Experience-Reservierung: Sind Erfahrene knapp (≤ offene Türme), dürfen
+            // sie nicht an der HW „verbraucht" werden – jeder Turm braucht ≥1 Erfahrenen.
+            // Großer, aber endlicher Penalty → Unerfahrene zuerst, Erfahrene nur als Notnagel.
+            if(reserveExpAtHW){
+              if(getEffectiveRole(A) === 'E') score += 5000;
+              if(getEffectiveRole(B) === 'E') score += 5000;
+            }
           }
           score += (d === 0 && randomSeed !== 0)
             ? seededRand(randomSeed, A.id*31 + B.id*97 + t.id*13) * 30
@@ -394,6 +404,14 @@ function generate(startDay = 0){
     }
 
     // ── 1) HAUPTWACHE ──────────────────────────────────────────────
+    // Experience-Abdeckung: Wie viele Erfahrene brauchen die Türme zwingend?
+    // Türme mit Leader-Slot (leaderCount>0) werden durch eine Führungskraft (poolF)
+    // erfahren abgedeckt; alle anderen offenen Türme brauchen je 1 Erfahrenen aus dem
+    // Guard-Pool. Sind nicht mehr Erfahrene als diese Nachfrage verfügbar → reservieren,
+    // d. h. an der HW bevorzugt Unerfahrene einsetzen (bis zu 3 U an der HW sind ok).
+    const expDemand = openTowers.filter(t => !(((t.leaderCount || 0) > 0) && poolF.length > 0)).length;
+    const reserveExpAtHW = availE.length <= expDemand;
+
     const mainPseudo = { id: MAIN_ID };
     const mainGuards = [];
 
@@ -414,9 +432,15 @@ function generate(startDay = 0){
         commitPerson(A, mainPseudo); commitPerson(B, mainPseudo);
         mainGuards.push(A, B);
       } else {
-        const cand = getGuardPool().sort((a,b) =>
-          (ensure(a.id).total - ensure(b.id).total) ||
-          ((ensure(a.id).hwVisits||0) - (ensure(b.id).hwVisits||0))); // weniger HW → bevorzugt
+        const cand = getGuardPool().sort((a,b) => {
+          // Experience-Reservierung (s. o.): Unerfahrene zuerst an die HW
+          if(reserveExpAtHW){
+            const ae = effLevel(a) === 'E' ? 1 : 0, be = effLevel(b) === 'E' ? 1 : 0;
+            if(ae !== be) return ae - be;
+          }
+          return (ensure(a.id).total - ensure(b.id).total) ||
+                 ((ensure(a.id).hwVisits||0) - (ensure(b.id).hwVisits||0)); // weniger HW → bevorzugt
+        });
         const P = cand[0]; if(!P) break;
         removeAll(P); commitPerson(P, mainPseudo); mainGuards.push(P);
       }

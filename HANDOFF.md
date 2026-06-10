@@ -10,9 +10,12 @@
 > **Pflege:** Diese Datei nach jeder Aufgabe auf den aktuellen Stand bringen (Abschnitt 4/5);
 > Doku-Wartungsvertrag s. CLAUDE.md.
 
-**Stand:** VERSION **0.4.21**, Branch `main`.
-**Letzte Aufgabe:** Doku-Restrukturierung (CLAUDE.md verschlankt, Feature-Historie nach
-docs/FEATURES.md ausgelagert) — davor: Review aller offenen PRs + Fairness-Bugfixes #251/#253 gemergt.
+**Stand:** VERSION **0.4.23**, Branch `claude/happy-wozniak-d6la3r` (PR offen).
+**Letzte Aufgabe:** Fairness-Optimierung im Kern-Algorithmus (`generate.js`) –
+**Experience-Reservierung**: Erfahrene werden nicht mehr an der HW „verbraucht", wenn ein
+Turm sonst ohne Erfahrenen bliebe. Türme ohne Erfahrenen 36→0 (6 T.) / 92→0 (14 T.),
+Turm-Wiederholungen 38→16 (6 T.). Neue Invariante `checkExperienceNotWastedAtHW`
+(test/invariants.test.js, 23/23 grün). Details s. docs/FEATURES.md.
 
 ---
 
