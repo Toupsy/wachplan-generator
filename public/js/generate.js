@@ -129,8 +129,10 @@ function generate(startDay = 0){
   }
 
   for(let d = startDay; d < DAYS; d++){
-    const ds     = dayState[d] || { sick: new Set(), closed: new Set(), closedBoats: new Set() };
-    const isSick = id => ds.sick.has(id);
+    const ds       = dayState[d] || { sick: new Set(), absent: new Set(), closed: new Set(), closedBoats: new Set() };
+    const isAbsent = id => (ds.absent || new Set()).has(id);
+    // "außer Dienst" (HW-Anzeige) gilt nur für nicht komplett abwesende Personen.
+    const isSick   = id => ds.sick.has(id) && !isAbsent(id);
 
     // Türme mit aktivem Boot / außer-Dienst-Boot für DIESEN Tag vorberechnen
     const activeBoatTowers = new Set();
@@ -145,7 +147,7 @@ function generate(startDay = 0){
     // ── Zwangszuweisungen für diesen Tag vorbereiten ──────────────
     const dayForced = (forcedPlacements[d] || []).filter(f => {
       const p = people.find(x => x.id === f.personId);
-      return p && !isSick(p.id);
+      return p && !isSick(p.id) && !isAbsent(p.id);
     });
 
     // transparent=true → Person bleibt im Pool; wird erst NACH dem Algorithmus
@@ -162,7 +164,8 @@ function generate(startDay = 0){
     // Verfügbare Personen OHNE effektiv-zwangsweise zugewiesene
     const byRole = {};
     people.forEach(p => {
-      if(isSick(p.id) || isForced(p)) return;
+      // Komplett abwesende Personen werden gar nicht eingeplant (auch nicht an der HW).
+      if(isAbsent(p.id) || isSick(p.id) || isForced(p)) return;
       (byRole[p.role] || (byRole[p.role] = [])).push(p);
     });
     // availE/availU werden aus den Wachgängern (role 'W') über das experienced-Flag
@@ -842,6 +845,7 @@ function generate(startDay = 0){
       day:d, assign:dayAssign, openTowers, personnelClosed, manualClosed,
       boatsNoBootsf, boatsClosedTower, boatsManualClosed,
       availB, sickCount:sickToday.length,
+      absentCount: people.filter(p => isAbsent(p.id)).length,
     });
   }
 

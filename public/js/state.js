@@ -46,7 +46,9 @@ let serviceStartHour = 9;   // Default 09:00
 let serviceEndHour   = 17;  // Default 17:00
 
 // Pro-Tag-Status
-let dayState = [];   // Array[DAYS] von { sick:Set, closed:Set, closedBoats:Set }
+let dayState = [];   // Array[DAYS] von { sick:Set, absent:Set, closed:Set, closedBoats:Set }
+                     // sick   = außer Dienst → wird an der HW geführt (zählt im Plan/Export)
+                     // absent = komplett abwesend → NICHT eingeplant, nicht im XLSX/Druck sichtbar
 
 // Manuelle Zwangszuweisungen (Feature 3 & 4)
 // forcedPlacements[day] = [{ personId, kind:'tower'|'boat'|'main', slotId }]
@@ -78,6 +80,7 @@ let startDate  = '';
 function freshDayState(){
   return Array.from({ length: DAYS }, () => ({
     sick:        new Set(),
+    absent:      new Set(),
     closed:      new Set(),
     closedBoats: new Set(),
   }));

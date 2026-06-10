@@ -10,11 +10,12 @@
 > **Pflege:** Diese Datei nach jeder Aufgabe auf den aktuellen Stand bringen (Abschnitt 4/5);
 > Doku-Wartungsvertrag s. CLAUDE.md.
 
-**Stand:** VERSION **0.5.1**, Branch `feature/bf-hw-wunsch` (PR gegen `main`).
+**Stand:** VERSION **0.5.1**, Branch `claude/kind-goldberg-pnuolt` (PR #263 gegen `main`).
 **Letzte Aufgaben:**
-- Feature 25 **Hauptstrand-Türme** (auf `main`): Türme als „🏖️ Hauptstrand" markierbar (`towers[].mainBeach`); `beachBalancePenalty` in `generate.js` hält `outerBeachDays`/`mainBeachDays` im Gleichgewicht (Strafe `overhang*60`). UI-Toggle + Output-Badge.
-- Feature 26 **Bootsführer mit HW-Wunsch** (dieser Branch): Haken „🏠 HW-Wunsch" pro BF (`people[].wantsHW`). Bei BF-Überzahl bekommt jeder Wunsch-BF ≥1 aktiven HW-Dienst: neue Stat `hwGuardDays`, `hwWishBonus` (eskalierend 600→6000→100000) in `bestPair` (HW-Zweig) + HW-Einzelbefüllung, plus `availB`-Sort-Sicherheitsnetz. UI-Checkbox in `render-sidebar.js`. Neue Invariante in
-`test/invariants.test.js` (25/25 grün). Details s. docs/FEATURES.md.
+- Feature 25 **Hauptstrand-Türme** (auf `main`, PR #262): Türme als „🏖️ Hauptstrand" markierbar (`towers[].mainBeach`); `beachBalancePenalty` in `generate.js` hält `outerBeachDays`/`mainBeachDays` im Gleichgewicht (Strafe `overhang*60`). UI-Toggle + Output-Badge.
+- Feature 26 **Bootsführer mit HW-Wunsch** (auf `main`, PR #264): Haken „🏠 HW-Wunsch" pro BF (`people[].wantsHW`). Bei BF-Überzahl bekommt jeder Wunsch-BF ≥1 aktiven HW-Dienst: neue Stat `hwGuardDays`, `hwWishBonus` (eskalierend 600→6000→100000) in `bestPair` (HW-Zweig) + HW-Einzelbefüllung, plus `availB`-Sort-Sicherheitsnetz. UI-Checkbox in `render-sidebar.js`. Neue Invariante (25/25 grün). Details s. docs/FEATURES.md.
+- Feature 27 **Komplett-Abwesenheit** (dieser Branch, PR #263): Neben „außer Dienst" (`sick`, weiter an der HW geführt) gibt es jetzt pro Tag `dayState[d].absent`: komplett abwesende Personen werden gar nicht eingeplant, zählen nicht in der Statistik und erscheinen weder im XLSX-Export noch im Druck. UI: eigene Sektion „👋 Komplett abwesend" (exklusiv zu „außer Dienst"). `STATE_VERSION 6→7`. Neue Invariante `checkAbsentNotAssigned` + Szenario 4b + Fuzz; `npm test` 14/14 grün. Details s. docs/FEATURES.md.
+- **Einklappbare Tages-Steuerung** (dieser Branch): alle Status-Sektionen sind jetzt `<details>`-Sektionen (`dcSection()`-Helper), standardmäßig zugeklappt mit Count-Badge, Zustand überdauert Re-Renders (`dcSectionOpen`).
 
 ---
 
@@ -39,14 +40,14 @@ Multi-User mit **AES-256-GCM at rest**, Sessions, Sharing, Realtime (WebSocket),
 ## 3. Architektur-Fallen (Kurzform – Details in CLAUDE.md „Konventionen & Fallen")
 - Neue DB-Spalten brauchen **idempotente `ALTER TABLE`** in `db/init.js` (schema.sql greift nicht auf Bestands-DBs).
 - **CSP** divergiert public vs. admin (public braucht `cdnjs` für JSZip) → beim Zentralisieren erhalten, sonst bricht XLSX-Export.
-- Neue State-Felder an 3 Stellen pflegen (state.js / `_buildStateObject` / `importStateJSON`), ggf. `STATE_VERSION` (akt. 6).
+- Neue State-Felder an 3 Stellen pflegen (state.js / `_buildStateObject` / `importStateJSON`), ggf. `STATE_VERSION` (akt. 7).
 - Lokale Datumsarithmetik, nie `toISOString()` (UTC-Off-by-one).
 
 ---
 
 ## 4. Aktueller PR-Review-Stand
-13 offene PRs gegen veralteten `main` abgezweigt → fast alle haben VERSION/CLAUDE.md-Konflikte
-+ „Feature 20"-Nummernkollision (`main` hat bereits Features bis **24**).
+PRs gegen veralteten `main` abgezweigt → fast alle haben VERSION/CLAUDE.md-Konflikte.
+`main` hat bereits Features bis **26** (nächste frei: **27**).
 
 ### ✅ Gemergt
 - **#242** Plan-Retention/Cleanup → Feature 23 (Fixes beim Merge: `ALTER TABLE`-Migration, `module.exports`-Konflikt, Audit-Logging).

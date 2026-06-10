@@ -37,6 +37,7 @@ function autoCodes(){
 function freshDayState(){
   return Array.from({ length: DAYS }, () => ({
     sick:        new Set(),
+    absent:      new Set(),
     closed:      new Set(),
     closedBoats: new Set(),
   }));

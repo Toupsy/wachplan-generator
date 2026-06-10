@@ -154,12 +154,25 @@
   .date-pick input{background:var(--navy-2);border:1px solid rgba(255,179,71,.35);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.82rem;padding:6px 9px;color-scheme:dark}
   .dc-section{margin-top:12px}
   .dc-section .lbl{font-size:.72rem;color:var(--foam);font-family:'Spline Sans Mono',monospace;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px}
+  /* Einklappbare Sektionen (<details>/<summary>) */
+  details.dc-section{margin-top:8px;border:1px solid var(--line);border-radius:8px;background:var(--navy-2);padding:8px 12px}
+  details.dc-section[open]{padding-bottom:12px}
+  .dc-summary{display:flex;align-items:center;gap:8px;cursor:pointer;list-style:none;user-select:none}
+  .dc-summary::-webkit-details-marker{display:none}
+  .dc-summary::before{content:'▸';color:var(--text-dim);font-size:.7rem;transition:transform .15s;flex:0 0 auto}
+  details.dc-section[open] .dc-summary::before{transform:rotate(90deg)}
+  .dc-summary .lbl{margin-bottom:0}
+  .dc-count{margin-left:auto;background:var(--deep);border:1px solid var(--line-strong);border-radius:10px;padding:1px 8px;font-size:.68rem;color:var(--foam);font-family:'Spline Sans Mono',monospace}
+  details.dc-section[open] .toggle-grid{margin-top:10px}
   .toggle-grid{display:flex;flex-wrap:wrap;gap:6px}
   .toggle-chip{display:inline-flex;align-items:center;gap:6px;background:var(--navy-2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:.78rem;transition:all .15s;user-select:none}
   .toggle-chip:hover{border-color:var(--line-strong)}
   .toggle-chip .role-dot{width:8px;height:8px;border-radius:50%}
   .toggle-chip.sick{background:rgba(216,57,44,.13);border-color:var(--coral-deep)}
   .toggle-chip.sick .nm{text-decoration:line-through;color:var(--text-dim)}
+  .toggle-chip.absent{background:rgba(150,150,150,.16);border-color:var(--line-strong)}
+  .toggle-chip.absent .nm{text-decoration:line-through;color:var(--text-dim)}
+  .toggle-chip.absent .x{color:var(--text-dim)}
   .toggle-chip.closed-t{background:rgba(216,57,44,.13);border-color:var(--coral-deep)}
   .toggle-chip .x{font-family:'Spline Sans Mono',monospace;font-size:.6rem;color:var(--coral)}
   .towers-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
