@@ -77,7 +77,7 @@ jobs:
           track_progress: true
 
           claude_args: |
-            --model "claude-sonet-4-6"
+            --model "claude-sonnet-4-6"
             --max-turns 100
             --allowedTools "Bash(git:*),Bash(gh issue:*),Bash(gh pr:*),Bash(gh repo:*),Bash(npm:*),Bash(npx:*),Edit,Write,Read,Glob,Grep,LS,WebSearch,WebFetch"
           # Optional: Add claude_args to customize behavior and configuration

@@ -86,12 +86,12 @@ Modals `#login-modal`/`#move-modal`/`#share-modal`/`#plans-modal` …) sind eind
 
 ## Globaler Zustand (state.js)
 ```js
-people[]    // { id, name, role:'F'|'B'|'W', experienced:bool } (experienced gilt für B & W; bei F egal)
-towers[]    // { id, name, prio, code, slotCount(1–10,Def2), leaderCount(0–3,Def0) }
+people[]    // { id, name, role:'F'|'B'|'W', experienced:bool, wantsHW:bool } (experienced gilt für B & W; wantsHW nur für B: ≥1 aktiver HW-Dienst bei BF-Überzahl)
+towers[]    // { id, name, prio, code, slotCount(1–10,Def2), leaderCount(0–3,Def0), mainBeach(bool,Def false) }
 boats[]     // { id, name, code, towerId:number|'HW'|null, prio, slotCount(1–3,Def1) }
 dayState[]      // Array[DAYS]: { sick:Set, absent:Set, closed:Set, closedBoats:Set }
                 //   sick   = außer Dienst → wird an der HW geführt (zählt im Plan/Export)
-                //   absent = komplett abwesend → NICHT eingeplant, nicht im XLSX/Druck (Feature 25)
+                //   absent = komplett abwesend → NICHT eingeplant, nicht im XLSX/Druck (Feature 27)
 forcedPlacements[] // Array[DAYS]: [{ personId, kind, slotId, transparent:bool }]
 positionDescriptions   // { 3..7 } → XLSX C11,C13,C15,C17,C19
 fairnessMetricsDisplay // { hwBoatBalance, towerDistribution, boatPairingDiversity }
@@ -104,7 +104,9 @@ serviceStartHour/EndHour // Def 9/17, clamp 8–19
 **Helfer:** `effLevel(p)` (F→'E', B/W via experienced→'E'/'U'), `roleDot(p)`, `roleLabel(p)`.
 
 `lastResult.stats[personId]` (über alle Tage akkumuliert): `{ total, towerVisits{tId→n},
-boatVisits{bId→n}, hwVisits, towerWithBoatDays, boatCaptainPairings{capId→n} }`.
+boatVisits{bId→n}, hwVisits, towerWithBoatDays, boatCaptainPairings{capId→n},
+mainBeachDays, outerBeachDays, hwGuardDays }`.
+(`hwGuardDays` = aktive HW-Dienste, für BF-HW-Wunsch; `mainBeachDays`/`outerBeachDays` für Strandausgleich).
 **Wichtig:** HW-Overflow (`main.base`) erhöht `total` NICHT (nur aktive Dienste zählen) →
 „nur an HW gesessen" gilt als unterbeschäftigt → Folgetage bevorzugt aktiv eingeplant.
 
@@ -130,13 +132,24 @@ Läuft **sequenziell** über alle Tage; akkumulierte `stats` übertragen sich au
 +200×  konsekutive Tage gleicher Turm (Feature 8)       +150 beide viele Boot-Tage
 -60×   hwVisits (Bonus für Turm)  / +60× an HW-k-Slots  -100 F wenn Tower leaderCount>0
 +5000  E an HW wenn reserveExpAtHW (Experience-Reservierung, s. u.)
++60×   Außen-/Hauptstrand-Überhang (Feature 25, nur wenn beide Turm-Sorten existieren)
 + Tiebreaker (deterministisch bzw. seededRand() für Tag 1)
 ```
+**Hauptstrand-Türme (Feature 25):** Türme mit `mainBeach:true` bilden den „Hauptstrand".
+`beachBalancePenalty` hält pro Person `outerBeachDays`/`mainBeachDays` im Gleichgewicht
+(Strafe `overhang*60`), nur aktiv wenn Hauptstrand- UND Außentürme existieren → niemand
+sitzt mehrere Tage in Folge nur auf Außentürmen.
 **Experience-Reservierung (v0.4.24):** Vor der HW-Befüllung wird `reserveExpAtHW =
 availE.length ≤ expDemand` gesetzt (`expDemand` = offene Türme ohne Leader-Deckung). Ist es
 `true`, dürfen Erfahrene nicht an der HW „verbraucht" werden (+5000 in `bestPair`, U-zuerst in
 der HW-Einzelbefüllung) und zwei Erfahrene werden nicht gepaart (EE-Penalty 1500) → jeder Turm
 bekommt einen Erfahrenen, überzählige Unerfahrene gehen an die HW (bis zu 3 sind gewollt).
+
+**BF-HW-Wunsch (Feature 26):** BF mit `wantsHW:true` sollen bei BF-Überzahl ≥1 aktiven
+HW-Dienst (`mainGuards`) bekommen. `hwWishBonus` gibt noch unerfüllten Wünschen einen zum
+Wochenende eskalierenden HW-Bonus (600→6000→100000), eingebaut in `bestPair` (HW-Zweig) +
+HW-Einzelbefüllung. Sicherheitsnetz im `availB`-Sort drückt unerfüllte Wunsch-BF bei echter
+Überzahl in den letzten 2 Tagen in die surplus-Hälfte. `hwGuardDays==0` = noch offen.
 
 **Zwangszuweisungen (forcedPlacements):** `transparent:false` → Person aus Pool, fest
 vorab platziert, zählt in Statistik (Folgetage berücksichtigen Wechsel). `transparent:true`

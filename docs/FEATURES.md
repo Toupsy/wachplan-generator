@@ -112,7 +112,41 @@ v0.4.17.
 Rechtsgrundlagen, Speicherdauer, Betroffenenrechte (Art. 15–21), Sicherheit, Cookies,
 Art. 22, Kontakt/Beschwerde. URL `/datenschutz.html`, verlinkt aus Register-View. v0.4.18.
 
-### Feature 25: Komplett-Abwesenheit (zusätzlich zu „außer Dienst")
+### Feature 25: Hauptstrand-Türme (fairer Hauptstrand-/Außen-Ausgleich)
+Türme lassen sich per Checkbox „🏖️ Hauptstrand" (`towers[].mainBeach`) markieren. Praxis-
+Feedback: Wachgänger sitzen sonst mehrere Tage in Folge auf Außentürmen. Der Algorithmus
+hält pro Person das Verhältnis Hauptstrand- ↔ Außentürme im Gleichgewicht.
+- Neue Stats `mainBeachDays` / `outerBeachDays` (in `ensure()`, `commitPerson()`,
+  `_reAccumulateDayStats()`).
+- `beachBalancePenalty(candidate, tower)` in `generate.js`: symmetrische Strafe
+  `overhang * 60` (Außenturm → bestraft, wer schon viel außen war; Hauptstrandturm
+  umgekehrt). Eingebaut in `bestPair` (Turm-Zweig) und die Turm-Einzelbefüllung.
+- Nur aktiv, wenn BEIDE Turm-Sorten existieren (`beachBalanceActive`).
+- UI: Toggle in der Turmzeile (`render-sidebar.js`), Badge „🏖️" auf der Turmkarte
+  (`render-output.js`). Persistenz in `state-io.js` + `config.js`.
+- Effekt (Messung, 7 Türme/3 Hauptstrand): avg|Überhang| 6 T. ~4.9→~0.9, 14 T. ~11.5→~1.7,
+  ohne Verschlechterung von Turm-/Partner-Wiederholung oder Experience-Abdeckung.
+- Test: `test/invariants.test.js` „Hauptstrand-Türme: fairer Ausgleich …".
+
+### Feature 26: Bootsführer mit HW-Wunsch
+Pro Bootsführer aktivierbarer Haken „🏠 HW-Wunsch" (`people[].wantsHW`). Praxis: Bei
+BF-Überzahl (mehr Bootsführer als Boote) möchten einige BF in der Woche mindestens **einmal
+aktiven Hauptwache-Dienst** leisten. „Erfüllt" = echter `mainGuards`-Slot; reines Sitzen im
+HW-Overflow zählt nicht.
+- Neue Stat `hwGuardDays` = Anzahl aktiver HW-Dienste (`ensure()`, `commitPerson(MAIN)`,
+  `_reAccumulateDayStats()`).
+- `hwWishBonus(candidate)`: eskalierender Bonus für noch offene Wünsche (Restwoche
+  `daysLeft<=1 → 100000`, `<=2 → 6000`, sonst `600`), eingebaut in `bestPair` (HW-Zweig) und
+  die HW-Einzelbefüllung. Nur überzählige BF stehen im HW-Guard-Pool → automatisches Gating.
+- Sicherheitsnetz im `availB`-Sort: bei echter BF-Überzahl UND `daysLeft<=2` werden noch
+  unerfüllte Wunsch-BF in die surplus-Hälfte gedrückt (damit überhaupt HW-fähig). Nur bei
+  Überzahl, sonst bliebe ein Boot unbesetzt.
+- UI: Checkbox in der Personenzeile (nur Rolle B), `render-sidebar.js`. Persistenz in
+  `state-io.js` (Default false für Altpläne).
+- Test: `test/invariants.test.js` „BF-HW-Wunsch: … ≥1 aktiven HW-Dienst" (inkl. Edge:
+  kein Surplus → nicht erzwungen, kein Boot bleibt leer).
+
+### Feature 27: Komplett-Abwesenheit (zusätzlich zu „außer Dienst")
 Bislang wurden Personen mit „außer Dienst" (`dayState[d].sick`) immer an der Hauptwache
 geführt (durchgestrichen, im XLSX/Druck sichtbar). Neu: pro Tag lässt sich eine Person als
 **komplett abwesend** (`dayState[d].absent`) markieren – sie wird **gar nicht** eingeplant,
