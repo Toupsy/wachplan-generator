@@ -253,6 +253,12 @@
   .move-btn{background:transparent;border:none;color:var(--text-dim);cursor:pointer;font-size:.8rem;padding:2px 5px;border-radius:4px;transition:all .15s;opacity:0;line-height:1}
   .occupant:hover .move-btn{opacity:1}
   .move-btn:hover{color:var(--sea-bright);background:rgba(24,168,216,.12)}
+  .move-btn:focus-visible{opacity:1;outline:2px solid var(--sea-bright);outline-offset:1px}
+  /* Touch-Geräte (Handy/Tablet): kein hover → Button dauerhaft sichtbar + größeres Touch-Target */
+  @media (hover: none), (pointer: coarse){
+    .move-btn{opacity:1;padding:8px 10px;font-size:1rem}
+    .occupant{padding:10px 0}
+  }
   .forced-badge{font-size:.65rem;opacity:.8;cursor:default;flex-shrink:0}
   .person-labels{display:inline-flex;gap:6px;flex-wrap:wrap}
   .label-tag{font-size:.65rem;background:rgba(34,197,94,.15);color:var(--green);padding:2px 8px;border-radius:3px;white-space:nowrap;border:1px solid rgba(34,197,94,.3);font-weight:500}
@@ -715,7 +721,7 @@
       <div id="version-badge" class="badge" style="background:rgba(127,212,232,.08);color:var(--text-dim);cursor:help;font-size:.75rem" title="Aktuelle Version auf dem Server">v <span id="version-text">--</span></div>
     </div>
     <h1>Wachplan<span class="accent">·</span>Generator</h1>
-    <p class="subtitle">Tagesweiser Aufbau über mehrere Tage. Faire Rotation durch akkumulierte Statistik – jede Person und jeder Tag hat eigenen außer Dienst.- und Schließstatus. Personen lassen sich per ↕ manuell auf andere Positionen verschieben.</p>
+    <p class="subtitle">Tagesweiser Aufbau über mehrere Tage. Faire Rotation durch akkumulierte Statistik. Jeder Wachgänger und Turm hat einen eigenen außer Dienst und Schließstatus. Personen lassen sich per ↕ manuell auf andere Positionen verschieben.</p>
   </header>
 
   <!-- Main Panels: Sidebar / Output (Grid Layout) -->
