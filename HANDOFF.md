@@ -10,12 +10,32 @@
 > **Pflege:** Diese Datei nach jeder Aufgabe auf den aktuellen Stand bringen (Abschnitt 4/5);
 > Doku-Wartungsvertrag s. CLAUDE.md.
 
-**Stand:** VERSION **0.5.1**, Branch `claude/kind-goldberg-pnuolt` (PR #263 gegen `main`).
-**Letzte Aufgaben:**
-- Feature 25 **Hauptstrand-Türme** (auf `main`, PR #262): Türme als „🏖️ Hauptstrand" markierbar (`towers[].mainBeach`); `beachBalancePenalty` in `generate.js` hält `outerBeachDays`/`mainBeachDays` im Gleichgewicht (Strafe `overhang*60`). UI-Toggle + Output-Badge.
-- Feature 26 **Bootsführer mit HW-Wunsch** (auf `main`, PR #264): Haken „🏠 HW-Wunsch" pro BF (`people[].wantsHW`). Bei BF-Überzahl bekommt jeder Wunsch-BF ≥1 aktiven HW-Dienst: neue Stat `hwGuardDays`, `hwWishBonus` (eskalierend 600→6000→100000) in `bestPair` (HW-Zweig) + HW-Einzelbefüllung, plus `availB`-Sort-Sicherheitsnetz. UI-Checkbox in `render-sidebar.js`. Neue Invariante (25/25 grün). Details s. docs/FEATURES.md.
-- Feature 27 **Komplett-Abwesenheit** (dieser Branch, PR #263): Neben „außer Dienst" (`sick`, weiter an der HW geführt) gibt es jetzt pro Tag `dayState[d].absent`: komplett abwesende Personen werden gar nicht eingeplant, zählen nicht in der Statistik und erscheinen weder im XLSX-Export noch im Druck. UI: eigene Sektion „👋 Komplett abwesend" (exklusiv zu „außer Dienst"). `STATE_VERSION 6→7`. Neue Invariante `checkAbsentNotAssigned` + Szenario 4b + Fuzz; `npm test` 14/14 grün. Details s. docs/FEATURES.md.
-- **Einklappbare Tages-Steuerung** (dieser Branch): alle Status-Sektionen sind jetzt `<details>`-Sektionen (`dcSection()`-Helper), standardmäßig zugeklappt mit Count-Badge, Zustand überdauert Re-Renders (`dcSectionOpen`).
+**Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
+`main` ist nach dem Review-Lauf vom 2026-06-10 sauber: **34/34 Tests grün**, alle Server
+parsen (`node -c`). **Keine offenen PRs.**
+
+**Letzter Lauf (2026-06-10, Maintainer-Review):**
+- **PR #231 gemergt** → Feature 28 **Fairness-Visualisierung** (SVG-Balkendiagramme: Einsätze/
+  Person, HW-Tage/Person, Turmauslastung; rein CSS/SVG, CSP-konform, im Druck aus,
+  `fairnessChartsDisplay`). War gegen veralteten `main` → Konflikte (VERSION/CLAUDE.md) gelöst,
+  Doku korrekt nach docs/FEATURES.md verschoben. Schließt #225.
+- **#154 DSGVO** (Audit-Log-Ansicht, PR #266 gemergt): Backend-Logging (Feature 21) hatte keine
+  Admin-Ansicht → read-only Tabelle + Filter in `public/admin.html` (`loadAuditLog()`).
+- **#181/#194** (PR #267): Mobile-`.move-btn` via `@media(hover:none)` sichtbar; Header-Subtitle
+  ausgeschrieben.
+- **#215** (PR #268): XLSX-Export warnt jetzt (`confirm()`) bei Truncation >16 Template-Spalten
+  statt stillem Datenverlust (`_patchSheetXml` → `{xml, truncated}`).
+- **#213** (PR #269): **CI-Workflow** `.github/workflows/test.yml` (`npm ci` + `npm test`,
+  Node 20, push/PR). GDPR-Art.-17-Löschung ist über `session-user-deletion.test.js` Teil der
+  Suite. Das alte Standalone-Skript `test/gdpr-deletion-verification.js` ist kaputt (fehlende
+  `sessions`-Tabelle) → bewusst nicht in CI; Aufräumen offen (s. ToDos).
+- **#218 Security** (PR #270): `POST/PUT /api/plans` begrenzen `name` (≤200 → 400) und
+  State-Größe (≤1 MB → 413); neuer gemeinsamer Helfer `server/db/ids.js` (`parsePositiveInt`)
+  ersetzt nacktes `parseInt(req.params.id)` in `admin.js`.
+
+**Issues geschlossen (bereits in `main` gelöst):** #232 (seedFromConfig), #247 (HW2-Dropdown),
+#153 (Plan-Retention/Feature 23), #155 (Datenschutz/Feature 24), #206 + #235 (Merke-mich/
+Feature 20; #235 als Duplikat von #206). #225 via PR-Merge (released).
 
 ---
 
@@ -26,7 +46,7 @@ offizielles **DLRG-XLSX-Formular** (XML-Patch via JSZip) + CSV. Backend: Express
 Multi-User mit **AES-256-GCM at rest**, Sessions, Sharing, Realtime (WebSocket), Admin-Panel.
 
 - Frontend: `public/Wachplan-Generator.html` · Backend: `npm start` → `server/server.js` (:3000), Admin :3001
-- Tests: `npm test` · **Kern-Algorithmus: `public/js/generate.js`**
+- Tests: `npm test` (jetzt auch in CI) · **Kern-Algorithmus: `public/js/generate.js`**
 - Vollständige Datei-/Modul-Übersicht → CLAUDE.md „Codebase-Map".
 
 ## 2. Test- & Umgebungs-Hinweise
@@ -34,54 +54,40 @@ Multi-User mit **AES-256-GCM at rest**, Sessions, Sharing, Realtime (WebSocket),
   `test/session-user-deletion.test.js` (kein echter Test-Fehler).
 - Dieser Test ist **gelegentlich flaky** (`Unable to deserialize cloned data …`, IPC) →
   Suite erneut laufen lassen; grün = alle.
-- Algorithmus-Invarianten (Checks über 9 Szenarien + 100 Fuzz) sind die eigentliche
-  Absicherung. **Backend kaum automatisiert** → bei Server-Änderungen mind. `node -c` + manuell.
+- **CI:** `.github/workflows/test.yml` läuft bei push/PR (Node 20). Roter Test blockt Merge.
+- Algorithmus-Invarianten (9 Szenarien + 100 Fuzz) sind die eigentliche Absicherung.
+  **Backend kaum automatisiert** → bei Server-Änderungen mind. `node -c` + manuell.
 
 ## 3. Architektur-Fallen (Kurzform – Details in CLAUDE.md „Konventionen & Fallen")
 - Neue DB-Spalten brauchen **idempotente `ALTER TABLE`** in `db/init.js` (schema.sql greift nicht auf Bestands-DBs).
-- **CSP** divergiert public vs. admin (public braucht `cdnjs` für JSZip) → beim Zentralisieren erhalten, sonst bricht XLSX-Export.
+- **CSP** divergiert public vs. admin (public braucht `cdnjs` für JSZip) → beim Zentralisieren erhalten, sonst bricht XLSX-Export. (Relevanter Blocker für #217, s. u.)
 - Neue State-Felder an 3 Stellen pflegen (state.js / `_buildStateObject` / `importStateJSON`), ggf. `STATE_VERSION` (akt. 7).
 - Lokale Datumsarithmetik, nie `toISOString()` (UTC-Off-by-one).
 
 ---
 
-## 4. Aktueller PR-Review-Stand
-PRs gegen veralteten `main` abgezweigt → fast alle haben VERSION/CLAUDE.md-Konflikte.
-`main` hat bereits Features bis **26** (nächste frei: **27**).
+## 4. Offene Issues (Stand nach Review-Lauf)
 
-### ✅ Gemergt
-- **#242** Plan-Retention/Cleanup → Feature 23 (Fixes beim Merge: `ALTER TABLE`-Migration, `module.exports`-Konflikt, Audit-Logging).
-- **#241** ausführliche `datenschutz.html` → Feature 24 (add/add-Konflikt, lange Version übernommen).
-- **#250** entfernt WF2+HW2 aus Export-Dropdown-Vorschlägen (Issue #249).
-- **#252** (Issue #251) `effLevel('F')→'E'`, Führungskräfte zählen als erfahren. v0.4.20.
-- **#254** (Issue #253) Fairness: lineare Turm-Penalty `v*200`, Fairness ×10, HW-UU 300, Boot-Rotation.
-  Nachgebessert: Partner-Penalty ×120→×250 (sonst Paar-Wdh. 21→42). Endstand: Turm-Wiederholer
-  267→188, Paar-Wdh. 21→14. v0.4.21. Messskript-Vorlage: `/tmp/measure.js` (nutzt `test/harness.js`).
-
-### 🚫 Geschlossen
-- **#248** (nur HW2) – superseded durch #250.
-
-### 🔧 Änderungen angefordert
-- **#228** Backend-DRY-Refactor. **Blocker:** zentrale `middleware/security.js` setzt
-  `script-src 'self'` → **XLSX-Export bricht** (cdnjs blockiert). Lösung: Middleware als Factory
-  mit `scriptSrc`-Param. Zusätzlich `saveUninitialized:false` (WS-Auth prüfen), Rebase nötig.
-
-### 📋 Feature-Vorschläge – kommentiert, NICHT gemergt (Maintainer entscheidet)
-| PR | Feature | Anmerkung |
+**Feature-Wünsche (vom Owner gefiltert, @claude) – Proposal-PRs wurden geschlossen, Implementierung offen:**
+| Issue | Feature | Anmerkung |
 |---|---|---|
-| #231 | Fairness-Balkendiagramme (SVG) | Sauber, CSP-konform; nur Nummerierung/Rebase |
-| #230 | Plan duplizieren | Sauber; `escapeHtml` doppelt mit `textContent` |
-| #229 | Bulk-Import Personenliste | Delimiter-Heuristik; kein `generate()` nach Import |
-| #227 | Mehrtägige Abwesenheiten (`absentDays`) | Saubere Algo-Integration; UI nur 1 Bereich/Person |
-| #226 | Persönlicher ICS-Export | Scope-Creep; DTSTART besser `;TZID=`; Boot-Erfassung prüfen |
+| #223 | Plan duplizieren („Als Vorlage verwenden") | reiner Frontend-Flow über `_buildStateObject()` + `POST /api/plans` |
+| #222 | Persönlicher ICS-Export pro Wachgänger | Zeiten via `serviceStartHour/EndHour`, strikt lokal (kein UTC-Shift); Scope im Blick behalten |
+| #221 | Mehrtägige Abwesenheiten (von–bis) pro Person | **nicht** durch Feature 27 abgedeckt (das ist tageweise `absent`). Hier: Bereichserfassung + Ableitung beim `generate()` |
+| #220 | Wachgänger-Bulk-Import (CSV/Text) | robustes Parsing, `escapeHtml`, `generate()`/Autosave nach Import |
 
----
+**Refactor:**
+| Issue | Thema | Anmerkung |
+|---|---|---|
+| #217 | Backend-DRY (Security-Header/Body-Parser zusammenführen, `saveUninitialized:false`) | **Blocker beachten:** zentrale Header-Middleware darf `script-src` NICHT auf `'self'` zwingen (public-Server braucht `cdnjs` für JSZip) → als Factory mit `scriptSrc`-Param bauen. Vormals PR #228 (geschlossen). |
 
 ## 5. Offene ToDos
-1. **#228 nachverfolgen:** nach CSP-Factory + Rebase erneut prüfen und mergen.
-2. **Feature-PRs #226/#227/#229/#230/#231:** mergebar, brauchen Rebase + eindeutige Feature-Nr.
-   (nächste frei: **25**) + VERSION-Bump. Reihenfolge koordinieren (CLAUDE.md/VERSION-Konflikte).
-3. **Fairness:** Penalty-Gewichte in `bestPair` (Turm `*200`, Paar `*250`, Fairness `*10`)
-   empirisch getunt → bei Änderungen gegen Turm-/Paar-Wiederholung messen, nicht nur Invarianten.
-4. **Inline-Styles in `admin.html`** refactoren für strikte CSP (`style-src 'self'`).
+1. **Feature-PRs #220–#223:** mergebar machbar; pro Issue Branch + PR. #221 sauber vom
+   tageweisen `absent` (Feature 27) abgrenzen.
+2. **#217 Backend-DRY:** CSP-Factory-Ansatz (s. o.), sonst bricht XLSX-Export.
+3. **`test/gdpr-deletion-verification.js`** ist veraltet/kaputt (fehlende `sessions`-Tabelle im
+   eingebetteten Schema) → entweder reparieren (sessions anlegen) oder löschen; die Löschung
+   ist bereits über `session-user-deletion.test.js` in CI abgedeckt.
+4. **Fairness:** Penalty-Gewichte in `bestPair` empirisch getunt → bei Änderungen gegen
+   Turm-/Paar-Wiederholung messen (`/tmp/measure.js`-Muster), nicht nur Invarianten.
 5. **Branch-Workflow:** nie direkt auf `main`; PRs nur auf ausdrücklichen Wunsch.
