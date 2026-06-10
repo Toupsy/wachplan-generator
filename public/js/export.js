@@ -331,18 +331,19 @@ function _patchSheetXml(xml, dayIdx){
   const A = buildAssignments(dayIdx);
   const effectiveCols = [];   // { col:number, code:string, nums:[nr,...] }
   let tplIdx = 0;
+  let truncated = false;      // true, sobald Stationen/Personen mangels Template-Spalten wegfallen
 
   for(const rawCode of exportColumns){
     const code = (rawCode || '').trim();
     if(!code) continue;
-    if(tplIdx >= TEMPLATE_STATION_COLS.length) break;
+    if(tplIdx >= TEMPLATE_STATION_COLS.length){ truncated = true; break; }
 
     const nums = A[code] || [];
     effectiveCols.push({ col: TEMPLATE_STATION_COLS[tplIdx++], code, nums: nums.slice(0, 2) });
 
     // Overflow-Spalten direkt nebeneinander (Person 3, 4, 5 … in Paaren)
     for(let i = 2; i < nums.length; i += 2){
-      if(tplIdx >= TEMPLATE_STATION_COLS.length) break;
+      if(tplIdx >= TEMPLATE_STATION_COLS.length){ truncated = true; break; }
       effectiveCols.push({ col: TEMPLATE_STATION_COLS[tplIdx++], code, nums: nums.slice(i, i + 2) });
     }
   }
@@ -364,7 +365,7 @@ function _patchSheetXml(xml, dayIdx){
       .map(p => personNr(p.id)).filter(n => n != null);
     const overflowHW = allHWNrs.slice(4);
     for(let i = 0; i < overflowHW.length; i += 2){
-      if(tplIdx >= TEMPLATE_STATION_COLS.length) break;
+      if(tplIdx >= TEMPLATE_STATION_COLS.length){ truncated = true; break; }
       const col = TEMPLATE_STATION_COLS[tplIdx++];
       patches.set(colLetter(col)+'21', { type: 's', value: 'HW' });
       const nr1 = overflowHW[i], nr2 = overflowHW[i+1];
@@ -376,7 +377,7 @@ function _patchSheetXml(xml, dayIdx){
     }
   }
 
-  return _applyPatches(xml, patches);
+  return { xml: _applyPatches(xml, patches), truncated };
 }
 
 // ── Offizieller XLSX-Export ───────────────────────────────────────
@@ -404,8 +405,18 @@ async function exportOfficial(dayIdx){
       .sort()[0] || 'xl/worksheets/sheet1.xml';
 
     const origXml    = await zip.file(sheetPath).async('string');
-    const patchedXml = _patchSheetXml(origXml, dayIdx);
+    const { xml: patchedXml, truncated } = _patchSheetXml(origXml, dayIdx);
     zip.file(sheetPath, patchedXml);
+
+    if(truncated){
+      const ok = confirm(
+        `⚠️ Es werden mehr Stationsspalten benötigt, als das DLRG-Formular bietet ` +
+        `(max. ${TEMPLATE_STATION_COLS.length}).\n` +
+        `Überzählige Stationen bzw. Personen wurden NICHT in den Export übernommen ` +
+        `und fehlen im amtlichen Plan.\n\nTrotzdem herunterladen?`
+      );
+      if(!ok) return;
+    }
 
     const out  = await zip.generateAsync({ type:'uint8array', compression:'DEFLATE' });
     const iso  = computeDayDates()[dayIdx];
