@@ -11,6 +11,7 @@ const path = require('path');
 const fs = require('fs');
 const bcryptjs = require('bcryptjs');
 const { dbRun, dbGet, dbAll } = require('../db/connection');
+const { parsePositiveInt } = require('../db/ids');
 
 // ───────────────────────────────────────────────────────────
 // Security Constants
@@ -122,7 +123,8 @@ router.post('/users', express.json(), async (req, res) => {
 // ───────────────────────────────────────────────────────────
 router.delete('/users/:id', async (req, res) => {
   try {
-    const userId = parseInt(req.params.id);
+    const userId = parsePositiveInt(req.params.id);
+    if (!userId) return res.status(400).json({ error: 'Ungültige Benutzer-ID' });
 
     // Prevent deleting yourself
     if (userId === req.session.userId) {
@@ -165,7 +167,8 @@ router.delete('/users/:id', async (req, res) => {
 // ───────────────────────────────────────────────────────────
 router.put('/users/:id/password', express.json(), async (req, res) => {
   try {
-    const userId = parseInt(req.params.id);
+    const userId = parsePositiveInt(req.params.id);
+    if (!userId) return res.status(400).json({ error: 'Ungültige Benutzer-ID' });
     const { newPassword } = req.body;
 
     if (!newPassword || newPassword.length < MIN_PASSWORD_LENGTH) {
@@ -192,7 +195,8 @@ router.put('/users/:id/password', express.json(), async (req, res) => {
 // ───────────────────────────────────────────────────────────
 router.get('/users/:id/export', async (req, res) => {
   try {
-    const userId = parseInt(req.params.id);
+    const userId = parsePositiveInt(req.params.id);
+    if (!userId) return res.status(400).json({ error: 'Ungültige Benutzer-ID' });
 
     // Fetch user data (exclude password_hash)
     const user = await dbGet(
