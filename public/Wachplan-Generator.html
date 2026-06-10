@@ -227,6 +227,28 @@
   table.matrix td.multi{color:var(--coral);font-weight:600}
   table.matrix td.self{background:var(--deep)}
 
+  /* ── Fairness-Visualisierungen (Charts) ── */
+  .charts-container { margin-top: 30px; }
+  .chart-section { margin-bottom: 28px; }
+  .chart-title { font-family: 'Spline Sans Mono', monospace; font-size: .85rem; font-weight: 600; color: var(--foam); margin-bottom: 12px; letter-spacing: .05em; text-transform: uppercase; }
+  .chart-wrapper { background: var(--deep); border: 1px solid var(--line); border-radius: 11px; padding: 16px; }
+  .chart-svg { width: 100%; height: auto; min-height: 180px; }
+  .chart-bar { fill: var(--sea-bright); transition: fill 200ms ease; }
+  .chart-bar:hover { fill: var(--sea); }
+  .chart-bar.balanced { fill: var(--green); }
+  .chart-bar.skewed { fill: var(--warn); }
+  .chart-bar.critical { fill: var(--coral); }
+  .chart-avg-line { stroke: var(--coral); stroke-width: 2; stroke-dasharray: 4,4; opacity: 0.6; }
+  .chart-text { font-family: 'Spline Sans Mono', monospace; font-size: .65rem; fill: var(--text-dim); }
+  .chart-label-y { font-family: 'Spline Sans Mono', monospace; font-size: .7rem; fill: var(--text-dim); text-anchor: end; }
+  .chart-label-x { font-family: 'Spline Sans Mono', monospace; font-size: .65rem; fill: var(--text-dim); text-anchor: middle; }
+  .chart-legend { display: flex; gap: 12px; margin-top: 8px; font-size: .75rem; color: var(--text-dim); }
+  .chart-legend-item { display: flex; align-items: center; gap: 5px; }
+  .chart-legend-box { width: 12px; height: 12px; border-radius: 2px; }
+  @media print {
+    .charts-container { display: none; }
+  }
+
   /* ── Move-Button auf Besatzungs-Chips ── */
   .move-btn{background:transparent;border:none;color:var(--text-dim);cursor:pointer;font-size:.8rem;padding:2px 5px;border-radius:4px;transition:all .15s;opacity:0;line-height:1}
   .occupant:hover .move-btn{opacity:1}
@@ -796,6 +818,21 @@
             <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:.9rem">
               <input type="checkbox" id="metric-boat-pairing" checked>
               <span>👥 Boot-Paarungen Vielfalt</span>
+            </label>
+            </div>
+            <div class="section-label" style="margin-top:24px;font-size:.95rem;text-transform:none;letter-spacing:0">Visualisierungen</div>
+            <div style="display:flex;flex-direction:column;gap:8px;padding:8px">
+            <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:.9rem">
+              <input type="checkbox" id="chart-assignments" checked>
+              <span>📊 Einsätze pro Person</span>
+            </label>
+            <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:.9rem">
+              <input type="checkbox" id="chart-hw-days" checked>
+              <span>🏠 HW-Tage pro Person</span>
+            </label>
+            <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:.9rem">
+              <input type="checkbox" id="chart-tower-util" checked>
+              <span>📍 Turmauslastung</span>
             </label>
             </div>
           </div>

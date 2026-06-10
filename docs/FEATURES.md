@@ -171,6 +171,25 @@ noch in der Druckvariante** auf.
 - **Tests:** Harness-Option `absentPersonIds`, Invariante `checkAbsentNotAssigned`
   (Abwesende nirgends im Plan), Szenario 4b + Fuzz-Abdeckung.
 
+### Feature 28: Fairness-Visualisierung – Balkendiagramme für Einsatzverteilung (Issue #225)
+Visuelle SVG-Balkendiagramme zur schnellen Kontrolle der Schichtverteilung über den
+Planungszeitraum – ergänzend zu den vorhandenen Zahlen-Metriken und der Pro-Person-Tabelle.
+- **3 Diagramme** (jeweils einzeln togglebar):
+  1. **Einsätze gesamt pro Person** – horizontale Balken, absteigend sortiert, mit Ø-Linie.
+  2. **HW-Tage pro Person** – macht „Dauer-HW"-Schieflagen sichtbar.
+  3. **Turmauslastung** – nach Turm-Prio sortiert, Über-/Unterauslastung erkennbar.
+- **Farbcoding:** grün = ausgeglichen (innerhalb Schwelle um den Ø), orange = Schieflage;
+  rote gestrichelte Ø-Linie als Referenz.
+- **Implementierung:** reines SVG/CSS, keine externen Libs (CSP-konform `default-src 'self'`).
+  `renderAssignmentsChart()`, `renderHWDaysChart()`, `renderTowerUtilizationChart()` +
+  `renderFairnessCharts()` in `render-output.js`; alle Namen via `escapeHtml`.
+- **State:** neues `fairnessChartsDisplay` in `state.js` (Default alle `true`), Serialisierung
+  in `state-io.js` (`_buildStateObject`/`importStateJSON` mit Default für Altpläne),
+  Reset in `resetGlobalState`.
+- **UI:** 3 Checkboxen im Bereich „Visualisierungen" der Fairness-Metriken; Event-Listener in
+  `init.js` (`CHARTS_MAP`), Sync nach State-Import via `syncMetricCheckboxes()`.
+- **Druck:** `@media print { .charts-container { display:none } }` – Charts im Ausdruck aus.
+
 ---
 
 ## Bugfixes
