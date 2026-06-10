@@ -130,9 +130,17 @@ router.delete('/users/:id', async (req, res) => {
     }
 
     // Check if user exists
-    const user = await dbGet('SELECT id FROM users WHERE id = ?', [userId]);
+    const user = await dbGet('SELECT id, is_admin FROM users WHERE id = ?', [userId]);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Prevent deleting the last remaining admin (Issue #216)
+    if (user.is_admin) {
+      const { c } = await dbGet('SELECT COUNT(*) AS c FROM users WHERE is_admin = 1');
+      if (c <= 1) {
+        return res.status(400).json({ error: 'Der letzte Administrator kann nicht gelöscht werden' });
+      }
     }
 
     // Delete in cascading order (GDPR Art. 17 – Recht auf Löschung)
