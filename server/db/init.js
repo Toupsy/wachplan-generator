@@ -207,8 +207,16 @@ function startPlanRetentionCleanup(db, retentionDays = 90) {
 
   console.log(`✓ Plan retention cleanup scheduled (${retentionDays} days)`);
 
-  // Run cleanup every 24 hours (86400000 ms)
+  // Run cleanup every 24 hours (86400000 ms).
+  // Guard gegen überlappende Läufe: sollte ein Durchlauf länger als das Intervall
+  // dauern, würde ein zweiter parallel DELETEs absetzen und die DB sperren.
+  let cleanupRunning = false;
   setInterval(async () => {
+    if (cleanupRunning) {
+      console.warn('⚠ Plan retention: vorheriger Lauf noch aktiv – überspringe diesen Zyklus');
+      return;
+    }
+    cleanupRunning = true;
     try {
       const cutoffDate = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
 
@@ -252,6 +260,8 @@ function startPlanRetentionCleanup(db, retentionDays = 90) {
       }
     } catch (error) {
       console.error('❌ Plan retention cleanup error:', error.message);
+    } finally {
+      cleanupRunning = false;
     }
   }, 24 * 60 * 60 * 1000);
 }

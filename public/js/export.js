@@ -422,10 +422,7 @@ async function exportOfficial(dayIdx){
     const iso  = computeDayDates()[dayIdx];
     const fn   = (iso || ('Tag'+(dayIdx+1))) + '_Wachplan.xlsx';
     const blob = new Blob([out], { type:'application/octet-stream' });
-    const a    = document.createElement('a');
-    a.href     = URL.createObjectURL(blob);
-    a.download = fn;
-    a.click();
+    downloadBlob(blob, fn);
   } catch(e){
     alert('Export fehlgeschlagen: ' + e.message);
     console.error('XLSX Export Error:', e);
@@ -459,7 +456,7 @@ function exportCSV(){
   });
   const csv =rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
-  const a   =document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='wachplan.csv'; a.click();
+  downloadBlob(blob, 'wachplan.csv');
 }
 
 // ── CSV-Export Fairness-Statistik ───────────────────────────────
@@ -484,8 +481,5 @@ function exportStatsCSV(){
   });
   const csv  = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob(['﻿'+csv], { type:'text/csv;charset=utf-8' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'wachplan-statistik.csv';
-  a.click();
+  downloadBlob(blob, 'wachplan-statistik.csv');
 }

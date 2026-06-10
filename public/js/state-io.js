@@ -73,10 +73,7 @@ function exportStateJSON(){
 
   const json = JSON.stringify(state, null, 2);
   const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
-  const a    = document.createElement('a');
-  a.href     = URL.createObjectURL(blob);
-  a.download = `wachplan_status_${(startDate||'entwurf').replace(/-/g,'')}.json`;
-  a.click();
+  downloadBlob(blob, `wachplan_status_${(startDate||'entwurf').replace(/-/g,'')}.json`);
   showToast('✅ Status exportiert');
 }
 

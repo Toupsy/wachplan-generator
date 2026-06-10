@@ -37,7 +37,7 @@ Realtime-Kollaboration (WebSocket), Admin-Panel.
 **Frontend `public/js/`** — Ladereihenfolge in der HTML beachten (s.u.):
 ```
 state.js          Globale Variablen & Datenmodell (s. „Globaler Zustand")
-utils.js          escapeHtml, showToast, seededRand, personNr, showConfirmation, Lookups
+utils.js          escapeHtml, showToast, seededRand, personNr, showConfirmation, downloadBlob, Lookups
 dates.js          Datumsberechnung (lokale Arithmetik, kein UTC-Shift)
 autoCodes.js      Automatische Stationscodes + freshDayState()
 config.js         seedFromConfig() (Template-Config laden)
@@ -192,6 +192,9 @@ CSP/HSTS/Security-Header. **Secrets in `.env`** (Pflicht: `MASTER_SECRET`≥32, 
 - **DB-Migrationen:** `schema.sql` nutzt `CREATE TABLE IF NOT EXISTS` → neue Spalten greifen
   NICHT auf Bestands-DBs. Für jede neue Spalte **idempotente `ALTER TABLE ... ADD COLUMN`** in
   `db/init.js` (Muster: `last_login`, `marked_for_deletion`).
+- **DB-Verbindung:** `db/connection.js` exportiert **kein** `db`-Feld, nur `getDb()`/`dbRun`/
+  `dbGet`/`dbAll`. Für eine rohe Verbindung **immer `getDb()`** nutzen – `require('./db/connection').db`
+  ist `undefined` (verursachte den toten Plan-Retention-Cleanup, #272).
 - **CSP divergiert je Server:** public-Server erlaubt `script-src 'self' 'unsafe-inline'
   https://cdnjs.cloudflare.com` (JSZip von cdnjs!); admin-Server nur `script-src 'self'`. Beim
   Zentralisieren der Header diese Differenz erhalten, sonst **bricht der XLSX-Export**.
