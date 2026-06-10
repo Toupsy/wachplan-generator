@@ -28,6 +28,26 @@ function parseUserId(paramStr) {
 }
 
 // ───────────────────────────────────────────────────────────
+// Eingabe-Limits (Schutz vor Storage-Exhaustion, Issue #218)
+// ───────────────────────────────────────────────────────────
+const MAX_NAME_LEN    = 200;               // analog zum Frontend-labels-Limit (Feature 19)
+const MAX_STATE_BYTES = 1024 * 1024;       // 1 MB pro serialisiertem State (real << 100 KB)
+
+/** Validiert name (optional) + serialisierte State-Größe.
+ * @returns {{status:number, error:string}|null} Fehler-Objekt oder null wenn ok. */
+function validatePlanInput(name, plainJSON, { nameRequired = false } = {}) {
+  if (nameRequired || name !== undefined) {
+    if (typeof name !== 'string' || name.length > MAX_NAME_LEN) {
+      return { status: 400, error: `Ungültiger oder zu langer Name (max. ${MAX_NAME_LEN} Zeichen)` };
+    }
+  }
+  if (Buffer.byteLength(plainJSON, 'utf8') > MAX_STATE_BYTES) {
+    return { status: 413, error: 'Plan zu groß' };
+  }
+  return null;
+}
+
+// ───────────────────────────────────────────────────────────
 // Authentication Middleware
 // ───────────────────────────────────────────────────────────
 const authMiddleware = (req, res, next) => {
@@ -90,6 +110,9 @@ router.post('/', express.json(), async (req, res) => {
 
     // Encrypt state
     const plainJSON = JSON.stringify(state);
+    const invalid = validatePlanInput(name, plainJSON, { nameRequired: true });
+    if (invalid) return res.status(invalid.status).json({ error: invalid.error });
+
     const { encrypted, iv, authTag } = encryptPlanState(plainJSON, req.session.userId);
 
     // Insert into database
@@ -177,6 +200,9 @@ router.put('/:id', express.json(), async (req, res) => {
 
     // Verschlüsseln mit dem OWNER-Key (damit alle Berechtigten lesen können)
     const plainJSON = JSON.stringify(state);
+    const invalid = validatePlanInput(name, plainJSON);
+    if (invalid) return res.status(invalid.status).json({ error: invalid.error });
+
     const { encrypted, iv, authTag } = encryptPlanState(plainJSON, access.ownerId);
 
     // Update in database
