@@ -112,6 +112,26 @@ v0.4.17.
 Rechtsgrundlagen, Speicherdauer, Betroffenenrechte (Art. 15–21), Sicherheit, Cookies,
 Art. 22, Kontakt/Beschwerde. URL `/datenschutz.html`, verlinkt aus Register-View. v0.4.18.
 
+### Feature 25: Strenge faire Rotation (deterministischer Generator)
+Optionaler Alternativ-Generator zum score-basierten Kern. Checkbox „♻️ Strenge faire
+Rotation" (in der Sidebar bei Seed/Generieren). Modul `public/js/fairRotation.js`,
+Funktion `generateFairRotation()`.
+- **Regeln:** Erfahrener Turm-Lead per **zyklischer Rotation (Latin-Square)** → keine
+  Turm-Wiederholung, solange Tage ≤ Turmanzahl; jeder offene Turm **garantiert** mit
+  Erfahrenem besetzt (erfahrene WG zuerst, Führung als Reserve); Partner greedy nach
+  `towerVisits`/`pairCount` (minimale Partner-Wiederholungen); **Bootsführer rotieren
+  zyklisch** durch die Boote (Start-Offset pro Tag); überzählige Unerfahrene → HW.
+- **Wiederverwendung:** erzeugt identische `lastResult`-Struktur wie `generate()` über die
+  ausgelagerten Helfer `_reAccumulateDayStats()` (Stats+pairCount) und
+  `computeFairnessMetrics()` → gleiches Rendering + XLSX/CSV-Export.
+- **Einschränkung:** ignoriert manuelle `forcedPlacements` (sauberer Plan „from scratch");
+  Krank-/Geschlossen-Marken pro Tag werden respektiert.
+- **Tests:** `test/fairRotation.test.js` (7 Checks: Invarianten, Experience-Garantie,
+  0 Turm-/Partner-Wdh. in 6 Tagen, zyklische Boot-Rotation, Krank/Geschlossen ohne Crash).
+- **State:** neues Flag `fairRotation` (state.js, serialisiert in state-io.js). Dispatcher
+  `runGenerate()` routet Voll-Neuberechnungen je nach Flag; Teil-Recalc (`generate(startDay)`)
+  bleibt score-basiert.
+
 ---
 
 ## Bugfixes

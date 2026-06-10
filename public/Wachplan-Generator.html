@@ -828,6 +828,16 @@
                 style="width:100%;background:var(--navy-2);border:1px solid rgba(160,120,255,.35);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.95rem;text-align:center;padding:8px 4px">
             </div>
 
+            <!-- Strenge faire Rotation -->
+            <div style="background:var(--deep);border:1px solid rgba(160,120,255,.25);border-radius:9px;padding:11px 13px;margin-bottom:10px">
+              <label style="display:flex;align-items:flex-start;gap:9px;font-size:.84rem;cursor:pointer;color:var(--text-dim)">
+                <input id="fair-rotation" type="checkbox" style="margin-top:3px;flex-shrink:0">
+                <span>♻️ Strenge faire Rotation
+                  <span style="display:block;font-size:.7rem;margin-top:2px">Deterministisch: jeder Turm garantiert mit Erfahrenem besetzt, minimale Turm-/Partner-Wiederholungen, Bootsführer rotieren zyklisch. (Ignoriert manuelle Zwangszuweisungen.)</span>
+                </span>
+              </label>
+            </div>
+
             <div class="gen-row">
               <button class="generate" id="generate">⚓ Plan generieren</button>
             </div>
@@ -878,6 +888,7 @@
 <script src="js/seed.js"></script>
 <script src="js/render-sidebar.js"></script>
 <script src="js/generate.js"></script>
+<script src="js/fairRotation.js"></script>
 <script src="js/render-output.js"></script>
 <script src="js/export.js"></script>
 <script src="js/move.js"></script>

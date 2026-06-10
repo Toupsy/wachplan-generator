@@ -41,6 +41,10 @@ let boats    = [];   // [{ id, name, code, towerId, prio, slotCount }]
 // Hauptwache-Konfiguration
 let mainK    = 2;    // Anzahl Guard-Slots neben der Führung
 
+// Generierungs-Modus: false = score-basierter Kern (generate.js),
+// true = strenge faire Rotation (fairRotation.js, deterministisch)
+let fairRotation = false;
+
 // Dienstzeit-Konfiguration (Feature 15)
 let serviceStartHour = 9;   // Default 09:00
 let serviceEndHour   = 17;  // Default 17:00
@@ -96,6 +100,7 @@ function resetGlobalState() {
   towers = [];
   boats = [];
   mainK = 2;
+  fairRotation = false;
   serviceStartHour = 9;
   serviceEndHour = 17;
   dayState = freshDayState();

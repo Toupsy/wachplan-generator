@@ -10,9 +10,12 @@
 > **Pflege:** Diese Datei nach jeder Aufgabe auf den aktuellen Stand bringen (Abschnitt 4/5);
 > Doku-Wartungsvertrag s. CLAUDE.md.
 
-**Stand:** VERSION **0.4.21**, Branch `main`.
-**Letzte Aufgabe:** Doku-Restrukturierung (CLAUDE.md verschlankt, Feature-Historie nach
-docs/FEATURES.md ausgelagert) — davor: Review aller offenen PRs + Fairness-Bugfixes #251/#253 gemergt.
+**Stand:** VERSION **0.4.23**, Branch `claude/happy-wozniak-d6la3r` (PR offen).
+**Letzte Aufgabe:** Feature 25 „Strenge faire Rotation" – deterministischer Alt-Generator
+(`public/js/fairRotation.js`, Checkbox in Sidebar). Garantiert Erfahrenen pro Turm,
+minimale Turm-/Partner-Wiederholungen (Latin-Square), zyklische Bootsführer-Rotation,
+beliebig viele Tage. Refactor: `computeFairnessMetrics()` aus `generate.js` ausgelagert.
+Tests: `test/fairRotation.test.js` (7 grün). Doku s. docs/FEATURES.md.
 
 ---
 

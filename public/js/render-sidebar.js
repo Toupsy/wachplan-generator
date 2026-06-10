@@ -203,7 +203,7 @@ function renderTowerCfg(){
         // Priorisierung bleibt unverändert - wird manuell eingegeben
         dragSrcTower = null;
         dragMode = null;
-        generate(); renderTowerCfg();
+        runGenerate(); renderTowerCfg();
       }
     });
 
@@ -216,9 +216,9 @@ function renderTowerCfg(){
   c.querySelectorAll('.tprio').forEach(i =>
     i.oninput = e => { getT(+e.target.dataset.id).prio = Math.max(1, +e.target.value||1); });
   c.querySelectorAll('.slot-minus[data-type="tower"]').forEach(b =>
-    b.onclick = e => { const t = getT(+e.target.dataset.id); if(t.slotCount > 1) { t.slotCount--; generate(); renderTowerCfg(); } });
+    b.onclick = e => { const t = getT(+e.target.dataset.id); if(t.slotCount > 1) { t.slotCount--; runGenerate(); renderTowerCfg(); } });
   c.querySelectorAll('.slot-plus[data-type="tower"]').forEach(b =>
-    b.onclick = e => { const t = getT(+e.target.dataset.id); if(t.slotCount < 10) { t.slotCount++; generate(); renderTowerCfg(); } });
+    b.onclick = e => { const t = getT(+e.target.dataset.id); if(t.slotCount < 10) { t.slotCount++; runGenerate(); renderTowerCfg(); } });
   c.querySelectorAll('.leader-checkbox').forEach(cb =>
     cb.onchange = e => {
       const t = getT(+e.target.dataset.id);
@@ -230,12 +230,12 @@ function renderTowerCfg(){
         if((t.leaderCount||0) === 0) { t.leaderCount = 1; }
         if(spinner) spinner.style.display = 'flex';
       }
-      generate(); renderTowerCfg(); scheduleAutoSave();
+      runGenerate(); renderTowerCfg(); scheduleAutoSave();
     });
   c.querySelectorAll('.leader-minus').forEach(b =>
-    b.onclick = e => { const t = getT(+e.target.dataset.id); if((t.leaderCount||0) > 0) { t.leaderCount--; if(t.leaderCount === 0) { const cb = e.target.closest('.tower-row-meta').querySelector('.leader-checkbox'); if(cb) cb.checked = false; } generate(); renderTowerCfg(); } });
+    b.onclick = e => { const t = getT(+e.target.dataset.id); if((t.leaderCount||0) > 0) { t.leaderCount--; if(t.leaderCount === 0) { const cb = e.target.closest('.tower-row-meta').querySelector('.leader-checkbox'); if(cb) cb.checked = false; } runGenerate(); renderTowerCfg(); } });
   c.querySelectorAll('.leader-plus').forEach(b =>
-    b.onclick = e => { const t = getT(+e.target.dataset.id); if((t.leaderCount||0) < 3) { t.leaderCount++; const cb = e.target.closest('.tower-row-meta').querySelector('.leader-checkbox'); if(cb) cb.checked = true; generate(); renderTowerCfg(); } });
+    b.onclick = e => { const t = getT(+e.target.dataset.id); if((t.leaderCount||0) < 3) { t.leaderCount++; const cb = e.target.closest('.tower-row-meta').querySelector('.leader-checkbox'); if(cb) cb.checked = true; runGenerate(); renderTowerCfg(); } });
   c.querySelectorAll('.del-t').forEach(b =>
     b.onclick = e => {
       const id = +e.target.dataset.id;
@@ -342,7 +342,7 @@ function renderBoatCfg(){
 
       dragSrcBoat = null;
       dragMode = null;
-      generate(); renderBoatCfg();
+      runGenerate(); renderBoatCfg();
     });
 
     c.appendChild(row);

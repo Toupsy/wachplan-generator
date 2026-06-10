@@ -224,11 +224,21 @@ if(serviceEndHourInput) serviceEndHourInput.onchange = e => {
 // ── Sidebar – Datum & Generierung ────────────────────────────────
 const startDateInput = document.getElementById('start-date');
 if(startDateInput) startDateInput.onchange = e => { startDate = e.target.value; };
+const fairRotationCb = document.getElementById('fair-rotation');
+if(fairRotationCb){
+  fairRotationCb.checked = fairRotation;
+  fairRotationCb.onchange = e => { fairRotation = e.target.checked; scheduleAutoSave(); };
+}
 const generateBtn = document.getElementById('generate');
 if(generateBtn) generateBtn.onclick = async () => {
   const seedVal = +document.getElementById('seed-input').value || 0;
-  if(seedVal > 0) applySeedConstraints(seedVal);
-  generate();
+  // Strenge faire Rotation: deterministischer Generator, ignoriert Seed-Konstellation
+  if(fairRotation){
+    generateFairRotation();
+  } else {
+    if(seedVal > 0) applySeedConstraints(seedVal);
+    generate();
+  }
   await autoSave();
   // Auto-switch to schedule view on mobile after generate
   const btns = document.querySelectorAll('.ms-btn');
@@ -320,7 +330,7 @@ if(numDaysInput) numDaysInput.oninput = e => {
   dayState.length        = DAYS;
   forcedPlacements.length = DAYS;
   if(activeDay >= DAYS) activeDay = 0;
-  if(lastResult) generate();
+  if(lastResult) (fairRotation ? generateFairRotation : generate)();
 };
 
 // ── Move-Modal ────────────────────────────────────────────────────

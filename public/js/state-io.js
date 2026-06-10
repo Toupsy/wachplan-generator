@@ -44,6 +44,7 @@ function _buildStateObject(){
     randomSeed,
     startDate,
     mainK,
+    fairRotation,
     serviceStartHour,
     serviceEndHour,
     days:                 DAYS,
@@ -110,6 +111,7 @@ function importStateJSON(json, silent = false){
   randomSeed        = s.randomSeed        ?? 0;
   startDate         = s.startDate         ?? '';
   mainK             = s.mainK             ?? 2;
+  fairRotation      = s.fairRotation      ?? false;
   serviceStartHour  = s.serviceStartHour  ?? 9;
   serviceEndHour    = s.serviceEndHour    ?? 17;
   DAYS              = s.days              ?? 6;
@@ -162,6 +164,8 @@ function importStateJSON(json, silent = false){
   // UI neu aufbauen
   document.getElementById('start-date').value = startDate;
   document.getElementById('main-k').value     = mainK;
+  const fairCb = document.getElementById('fair-rotation');
+  if(fairCb) fairCb.checked = fairRotation;
   document.getElementById('service-start-hour').value = serviceStartHour;
   document.getElementById('service-end-hour').value   = serviceEndHour;
   updateSeedDisplay();
@@ -173,7 +177,7 @@ function importStateJSON(json, silent = false){
   renderExportColumnUI();
 
   // Plan neu berechnen falls Ergebnis vorhanden war
-  if(lastResult) generate();
+  if(lastResult) runGenerate();
 
   if(!silent) showToast('✅ Status importiert – ' + people.length + ' Personen, '
     + towers.length + ' Türme, ' + boats.length + ' Boote');
@@ -309,7 +313,7 @@ async function autoLoad(){
     // Importiere die dekryptierten Daten
     // Note: planData.state ist bereits ein String (JSON) von der API
     importStateJSON(planData.state, true);  // silent
-    generate();
+    runGenerate();
     showToast('♻️ Plan „' + currentPlanName + '" wiederhergestellt');
     return true;
 
@@ -326,7 +330,7 @@ function _autoLoadFromStorage(){
   if(!raw) return false;
   try {
     importStateJSON(raw, true);
-    generate();
+    runGenerate();
     showToast('⚠️ Offline-Modus: Letzter Stand wiederhergestellt');
     return true;
   } catch(e) {
@@ -370,6 +374,7 @@ async function fetchPlansList(){
 function _rebuildAllUI(){
   const sd = document.getElementById('start-date'); if(sd) sd.value = startDate || '';
   const mk = document.getElementById('main-k');     if(mk) mk.value = mainK;
+  const fr = document.getElementById('fair-rotation'); if(fr) fr.checked = fairRotation;
   if(typeof updateSeedDisplay === 'function') updateSeedDisplay();
   autoCodes();
   renderPeople(); renderTowerCfg(); renderBoatCfg();
@@ -387,7 +392,7 @@ async function loadPlanById(id){
     currentPlanName = data.name;
     currentPlanCanEdit = data.canEdit !== false;
     _suppressAutoSave = true;
-    try { importStateJSON(data.state, true); generate(); }
+    try { importStateJSON(data.state, true); runGenerate(); }
     finally { _suppressAutoSave = false; }
     if(typeof realtimeJoin === 'function') realtimeJoin(currentPlanId);
     _updateSaveIndicator();
@@ -403,7 +408,7 @@ function createNewPlan(name){
   currentPlanCanEdit = true;
   if(typeof seedFromConfig === 'function') seedFromConfig();
   _rebuildAllUI();
-  generate();                       // ruft autoSave → POST → setzt currentPlanId + realtimeJoin
+  runGenerate();                       // ruft autoSave → POST → setzt currentPlanId + realtimeJoin
   _updateSaveIndicator();
   showToast('➕ Neuer Plan „' + currentPlanName + '"');
 }
@@ -445,7 +450,7 @@ async function applyRemotePlanState(){
       currentPlanCanEdit = data.canEdit !== false;
       currentPlanName = data.name;
       importStateJSON(data.state, true);
-      generate();
+      runGenerate();
     } finally { _suppressAutoSave = false; }
     _updateSaveIndicator();
     showToast('🔄 Aktualisiert von Mitbearbeiter');

@@ -685,32 +685,41 @@ function generate(startDay = 0){
     });
   }
 
-  // Calculate fairness metrics
+  lastResult = {
+    schedule, pairCount, stats,
+    peopleGuards: people.filter(p => p.role==='W'),
+    fairnessMetrics: computeFairnessMetrics(stats, people)
+  };
+  if(activeDay >= DAYS) activeDay = 0;
+  renderOutput();
+  autoSave();
+}
+
+/**
+ * Berechnet die Fairness-Metriken aus den akkumulierten Stats.
+ * Ausgelagert aus generate(), damit alternative Generatoren (z. B.
+ * generateFairRotation) dieselben Metriken erzeugen (DRY, Issue: Faire Rotation).
+ * @param {Object} stats   stats-Objekt (id → { total, towerVisits, ... })
+ * @param {Array}  people  globale Personenliste
+ * @returns {Object} fairnessMetrics für lastResult
+ */
+function computeFairnessMetrics(stats, people){
   const allStats = Object.values(stats);
 
   // Tower distribution: count unique towers per person
   const towerDistribution = {};
   people.forEach(p => {
     const stat = stats[p.id];
-    if(stat && stat.towerVisits) {
-      towerDistribution[p.id] = Object.keys(stat.towerVisits).length;
-    } else {
-      towerDistribution[p.id] = 0;
-    }
+    towerDistribution[p.id] = (stat && stat.towerVisits)
+      ? Object.keys(stat.towerVisits).length : 0;
   });
 
   // Boat distribution: count unique boats per person
   const boatDistribution = {};
-  const boatCounts = {};
   people.forEach(p => {
     const stat = stats[p.id];
-    if(stat && stat.boatVisits) {
-      boatDistribution[p.id] = Object.keys(stat.boatVisits).length;
-      boatCounts[p.id] = Object.values(stat.boatVisits).reduce((a,b) => a+b, 0);
-    } else {
-      boatDistribution[p.id] = 0;
-      boatCounts[p.id] = 0;
-    }
+    boatDistribution[p.id] = (stat && stat.boatVisits)
+      ? Object.keys(stat.boatVisits).length : 0;
   });
 
   const avgUniqueTowers = allStats.length > 0
@@ -758,33 +767,26 @@ function generate(startDay = 0){
     ? (allStats.reduce((sum, s) => sum + Object.values(s.boatVisits || {}).reduce((a,b) => a+b, 0), 0) / allStats.length).toFixed(1)
     : 0;
 
-  lastResult = {
-    schedule, pairCount, stats,
-    peopleGuards: people.filter(p => p.role==='W'),
-    fairnessMetrics: {
-      hwBalance: {
-        avgHwVisits: parseFloat(avgHwVisits),
-        avgTowerWithBoatDays: parseFloat(avgTowerWithBoatDays),
-        maxHwVisits,
-        maxTowerWithBoatDays,
-        isBalanced: Math.abs(parseFloat(avgHwVisits) - parseFloat(avgTowerWithBoatDays)) < 1.5
-      },
-      boatPairingDiversity,
-      towerDistribution: {
-        avgUniqueTowers: parseFloat(avgUniqueTowers),
-        minUniqueTowers,
-        distribution: towerDistribution
-      },
-      boatDistribution: {
-        avgUniqueBoats: parseFloat(avgUniqueBoats),
-        minUniqueBoats,
-        avgBoatVisits: parseFloat(avgBoatVisits),
-        maxBoatVisits,
-        distribution: boatDistribution
-      }
+  return {
+    hwBalance: {
+      avgHwVisits: parseFloat(avgHwVisits),
+      avgTowerWithBoatDays: parseFloat(avgTowerWithBoatDays),
+      maxHwVisits,
+      maxTowerWithBoatDays,
+      isBalanced: Math.abs(parseFloat(avgHwVisits) - parseFloat(avgTowerWithBoatDays)) < 1.5
+    },
+    boatPairingDiversity,
+    towerDistribution: {
+      avgUniqueTowers: parseFloat(avgUniqueTowers),
+      minUniqueTowers,
+      distribution: towerDistribution
+    },
+    boatDistribution: {
+      avgUniqueBoats: parseFloat(avgUniqueBoats),
+      minUniqueBoats,
+      avgBoatVisits: parseFloat(avgBoatVisits),
+      maxBoatVisits,
+      distribution: boatDistribution
     }
   };
-  if(activeDay >= DAYS) activeDay = 0;
-  renderOutput();
-  autoSave();
 }

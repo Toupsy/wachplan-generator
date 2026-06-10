@@ -325,7 +325,7 @@ function renderOutput(){
         const id = +e.currentTarget.dataset[key], day = +e.currentTarget.dataset.day;
         const s = getter(day);
         s.has(id) ? s.delete(id) : s.add(id);
-        generate();
+        runGenerate();
       });
   });
 
@@ -356,7 +356,7 @@ function renderOutput(){
     btn.onclick = e => {
       const day = +e.currentTarget.dataset.clearAllDay;
       forcedPlacements[day] = [];
-      generate();
+      runGenerate();
     });
 
   // ── Drag-and-Drop Event Handler ───────────────────────────────────

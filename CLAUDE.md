@@ -43,7 +43,8 @@ autoCodes.js      Automatische Stationscodes + freshDayState()
 config.js         seedFromConfig() (Template-Config laden)
 seed.js           Beispieldatensatz (Fallback ohne Autosave)
 render-sidebar.js Sidebar-UI: Personen, Türme, Boote, Export-Spalten, Positionen
-generate.js       *** KERN-ALGORITHMUS *** Scoring, Rotation, Fairness
+generate.js       *** KERN-ALGORITHMUS *** Scoring, Rotation, Fairness; + computeFairnessMetrics()
+fairRotation.js   Alt-Generator: strenge faire Rotation (deterministisch, Latin-Square) + runGenerate()-Dispatcher
 render-output.js  Ausgabe: Tageskarten, Stats-Bar, Pro-Person-/Matrix-Statistiken
 export.js         XLSX (XML-Patch via JSZip) + CSV-Export
 move.js           Modal „Person verschieben" (↕) + D&D-Logik
@@ -56,8 +57,8 @@ login-modal.js    Login/Setup/Register-Modal
 init.js           Event-Listener + Startsequenz (autoLoad → seed fallback)
 ```
 **Ladereihenfolge:** state → utils → dates → autoCodes → config → seed → render-sidebar →
-generate → render-output → export → move → state-io → user-info → share → realtime →
-plans-ui → login-modal → init
+generate → fairRotation → render-output → export → move → state-io → user-info → share →
+realtime → plans-ui → login-modal → init
 
 **Backend `server/`:**
 ```
