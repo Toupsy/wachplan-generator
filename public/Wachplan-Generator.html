@@ -960,11 +960,15 @@
       const versionEl = document.getElementById('version-text');
       if (versionEl) {
         versionEl.textContent = data.version;
-        // Optional: Check for update status (green = latest, gray = unknown)
         const badge = document.getElementById('version-badge');
         if (badge) {
-          badge.style.color = 'var(--green)';
-          badge.title = `Version ${data.version} (aktuell)`;
+          if (data.updateAvailable) {
+            badge.style.color = 'var(--gold, orange)';
+            badge.title = `Version ${data.version} – neuere Version ${data.latest} auf GitHub verfügbar`;
+          } else {
+            badge.style.color = 'var(--green)';
+            badge.title = `Version ${data.version} (aktuell)`;
+          }
         }
       }
     }

@@ -195,6 +195,25 @@ Planungszeitraum – ergänzend zu den vorhandenen Zahlen-Metriken und der Pro-P
   `init.js` (`CHARTS_MAP`), Sync nach State-Import via `syncMetricCheckboxes()`.
 - **Druck:** `@media print { .charts-container { display:none } }` – Charts im Ausdruck aus.
 
+### Feature 29: Version-Badge an GitHub-Releases gekoppelt + Update-Hinweis
+Das Header-Badge zeigte dauerhaft „v 0.5.1", weil Semantic Release den Versions-Bump nie
+zurück ins Repo committete (`package.json` blieb stehen, GitHub war schon bei v0.9.1).
+- **Root-Cause-Fix:** `@semantic-release/git`-Plugin in `.releaserc.json` (Assets
+  `package.json`/`package-lock.json`, Commit `chore(release): x.y.z [skip ci]`) +
+  `extra_plugins` in `release.yml` + devDependency. `package.json` einmalig manuell auf
+  0.9.1 synchronisiert.
+- **Server (`server.js`):** `GET /api/version` liefert jetzt `{ version, latest, releaseUrl,
+  updateAvailable }`. `latest` kommt serverseitig von
+  `api.github.com/repos/Toupsy/Wachplan-Generator/releases/latest` (In-Memory-Cache 6 h,
+  Fehler-Cache 15 min, Timeout 5 s, Fehler → `latest:null`). Kein CSP-Update nötig
+  (Browser ruft GitHub nie direkt). Semver-Vergleich via `compareVersions()`.
+- **Frontend:** Badge (`#version-badge`) grün = aktuell, gold/orange + Tooltip wenn auf
+  GitHub eine neuere Version existiert (Inline-Script in `Wachplan-Generator.html`).
+  Zusätzlich `showToast()`-Meldung in `checkForUpdate()` (init.js), einmal pro neuer
+  Version (`localStorage['gh-update-notified']`).
+- **Caveat:** Falls Branch-Protection auf `main` Pushes des `GITHUB_TOKEN` blockt, schlägt
+  der Release-Commit fehl → Actions-Ausnahme in der Branch-Protection nötig.
+
 ---
 
 ## Bugfixes
