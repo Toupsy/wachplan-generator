@@ -7,6 +7,7 @@ const express = require('express');
 const router = express.Router();
 const { dbRun } = require('../db/connection');
 const { encryptPlanState } = require('../db/crypto');
+const { validatePlanInput } = require('./plans');
 
 // ───────────────────────────────────────────────────────────
 // Authentication Middleware
@@ -42,26 +43,40 @@ router.post('/plans', express.json(), async (req, res) => {
     const errors = [];
 
     for (const plan of plans) {
+      // Anzeigename für Fehlermeldungen: immer String, gekürzt (plan.name kann beliebiger Typ sein)
+      const label = String(plan && plan.name != null ? plan.name : 'Unbenannt').slice(0, 80);
       try {
         if (!plan.state) {
-          errors.push(`Plan "${plan.name}" hat keine state data`);
+          errors.push(`Plan "${label}" hat keine state data`);
+          continue;
+        }
+
+        const name = typeof plan.name === 'string' && plan.name.trim() !== ''
+          ? plan.name : 'Importierter Plan';
+
+        // Gleiche Limits wie POST/PUT /api/plans (#218/#270): Name ≤ 200, State ≤ 1 MB
+        const plainJSON = JSON.stringify(plan.state);
+        const invalid = validatePlanInput(name, plainJSON, { nameRequired: true });
+        if (invalid) {
+          errors.push(`Plan "${label}": ${invalid.error}`);
           continue;
         }
 
         // Encrypt state
-        const plainJSON = JSON.stringify(plan.state);
         const { encrypted, iv, authTag } = encryptPlanState(plainJSON, req.session.userId);
 
         // Insert into database
         await dbRun(
           `INSERT INTO plans (user_id, name, encrypted_state, iv, auth_tag)
            VALUES (?, ?, ?, ?, ?)`,
-          [req.session.userId, plan.name || 'Importierter Plan', encrypted, iv, authTag]
+          [req.session.userId, name, encrypted, iv, authTag]
         );
 
         importedCount++;
       } catch (planError) {
-        errors.push(`Plan "${plan.name}": ${planError.message}`);
+        // Interne Details (Crypto/DB) nicht an den Client leaken
+        console.error(`Import plan error ("${label}"):`, planError);
+        errors.push(`Plan "${label}": Import fehlgeschlagen`);
       }
     }
 

@@ -345,3 +345,5 @@ router.delete('/:id/share/:userId', async (req, res) => {
 });
 
 module.exports = router;
+// Für weitere Schreibpfade (z. B. Bulk-Import, #279), damit Limits überall identisch gelten
+module.exports.validatePlanInput = validatePlanInput;

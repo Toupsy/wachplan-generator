@@ -334,3 +334,12 @@ zeigt bei Truncation eine `confirm()`-Warnung (analog zur >28-Personen-Warnung).
 State-Größe (max. 1 MB → 413) gegen Storage-Exhaustion (`validatePlanInput`). Neuer gemeinsamer
 Helfer `server/db/ids.js` (`parsePositiveInt`) ersetzt `parseInt(req.params.id)` in `admin.js`
 (DELETE/PUT-password/GET-export) → `'5abc'`/`NaN`/`≤0` fließen nicht mehr in Queries.
+
+### Security: Bulk-Import umging die Eingabe-Limits aus #218 + leakte Fehlerdetails (Issue #279)
+`POST /api/import/plans` fügte Pläne ohne jede Validierung ein – beliebig lange Namen,
+States bis zum 10-MB-Body-Limit, `plan.name` ohne Typprüfung; rohe `planError.message`
+(Crypto/DB-Details) ging an den Client. **Lösung:** `validatePlanInput` aus `plans.js`
+exportiert und pro importiertem Plan angewandt (gleiche Limits wie POST/PUT: Name ≤ 200,
+State ≤ 1 MB; ungültige Pläne werden mit klarer Meldung übersprungen, Teilimport bleibt
+möglich). Fehlermeldungen an den Client sind jetzt generisch („Import fehlgeschlagen“),
+Details nur noch via `console.error`; Namen in Fehler-Strings String-koerziert + gekürzt.
