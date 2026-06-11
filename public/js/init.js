@@ -163,6 +163,7 @@ async function initAfterAuth() {
     renderBoatCfg();
     renderPositionDescUI();
     renderExportColumnUI();   // Render exportColumns (bereits von seedFromConfig() gesetzt)
+    renderAlgoParams();
 
     // Neu erstellten Plan sofort speichern
     await autoSave();

@@ -33,6 +33,41 @@ function roleLabel(p){
 let uid = 0;
 let randomSeed = 0;
 
+// ── Algorithmus-Parameter (Scoring-Gewichte) ─────────────────────────────────
+// Alle Gewichte die der Fairness-Algorithmus in generate.js verwendet.
+// Kann vom User angepasst werden; Defaults sind empirisch für typische DLRG-Wachen optimiert.
+function defaultAlgoParams(){
+  return {
+    // Turm-Rotation & Fairness
+    pairRepeatWeight:        250,   // Strafe pro Wiederholung desselben Paares
+    towerVisitWeight:        200,   // Strafe pro Wiederholungsbesuch desselben Turms
+    consecutiveTowerPenalty: 200,   // Strafe wenn jemand heute denselben Turm wie gestern hat
+    totalFairnessWeight:      10,   // Gewicht für Gesamteinsatz-Ausgleich
+    beachBalanceWeight:       60,   // Strand-Ausgleich: Strafe pro Überhang-Tag
+    // E/U-Mischung
+    uuPenaltyTower:         1000,   // Zwei Unerfahrene auf einem Turm
+    uuPenaltyHW:             300,   // Zwei Unerfahrene an der HW (erlaubt, geringere Strafe)
+    eePenaltyNormal:          40,   // Zwei Erfahrene (wenn Erfahrene nicht knapp)
+    eePenaltyReserve:       1500,   // Zwei Erfahrene (wenn Erfahrene knapp)
+    reserveExpPenalty:      5000,   // Erfahrener an HW wenn Türme ihn brauchen
+    // Hauptwache
+    hwVisitWeightTower:       60,   // HW-Tage → Turm-Bonus (pro HW-Tag)
+    hwVisitWeightHW:          60,   // HW-Tage → HW-Strafe (pro HW-Tag)
+    hwWishBonusEarly:        600,   // BF-HW-Wunsch Bonus (früh, >2 Tage vor Ende)
+    hwWishBonusNear:        6000,   // BF-HW-Wunsch Bonus (2 Tage vor Ende)
+    // BF-Schutz
+    surplusBfActivePenalty:  800,   // Überzahl-BF auf Turm mit aktivem Boot
+    surplusBfClosedBonus:    350,   // Überzahl-BF Bonus auf Turm ohne aktives Boot
+    towerBoatHeavyPenalty:   150,   // Beide Personen boot-lastig → Strafe
+    leaderBonus:             100,   // Führungskraft auf Turm mit leaderCount > 0
+    // Boote
+    boatVisitWeight:          50,   // Strafe pro Besuch desselben Bootes
+    boatHwBonus:              10,   // HW-Tage → Bonus bei Boot-Zuweisung
+    boatRotationBase:       1000,   // Boot-Rotations-Basisstrafe pro Lookback-Schritt
+  };
+}
+let algoParams = defaultAlgoParams();
+
 // Stammdaten
 let people   = [];   // [{ id, name, role:'F'|'B'|'W', experienced:bool, labels:'', enableLabels:true, wantsHW:bool }] (experienced gilt für B und W; F ignoriert. wantsHW nur für B: Wunsch auf ≥1 aktiven HW-Dienst bei BF-Überzahl. labels Komma-getrennt, enableLabels steuert Sichtbarkeit)
 let towers   = [];   // [{ id, name, prio, code, slotCount, leaderCount, mainBeach:bool }] (mainBeach: Hauptstrand-Turm für fairen Ausgleich)
@@ -122,6 +157,7 @@ function resetGlobalState() {
     towerUtilization: true
   };
   exportColumns = [];
+  algoParams = defaultAlgoParams();
   lastResult = null;
   activeDay = 0;
   startDate = '';

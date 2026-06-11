@@ -50,6 +50,7 @@ function _buildStateObject(){
     positionDescriptions: { ...positionDescriptions },
     fairnessMetricsDisplay: { ...fairnessMetricsDisplay },
     fairnessChartsDisplay: { ...fairnessChartsDisplay },
+    algoParams:           { ...algoParams },
     exportColumns:        [...exportColumns],
     people:               people.map(p => {
       const obj = { ...p };
@@ -120,6 +121,7 @@ function importStateJSON(json, silent = false){
   fairnessChartsDisplay = Object.assign(
     { assignmentsPerPerson:true, hwDaysPerPerson:true, towerUtilization:true },
     s.fairnessChartsDisplay || {});
+  algoParams = Object.assign(defaultAlgoParams(), s.algoParams || {});
   // Checkboxen mit wiederhergestelltem Zustand synchronisieren
   syncMetricCheckboxes();
   exportColumns = Array.isArray(s.exportColumns) ? [...s.exportColumns] : [];
@@ -175,6 +177,7 @@ function importStateJSON(json, silent = false){
   renderBoatCfg();
   renderPositionDescUI();
   renderExportColumnUI();
+  renderAlgoParams();
 
   // Plan neu berechnen falls Ergebnis vorhanden war
   if(lastResult) generate();
