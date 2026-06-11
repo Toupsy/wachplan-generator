@@ -298,6 +298,26 @@
   .leader-checkbox-wrapper{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .leader-checkbox-wrapper input[type=checkbox]{cursor:pointer;accent-color:var(--sea-bright)}
 
+  /* ── Kompakter User-Header (Sidebar) ── */
+  .section-user-info{background:var(--deep);border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:16px}
+  .user-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .user-id{display:flex;flex-direction:column;min-width:0}
+  .user-id .user-label{font-family:'Spline Sans Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim)}
+  #user-info-username{font-weight:600;color:var(--sea-bright);font-size:.92rem;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .user-actions{display:flex;gap:6px;flex-wrap:wrap}
+  .user-actions .icon-btn{width:34px;height:34px;padding:0;font-size:.95rem;display:inline-flex;align-items:center;justify-content:center;border-radius:8px}
+
+  /* ── „⚙️ Plan-Einstellungen"-Modal (Sidebar-Offload) ── */
+  .settings-open-btn{width:100%;margin-top:18px;background:rgba(127,212,232,.06);border:1px solid var(--line-strong);color:var(--foam);border-radius:9px;padding:12px;cursor:pointer;font-family:'Spline Sans Mono',monospace;font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;transition:all .15s}
+  .settings-open-btn:hover{background:rgba(24,168,216,.12);border-color:var(--sea-bright)}
+  .settings-modal-box{max-width:680px}
+  .settings-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+  .settings-tab{font-family:'Spline Sans Mono',monospace;font-size:.72rem;background:var(--navy-2);border:1px solid var(--line);color:var(--text-dim);padding:8px 12px;border-radius:8px;cursor:pointer;transition:all .15s}
+  .settings-tab:hover{color:var(--text);border-color:var(--line-strong)}
+  .settings-tab.active{background:var(--sea);border-color:var(--sea);color:#fff}
+  .settings-tab-panel{display:none}
+  .settings-tab-panel.active{display:block}
+
   /* ── Main Panels: Side-by-side layout with independent scrolling ── */
   .main-panels {
     display: grid;
@@ -737,17 +757,21 @@
       <aside class="sidebar">
         <div class="panel" id="sidebar-inner-panel" data-panel-name="Wachgänger & Konfiguration (Inhalt)">
 
-          <!-- User Info & Admin Panel -->
-          <div id="user-info-header" class="section section-user-info" data-panel-name="Benutzerinfo & Admin" style="background:var(--deep);border:1px solid var(--line);border-radius:6px;padding:12px;margin-bottom:20px;display:none">
-            <div style="font-size:.85em;color:var(--text-dim);margin-bottom:8px">Angemeldet als</div>
-            <div id="user-info-username" style="font-weight:600;color:var(--sea-bright);margin-bottom:12px">-</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-              <button id="btn-admin-panel" class="ghost-btn" style="border-color:var(--warn);color:var(--warn);font-size:.75rem;padding:6px;display:none">⚙️ Admin</button>
-              <button id="btn-logout" class="ghost-btn" style="border-color:var(--coral);color:var(--coral);font-size:.75rem;padding:6px">🚪 Logout</button>
+          <!-- User Info & Admin Panel (kompakte Zeile, Buttons als Icon-Buttons mit Tooltip) -->
+          <div id="user-info-header" class="section section-user-info" data-panel-name="Benutzerinfo & Admin" style="display:none">
+            <div class="user-row">
+              <div class="user-id">
+                <span class="user-label">Angemeldet als</span>
+                <div id="user-info-username">-</div>
+              </div>
+              <div class="user-actions">
+                <button id="btn-admin-panel" class="ghost-btn icon-btn" title="Admin-Panel" aria-label="Admin-Panel" style="border-color:var(--warn);color:var(--warn);display:none">⚙️</button>
+                <button id="btn-plans" class="ghost-btn icon-btn" title="Meine Pläne" aria-label="Meine Pläne" style="border-color:var(--sea-bright);color:var(--sea-bright)">📋</button>
+                <button id="btn-share-plan" class="ghost-btn icon-btn" title="Plan teilen" aria-label="Plan teilen" style="border-color:var(--green);color:var(--green)">👥</button>
+                <button id="btn-change-password" class="ghost-btn icon-btn" title="Passwort ändern" aria-label="Passwort ändern" style="border-color:var(--sea-bright);color:var(--sea-bright)">🔑</button>
+                <button id="btn-logout" class="ghost-btn icon-btn" title="Logout" aria-label="Logout" style="border-color:var(--coral);color:var(--coral)">🚪</button>
+              </div>
             </div>
-            <button id="btn-change-password" class="ghost-btn" style="width:100%;margin-top:8px;border-color:var(--sea-bright);color:var(--sea-bright);font-size:.75rem;padding:6px">🔑 Passwort ändern</button>
-            <button id="btn-plans" class="ghost-btn" style="width:100%;margin-top:8px;border-color:var(--sea-bright);color:var(--sea-bright);font-size:.75rem;padding:6px">📋 Meine Pläne</button>
-            <button id="btn-share-plan" class="ghost-btn" style="width:100%;margin-top:8px;border-color:var(--green);color:var(--green);font-size:.75rem;padding:6px">👥 Plan teilen</button>
           </div>
 
           <!-- Wachgänger -->
@@ -793,23 +817,121 @@
           </div>
           <button class="add-btn" id="add-boat">+ Boot hinzufügen</button>
 
-          <!-- Positionsbeschriftungen (Feature 2) -->
-          <div id="section-positions" class="section section-positions">
-            <div class="section-label" style="margin-top:18px;">Zusatzbezeichnungen für Personalpositionen</div>
-            <div class="info-box">Optionale Bezeichnungen für die Positionen 3–7 im DLRG-Formular (z.B. „Wachführer", „Bootsführer", „Sanitäter" etc.).</div>
-            <div id="pos-desc-fields"></div>
+          <!-- Datum & Generierung -->
+          <div id="section-schedule" class="section section-schedule">
+            <div class="section-label" style="margin-top:18px;">Datum &amp; Tageanzahl</div>
+            <div class="start-date-cfg">
+              <div class="sd-row">
+                <div class="sd-label">📅 Startdatum (Tag 1)
+                  <span class="sub">Folgetage werden automatisch berechnet</span>
+                </div>
+                <input type="date" id="start-date" value="">
+              </div>
+              <div class="sd-row" style="margin-top:10px;">
+                <div class="sd-label">📆 Anzahl Wachtage
+                  <span class="sub">1–14 Tage möglich</span>
+                </div>
+                <input type="number" id="num-days" min="1" max="14" value="6"
+                  style="background:var(--navy-2);border:1px solid var(--line-strong);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.82rem;padding:7px 9px;width:62px;text-align:center;color-scheme:dark;">
+              </div>
+            </div>
+
+            <div class="gen-row">
+              <button class="generate" id="generate">⚓ Plan generieren</button>
+            </div>
+            <div style="text-align:center;margin-top:5px;min-height:18px">
+              <span id="seed-display" class="seed-badge" style="display:none"></span>
+            </div>
           </div>
 
-          <!-- XLSX-Stationsspalten -->
-          <div id="section-export-columns" class="section section-export-columns">
-            <div class="section-label" style="margin-top:18px;">XLSX · Stationsspalten</div>
-            <div class="info-box">Lege fest welcher Stationscode in welcher Template-Spalte steht (Zeile 21). Trage z.B. <b>78/1</b>, <b>9/12</b>, <b>WF</b>, <b>HW</b> ein oder lasse das Feld leer.</div>
-            <button class="add-btn" id="btn-auto-export-cols" style="margin-bottom:8px">↺ Automatisch aus Türmen &amp; Booten befüllen</button>
-            <div id="export-col-fields"></div>
-          </div>
+          <!-- Öffnet das Plan-Einstellungen-Modal (selten genutzte Konfiguration) -->
+          <button id="btn-open-settings" class="settings-open-btn" title="Dienstzeit, Seed, Export-Spalten, Fairness-Metriken, Algorithmus-Parameter, Planstatus">⚙️ Plan-Einstellungen</button>
+          <div id="autosave-indicator" style="display:none;font-family:'Spline Sans Mono',monospace;font-size:.68rem;color:var(--green);text-align:center;margin-top:8px;"></div>
 
-          <!-- Fairness-Metriken Anzeige -->
-          <div id="section-fairness-metrics" class="section section-fairness-metrics">
+        </div>
+      </aside>
+    </div>
+
+    <!-- Panel 1: Wachplan (Output) -->
+    <div class="main-panel main-panel-1 panel panel-output" data-panel="1" id="output-panel" data-panel-name="Tages-Wachplan">
+      <div class="empty-state">
+        <div class="big">⚓</div>
+        <p>Wachgänger benennen, Türme festlegen, dann <strong style="color:var(--foam)">Plan generieren</strong>.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Plan-Einstellungen-Modal (Sidebar-Offload: selten genutzte Konfiguration) ── -->
+<div id="settings-modal" class="modal-overlay modal panel panel-settings-modal" data-panel-name="Plan-Einstellungen" style="display:none">
+  <div class="modal-box settings-modal-box">
+    <button class="modal-close-btn" id="settings-modal-close-btn">×</button>
+    <div class="modal-title">⚙️ Plan-Einstellungen</div>
+    <div class="modal-sub">Selten benötigte Konfiguration. Änderungen werden automatisch gespeichert und wirken beim nächsten <b>Plan generieren</b>.</div>
+
+    <div class="settings-tabs" role="tablist">
+      <button class="settings-tab active" data-tab="general" role="tab">⏰ Allgemein</button>
+      <button class="settings-tab" data-tab="export" role="tab">📄 Export</button>
+      <button class="settings-tab" data-tab="fairness" role="tab">⚖️ Fairness</button>
+      <button class="settings-tab" data-tab="data" role="tab">💾 Planstatus</button>
+    </div>
+
+    <!-- Tab: Allgemein (Dienstzeit + Seed) -->
+    <div class="settings-tab-panel active" data-tab-panel="general">
+      <div class="section-label" style="margin-top:18px;">Dienstzeit</div>
+      <div class="start-date-cfg">
+        <div class="sd-row">
+          <div class="sd-label">⏰ Dienstzeit (Stunden)
+            <span class="sub">08:00 bis 19:00 verfügbar</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <label style="font-size:.75rem;color:var(--text-dim)">Start:</label>
+              <input type="number" id="service-start-hour" min="8" max="19" value="9"
+                style="background:var(--navy-2);border:1px solid var(--line-strong);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.82rem;padding:7px 4px;width:50px;text-align:center;color-scheme:dark;">
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <label style="font-size:.75rem;color:var(--text-dim)">Ende:</label>
+              <input type="number" id="service-end-hour" min="8" max="19" value="17"
+                style="background:var(--navy-2);border:1px solid var(--line-strong);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.82rem;padding:7px 4px;width:50px;text-align:center;color-scheme:dark;">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label" style="margin-top:18px;">Startkonstellation</div>
+      <div style="background:var(--deep);border:1px solid rgba(160,120,255,.25);border-radius:9px;padding:11px 13px;margin-bottom:10px">
+      <label style="display:block;font-size:.84rem;margin-bottom:8px;color:var(--text-dim)">
+        🎲 Seed für Startkonstellation
+        <span style="display:block;font-size:.7rem;margin-top:2px">0 = Standard, 1-n = verschiedene Varianten</span>
+      </label>
+        <input id="seed-input" type="number" min="0" max="999" value="0"
+          style="width:100%;background:var(--navy-2);border:1px solid rgba(160,120,255,.35);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.95rem;text-align:center;padding:8px 4px">
+      </div>
+    </div>
+
+    <!-- Tab: Export (Positionsbeschriftungen + XLSX-Stationsspalten) -->
+    <div class="settings-tab-panel" data-tab-panel="export">
+      <!-- Positionsbeschriftungen (Feature 2) -->
+      <div id="section-positions" class="section section-positions">
+        <div class="section-label" style="margin-top:18px;">Zusatzbezeichnungen für Personalpositionen</div>
+        <div class="info-box">Optionale Bezeichnungen für die Positionen 3–7 im DLRG-Formular (z.B. „Wachführer", „Bootsführer", „Sanitäter" etc.).</div>
+        <div id="pos-desc-fields"></div>
+      </div>
+
+      <!-- XLSX-Stationsspalten -->
+      <div id="section-export-columns" class="section section-export-columns">
+        <div class="section-label" style="margin-top:18px;">XLSX · Stationsspalten</div>
+        <div class="info-box">Lege fest welcher Stationscode in welcher Template-Spalte steht (Zeile 21). Trage z.B. <b>78/1</b>, <b>9/12</b>, <b>WF</b>, <b>HW</b> ein oder lasse das Feld leer.</div>
+        <button class="add-btn" id="btn-auto-export-cols" style="margin-bottom:8px">↺ Automatisch aus Türmen &amp; Booten befüllen</button>
+        <div id="export-col-fields"></div>
+      </div>
+    </div>
+
+    <!-- Tab: Fairness (Metriken + Algorithmus-Parameter) -->
+    <div class="settings-tab-panel" data-tab-panel="fairness">
+      <!-- Fairness-Metriken Anzeige -->
+      <div id="section-fairness-metrics" class="section section-fairness-metrics">
             <div class="section-label" style="margin-top:18px;">Fairness-Metriken</div>
             <div class="info-box">Wähle welche Balance-Metriken in der Statistik angezeigt werden.</div>
             <div style="display:flex;flex-direction:column;gap:8px;padding:8px">
@@ -843,93 +965,30 @@
             </div>
           </div>
 
-          <!-- Algorithmus-Parameter -->
-          <div id="section-algo-params" class="section section-algo-params">
-            <div class="section-label" style="margin-top:18px;">Algorithmus-Parameter</div>
-            <div class="info-box">Passe die Scoring-Gewichte des Fairness-Algorithmus an. Die Standardwerte sind für typische DLRG-Wachen optimiert. Änderungen wirken sofort beim nächsten <b>Plan generieren</b>. Hover über einen Parameter für eine kurze Erklärung.</div>
-            <div id="algo-params-fields"></div>
-          </div>
-
-          <!-- Datum & Generierung -->
-          <div id="section-schedule" class="section section-schedule">
-            <div class="section-label" style="margin-top:18px;">Datum &amp; Tageanzahl</div>
-            <div class="start-date-cfg">
-              <div class="sd-row">
-                <div class="sd-label">📅 Startdatum (Tag 1)
-                  <span class="sub">Folgetage werden automatisch berechnet</span>
-                </div>
-                <input type="date" id="start-date" value="">
-              </div>
-              <div class="sd-row" style="margin-top:10px;">
-                <div class="sd-label">📆 Anzahl Wachtage
-                  <span class="sub">1–14 Tage möglich</span>
-                </div>
-                <input type="number" id="num-days" min="1" max="14" value="6"
-                  style="background:var(--navy-2);border:1px solid var(--line-strong);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.82rem;padding:7px 9px;width:62px;text-align:center;color-scheme:dark;">
-              </div>
-              <div class="sd-row" style="margin-top:10px;">
-                <div class="sd-label">⏰ Dienstzeit (Stunden)
-                  <span class="sub">08:00 bis 19:00 verfügbar</span>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                  <div style="display:flex;align-items:center;gap:6px">
-                    <label style="font-size:.75rem;color:var(--text-dim)">Start:</label>
-                    <input type="number" id="service-start-hour" min="8" max="19" value="9"
-                      style="background:var(--navy-2);border:1px solid var(--line-strong);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.82rem;padding:7px 4px;width:50px;text-align:center;color-scheme:dark;">
-                  </div>
-                  <div style="display:flex;align-items:center;gap:6px">
-                    <label style="font-size:.75rem;color:var(--text-dim)">Ende:</label>
-                    <input type="number" id="service-end-hour" min="8" max="19" value="17"
-                      style="background:var(--navy-2);border:1px solid var(--line-strong);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.82rem;padding:7px 4px;width:50px;text-align:center;color-scheme:dark;">
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Seed Input -->
-            <div style="background:var(--deep);border:1px solid rgba(160,120,255,.25);border-radius:9px;padding:11px 13px;margin-bottom:10px">
-            <label style="display:block;font-size:.84rem;margin-bottom:8px;color:var(--text-dim)">
-              🎲 Seed für Startkonstellation
-              <span style="display:block;font-size:.7rem;margin-top:2px">0 = Standard, 1-n = verschiedene Varianten</span>
-            </label>
-              <input id="seed-input" type="number" min="0" max="999" value="0"
-                style="width:100%;background:var(--navy-2);border:1px solid rgba(160,120,255,.35);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.95rem;text-align:center;padding:8px 4px">
-            </div>
-
-            <div class="gen-row">
-              <button class="generate" id="generate">⚓ Plan generieren</button>
-            </div>
-            <div style="text-align:center;margin-top:5px;min-height:18px">
-              <span id="seed-display" class="seed-badge" style="display:none"></span>
-            </div>
-          </div>
-
-          <!-- Planstatus Import/Export (Feature 7) -->
-          <div id="section-import-export" class="section section-import-export">
-            <div class="section-label" style="margin-top:18px;">Planstatus</div>
-          <div class="info-box">Kompletten Status (Personen, Türme, Boote, Außer-Dienst-Meldungen, manuelle Zuweisungen) als <b>JSON</b> sichern oder laden. Der Plan wird automatisch im Browser gespeichert und beim nächsten Öffnen wiederhergestellt.</div>
-          <div id="autosave-indicator" style="display:none;font-family:'Spline Sans Mono',monospace;font-size:.68rem;color:var(--green);text-align:center;margin-bottom:8px;"></div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            <button class="ghost-btn" id="btn-export-state" style="border-color:var(--green);color:var(--green)">↓ Export</button>
-            <button class="ghost-btn" id="btn-import-state" style="border-color:var(--sea-bright);color:var(--sea-bright)">↑ Import</button>
-          </div>
-          <button class="ghost-btn" id="btn-import-plans" style="width:100%;margin-top:8px;border-color:var(--warn);color:var(--warn);font-size:.75rem;display:none">📁 Alte Pläne importieren</button>
-          <button class="ghost-btn" id="btn-clear-save" style="width:100%;margin-top:8px;border-color:var(--coral);color:var(--coral);font-size:.75rem;">🗑 Lokalen Speicherstand löschen</button>
-          <input type="file" id="import-file-input" accept=".json" style="display:none">
-          <input type="file" id="import-plans-file-input" accept=".json" style="display:none" multiple>
-          </div>
-
-        </div>
-      </aside>
-    </div>
-
-    <!-- Panel 1: Wachplan (Output) -->
-    <div class="main-panel main-panel-1 panel panel-output" data-panel="1" id="output-panel" data-panel-name="Tages-Wachplan">
-      <div class="empty-state">
-        <div class="big">⚓</div>
-        <p>Wachgänger benennen, Türme festlegen, dann <strong style="color:var(--foam)">Plan generieren</strong>.</p>
+      <!-- Algorithmus-Parameter -->
+      <div id="section-algo-params" class="section section-algo-params">
+        <div class="section-label" style="margin-top:18px;">Algorithmus-Parameter</div>
+        <div class="info-box">Passe die Scoring-Gewichte des Fairness-Algorithmus an. Die Standardwerte sind für typische DLRG-Wachen optimiert. Änderungen wirken sofort beim nächsten <b>Plan generieren</b>. Hover über einen Parameter für eine kurze Erklärung.</div>
+        <div id="algo-params-fields"></div>
       </div>
     </div>
+
+    <!-- Tab: Planstatus (Import/Export, Feature 7) -->
+    <div class="settings-tab-panel" data-tab-panel="data">
+      <div id="section-import-export" class="section section-import-export">
+        <div class="section-label" style="margin-top:18px;">Planstatus</div>
+        <div class="info-box">Kompletten Status (Personen, Türme, Boote, Außer-Dienst-Meldungen, manuelle Zuweisungen) als <b>JSON</b> sichern oder laden. Der Plan wird automatisch im Browser gespeichert und beim nächsten Öffnen wiederhergestellt.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button class="ghost-btn" id="btn-export-state" style="border-color:var(--green);color:var(--green)">↓ Export</button>
+          <button class="ghost-btn" id="btn-import-state" style="border-color:var(--sea-bright);color:var(--sea-bright)">↑ Import</button>
+        </div>
+        <button class="ghost-btn" id="btn-import-plans" style="width:100%;margin-top:8px;border-color:var(--warn);color:var(--warn);font-size:.75rem;display:none">📁 Alte Pläne importieren</button>
+        <button class="ghost-btn" id="btn-clear-save" style="width:100%;margin-top:8px;border-color:var(--coral);color:var(--coral);font-size:.75rem;">🗑 Lokalen Speicherstand löschen</button>
+        <input type="file" id="import-file-input" accept=".json" style="display:none">
+        <input type="file" id="import-plans-file-input" accept=".json" style="display:none" multiple>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -955,6 +1014,7 @@
 <script src="js/realtime.js"></script>
 <script src="js/plans-ui.js"></script>
 <script src="js/login-modal.js"></script>
+<script src="js/sidebar-layout.js"></script>
 <script src="js/init.js"></script>
 
 <!-- Version tracker -->
