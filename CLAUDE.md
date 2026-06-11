@@ -15,7 +15,11 @@
 - Remote: `https://github.com/Toupsy/Wachplan-Generator`
 - **Versioning:** automatisch via Semantic Release nach Merge auf `main` (Commit-Prefix
   `fix:` → patch, `feat:` → minor, `feat!:`/`BREAKING CHANGE:` → major, `chore:` → kein Bump).
-  Source of Truth: `package.json:version`. Aktuell **0.5.1**.
+  Source of Truth: `package.json:version` (aktuell **0.9.1**); `@semantic-release/git`
+  committet den Bump nach jedem Release zurück nach `main` (`chore(release): x.y.z [skip ci]`).
+  `GET /api/version` → `{ version, latest, updateAvailable, releaseUrl }`; `latest` holt der
+  Server gecacht (6 h) vom GitHub-Releases-API, Frontend-Badge + Toast melden neuere Releases
+  (Feature 29).
 
 ---
 

@@ -32,6 +32,47 @@ const APP_VERSION = (() => {
   }
 })();
 
+// ── GitHub-Release-Check (für /api/version) ────────────────────
+// Serverseitig statt im Browser: kein CSP-Loch (connect-src bleibt 'self'),
+// und das unauthentifizierte GitHub-Rate-Limit (60/h) trifft nur den Server.
+const GITHUB_RELEASE_URL = 'https://api.github.com/repos/Toupsy/Wachplan-Generator/releases/latest';
+const RELEASE_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6h
+let _releaseCache = { latest: null, releaseUrl: null, fetchedAt: 0 };
+
+/** Vergleicht zwei Semver-Strings ("0.9.1"); >0 wenn a neuer als b. */
+function compareVersions(a, b) {
+  const pa = String(a).replace(/^v/, '').split('.').map(Number);
+  const pb = String(b).replace(/^v/, '').split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    const d = (pa[i] || 0) - (pb[i] || 0);
+    if (d !== 0 || Number.isNaN(d)) return Number.isNaN(d) ? 0 : d;
+  }
+  return 0;
+}
+
+/** Neueste GitHub-Release-Version, in-memory gecacht. Fehler → latest:null. */
+async function getLatestRelease() {
+  if (Date.now() - _releaseCache.fetchedAt < RELEASE_CACHE_TTL_MS) return _releaseCache;
+  try {
+    const res = await fetch(GITHUB_RELEASE_URL, {
+      headers: { 'Accept': 'application/vnd.github+json', 'User-Agent': 'wachplan-generator' },
+      signal: AbortSignal.timeout(5000)
+    });
+    if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+    const data = await res.json();
+    _releaseCache = {
+      latest: String(data.tag_name || '').replace(/^v/, '') || null,
+      releaseUrl: data.html_url || null,
+      fetchedAt: Date.now()
+    };
+  } catch (err) {
+    console.warn('GitHub release check failed:', err.message);
+    // Fehlversuch ebenfalls cachen (15min), sonst hämmert jeder Seitenaufruf GitHub
+    _releaseCache = { latest: null, releaseUrl: null, fetchedAt: Date.now() - RELEASE_CACHE_TTL_MS + 15 * 60 * 1000 };
+  }
+  return _releaseCache;
+}
+
 // ── Umgebungsvariablen validieren ──────────────────────────────
 validateEnv();
 
@@ -92,8 +133,14 @@ async function start() {
     app.use('/api/import', importApi);
 
     // Version endpoint (public, no auth needed)
-    app.get('/api/version', (req, res) => {
-      res.json({ version: APP_VERSION });
+    app.get('/api/version', async (req, res) => {
+      const { latest, releaseUrl } = await getLatestRelease();
+      res.json({
+        version: APP_VERSION,
+        latest,
+        releaseUrl,
+        updateAvailable: !!latest && compareVersions(latest, APP_VERSION) > 0
+      });
     });
 
     // Config endpoint (public, no auth needed)

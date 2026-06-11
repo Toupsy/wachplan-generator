@@ -13,7 +13,17 @@
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: **34/34 Tests grün**, alle Server parsen (`node -c`).
 
-**Letzter Lauf (2026-06-10, Optimierungs-Audit – Branch `claude/codebase-optimization-audit-5dmrrb`):**
+**Letzter Lauf (2026-06-11, Feature 29 – Branch `claude/brave-brahmagupta-1awb0w`):**
+- **Version-Badge an GitHub-Releases gekoppelt** (s. docs/FEATURES.md Feature 29): Root-Cause
+  war fehlendes `@semantic-release/git` – `package.json` blieb auf 0.5.1, GitHub war bei 0.9.1.
+  Plugin ergänzt (`.releaserc.json` + `release.yml` `extra_plugins` + devDep), Version einmalig
+  auf 0.9.1 synchronisiert. `/api/version` liefert jetzt zusätzlich `latest`/`updateAvailable`
+  (serverseitiger GitHub-Check, 6 h-Cache); Badge wird gold + Toast bei neuerem Release.
+- **Offen/prüfen nach Merge:** Erster Release-Lauf muss zeigen, dass der `chore(release)`-Commit
+  auf `main` durchkommt (Branch-Protection könnte `GITHUB_TOKEN`-Push blocken → dann Ausnahme
+  für Actions einrichten). 34/34 Tests grün, `/api/version` lokal verifiziert.
+
+**Vorheriger Lauf (2026-06-10, Optimierungs-Audit – Branch `claude/codebase-optimization-audit-5dmrrb`):**
 - **Bug gefunden & gefixt (#272, High):** Plan-Retention-Cleanup lief nie – `server.js` übergab
   `require('./db/connection').db` (= `undefined`, kein solches Export) an
   `startPlanRetentionCleanup` → `db.run` warf bei `PLAN_RETENTION_DAYS>0` einen vom catch

@@ -60,6 +60,13 @@ async function checkForUpdate() {
     const serverVersion = data.version;
     const storedVersion = localStorage.getItem('app-version');
 
+    // Neuere Release auf GitHub als die laufende Installation? → kleine Meldung,
+    // einmal pro neuer Version (Server vergleicht via /api/version, s. server.js)
+    if (data.updateAvailable && localStorage.getItem('gh-update-notified') !== data.latest) {
+      showToast(`✨ Neue Version ${data.latest} auf GitHub verfügbar (installiert: ${serverVersion})`);
+      localStorage.setItem('gh-update-notified', data.latest);
+    }
+
     if (storedVersion && storedVersion !== serverVersion) {
       // Neue Version verfügbar!
       console.log(`🔄 Update verfügbar: ${storedVersion} → ${serverVersion}`);
