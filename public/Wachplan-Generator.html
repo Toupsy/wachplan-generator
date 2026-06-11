@@ -26,6 +26,7 @@
     header{padding:18px 0 14px;margin-bottom:16px}
     .wrap{padding:0 12px}
     .subtitle{font-size:.88rem}
+    .badge{margin-bottom:10px;font-size:10px;padding:5px 10px}
   }
   main{display:flex;flex-direction:column;height:100%;overflow:hidden}
   aside{display:flex;flex-direction:column;height:100%;overflow:visible;min-height:0}
@@ -41,8 +42,11 @@
   .panel-output::-webkit-scrollbar-track{background:transparent}
   .panel-output::-webkit-scrollbar-thumb{background:rgba(127,212,232,0.6);border-radius:6px}
   .panel-output::-webkit-scrollbar-thumb:hover{background:var(--sea-bright)}
-  /* Force panel-output to fill available height */
-  #output-panel{height:100% !important;display:flex !important;flex-direction:column !important;overflow-y:auto !important;overflow-x:hidden !important}
+  /* Force panel-output to fill available height – NUR Desktop! Auf Mobile (<901px) würde
+     das !important den Tab-Switch (.main-panel{display:none}) aushebeln → Wachplan immer sichtbar. */
+  @media(min-width:901px){
+    #output-panel{height:100% !important;display:flex !important;flex-direction:column !important;overflow-y:auto !important;overflow-x:hidden !important}
+  }
   .section{position:relative;display:block}
   .section-people,.section-towers,.section-boats,.section-positions,.section-export-columns,.section-fairness-metrics,.section-schedule,.section-import-export{position:relative;display:block;width:100%}
   .sidebar::-webkit-scrollbar{width:12px}
@@ -195,7 +199,11 @@
   .occupant{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--line);font-size:.88rem;position:relative}
   .occupant:last-child{border-bottom:none}
   .occupant .role-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
-  .occupant .o-role{margin-left:auto;font-family:'Spline Sans Mono',monospace;font-size:.62rem;color:var(--text-dim);letter-spacing:.04em;text-transform:uppercase}
+  /* Name + Labels: nimmt den freien Platz, Name wird abgeschnitten statt die Zeile zu sprengen */
+  .occupant .o-name{flex:1 1 auto;min-width:0;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .occupant .o-name .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+  .occupant .o-role{margin-left:auto;font-family:'Spline Sans Mono',monospace;font-size:.62rem;color:var(--text-dim);letter-spacing:.04em;text-transform:uppercase;flex-shrink:0}
+  .occupant .forced-badge,.occupant .move-btn{flex-shrink:0}
   .warn-pair{color:var(--coral);font-size:.72rem;margin-top:8px;display:flex;align-items:center;gap:5px}
   .hq-divider{font-family:'Spline Sans Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin:10px 0 2px;padding-top:8px;border-top:1px dashed var(--line-strong)}
   .boat-link{font-family:'Spline Sans Mono',monospace;font-size:.66rem;letter-spacing:.05em;color:var(--foam);margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--line)}
@@ -317,7 +325,7 @@
     min-width: 0;
   }
 
-  /* ── Mobile Switch: nur <768px sichtbar ── */
+  /* ── Mobile Switch: nur <901px sichtbar ── */
   .mobile-switch { display: none; }
 
   /* ── Responsive: Tablet – Optional gap reduction for smaller screens ── */
@@ -404,6 +412,18 @@
       height: auto;
       grid-column: auto;
     }
+
+    /* iOS Safari zoomt beim Fokussieren von Inputs mit font-size <16px → auf Mobile 16px */
+    .sidebar input[type=text],
+    .sidebar input[type=number],
+    .sidebar input[type=date],
+    .sidebar select {
+      font-size: 16px;
+    }
+
+    /* CODE/PRIO-Inputs breiter, damit Werte bei 16px-Schrift lesbar bleiben */
+    .code-input input { width: 58px; }
+    .prio-input input { width: 46px; }
   }
 
   /* ── Responsive: Schmale Displays (<520px) – Person/Turm-Reflow ── */
@@ -472,9 +492,27 @@
       height: 36px;
     }
 
-    /* Turm-/Boot-Zeilen: mehr Abstand */
+    /* Turm-/Boot-Zeilen: geordnetes Grid statt zufälligem flex-wrap
+       Reihe 1: CODE | PRIO | ×  ·  Reihe 2: Spinner bzw. Boot-Zuordnung (volle Breite) */
     .tower-row-meta {
-      gap: 10px;
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 8px 10px;
+      align-items: center;
+    }
+
+    .tower-row-meta .code-input { grid-column: 1; }
+    .tower-row-meta .prio-input { grid-column: 2; }
+    .tower-row-meta > .mini-btn { grid-column: 3; justify-self: end; }
+    .tower-row-meta .slot-spinner,
+    .tower-row-meta .leader-spinner,
+    .tower-row-meta select.bassign {
+      grid-column: 1 / -1;
+    }
+
+    .tower-row-meta .slot-spinner,
+    .tower-row-meta .leader-spinner {
+      flex-wrap: wrap;
     }
 
     .tower-row-meta select {
@@ -485,6 +523,9 @@
     .code-input input,
     .prio-input input {
       min-height: 38px;
+      flex: 1;
+      width: auto;
+      min-width: 34px;
     }
 
     /* Slot-/Leader-Spinner-Buttons größer */
@@ -497,6 +538,16 @@
       width: 34px;
       height: 34px;
       font-size: 1.1rem;
+    }
+
+    /* Stats-Bar: feste 2 Spalten statt gequetschtem auto-fit-Grid */
+    .stats-bar {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .stat .num {
+      font-size: 1.25rem;
     }
   }
 
@@ -726,7 +777,7 @@
 
   <!-- Main Panels: Sidebar / Output (Grid Layout) -->
   <div class="main-panels">
-    <!-- Mobile Switch: nur auf <768px sichtbar -->
+    <!-- Mobile Switch: nur auf <901px sichtbar -->
     <div class="mobile-switch" role="tablist">
       <button class="ms-btn active" data-target="0">⚙️ Einstellungen</button>
       <button class="ms-btn" data-target="1">📋 Wachplan</button>
