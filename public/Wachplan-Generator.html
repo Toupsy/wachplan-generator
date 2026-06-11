@@ -49,6 +49,21 @@
   .sidebar::-webkit-scrollbar-track{background:transparent}
   .sidebar::-webkit-scrollbar-thumb{background:rgba(127,212,232,.35);border-radius:6px;border:3px solid transparent;background-clip:padding-box}
   .sidebar::-webkit-scrollbar-thumb:hover{background:rgba(24,168,216,.6);background-clip:padding-box}
+  /* ── Sidebar-Tabs (Tab-Layout der Sidebar) ── */
+  .sidebar-tabs{position:sticky;top:0;z-index:30;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:-18px -18px 14px;padding:14px 18px 12px;background:var(--navy-2);border-bottom:1px solid var(--line);border-radius:16px 16px 0 0}
+  .sidebar-tab{font-family:'Spline Sans Mono',monospace;font-size:.7rem;background:var(--deep);border:1px solid var(--line);color:var(--text-dim);padding:9px 4px;border-radius:9px;cursor:pointer;transition:all .15s;text-align:center;white-space:nowrap;letter-spacing:.02em}
+  .sidebar-tab:hover{color:var(--text);border-color:var(--line-strong)}
+  .sidebar-tab.active{background:var(--sea);border-color:var(--sea);color:#fff;box-shadow:0 4px 14px rgba(13,124,168,.4)}
+  .sidebar-tabpane{display:none}
+  .sidebar-tabpane.active{display:block}
+  .sidebar-gen-footer{position:sticky;bottom:0;z-index:25;background:var(--paper);border-top:1px solid var(--line);margin:18px -18px -18px;padding:2px 18px 14px;border-radius:0 0 16px 16px}
+  .sidebar-gen-footer .gen-row{margin-top:0}
+  .sidebar-gen-footer button.generate{margin-top:12px}
+  @media(max-width:900px){
+    /* Unter der sticky .mobile-switch andocken statt sie zu überlappen */
+    .sidebar-tabs{top:62px;border-radius:0}
+    .sidebar-gen-footer{border-radius:0}
+  }
   .section-label{font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--foam);margin-bottom:18px;margin-top:24px;display:flex;align-items:center;gap:10px}
   .section-label::before{content:'';width:18px;height:2px;background:var(--sea-bright)}
   .person-edit{display:grid;grid-template-columns:20px minmax(0,2fr) minmax(0,2.1fr) minmax(0,1.2fr) minmax(0,0.6fr) 24px;gap:6px;align-items:center;margin-bottom:10px}
@@ -750,6 +765,17 @@
             <button id="btn-share-plan" class="ghost-btn" style="width:100%;margin-top:8px;border-color:var(--green);color:var(--green);font-size:.75rem;padding:6px">👥 Plan teilen</button>
           </div>
 
+          <!-- Sidebar-Tab-Leiste (sticky) -->
+          <div class="sidebar-tabs" id="sidebar-tabs" role="tablist" aria-label="Sidebar-Bereiche">
+            <button type="button" class="sidebar-tab active" data-tab="team" role="tab" aria-controls="sidebar-tab-team" aria-selected="true">👥 Team</button>
+            <button type="button" class="sidebar-tab" data-tab="stationen" role="tab" aria-controls="sidebar-tab-stationen" aria-selected="false">🗼 Stationen</button>
+            <button type="button" class="sidebar-tab" data-tab="einstellungen" role="tab" aria-controls="sidebar-tab-einstellungen" aria-selected="false">⚙️ Einstellungen</button>
+            <button type="button" class="sidebar-tab" data-tab="plan" role="tab" aria-controls="sidebar-tab-plan" aria-selected="false">📋 Plan</button>
+          </div>
+
+          <!-- Tab: Team -->
+          <div class="sidebar-tabpane active" id="sidebar-tab-team" role="tabpanel">
+
           <!-- Wachgänger -->
           <div id="section-people" class="section section-people">
             <div class="section-label">Wachgänger</div>
@@ -769,6 +795,11 @@
             <button data-role="W" data-exp="true">+ Erfahren</button>
             <button data-role="W" data-exp="false">+ Unerf.</button>
           </div>
+
+          </div><!-- /Tab: Team -->
+
+          <!-- Tab: Stationen -->
+          <div class="sidebar-tabpane" id="sidebar-tab-stationen" role="tabpanel">
 
           <!-- Türme -->
           <div id="section-towers" class="section section-towers">
@@ -792,6 +823,11 @@
             <div id="boat-cfg"></div>
           </div>
           <button class="add-btn" id="add-boat">+ Boot hinzufügen</button>
+
+          </div><!-- /Tab: Stationen -->
+
+          <!-- Tab: Einstellungen -->
+          <div class="sidebar-tabpane" id="sidebar-tab-einstellungen" role="tabpanel">
 
           <!-- Positionsbeschriftungen (Feature 2) -->
           <div id="section-positions" class="section section-positions">
@@ -850,6 +886,11 @@
             <div id="algo-params-fields"></div>
           </div>
 
+          </div><!-- /Tab: Einstellungen -->
+
+          <!-- Tab: Plan -->
+          <div class="sidebar-tabpane" id="sidebar-tab-plan" role="tabpanel">
+
           <!-- Datum & Generierung -->
           <div id="section-schedule" class="section section-schedule">
             <div class="section-label" style="margin-top:18px;">Datum &amp; Tageanzahl</div>
@@ -896,12 +937,6 @@
                 style="width:100%;background:var(--navy-2);border:1px solid rgba(160,120,255,.35);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.95rem;text-align:center;padding:8px 4px">
             </div>
 
-            <div class="gen-row">
-              <button class="generate" id="generate">⚓ Plan generieren</button>
-            </div>
-            <div style="text-align:center;margin-top:5px;min-height:18px">
-              <span id="seed-display" class="seed-badge" style="display:none"></span>
-            </div>
           </div>
 
           <!-- Planstatus Import/Export (Feature 7) -->
@@ -917,6 +952,18 @@
           <button class="ghost-btn" id="btn-clear-save" style="width:100%;margin-top:8px;border-color:var(--coral);color:var(--coral);font-size:.75rem;">🗑 Lokalen Speicherstand löschen</button>
           <input type="file" id="import-file-input" accept=".json" style="display:none">
           <input type="file" id="import-plans-file-input" accept=".json" style="display:none" multiple>
+          </div>
+
+          </div><!-- /Tab: Plan -->
+
+          <!-- Sticky Footer: Plan generieren (immer sichtbar, tab-unabhängig) -->
+          <div class="sidebar-gen-footer" id="sidebar-generate-footer">
+            <div class="gen-row">
+              <button class="generate" id="generate">⚓ Plan generieren</button>
+            </div>
+            <div style="text-align:center;margin-top:5px;min-height:18px">
+              <span id="seed-display" class="seed-badge" style="display:none"></span>
+            </div>
           </div>
 
         </div>
@@ -955,6 +1002,7 @@
 <script src="js/realtime.js"></script>
 <script src="js/plans-ui.js"></script>
 <script src="js/login-modal.js"></script>
+<script src="js/sidebar-layout.js"></script>
 <script src="js/init.js"></script>
 
 <!-- Version tracker -->
