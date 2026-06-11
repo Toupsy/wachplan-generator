@@ -13,7 +13,20 @@
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: **34/34 Tests grün**, alle Server parsen (`node -c`).
 
-**Letzter Lauf (2026-06-11, Feature 29 – Branch `claude/brave-brahmagupta-1awb0w`):**
+**Letzter Lauf (2026-06-11, Optimierungs-Audit #2 – Branch `claude/confident-shannon-jq07g7`):**
+- **Security-Fix (#279, Medium):** `POST /api/import/plans` umging die Eingabe-Limits aus
+  #218/#270 komplett (kein Name-/Größen-/Typ-Check, rohe `planError.message` an den Client).
+  Fix: `validatePlanInput` aus `plans.js` exportiert + im Import-Loop angewandt, generische
+  Client-Fehlermeldungen, Namen in Fehler-Strings koerziert/gekürzt. 34/34 Tests grün,
+  Export-/Limit-Verhalten via `node -e` verifiziert. → PR offen.
+- **Housekeeping:** Issues #272/#273 geschlossen (Fixes waren via PR #275 bereits auf `main`
+  gemergt, Issues standen noch offen).
+- **Geprüft, bewusst NICHT gemeldet:** `compareVersions` in `server.js` behandelt NaN korrekt
+  (malformed → 0/gleich, gewollt defensiv); getP/getT-Null-Derefs in `render-sidebar.js` sind
+  theoretisch (data-ids stammen aus dem synchron gerenderten DOM); restliche Audit-Befunde
+  (SQLi, AuthZ, Crypto, Sessions) ohne Befund. #276-Crash hat bereits offenen PR #277.
+
+**Vorheriger Lauf (2026-06-11, Feature 29 – Branch `claude/brave-brahmagupta-1awb0w`):**
 - **Version-Badge an GitHub-Releases gekoppelt** (s. docs/FEATURES.md Feature 29): Root-Cause
   war fehlendes `@semantic-release/git` – `package.json` blieb auf 0.5.1, GitHub war bei 0.9.1.
   Plugin ergänzt (`.releaserc.json` + `release.yml` `extra_plugins` + devDep), Version einmalig
