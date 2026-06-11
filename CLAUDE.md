@@ -57,11 +57,12 @@ share.js          Plan-Teilen-Modal (👥)
 realtime.js       WebSocket-Client (deaktiviert in .workers.dev Preview)
 plans-ui.js       Plan-Manager (📋 Meine Pläne)
 login-modal.js    Login/Setup/Register-Modal
+sidebar-layout.js Master-Detail-Drill-Down der Sidebar (Home-Menü + Detail-Views, localStorage `dlrg_sidebar_view`)
 init.js           Event-Listener + Startsequenz (autoLoad → seed fallback)
 ```
 **Ladereihenfolge:** state → utils → dates → autoCodes → config → seed → render-sidebar →
 generate → render-output → export → move → state-io → user-info → share → realtime →
-plans-ui → login-modal → init
+plans-ui → login-modal → sidebar-layout → init
 
 **Backend `server/`:**
 ```
