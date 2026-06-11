@@ -11,10 +11,25 @@
 > Doku-Wartungsvertrag s. CLAUDE.md.
 
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
-`main` ist nach dem Review-Lauf vom 2026-06-10 sauber: **34/34 Tests grün**, alle Server
-parsen (`node -c`). **Keine offenen PRs.**
+`main` ist sauber: **34/34 Tests grün**, alle Server parsen (`node -c`).
 
-**Letzter Lauf (2026-06-10, Maintainer-Review):**
+**Letzter Lauf (2026-06-10, Optimierungs-Audit – Branch `claude/codebase-optimization-audit-5dmrrb`):**
+- **Bug gefunden & gefixt (#272, High):** Plan-Retention-Cleanup lief nie – `server.js` übergab
+  `require('./db/connection').db` (= `undefined`, kein solches Export) an
+  `startPlanRetentionCleanup` → `db.run` warf bei `PLAN_RETENTION_DAYS>0` einen vom catch
+  verschluckten `TypeError`. Fix: `getDb()` übergeben + `cleanupRunning`-Guard. Verifiziert.
+- **Reliability/Wartbarkeit (#273):** (a) Export-Memory-Leak behoben – neuer `downloadBlob()`-
+  Helfer in `utils.js` mit `revokeObjectURL` (export.js ×3 + state-io.js). (b) `realtime.js`:
+  stummer `catch` loggt jetzt, `planId` via `parsePositiveInt` validiert, `ws.send` nur bei
+  `readyState===OPEN`. (c) `admin.js` Audit-Log: `JSON.parse` pro Zeile abgesichert (kein 500
+  mehr bei einer korrupten Zeile). (d) `plans.js`/`realtime.js`: doppelte ID-Parser → zentraler
+  `parsePositiveInt`. (e) totes/kaputtes `test/gdpr-deletion-verification.js` entfernt.
+- **Tracking-Issue (#274, Low–Med, NICHT umgesetzt):** `admin-server.js` Error-Handler exiten
+  nicht & sind erst in `start()` registriert (inkonsistent mit `server.js`) – Verhaltensänderung,
+  daher bewusst nur als Issue (Überschneidung mit #217).
+- Diese Änderungen liegen auf Branch `claude/codebase-optimization-audit-5dmrrb` (PR offen).
+
+**Vorheriger Lauf (2026-06-10, Maintainer-Review):**
 - **PR #231 gemergt** → Feature 28 **Fairness-Visualisierung** (SVG-Balkendiagramme: Einsätze/
   Person, HW-Tage/Person, Turmauslastung; rein CSS/SVG, CSP-konform, im Druck aus,
   `fairnessChartsDisplay`). War gegen veralteten `main` → Konflikte (VERSION/CLAUDE.md) gelöst,
@@ -85,9 +100,8 @@ Multi-User mit **AES-256-GCM at rest**, Sessions, Sharing, Realtime (WebSocket),
 1. **Feature-PRs #220–#223:** mergebar machbar; pro Issue Branch + PR. #221 sauber vom
    tageweisen `absent` (Feature 27) abgrenzen.
 2. **#217 Backend-DRY:** CSP-Factory-Ansatz (s. o.), sonst bricht XLSX-Export.
-3. **`test/gdpr-deletion-verification.js`** ist veraltet/kaputt (fehlende `sessions`-Tabelle im
-   eingebetteten Schema) → entweder reparieren (sessions anlegen) oder löschen; die Löschung
-   ist bereits über `session-user-deletion.test.js` in CI abgedeckt.
+3. ~~`test/gdpr-deletion-verification.js` veraltet/kaputt~~ → **erledigt** (entfernt, #273).
+   Löschung ist über `session-user-deletion.test.js` in CI abgedeckt.
 4. **Fairness:** Penalty-Gewichte in `bestPair` empirisch getunt → bei Änderungen gegen
    Turm-/Paar-Wiederholung messen (`/tmp/measure.js`-Muster), nicht nur Invarianten.
 5. **Branch-Workflow:** nie direkt auf `main`; PRs nur auf ausdrücklichen Wunsch.

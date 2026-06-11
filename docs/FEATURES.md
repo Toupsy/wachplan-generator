@@ -199,6 +199,32 @@ Planungszeitraum – ergänzend zu den vorhandenen Zahlen-Metriken und der Pro-P
 
 ## Bugfixes
 
+### Plan-Retention-Cleanup lief nie – `db` undefined (#272)
+**Problem:** `server.js` startete die DSGVO-Plan-Retention mit
+`const db = require('./db/connection').db;` – `connection.js` exportiert aber **kein**
+`db`-Feld (nur `getDb`/`dbRun`/…). `startPlanRetentionCleanup(undefined, …)` rief intern
+`db.run(...)` auf → bei `PLAN_RETENTION_DAYS > 0` warf das 24h-Intervall `TypeError`, der
+vom `catch` verschluckt wurde. Die Retention (Feature 22/23, DSGVO Art. 5) tat nie etwas.
+- **Ort:** `server/server.js`, `server/db/init.js` (`startPlanRetentionCleanup`).
+- **Lösung:** `getDb()` (Singleton, nach `initDatabase()` live) statt `.db` übergeben.
+  Zusätzlich `cleanupRunning`-Guard gegen überlappende Cleanup-Läufe.
+- **Verifikation:** Reproduziert (`require(...).db === undefined`); mit `getDb()` läuft die
+  exakte Retention-`UPDATE`-Query fehlerfrei.
+
+### Robustheit/Wartbarkeit – Export-Leak, WebSocket-Fehler, Audit-JSON, ID-Parser (#273)
+- **Export-Memory-Leak:** `URL.createObjectURL()` wurde in `export.js` (XLSX/CSV/Stats) und
+  `state-io.js` nie freigegeben. Neuer Helfer `downloadBlob(blob, filename)` in `utils.js`
+  (zentral + `revokeObjectURL`).
+- **WebSocket-Join (`realtime.js`):** stummer `catch(e){}` loggt jetzt; `msg.planId` wird via
+  `parsePositiveInt` validiert; `ws.send` nur bei `readyState===OPEN`.
+- **Audit-Log (`admin.js`):** `JSON.parse(details)` pro Datensatz mit `try/catch` – ein
+  korrupter Datensatz kippt nicht mehr den ganzen Compliance-Endpoint (500); Fallback
+  `{ _parseError:true, raw }`.
+- **ID-Parsing (`plans.js`/`realtime.js`):** lokale `parsePlanId`/`parseUserId` durch den
+  zentralen, strikteren `parsePositiveInt` (`db/ids.js`) ersetzt (`'5abc'` → `null` statt `5`).
+- **Dead Code:** veraltetes/kaputtes `test/gdpr-deletion-verification.js` entfernt (nicht in
+  CI, Löschung ist über `session-user-deletion.test.js` abgedeckt).
+
 ### Fairness – Bootsführer-Rotation zu eng (Lookback + Matching, v0.4.24)
 **Problem:** Ein Bootsführer stand teils zwei Tage hintereinander am selben Boot; der
 Rotations-Penalty prüfte nur den Vortag (`lastBoatId`). Gewünscht: bei 3 Booten frühestens

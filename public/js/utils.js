@@ -7,6 +7,21 @@ function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
+/**
+ * Startet einen Browser-Download für einen Blob und gibt die Object-URL
+ * wieder frei. Ohne revokeObjectURL bleibt jede exportierte Datei als
+ * Blob im Speicher (Leak bei wiederholtem Export).
+ */
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  // Nach dem Klick freigeben; kleiner Timeout, damit der Download startet.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 /** Kurze Toast-Benachrichtigung am unteren Bildschirmrand. */
 function showToast(msg){
   const t = document.createElement('div');

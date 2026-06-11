@@ -10,6 +10,7 @@
 
 const { WebSocketServer } = require('ws');
 const { getPlanAccess } = require('./db/access');
+const { parsePositiveInt } = require('./db/ids');
 
 const rooms = new Map(); // planId(String) → Set<ws>
 
@@ -65,13 +66,20 @@ function setupRealtime(server, sessionMiddleware) {
     ws.on('message', async (data) => {
       let msg; try { msg = JSON.parse(data.toString()); } catch (e) { return; }
       if (msg.type === 'join' && msg.planId != null) {
+        const planId = parsePositiveInt(msg.planId);
+        if (!planId) return;                             // ungültige ID → ignorieren
         try {
-          const access = await getPlanAccess(parseInt(msg.planId), ws.userId);
+          const access = await getPlanAccess(planId, ws.userId);
           if (access) {                                  // nur bei Zugriff (Owner/Mitbearbeiter)
-            joinRoom(msg.planId, ws);
-            ws.send(JSON.stringify({ type: 'joined', planId: Number(msg.planId) }));
+            joinRoom(planId, ws);
+            // readyState prüfen: Socket kann zwischen Access-Check und send schließen.
+            if (ws.readyState === ws.OPEN) {
+              ws.send(JSON.stringify({ type: 'joined', planId }));
+            }
           }
-        } catch (e) {}
+        } catch (e) {
+          console.error('WebSocket join error:', e);     // nicht stumm verschlucken
+        }
       } else if (msg.type === 'leave') {
         leaveRoom(ws);
       }

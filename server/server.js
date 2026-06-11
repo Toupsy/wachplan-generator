@@ -69,10 +69,14 @@ async function start() {
     await initDatabase();
     console.log('✓ Database ready');
 
-    // Start plan retention cleanup (if configured)
+    // Start plan retention cleanup (if configured).
+    // WICHTIG: connection.js exportiert kein `db`-Feld – die Verbindung kommt über
+    // getDb() (Singleton, nach initDatabase live). Früher wurde hier `.db` (undefined)
+    // übergeben → das 24h-Intervall warf TypeError (vom catch verschluckt) und die
+    // DSGVO-Plan-Retention lief nie. getDb() liefert die gültige Laufzeit-Verbindung.
     const retentionDays = parseInt(process.env.PLAN_RETENTION_DAYS) || 0;
-    const db = require('./db/connection').db;
-    startPlanRetentionCleanup(db, retentionDays);
+    const { getDb } = require('./db/connection');
+    startPlanRetentionCleanup(getDb(), retentionDays);
 
     // Session middleware (SQLite-Store, zentral in db/session.js).
     // resave/saveUninitialized=true für SQLite-Reliability.

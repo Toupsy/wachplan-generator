@@ -13,19 +13,14 @@ const { dbRun, dbGet, dbAll } = require('../db/connection');
 const { encryptPlanState, decryptPlanState } = require('../db/crypto');
 const { getPlanAccess } = require('../db/access');
 const { broadcastPlanUpdate } = require('../realtime');
+const { parsePositiveInt } = require('../db/ids');
 
 // ───────────────────────────────────────────────────────────
-// ID Parsing Helpers
+// ID Parsing Helpers – zentral über db/ids.js (strikte Validierung:
+// '5abc' → null statt 5; verhindert teilgeparste IDs in DB-Queries).
 // ───────────────────────────────────────────────────────────
-function parsePlanId(paramStr) {
-  const id = parseInt(paramStr, 10);
-  return Number.isInteger(id) && id > 0 ? id : null;
-}
-
-function parseUserId(paramStr) {
-  const id = parseInt(paramStr, 10);
-  return Number.isInteger(id) && id > 0 ? id : null;
-}
+const parsePlanId = parsePositiveInt;
+const parseUserId = parsePositiveInt;
 
 // ───────────────────────────────────────────────────────────
 // Eingabe-Limits (Schutz vor Storage-Exhaustion, Issue #218)
