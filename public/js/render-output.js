@@ -39,6 +39,12 @@ function renderOutput(){
   }
 
   const panel = document.getElementById('output-panel');
+  // Schutz: renderOutput() kann aus der Sidebar getriggert werden, BEVOR ein Plan
+  // generiert wurde (lastResult ist bis zum ersten generate() null; es wird weder
+  // serialisiert noch beim autoLoad gesetzt). Ohne Guard crasht die Destrukturierung
+  // unten ("Cannot destructure property 'schedule' of 'lastResult' as it is null") –
+  // z.B. beim Umschalten der Labels-/Erfahren-Checkbox einer Person auf frischem Stand.
+  if(!lastResult) return;
   let { schedule } = lastResult;
 
   // ── Wende transparent placements visuell an (ohne generate()) ────

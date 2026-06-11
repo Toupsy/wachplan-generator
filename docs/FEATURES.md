@@ -199,6 +199,21 @@ Planungszeitraum – ergänzend zu den vorhandenen Zahlen-Metriken und der Pro-P
 
 ## Bugfixes
 
+### Crash: `renderOutput()` mit `lastResult === null` (Labels-/Erfahren-Checkbox auf frischem Stand)
+**Problem:** `lastResult` ist bis zum ersten `generate()` `null` (wird weder serialisiert noch
+beim `autoLoad()` gesetzt). In diesem Fenster ist die Sidebar bereits voll bedienbar. Die
+Handler der **Labels-Checkbox** (`render-sidebar.js:67`) und der **Erfahren-Checkbox**
+(`render-sidebar.js:83`) riefen `renderOutput()` **ohne** den sonst üblichen `if(lastResult)`-Guard
+(vgl. `init.js:359/368`, `state-io.js:183`). `renderOutput()` destrukturierte direkt
+`let { schedule } = lastResult;` → `TypeError: Cannot destructure property 'schedule' of
+'lastResult' as it is null`. Die App wirkte für neue Nutzer beim Ersteinrichten „kaputt".
+- **Ort:** `render-output.js` (`renderOutput()`), getriggert aus `render-sidebar.js`.
+- **Lösung:** Defensiver Guard `if(!lastResult) return;` direkt vor der `lastResult`-Nutzung in
+  `renderOutput()` – deckt **alle** aktuellen und künftigen Aufrufer ab (statt nur die zwei
+  Call-Sites zu flicken). Ohne generiertes Ergebnis gibt es nichts zu rendern.
+- **Verifikation:** `node -c` ok; volle Suite 34/34 grün (Algorithmus unberührt – DOM-Render
+  ist nicht Teil des vm-Harness).
+
 ### Fairness – Bootsführer-Rotation zu eng (Lookback + Matching, v0.4.24)
 **Problem:** Ein Bootsführer stand teils zwei Tage hintereinander am selben Boot; der
 Rotations-Penalty prüfte nur den Vortag (`lastBoatId`). Gewünscht: bei 3 Booten frühestens

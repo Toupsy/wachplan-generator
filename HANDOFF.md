@@ -12,7 +12,18 @@
 
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist nach dem Review-Lauf vom 2026-06-10 sauber: **34/34 Tests grün**, alle Server
-parsen (`node -c`). **Keine offenen PRs.**
+parsen (`node -c`). **Offene PRs:** #275 (Plan-Retention-Fix + Backend-/Export-Robustheit,
+schließt #272/#273).
+
+**Letzter Lauf (2026-06-11, Optimierungs-Audit, Branch `claude/kind-allen-t8rtw1`):**
+- **Bugfix (High):** `renderOutput()` crashte mit `lastResult === null`, wenn vor dem ersten
+  `generate()` die **Labels-** oder **Erfahren-Checkbox** einer Person umgeschaltet wurde
+  (`render-sidebar.js:67/83` riefen `renderOutput()` ohne `if(lastResult)`-Guard). Fix:
+  defensiver `if(!lastResult) return;` in `renderOutput()` (deckt alle Aufrufer ab). 34/34
+  grün. Doku: `docs/FEATURES.md`. Branch gepusht; GitHub-Issue dokumentiert den Befund.
+- Audit-Restbefunde (nicht umgesetzt, low-risk, als Issue dokumentiert): `slotNameRef()`
+  OOB bei >28 Personen (XLSX-Export liefert `NaN`-Zellref statt sauberer Truncation),
+  Prio-Inputs ohne Obergrenze, ungeguardetes `JSON.parse` in `move.js`.
 
 **Letzter Lauf (2026-06-10, Maintainer-Review):**
 - **PR #231 gemergt** → Feature 28 **Fairness-Visualisierung** (SVG-Balkendiagramme: Einsätze/
