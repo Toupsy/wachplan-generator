@@ -68,7 +68,12 @@ function renderPeople(){
     };
   });
   c.querySelectorAll('.pname').forEach(i =>
-    i.oninput = e => { getP(+e.target.dataset.id).name = e.target.value; });
+    i.oninput = e => {
+      const p = getP(+e.target.dataset.id);
+      p.name = e.target.value;
+      // Automatisch neu generieren wenn ein Wachgänger einen Namen erhält und ein Plan existiert
+      if(p.role === 'W' && e.target.value.trim() && lastResult) generate();
+    });
   c.querySelectorAll('.plabels').forEach(i =>
     i.oninput = e => { getP(+e.target.dataset.id).labels = e.target.value; });
   c.querySelectorAll('.prole').forEach(s =>

@@ -118,7 +118,7 @@ function importStateJSON(json, silent = false){
     { hwBoatBalance:true, towerDistribution:true, boatPairingDiversity:true },
     s.fairnessMetricsDisplay || {});
   fairnessChartsDisplay = Object.assign(
-    { assignmentsPerPerson:true, hwDaysPerPerson:true, towerUtilization:true },
+    { assignmentsPerPerson:false, hwDaysPerPerson:false, towerUtilization:false },
     s.fairnessChartsDisplay || {});
   // Checkboxen mit wiederhergestelltem Zustand synchronisieren
   syncMetricCheckboxes();
