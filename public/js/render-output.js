@@ -854,20 +854,27 @@ function _applyBoatReassignment(boatId, dayIdx, kind, slotId){
   });
 }
 
-/** Erstellt SVG-Balkendiagramm für Einsätze pro Person */
+/** Erstellt gestapeltes SVG-Balkendiagramm für Hauptstrand / Nebenstrand pro Person */
 function renderAssignmentsChart(){
   if(!lastResult?.stats) return '';
+  const hasMain = towers.some(t => t.mainBeach);
+  const hasOuter = towers.some(t => !t.mainBeach);
+  if(!hasMain || !hasOuter) return '';
+
   const stats = Object.entries(lastResult.stats)
-    .filter(([id, s]) => people.find(p => p.id === parseInt(id)))
-    .map(([id, s]) => ({ personId: parseInt(id), person: people.find(p => p.id === parseInt(id)), total: s.total }))
-    .sort((a, b) => b.total - a.total);
+    .filter(([id]) => people.find(p => p.id === parseInt(id)))
+    .map(([id, s]) => ({
+      person: people.find(p => p.id === parseInt(id)),
+      main: s.mainBeachDays || 0,
+      outer: s.outerBeachDays || 0
+    }))
+    .sort((a, b) => (b.main + b.outer) - (a.main + a.outer));
 
   if(stats.length === 0) return '';
 
-  const maxVal = Math.max(...stats.map(s => s.total));
-  const avgVal = stats.reduce((sum, s) => sum + s.total, 0) / stats.length;
+  const maxVal = Math.max(...stats.map(s => s.main + s.outer), 1);
   const width = 800, height = Math.max(180, stats.length * 20 + 40);
-  const margin = { left: 140, right: 20, top: 20, bottom: 30 };
+  const margin = { left: 140, right: 60, top: 20, bottom: 10 };
   const chartWidth = width - margin.left - margin.right;
   const chartHeight = height - margin.top - margin.bottom;
   const barHeight = Math.max(14, chartHeight / stats.length);
@@ -876,20 +883,20 @@ function renderAssignmentsChart(){
 
   stats.forEach((s, idx) => {
     const y = margin.top + idx * barHeight;
-    const barWidth = (s.total / maxVal) * chartWidth;
-    const isSkewed = Math.abs(s.total - avgVal) > avgVal * 0.3;
-    const barClass = isSkewed ? 'chart-bar skewed' : 'chart-bar balanced';
-    svg += `<rect x="${margin.left}" y="${y + 2}" width="${barWidth}" height="${barHeight - 4}" class="${barClass}" data-value="${s.total}"/>`;
+    const outerW = (s.outer / maxVal) * chartWidth;
+    const mainW = (s.main / maxVal) * chartWidth;
+    svg += `<rect x="${margin.left}" y="${y + 2}" width="${outerW}" height="${barHeight - 4}" class="chart-bar"/>`;
+    svg += `<rect x="${margin.left + outerW}" y="${y + 2}" width="${mainW}" height="${barHeight - 4}" class="chart-bar balanced"/>`;
     svg += `<text x="${margin.left - 8}" y="${y + barHeight / 2 + 3}" class="chart-label-y">${escapeHtml(s.person.name.slice(0, 16))}</text>`;
-    svg += `<text x="${margin.left + barWidth + 5}" y="${y + barHeight / 2 + 3}" class="chart-text">${s.total}</text>`;
+    svg += `<text x="${margin.left + outerW + mainW + 5}" y="${y + barHeight / 2 + 3}" class="chart-text">H:${s.main} N:${s.outer}</text>`;
   });
 
-  const avgX = margin.left + (avgVal / maxVal) * chartWidth;
-  svg += `<line x1="${avgX}" y1="${margin.top}" x2="${avgX}" y2="${height - margin.bottom}" class="chart-avg-line"/>`;
-  svg += `<text x="${avgX}" y="${height - 8}" class="chart-label-x" text-anchor="middle">Ø ${Math.round(avgVal * 10) / 10}</text>`;
-
   svg += '</svg>';
-  return `<div class="chart-section"><div class="chart-title">📊 Einsätze gesamt pro Person</div><div class="chart-wrapper">${svg}</div></div>`;
+  const legend = `<div class="chart-legend">
+    <div class="chart-legend-item"><div class="chart-legend-box" style="background:var(--green)"></div>Hauptstrand</div>
+    <div class="chart-legend-item"><div class="chart-legend-box" style="background:var(--sea-bright)"></div>Nebenstrand</div>
+  </div>`;
+  return `<div class="chart-section"><div class="chart-title">🏖️ Hauptstrand / Nebenstrand pro Person</div><div class="chart-wrapper">${svg}${legend}</div></div>`;
 }
 
 /** Erstellt SVG-Balkendiagramm für HW-Tage pro Person */
