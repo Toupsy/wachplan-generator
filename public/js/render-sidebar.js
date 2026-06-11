@@ -497,6 +497,134 @@ function renderExportColumnUI(){
     inp.oninput = e => { exportColumns[+e.target.dataset.idx] = e.target.value.trim(); });
 }
 
+/** Algorithmus-Parameter: Scoring-Gewichte für den Fairness-Algorithmus bearbeitbar machen */
+function renderAlgoParams(){
+  const c = document.getElementById('algo-params-fields');
+  if(!c) return;
+
+  const defaults = defaultAlgoParams();
+  const groups = [
+    {
+      label: 'Turm-Rotation & Fairness',
+      params: [
+        { key:'pairRepeatWeight',        label:'Paar-Wiederholung',            desc:'Strafe wenn zwei Personen denselben Partner wie an einem Vortag haben',                  min:0, max:2000 },
+        { key:'towerVisitWeight',        label:'Gleicher Turm (pro Besuch)',   desc:'Strafe für wiederholten Besuch desselben Turms (pro Besuch)',                            min:0, max:1000 },
+        { key:'consecutiveTowerPenalty', label:'Aufeinanderfolgend. Turm',     desc:'Strafe wenn jemand heute denselben Turm wie gestern belegt',                             min:0, max:1000 },
+        { key:'totalFairnessWeight',     label:'Gesamtlast-Ausgleich',         desc:'Gewicht für Ausgleich der akkumulierten Gesamteinsätze (höher = strikter)',              min:0, max:100  },
+        { key:'beachBalanceWeight',      label:'Hauptstrand-Ausgleich/Tag',    desc:'Strafe pro Überhang-Tag beim Hauptstrand/Außenturm-Ausgleich (nur wenn beide aktiv)',    min:0, max:300  },
+      ],
+    },
+    {
+      label: 'E/U-Mischung',
+      params: [
+        { key:'uuPenaltyTower',    label:'2 Unerfahrene auf Turm',         desc:'Strafe wenn zwei Unerfahrene auf einen Turm kommen',                                    min:0, max:5000  },
+        { key:'uuPenaltyHW',       label:'2 Unerfahrene an HW',            desc:'Niedrigere Strafe – erlaubt Unerfahrenen-Paare an der Hauptwache',                     min:0, max:2000  },
+        { key:'eePenaltyNormal',   label:'2 Erfahrene (normal)',           desc:'Leichte Bremsung von Erfahrenen-Paaren wenn genug Erfahrene vorhanden',               min:0, max:500   },
+        { key:'eePenaltyReserve',  label:'2 Erfahrene (Erfahrene knapp)', desc:'Starke Trennung wenn Erfahrene knapp – jeder Turm soll genau einen bekommen',         min:0, max:5000  },
+        { key:'reserveExpPenalty', label:'Erfahrener an HW (wenn knapp)', desc:'Verhindert dass Erfahrene an HW "verbraucht" werden wenn Türme sie zwingend brauchen', min:0, max:20000 },
+      ],
+    },
+    {
+      label: 'Hauptwache (HW)',
+      params: [
+        { key:'hwVisitWeightTower', label:'HW-Tage → Turm-Bonus',          desc:'Pro akkumuliertem HW-Tag bekommt die Person einen Bonus für Turm-Zuweisung',          min:0, max:300   },
+        { key:'hwVisitWeightHW',    label:'HW-Tage → HW-Strafe',           desc:'Pro akkumuliertem HW-Tag wird die Person für erneuten HW-Dienst gebremst',           min:0, max:300   },
+        { key:'hwWishBonusEarly',   label:'BF-HW-Wunsch (früh)',           desc:'Bonus für BF mit HW-Wunsch der noch unerfüllt ist (>2 Tage vor Ende der Woche)',      min:0, max:5000  },
+        { key:'hwWishBonusNear',    label:'BF-HW-Wunsch (2 Tage vor Ende)',desc:'Eskalierter Bonus wenn noch 2 Tage bleiben um den Wunsch zu erfüllen',               min:0, max:20000 },
+      ],
+    },
+    {
+      label: 'BF-Schutz',
+      params: [
+        { key:'surplusBfActivePenalty', label:'Überzahl-BF auf Boot-Turm',     desc:'Überzählige BF meiden Türme mit aktivem Boot (verhindert BF ohne Boot)',     min:0, max:3000 },
+        { key:'surplusBfClosedBonus',   label:'Überzahl-BF auf inakt. Boot-T.',desc:'Bonus: Überzählige BF bevorzugt an Türme ohne aktives Boot',                  min:0, max:1000 },
+        { key:'towerBoatHeavyPenalty',  label:'Beide boot-lastig auf Turm',    desc:'Strafe wenn beide Turm-Personen schon viele Turm+Boot-Dienste hatten',       min:0, max:500  },
+        { key:'leaderBonus',            label:'Führung auf Leader-Turm',       desc:'Bonus für Führungskräfte auf Türmen mit Führungsslot (leaderCount > 0)',      min:0, max:500  },
+      ],
+    },
+    {
+      label: 'Boote',
+      params: [
+        { key:'boatVisitWeight',   label:'Gleiches Boot (pro Besuch)', desc:'Strafe pro Wiederholungsfahrt auf demselben Boot',                                   min:0, max:500  },
+        { key:'boatHwBonus',       label:'HW-Tage → Boot-Bonus',      desc:'Wer viele HW-Tage hatte wird bei der Boot-Zuweisung bevorzugt (pro HW-Tag)',         min:0, max:100  },
+        { key:'boatRotationBase',  label:'Boot-Rotations-Basis',      desc:'Basisstrafe pro Lookback-Schritt – verhindert denselben BF aufeinanderfolgende Tage', min:0, max:5000 },
+      ],
+    },
+  ];
+
+  c.innerHTML = '';
+  groups.forEach(group => {
+    const groupDiv = document.createElement('div');
+    groupDiv.style.cssText = 'margin-bottom:18px';
+
+    const groupLabel = document.createElement('div');
+    groupLabel.style.cssText = 'font-size:.75rem;font-weight:600;color:var(--foam);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--line)';
+    groupLabel.textContent = group.label;
+    groupDiv.appendChild(groupLabel);
+
+    group.params.forEach(param => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:grid;grid-template-columns:1fr 72px 22px;gap:5px;align-items:center;margin-bottom:5px';
+
+      const labelEl = document.createElement('label');
+      labelEl.style.cssText = 'font-size:.78rem;color:var(--text);cursor:help';
+      labelEl.title = param.desc;
+      labelEl.textContent = param.label;
+
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.min = param.min;
+      input.max = param.max;
+      input.value = algoParams[param.key];
+      input.dataset.key = param.key;
+      input.title = param.desc;
+      input.style.cssText = 'background:var(--navy-2);border:1px solid var(--line-strong);border-radius:6px;color:var(--text);font-family:\'Spline Sans Mono\',monospace;font-size:.8rem;padding:4px 6px;text-align:right;color-scheme:dark;width:100%';
+
+      const resetBtn = document.createElement('button');
+      resetBtn.textContent = '↺';
+      resetBtn.title = `Standard: ${defaults[param.key]}`;
+      resetBtn.style.cssText = 'font-size:.8rem;color:var(--text-dim);background:none;border:none;cursor:pointer;padding:2px;line-height:1;opacity:.7';
+      resetBtn.type = 'button';
+
+      resetBtn.onclick = () => {
+        algoParams[param.key] = defaults[param.key];
+        input.value = defaults[param.key];
+        if(lastResult) generate();
+        scheduleAutoSave();
+      };
+      input.oninput = e => {
+        const v = parseFloat(e.target.value);
+        if(!isNaN(v) && v >= param.min) {
+          algoParams[param.key] = v;
+          if(lastResult) generate();
+          scheduleAutoSave();
+        }
+      };
+
+      row.appendChild(labelEl);
+      row.appendChild(input);
+      row.appendChild(resetBtn);
+      groupDiv.appendChild(row);
+    });
+
+    c.appendChild(groupDiv);
+  });
+
+  const resetAllBtn = document.createElement('button');
+  resetAllBtn.className = 'ghost-btn';
+  resetAllBtn.type = 'button';
+  resetAllBtn.style.cssText = 'width:100%;margin-top:4px;border-color:var(--warn);color:var(--warn);font-size:.78rem';
+  resetAllBtn.textContent = '↺ Alle Parameter zurücksetzen';
+  resetAllBtn.onclick = () => {
+    algoParams = defaultAlgoParams();
+    renderAlgoParams();
+    if(lastResult) generate();
+    scheduleAutoSave();
+    showToast('✅ Algorithmus-Parameter zurückgesetzt');
+  };
+  c.appendChild(resetAllBtn);
+}
+
 /** Feature 2: Positionsbeschriftungen für XLSX (C11,C13,C15,C17,C19) */
 function renderPositionDescUI(){
   const c = document.getElementById('pos-desc-fields');
