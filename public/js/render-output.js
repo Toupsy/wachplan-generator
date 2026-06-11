@@ -39,6 +39,7 @@ function renderOutput(){
   }
 
   const panel = document.getElementById('output-panel');
+  if(!lastResult) return;
   let { schedule } = lastResult;
 
   // ── Wende transparent placements visuell an (ohne generate()) ────
