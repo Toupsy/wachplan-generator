@@ -125,6 +125,21 @@
   @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(12px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
   .info-box{background:rgba(24,168,216,.07);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:.78rem;color:var(--text-dim);margin-bottom:16px}
   .info-box b{color:var(--foam)}
+  /* ── Progressive Disclosure: Erweiterte Einstellungen (sidebar-layout.js) ── */
+  details.advanced-settings{border:1px solid var(--line-strong);border-radius:11px;background:var(--deep);margin-top:26px}
+  details.advanced-settings>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:14px 16px;font-family:'Spline Sans Mono',monospace;font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:var(--foam);user-select:none;transition:background .15s}
+  details.advanced-settings>summary:hover{background:rgba(24,168,216,.08)}
+  details.advanced-settings>summary::-webkit-details-marker{display:none}
+  details.advanced-settings>summary::after{content:'▸';margin-left:auto;color:var(--text-dim);font-size:.8rem;transition:transform .15s}
+  details.advanced-settings[open]>summary::after{transform:rotate(90deg)}
+  details.advanced-settings[open]>summary{border-bottom:1px solid var(--line)}
+  details.advanced-settings .advanced-body{padding:0 16px 16px}
+  /* Sidebar-Hilfetexte standardmäßig versteckt, per ℹ️-Button einblendbar (sidebar-layout.js) */
+  #sidebar-inner-panel .section>.info-box{display:none}
+  #sidebar-inner-panel .section.show-info>.info-box{display:block}
+  .info-toggle-btn{background:transparent;border:1px solid var(--line);color:var(--text-dim);border-radius:6px;font-size:.72rem;line-height:1;padding:3px 6px;cursor:pointer;margin-left:auto;flex-shrink:0;transition:all .15s}
+  .info-toggle-btn:hover{border-color:var(--sea-bright);color:var(--foam)}
+  .section.show-info .info-toggle-btn{border-color:var(--sea-bright);color:var(--foam);background:rgba(24,168,216,.12)}
   .empty-state{text-align:center;padding:80px 20px;color:var(--text-dim)}
   .empty-state .big{font-family:'Archivo Black',sans-serif;font-size:3rem;color:var(--line-strong);margin-bottom:12px}
   /* Login Modal */
@@ -793,63 +808,6 @@
           </div>
           <button class="add-btn" id="add-boat">+ Boot hinzufügen</button>
 
-          <!-- Positionsbeschriftungen (Feature 2) -->
-          <div id="section-positions" class="section section-positions">
-            <div class="section-label" style="margin-top:18px;">Zusatzbezeichnungen für Personalpositionen</div>
-            <div class="info-box">Optionale Bezeichnungen für die Positionen 3–7 im DLRG-Formular (z.B. „Wachführer", „Bootsführer", „Sanitäter" etc.).</div>
-            <div id="pos-desc-fields"></div>
-          </div>
-
-          <!-- XLSX-Stationsspalten -->
-          <div id="section-export-columns" class="section section-export-columns">
-            <div class="section-label" style="margin-top:18px;">XLSX · Stationsspalten</div>
-            <div class="info-box">Lege fest welcher Stationscode in welcher Template-Spalte steht (Zeile 21). Trage z.B. <b>78/1</b>, <b>9/12</b>, <b>WF</b>, <b>HW</b> ein oder lasse das Feld leer.</div>
-            <button class="add-btn" id="btn-auto-export-cols" style="margin-bottom:8px">↺ Automatisch aus Türmen &amp; Booten befüllen</button>
-            <div id="export-col-fields"></div>
-          </div>
-
-          <!-- Fairness-Metriken Anzeige -->
-          <div id="section-fairness-metrics" class="section section-fairness-metrics">
-            <div class="section-label" style="margin-top:18px;">Fairness-Metriken</div>
-            <div class="info-box">Wähle welche Balance-Metriken in der Statistik angezeigt werden.</div>
-            <div style="display:flex;flex-direction:column;gap:8px;padding:8px">
-            <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:.9rem">
-              <input type="checkbox" id="metric-hw-balance" checked>
-              <span>🏠 HW-Tage vs Boot-Turm Balance</span>
-            </label>
-            <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:.9rem">
-              <input type="checkbox" id="metric-tower-dist" checked>
-              <span>📍 Durchschnitt verschiedene Türme</span>
-            </label>
-            <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:.9rem">
-              <input type="checkbox" id="metric-boat-pairing" checked>
-              <span>👥 Boot-Paarungen Vielfalt</span>
-            </label>
-            </div>
-            <div class="section-label" style="margin-top:24px;font-size:.95rem;text-transform:none;letter-spacing:0">Visualisierungen</div>
-            <div style="display:flex;flex-direction:column;gap:8px;padding:8px">
-            <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:.9rem">
-              <input type="checkbox" id="chart-assignments" checked>
-              <span>🏖️ Hauptstrand / Nebenstrand</span>
-            </label>
-            <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:.9rem">
-              <input type="checkbox" id="chart-hw-days" checked>
-              <span>🏠 HW-Tage pro Person</span>
-            </label>
-            <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:.9rem">
-              <input type="checkbox" id="chart-tower-util" checked>
-              <span>📍 Turmauslastung</span>
-            </label>
-            </div>
-          </div>
-
-          <!-- Algorithmus-Parameter -->
-          <div id="section-algo-params" class="section section-algo-params">
-            <div class="section-label" style="margin-top:18px;">Algorithmus-Parameter</div>
-            <div class="info-box">Passe die Scoring-Gewichte des Fairness-Algorithmus an. Die Standardwerte sind für typische DLRG-Wachen optimiert. Änderungen wirken sofort beim nächsten <b>Plan generieren</b>. Hover über einen Parameter für eine kurze Erklärung.</div>
-            <div id="algo-params-fields"></div>
-          </div>
-
           <!-- Datum & Generierung -->
           <div id="section-schedule" class="section section-schedule">
             <div class="section-label" style="margin-top:18px;">Datum &amp; Tageanzahl</div>
@@ -867,33 +825,6 @@
                 <input type="number" id="num-days" min="1" max="14" value="6"
                   style="background:var(--navy-2);border:1px solid var(--line-strong);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.82rem;padding:7px 9px;width:62px;text-align:center;color-scheme:dark;">
               </div>
-              <div class="sd-row" style="margin-top:10px;">
-                <div class="sd-label">⏰ Dienstzeit (Stunden)
-                  <span class="sub">08:00 bis 19:00 verfügbar</span>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                  <div style="display:flex;align-items:center;gap:6px">
-                    <label style="font-size:.75rem;color:var(--text-dim)">Start:</label>
-                    <input type="number" id="service-start-hour" min="8" max="19" value="9"
-                      style="background:var(--navy-2);border:1px solid var(--line-strong);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.82rem;padding:7px 4px;width:50px;text-align:center;color-scheme:dark;">
-                  </div>
-                  <div style="display:flex;align-items:center;gap:6px">
-                    <label style="font-size:.75rem;color:var(--text-dim)">Ende:</label>
-                    <input type="number" id="service-end-hour" min="8" max="19" value="17"
-                      style="background:var(--navy-2);border:1px solid var(--line-strong);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.82rem;padding:7px 4px;width:50px;text-align:center;color-scheme:dark;">
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Seed Input -->
-            <div style="background:var(--deep);border:1px solid rgba(160,120,255,.25);border-radius:9px;padding:11px 13px;margin-bottom:10px">
-            <label style="display:block;font-size:.84rem;margin-bottom:8px;color:var(--text-dim)">
-              🎲 Seed für Startkonstellation
-              <span style="display:block;font-size:.7rem;margin-top:2px">0 = Standard, 1-n = verschiedene Varianten</span>
-            </label>
-              <input id="seed-input" type="number" min="0" max="999" value="0"
-                style="width:100%;background:var(--navy-2);border:1px solid rgba(160,120,255,.35);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.95rem;text-align:center;padding:8px 4px">
             </div>
 
             <div class="gen-row">
@@ -918,6 +849,106 @@
           <input type="file" id="import-file-input" accept=".json" style="display:none">
           <input type="file" id="import-plans-file-input" accept=".json" style="display:none" multiple>
           </div>
+
+          <!-- ── Erweiterte Einstellungen (Progressive Disclosure, sidebar-layout.js) ── -->
+          <details id="advanced-settings" class="advanced-settings">
+            <summary id="advanced-settings-summary">🔧 Erweiterte Einstellungen</summary>
+            <div class="advanced-body">
+
+              <!-- Dienstzeit & Seed (aus „Datum & Tageanzahl" hierher verschoben) -->
+              <div id="section-schedule-advanced" class="section section-schedule-advanced">
+                <div class="section-label" style="margin-top:18px;">Dienstzeit &amp; Seed</div>
+                <div class="info-box">Dienstzeit bestimmt die Stundenzeilen im XLSX-Formular. Der Seed variiert die Startkonstellation des Algorithmus reproduzierbar.</div>
+                <div class="start-date-cfg">
+                  <div class="sd-row">
+                    <div class="sd-label">⏰ Dienstzeit (Stunden)
+                      <span class="sub">08:00 bis 19:00 verfügbar</span>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                      <div style="display:flex;align-items:center;gap:6px">
+                        <label style="font-size:.75rem;color:var(--text-dim)">Start:</label>
+                        <input type="number" id="service-start-hour" min="8" max="19" value="9"
+                          style="background:var(--navy-2);border:1px solid var(--line-strong);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.82rem;padding:7px 4px;width:50px;text-align:center;color-scheme:dark;">
+                      </div>
+                      <div style="display:flex;align-items:center;gap:6px">
+                        <label style="font-size:.75rem;color:var(--text-dim)">Ende:</label>
+                        <input type="number" id="service-end-hour" min="8" max="19" value="17"
+                          style="background:var(--navy-2);border:1px solid var(--line-strong);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.82rem;padding:7px 4px;width:50px;text-align:center;color-scheme:dark;">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Seed Input -->
+                <div style="background:var(--deep);border:1px solid rgba(160,120,255,.25);border-radius:9px;padding:11px 13px;margin-bottom:10px">
+                <label style="display:block;font-size:.84rem;margin-bottom:8px;color:var(--text-dim)">
+                  🎲 Seed für Startkonstellation
+                  <span style="display:block;font-size:.7rem;margin-top:2px">0 = Standard, 1-n = verschiedene Varianten</span>
+                </label>
+                  <input id="seed-input" type="number" min="0" max="999" value="0"
+                    style="width:100%;background:var(--navy-2);border:1px solid rgba(160,120,255,.35);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.95rem;text-align:center;padding:8px 4px">
+                </div>
+              </div>
+
+              <!-- Positionsbeschriftungen (Feature 2) -->
+              <div id="section-positions" class="section section-positions">
+                <div class="section-label" style="margin-top:18px;">Zusatzbezeichnungen für Personalpositionen</div>
+                <div class="info-box">Optionale Bezeichnungen für die Positionen 3–7 im DLRG-Formular (z.B. „Wachführer", „Bootsführer", „Sanitäter" etc.).</div>
+                <div id="pos-desc-fields"></div>
+              </div>
+
+              <!-- XLSX-Stationsspalten -->
+              <div id="section-export-columns" class="section section-export-columns">
+                <div class="section-label" style="margin-top:18px;">XLSX · Stationsspalten</div>
+                <div class="info-box">Lege fest welcher Stationscode in welcher Template-Spalte steht (Zeile 21). Trage z.B. <b>78/1</b>, <b>9/12</b>, <b>WF</b>, <b>HW</b> ein oder lasse das Feld leer.</div>
+                <button class="add-btn" id="btn-auto-export-cols" style="margin-bottom:8px">↺ Automatisch aus Türmen &amp; Booten befüllen</button>
+                <div id="export-col-fields"></div>
+              </div>
+
+              <!-- Fairness-Metriken Anzeige -->
+              <div id="section-fairness-metrics" class="section section-fairness-metrics">
+                <div class="section-label" style="margin-top:18px;">Fairness-Metriken</div>
+                <div class="info-box">Wähle welche Balance-Metriken in der Statistik angezeigt werden.</div>
+                <div style="display:flex;flex-direction:column;gap:8px;padding:8px">
+                <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:.9rem">
+                  <input type="checkbox" id="metric-hw-balance" checked>
+                  <span>🏠 HW-Tage vs Boot-Turm Balance</span>
+                </label>
+                <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:.9rem">
+                  <input type="checkbox" id="metric-tower-dist" checked>
+                  <span>📍 Durchschnitt verschiedene Türme</span>
+                </label>
+                <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:.9rem">
+                  <input type="checkbox" id="metric-boat-pairing" checked>
+                  <span>👥 Boot-Paarungen Vielfalt</span>
+                </label>
+                </div>
+                <div class="section-label" style="margin-top:24px;font-size:.95rem;text-transform:none;letter-spacing:0">Visualisierungen</div>
+                <div style="display:flex;flex-direction:column;gap:8px;padding:8px">
+                <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:.9rem">
+                  <input type="checkbox" id="chart-assignments" checked>
+                  <span>🏖️ Hauptstrand / Nebenstrand</span>
+                </label>
+                <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:.9rem">
+                  <input type="checkbox" id="chart-hw-days" checked>
+                  <span>🏠 HW-Tage pro Person</span>
+                </label>
+                <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:.9rem">
+                  <input type="checkbox" id="chart-tower-util" checked>
+                  <span>📍 Turmauslastung</span>
+                </label>
+                </div>
+              </div>
+
+              <!-- Algorithmus-Parameter -->
+              <div id="section-algo-params" class="section section-algo-params">
+                <div class="section-label" style="margin-top:18px;">Algorithmus-Parameter</div>
+                <div class="info-box">Passe die Scoring-Gewichte des Fairness-Algorithmus an. Die Standardwerte sind für typische DLRG-Wachen optimiert. Änderungen wirken sofort beim nächsten <b>Plan generieren</b>. Hover über einen Parameter für eine kurze Erklärung.</div>
+                <div id="algo-params-fields"></div>
+              </div>
+
+            </div>
+          </details>
 
         </div>
       </aside>
@@ -945,6 +976,7 @@
 <script src="js/config.js"></script>
 <script src="js/seed.js"></script>
 <script src="js/render-sidebar.js"></script>
+<script src="js/sidebar-layout.js"></script>
 <script src="js/generate.js"></script>
 <script src="js/render-output.js"></script>
 <script src="js/export.js"></script>

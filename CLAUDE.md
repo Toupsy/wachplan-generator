@@ -47,6 +47,7 @@ autoCodes.js      Automatische Stationscodes + freshDayState()
 config.js         seedFromConfig() (Template-Config laden)
 seed.js           Beispieldatensatz (Fallback ohne Autosave)
 render-sidebar.js Sidebar-UI: Personen, Türme, Boote, Export-Spalten, Positionen
+sidebar-layout.js Progressive Disclosure: „Erweiterte Einstellungen"-Expander (localStorage `dlrg_sidebar_advanced`) + ℹ️-Toggles für Hilfetexte
 generate.js       *** KERN-ALGORITHMUS *** Scoring, Rotation, Fairness
 render-output.js  Ausgabe: Tageskarten, Stats-Bar, Pro-Person-/Matrix-Statistiken
 export.js         XLSX (XML-Patch via JSZip) + CSV-Export
@@ -60,8 +61,8 @@ login-modal.js    Login/Setup/Register-Modal
 init.js           Event-Listener + Startsequenz (autoLoad → seed fallback)
 ```
 **Ladereihenfolge:** state → utils → dates → autoCodes → config → seed → render-sidebar →
-generate → render-output → export → move → state-io → user-info → share → realtime →
-plans-ui → login-modal → init
+sidebar-layout → generate → render-output → export → move → state-io → user-info → share →
+realtime → plans-ui → login-modal → init
 
 **Backend `server/`:**
 ```
