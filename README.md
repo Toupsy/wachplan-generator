@@ -1,8 +1,12 @@
 # 🚨 DLRG Wachplan-Generator
 
-Automatische Wachplan-Generierung für DLRG-Wasserrettungsdienste mit fairer Rotation, Admin-Panel und verschlüsselter Speicherung.
+Automatische Wachplan-Generierung für DLRG-Wasserrettungsdienste mit fairer Rotation,
+Admin-Panel und verschlüsselter Speicherung.
 
-**Status:** ✅ Production-ready mit Multi-User Authentication & Encryption
+**Status:** ✅ Production-ready – Multi-User Authentication, AES-256-GCM at rest, Realtime-Kollaboration
+
+> Versionierung erfolgt automatisch via **Semantic Release** nach jedem Merge auf `main`.
+> Source of Truth ist `package.json:version`. Eine separate `VERSION`-Datei gibt es nicht mehr.
 
 ---
 
@@ -14,7 +18,7 @@ Automatische Wachplan-Generierung für DLRG-Wasserrettungsdienste mit fairer Rot
 - [🔐 Sicherheit](#-sicherheit)
 - [💾 Speicherung & API](#-speicherung--api)
 - [📦 Tech Stack](#-tech-stack)
-- [🛠️ Entwicklung](#-entwicklung)
+- [🛠️ Entwicklung](#️-entwicklung)
 - [❓ FAQ & Troubleshooting](#-faq--troubleshooting)
 - [🤝 Beitragen](#-beitragen)
 - [📋 Lizenz](#-lizenz)
@@ -23,53 +27,55 @@ Automatische Wachplan-Generierung für DLRG-Wasserrettungsdienste mit fairer Rot
 
 ## 🎯 Features
 
-### 📅 Automatische Wachplanenerierung
-- Automatische Einteilung für **1–14 Tage**
-- Faire Rotation basierend auf fortgeschrittenem **Fairness-Scoring**
-- Intelligente Bootsführer-Verteilung (BF-Schutz, Erfahrungslevel)
-- Konsekutiv-Tag-Regeln zur Vermeidung von Monotonie
-- Seed-basierte Szenarien für deterministische Start-Konstellationen
+### 📅 Automatische Wachplangenerierung
+- Automatische Einteilung für **1–14 Tage** auf **Türme, Boote und Hauptwache (HW)**
+- Faire, sequenzielle Rotation über alle Tage via gewichtetem **Fairness-Scoring**
+- Intelligente **Bootsführer-Verteilung** (BF-Schutz, Min-Cost-Matching, Lookback-Rotation)
+- **Erfahrungslevel** pro Person (`experienced`) → jeder Turm bekommt einen Erfahrenen
+- **Hauptstrand/Außenstrand-Ausgleich** (`mainBeach`) und Konsekutiv-Tag-Regeln gegen Monotonie
+- **BF-HW-Wunsch** (`wantsHW`): Bootsführer erhalten bei Überzahl mindestens einen HW-Dienst
+- Optionaler **Seed** (0–999) für deterministische Start-Konstellationen
 
 ### 📊 Übersichtliche Pläne
 - Visuelle **Tages-Karten** mit Turm- und Bootsbesetzung
 - **Echtzeit-Statistiken** (Fairness-Metriken, Paarungs-Diversität)
-- Pro-Person Tower-Statistik mit Unique-Turm-Tracking
-- Paarungs-Kreuztabelle zur Einsicht in Zusammenarbeitshäufigkeit
+- **Fairness-Visualisierung** als CSS/SVG-Balkendiagramme (Einsätze/Person, HW-Tage, Turmauslastung)
+- Pro-Person-Statistik und Paarungs-Kreuztabelle (Zusammenarbeitshäufigkeit)
 - Farbige Fairness-Anzeige (Grün = ausgeglichen, Orange = Schieflage)
 
-### 💾 Flexible Export & Import
-- **XLSX-Export** als offizielles DLRG-Formular (Styles/Bilder erhalten)
-- **CSV-Export** für Datenverarbeitung
-- **JSON-Export** zur lokalen Speicherung
-- Import alter localStorage-Pläne mit automatischer Verschlüsselung
-- Bulk-Import mehrerer Dateien
+### 💾 Flexibler Export & Import
+- **XLSX-Export** als offizielles DLRG-Formular (Styles/Bilder/Schutz bleiben erhalten, XML-Patch via JSZip)
+- **CSV-Export** für Weiterverarbeitung
+- Import alter localStorage-/JSON-Pläne mit automatischer Verschlüsselung (Bulk-Import möglich)
 
 ### 🎮 Benutzerfreundliche Steuerung
-- **Drag-and-Drop** zum manuellen Verschieben von Personen
-- **Daten-Konfiguration** (Personen, Türme, Boote) in der Sidebar
-- **Zwangszuweisungen** transparent (visuell) oder effektiv (mit Neuberechnung)
-- Automatische Sick/Closed-Markierung mit sofortiger Neuberechnung
-- Seed-Input (0–999) für verschiedene deterministische Start-Szenarien
+- **Drag-and-Drop** und Modal zum manuellen Verschieben von Personen/Booten
+- **Daten-Konfiguration** (Personen, Türme, Boote, Positionen, Export-Spalten) in der Sidebar
+- **Zwangszuweisungen** transparent (nur visuell) oder effektiv (mit Neuberechnung der Folgetage)
+- Tageweise **Kranke** (an HW geführt) und **Abwesende** (komplett ausgeplant) mit sofortiger Neuberechnung
+- Konfigurierbare **Dienstzeiten** (`serviceStartHour`/`EndHour`)
 
 ### 🔒 Sicherheit & Multi-User
-- **AES-256-GCM Verschlüsselung** für Plandaten (at rest)
-- **Per-User Encryption Keys** basierend auf PBKDF2 (100k Iterationen)
-- **Session-basiertes Login** mit HTTPOnly Cookies
-- **Admin-Panel** für User-Management (Port 3001)
-- **Plan-Sharing** mit unterschiedlichen Zugriffsrollen (edit/view)
-- **Echtzeit-Kollaboration** via WebSocket
+- **AES-256-GCM-Verschlüsselung** der Plandaten (at rest)
+- **Per-User Encryption Keys** via PBKDF2 (100k Iterationen, pro User gecacht)
+- **Session-basiertes Login** (HTTPOnly-Cookies, „Merke mich" 7/30 Tage, Rate-Limiting)
+- Optionale **Selbstregistrierung** (`disabled` | `open` | `code`)
+- **Admin-Panel** (separater Prozess, Port 3001) inkl. Audit-Log-Ansicht & DSGVO-Export
+- **Plan-Sharing** mit Zugriffsrollen (`edit`/`view`) ohne Re-Encryption
 
 ### 🔄 Live-Updates
-- Automatische Aktualisierung bei Plan-Änderungen durch andere Nutzer
-- WebSocket-basierte Echtzeit-Synchronisation
-- Echo-Schutz (keine Duplikate bei eigenem Speichern)
-- Automatisches Reconnect bei Verbindungsverlust
+- **WebSocket-basierte Echtzeit-Synchronisation** bei Plan-Änderungen durch andere Nutzer
+- Echo-Schutz (keine Duplikate beim eigenen Speichern) und automatisches Reconnect
+
+### 🔔 Update-Benachrichtigung
+- `GET /api/version` vergleicht die laufende Version mit dem neuesten GitHub-Release (6 h-Cache)
+- Frontend-Badge wird gold + Toast, sobald ein neueres Release verfügbar ist
 
 ---
 
 ## 🚀 Quick Start
 
-### Option 1: Docker (Empfohlen für Production)
+### Option 1: Docker (empfohlen für Production)
 
 ```bash
 # Repository klonen
@@ -78,21 +84,24 @@ cd Wachplan-Generator
 
 # Umgebung konfigurieren
 cp .env.example .env
-# → Bearbeite .env mit eigenen Secrets (siehe DEPLOYMENT.md)
+# → .env mit eigenen Secrets befüllen (siehe docs/DEPLOYMENT.md)
 
-# Service starten
-docker-compose up -d
+# Services starten (App :3000 + Admin :3001)
+docker compose up -d
 
 # Health Check
 curl http://localhost:3000/health
 
-# Admin-User erstellen (einmalig)
+# Erst-Admin anlegen (falls nicht via ADMIN_* in .env gesetzt)
 curl -X POST http://localhost:3000/api/auth/init \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"SICHERES_PASSWORT"}'
 
-# Öffne http://localhost:3000 im Browser
+# http://localhost:3000 im Browser öffnen
 ```
+
+> Das Compose-Setup erwartet ein externes Docker-Netzwerk `proxy` (TLS-Reverse-Proxy).
+> Details und Portainer-Integration: **docs/DEPLOYMENT.md** / **docs/PORTAINER.md**.
 
 ### Option 2: Lokal (Development)
 
@@ -100,55 +109,54 @@ curl -X POST http://localhost:3000/api/auth/init \
 # Dependencies installieren
 npm install
 
+# .env anlegen (auch lokal Pflicht: MASTER_SECRET, SALT, SESSION_SECRET)
+cp .env.example .env
+
 # Server starten
-NODE_ENV=development PORT=3000 npm start
-
-# Öffne http://localhost:3000 im Browser
+npm start            # → http://localhost:3000
+npm run start:admin  # optional: Admin-Panel auf :3001
 ```
 
-**Hinweis:** Im Development-Mode werden Pläne lokal in `localStorage` gespeichert (kein DB-Encryption).
-
-### Option 3: Docker (Development)
-
-```bash
-# Development-Image mit lokaler .env
-docker-compose -f docker-compose.dev.yml up
-
-# oder mit npm-Scripts
-npm run dev
-```
+> Auch lokal werden Pläne serverseitig in SQLite verschlüsselt gespeichert. Ohne erreichbares
+> Backend fällt das Frontend auf `localStorage` zurück.
 
 ---
 
 ## 📖 Dokumentation
 
-### 🎓 Hauptdokumentation
-
 | Dokument | Zweck |
 |----------|-------|
-| **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** | Production-Setup, Docker-Konfiguration, Portainer-Integration, TLS-Termination |
-| **[DATENSCHUTZ.md](docs/DATENSCHUTZ.md)** | DSGVO-Compliance: VVT-Vorlage (Art. 30), TOMs (Art. 32), NAS-Betriebscheckliste, Betroffenenrechte |
-| **[CLAUDE.md](CLAUDE.md)** | Technische Architektur, Algorithmus-Details, Dateistruktur, API-Übersicht |
-| **[db/schema.sql](server/db/schema.sql)** | SQLite-Datenbankschema |
+| **[CLAUDE.md](CLAUDE.md)** | Technische Architektur, Datenmodell, Algorithmus-Kern, Codebase-Map, Konventionen |
+| **[HANDOFF.md](HANDOFF.md)** | Schnelleinstieg + aktueller Arbeits-/Review-Stand |
+| **[docs/FEATURES.md](docs/FEATURES.md)** | Ausführliche Feature-/Bugfix-Historie |
+| **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** | Production-Setup, Docker, Portainer, TLS-Termination |
+| **[docs/DATENSCHUTZ.md](docs/DATENSCHUTZ.md)** | DSGVO: VVT (Art. 30), TOMs (Art. 32), Betroffenenrechte |
+| **[docs/PREVIEW_WORKFLOW.md](docs/PREVIEW_WORKFLOW.md)** | Cloudflare-Worker-Preview für Pull Requests |
+| **[server/db/schema.sql](server/db/schema.sql)** | SQLite-Datenbankschema |
 
-### 🏠 Project Structure
+### 🏠 Projektstruktur
 
 ```
 .
-├── public/                       # Frontend (statisch serviert)
-│   ├── Wachplan-Generator.html  # Main UI
-│   ├── admin.html               # Admin-Panel
-│   ├── js/                      # Frontend-Logik (State, Render, Generate)
-│   └── Wachplan Template.xlsx   # DLRG-Vorlage für Export
+├── public/                       # Frontend (statisch serviert, Vanilla JS)
+│   ├── Wachplan-Generator.html   # Haupt-UI
+│   ├── admin.html                # Admin-Panel
+│   ├── js/                       # Frontend-Logik (State, Render, Generate, Export …)
+│   └── Wachplan Template.xlsx    # DLRG-Vorlage für den XLSX-Export
 ├── server/                       # Backend (Node.js + Express)
-│   ├── server.js                # Main Server
-│   ├── admin-server.js          # Admin Server (Port 3001)
-│   ├── db/                      # SQLite & Encryption
-│   └── api/                     # REST Endpoints
-├── data/                         # SQLite Database (gitignored)
-├── .env.example                 # Secrets-Vorlage
-├── docker-compose.yml           # Production Compose
-└── package.json                 # Dependencies & Scripts
+│   ├── server.js                 # Haupt-Server (Port 3000)
+│   ├── admin-server.js           # Admin-Server (Port 3001)
+│   ├── realtime.js               # WebSocket-Server
+│   ├── config.json               # Template-Config (Türme/Boote/Export-Spalten)
+│   ├── db/                       # SQLite, Verschlüsselung, Schema, Sessions
+│   └── api/                      # REST-Endpoints (auth, plans, admin, import)
+├── test/                         # Node --test (Algorithmus-Invarianten + Fuzz)
+├── docs/                         # Deployment, Datenschutz, Preview-Workflow …
+├── data/                         # SQLite-Datenbank (gitignored)
+├── .env.example                  # Secrets-Vorlage
+├── docker-compose.yml            # App + Admin (gleiches Image)
+├── Dockerfile
+└── wrangler.toml                 # Cloudflare-Worker-Preview (PR-Deployments)
 ```
 
 ---
@@ -159,36 +167,52 @@ npm run dev
 
 | Maßnahme | Standard | Details |
 |----------|----------|---------|
-| **Datenverschlüsselung** | AES-256-GCM | NIST-Standard, Authenticated Encryption |
-| **Passwort-Hashing** | bcryptjs | 10 Rounds, 2^10 Iterationen |
+| **Datenverschlüsselung** | AES-256-GCM | Authenticated Encryption, Plandaten at rest |
+| **Passwort-Hashing** | bcryptjs | 10 Rounds, Passwort ≥ 10 Zeichen |
 | **Key Derivation** | PBKDF2 | 100.000 Iterationen, SHA-256, pro User gecacht |
-| **Session Management** | HTTPOnly Cookies | 7-Tage TTL, sameSite:lax, Session-Fixation-Schutz |
-| **SQL Injection** | Parametrisierte Queries | 100% durchgehend (sqlite3 mit Bindings) |
-| **XSS-Schutz** | escapeHtml() + textContent | Alle User-Inputs sanitized |
-| **CSRF-Schutz** | sameSite Cookies | Ausreichend für einfache Formulare |
+| **Session Management** | HTTPOnly-Cookies | sameSite:lax, 7/30 Tage, Session-Fixation-Schutz |
+| **Rate Limiting** | IP + Account | 10 Versuche / 15 min bei Login/Init/Register |
+| **SQL Injection** | Parametrisierte Queries | durchgehend (sqlite3 mit Bindings) |
+| **XSS-Schutz** | escapeHtml() / textContent | alle User-Inputs sanitized |
+| **Security-Header** | CSP, HSTS, sameSite | CSRF-Schutz über sameSite-Cookies |
 
 ### 🔑 Geheimnisverwaltung
 
-Alle Secrets müssen in `.env` (gitignored) konfiguriert werden:
+Alle Secrets gehören in eine `.env` (gitignored), geprüft von `validateEnv()` beim Start:
 
 ```bash
-# Generiere neue Secrets für Production:
-openssl rand -base64 32    # MASTER_SECRET (≥32 Bytes)
-openssl rand -base64 16    # SALT (≥16 Bytes)
-openssl rand -base64 32    # SESSION_SECRET (≥16 Bytes)
+openssl rand -base64 32    # MASTER_SECRET (≥ 32 Zeichen)
+openssl rand -base64 16    # SALT (≥ 16 Zeichen)
+openssl rand -base64 32    # SESSION_SECRET (≥ 16 Zeichen)
 ```
 
-**Wichtig:** Diese Secrets sind in Encryption Keys eingebunden. Rotation erfordert Daten-Re-Encryption.
+> ⚠️ **`MASTER_SECRET` und `SALT` gehen in die Plan-Verschlüsselung ein** (`db/crypto.js`).
+> Werden sie geändert, sind bereits gespeicherte Pläne nicht mehr entschlüsselbar – vor einer
+> Rotation ent- und neu verschlüsseln. `SESSION_SECRET` lässt sich gefahrlos rotieren (loggt nur aus).
+
+### ⚙️ Wichtige Umgebungsvariablen
+
+| Variable | Default | Zweck |
+|----------|---------|-------|
+| `MASTER_SECRET` / `SALT` / `SESSION_SECRET` | – | **Pflicht** (Verschlüsselung & Sessions) |
+| `COOKIE_SECURE` | `true` in Production | Cookies nur über HTTPS senden |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | – | Erst-Admin beim ersten Start anlegen |
+| `REGISTRATION_MODE` | `disabled` | Selbstregistrierung: `disabled` \| `open` \| `code` |
+| `REGISTRATION_CODE` | – | nötig bei `REGISTRATION_MODE=code` |
+| `PLAN_RETENTION_DAYS` | `90` (deaktiviert bei ≤ 0) | Auto-Löschung inaktiver Pläne (DSGVO Art. 5) |
+| `DATABASE_PATH` | `./data/wachplan.db` | Pfad zur SQLite-Datenbank |
+
+Vollständige Beschreibung mit Hinweisen: **[.env.example](.env.example)**.
 
 ### ⚠️ Sicherheits-Checkliste für Production
 
-- [ ] `.env` mit starken Secrets generiert
-- [ ] TLS/HTTPS aktiviert (TLS-Terminating Proxy)
-- [ ] `cookie.secure: true` in `db/session.js` aktiviert
-- [ ] `MASTER_SECRET`, `SALT` gesichert & gebackupt
-- [ ] Regelmäßige DB-Backups durchgeführt
-- [ ] Admin-Passwort geändert
-- [ ] Docker Images von privatem Registry gezogen (optional)
+- [ ] `.env` mit starken Secrets generiert (`validateEnv()` erzwingt Mindestlängen)
+- [ ] TLS/HTTPS über Reverse-Proxy aktiviert
+- [ ] `COOKIE_SECURE=true` gesetzt
+- [ ] `MASTER_SECRET` & `SALT` gesichert/gebackupt (sonst Datenverlust bei Verlust)
+- [ ] Regelmäßige DB-Backups eingerichtet
+- [ ] Erst-Admin-Passwort geändert
+- [ ] `REGISTRATION_MODE` bewusst gesetzt (Default `disabled`)
 
 ---
 
@@ -196,75 +220,77 @@ openssl rand -base64 32    # SESSION_SECRET (≥16 Bytes)
 
 ### 📊 Datenspeicher
 
-| Speicherort | Format | Verschlüsselt | Persistent |
-|-------------|--------|---------------|-----------|
-| `/app/data/wachplan.db` | SQLite | Nein | Ja |
-| Plandaten | BLOB | **AES-256-GCM** ✅ | Ja |
-| User-Passwörter | Hash | **bcryptjs** ✅ | Ja |
-| Sessions | JSON | ❌ (HTTPOnly Cookie) | Ja |
+| Speicherort | Format | Verschlüsselt |
+|-------------|--------|---------------|
+| `data/wachplan.db` (Plandaten) | BLOB | **AES-256-GCM** ✅ |
+| User-Passwörter | Hash | **bcryptjs** ✅ |
+| Sessions | connect-sqlite3 | HTTPOnly-Cookie |
 
 ### 🔌 REST API
 
-**Authentication:**
+**Authentication**
 ```
-POST   /api/auth/login              { username, password }
-POST   /api/auth/logout             (Clear Session)
-GET    /api/auth/me                 (Current User)
-POST   /api/auth/init               { username, password } (First Admin only)
-PUT    /api/auth/password           { currentPassword, newPassword }
-```
-
-**Plans (Authenticated):**
-```
-GET    /api/plans                   List all plans (owned + shared)
-POST   /api/plans                   { name, state } → Create
-GET    /api/plans/:id               Load (Decrypted)
-PUT    /api/plans/:id               { state, name } → Save (Encrypted)
-DELETE /api/plans/:id               Delete (Owner only)
-POST   /api/plans/:id/share         { username, role:'edit'|'view' }
-DELETE /api/plans/:id/share/:userId Remove Share
-GET    /api/plans/:id/shares        List Shares
+GET    /api/auth/me                  Aktueller User
+GET    /api/auth/needs-setup         Ist noch kein Admin vorhanden?
+GET    /api/auth/registration-status Selbstregistrierung aktiv?
+POST   /api/auth/login               { username, password, rememberMe? }
+POST   /api/auth/logout              Session beenden
+POST   /api/auth/init                { username, password }  (Erst-Admin)
+POST   /api/auth/register            { username, password, code? }
+PUT    /api/auth/password            { currentPassword, newPassword }
 ```
 
-**Admin (Admin-Only):**
+**Plans (authentifiziert)**
 ```
-GET    /api/admin/users             List all users
-POST   /api/admin/users             { username, password }
-DELETE /api/admin/users/:id         Delete user (cascade plans)
-PUT    /api/admin/users/:id/password { password } → Set password
+GET    /api/plans                    Eigene + geteilte Pläne
+POST   /api/plans                    { name, state } → anlegen
+GET    /api/plans/:id                Laden (entschlüsselt)
+PUT    /api/plans/:id                { name, state } → speichern (verschlüsselt)
+DELETE /api/plans/:id                Löschen (nur Owner)
+GET    /api/plans/:id/shares         Freigaben auflisten
+POST   /api/plans/:id/share          { username, role:'edit'|'view' }
+DELETE /api/plans/:id/share/:userId  Freigabe entfernen
 ```
 
-**Other:**
+**Admin (Admin-only)**
 ```
-GET    /health                      Health Check
-POST   /api/import/plans            { plans: [{ name, state }] }
+GET    /api/admin/users              Alle User
+POST   /api/admin/users              { username, password }
+DELETE /api/admin/users/:id          User löschen (Pläne kaskadieren)
+PUT    /api/admin/users/:id/password { password }
+GET    /api/admin/users/:id/export   DSGVO-Datenexport
+GET    /api/admin/audit-log          Audit-Log (gefiltert)
+POST   /api/admin/reload-config      Template-Config neu laden
+POST   /api/admin/purge-orphans      Verwaiste Daten bereinigen
+```
+
+**Sonstiges**
+```
+GET    /health                       Health Check
+GET    /api/version                  { version, latest, updateAvailable, releaseUrl }
+GET    /api/config                   Template-Config (Türme/Boote/Export-Spalten)
+POST   /api/import/plans             { plans: [{ name, state }] }
 ```
 
 ---
 
 ## 📦 Tech Stack
 
-### 🖼️ Frontend
-- **Vanilla JavaScript** (0 Dependencies, kein Framework)
-- **Dark Theme** mit CSS-Variablen
-- **Responsive Design** (Mobile, Tablet, Desktop)
-- **Drag-and-Drop** (native HTML5 API)
-- **Export-Formate:** XLSX (via JSZip), CSV, JSON
+### Frontend
+- **Vanilla JavaScript** (kein Framework, Re-Render via `innerHTML`-Replace)
+- Dark Theme mit CSS-Variablen, responsives Layout, native HTML5 Drag-and-Drop
+- Export: XLSX (JSZip von cdnjs), CSV
 
-### 🖥️ Backend
-- **Node.js** + **Express.js** (REST API)
-- **SQLite3** (Lightweight, embedded DB)
-- **bcryptjs** (Passwort-Hashing, 10 Rounds)
-- **crypto** (Node.js built-in, AES-256-GCM)
-- **express-session** (Session Management)
-- **ws** (WebSocket für Echtzeit-Sync)
+### Backend
+- **Node.js (≥ 20)** + **Express.js**
+- **SQLite3** (eingebettet) + **connect-sqlite3** (Session-Store)
+- **bcryptjs** (Passwort-Hashing), Node `crypto` (AES-256-GCM)
+- **express-session**, **ws** (WebSocket-Realtime)
 
-### 🐳 DevOps
-- **Docker & Docker Compose** (Multi-Container)
-- **GitHub Container Registry** (ghcr.io)
-- **GitHub Actions** (CI/CD)
-- **Health Checks** & Monitoring
-- **Volume-Persistent** Data Storage
+### DevOps
+- **Docker & Docker Compose** (App + Admin, GHCR-Image `ghcr.io/toupsy/wachplan-generator`)
+- **GitHub Actions** (CI: `npm ci` + `npm test`; Cloudflare-Worker-Preview für PRs)
+- **Semantic Release** (automatische Versionierung nach Merge auf `main`)
 
 ---
 
@@ -273,82 +299,56 @@ POST   /api/import/plans            { plans: [{ name, state }] }
 ### Setup
 
 ```bash
-# Repo klonen
 git clone https://github.com/Toupsy/Wachplan-Generator.git
 cd Wachplan-Generator
-
-# Dependencies
 npm install
-
-# Development-Server
-npm start
-# → http://localhost:3000
+cp .env.example .env   # Secrets eintragen
+npm start              # → http://localhost:3000
 ```
 
-### Dateistruktur für Entwickler
+### Frontend-Ladereihenfolge (wichtig!)
 
-**Frontend-Ladereihenfolge** (wichtig!):
+Die `<script>`-Reihenfolge in `public/Wachplan-Generator.html` muss eingehalten werden:
+
 ```
-public/js/state.js          # Globale Variablen
-public/js/utils.js          # Hilfsfunktionen
-public/js/dates.js          # Datumsberechnung
-public/js/autoCodes.js      # Auto-Codes + freshDayState()
-public/js/seed.js           # Beispieldaten (Fallback)
-public/js/render-sidebar.js # Konfiguration UI
-public/js/generate.js       # KERN-Algorithmus
-public/js/render-output.js  # Ausgabe-Panel
-public/js/export.js         # XLSX/CSV/JSON Export
-public/js/move.js           # Modal zum Verschieben
-public/js/state-io.js       # Server-Sync & Plan-Manager
-public/js/login-modal.js    # Login UI
-public/js/user-info.js      # User-Info Header
-public/js/share.js          # Plan-Teilen
-public/js/realtime.js       # WebSocket Client
-public/js/plans-ui.js       # Plan-Manager UI
-public/js/init.js           # Event-Listener + Start
+state → utils → dates → autoCodes → config → seed → render-sidebar →
+generate → render-output → export → move → state-io → user-info → share →
+realtime → plans-ui → login-modal → init
 ```
 
-**Backend-Einstiegspunkte:**
-- `server/server.js` – Main Server (Port 3000)
-- `server/admin-server.js` – Admin Server (Port 3001, separate Prozess)
+`public/js/generate.js` ist der **Kern-Algorithmus** (Scoring, Rotation, Fairness).
+Detaillierte Modul-Übersicht: **CLAUDE.md → „Codebase-Map"**.
 
-### Commit-Konvention
+### Commit- & Release-Konvention
 
-Nach jeder Änderung:
-1. **VERSION** Datei um 0.0001 erhöhen (z.B. 0.3.4 → 0.3.5)
-2. **CLAUDE.md** mit neuen Features/Änderungen aktualisieren
-3. Git-Commit erstellen (keine Co-authored-by)
-4. Feature-Branch → Pull Request gegen `main`
+Versionierung läuft automatisch über **Semantic Release** anhand der Commit-Prefixe
+([Conventional Commits](https://www.conventionalcommits.org/)):
 
-**Beispiel:**
+| Prefix | Wirkung |
+|--------|---------|
+| `fix:` | Patch-Release (x.y.**z**) |
+| `feat:` | Minor-Release (x.**y**.0) |
+| `feat!:` / `BREAKING CHANGE:` | Major-Release (**x**.0.0) |
+| `chore:`, `docs:`, `refactor:` … | kein Versions-Bump |
+
+**Workflow:** Niemals direkt auf `main`. Feature-Branch (`feature/<name>` / `fix/<name>`) →
+PR gegen `main`. Nach dem Merge bumpt Semantic Release `package.json` und committet den
+Release zurück (`chore(release): x.y.z [skip ci]`).
+
+### Testing
+
 ```bash
-# Änderungen testen
-npm start
-
-# VERSION erhöhen + CLAUDE.md aktualisieren
-# ...dann:
-git add .
-git commit -m "Add feature: XYZ description"
-git push origin feature/xyz
-# → Create PR gegen main
+npm test   # Node --test über test/*.test.js
 ```
 
-### Testing & Performance
-
-**Invarianten** (automatisch geprüft):
-- Keine Doppel-Besetzung am selben Tag
-- Keine kranken Personen eingeteilt
-- Keine geschlossenen Türme/Boote belegt
-- `slotCount` Einhaltung
-
-**Bewährte Test-Szenarien:**
-- Baseline: 6 Personen, 14 Tage
-- Kranke Personen
-- Geschlossene Türme/Boote
-- Zwangszuweisungen (effektiv/transparent)
-- Extremlast: alle krank / alle Türme zu
-
-**Performance-Baseline:** ~20ms für 28 Pers. × 14 Tage
+- **Algorithmus-Invarianten** sind die eigentliche Absicherung (9 Szenarien + 100 Fuzz-Läufe):
+  keine Person doppelt/Tag, keine Kranken in aktiven Slots, kein geschlossener Turm/Boot belegt,
+  `slotCount`/`leaderCount` eingehalten.
+- **Performance-Baseline:** ~20 ms für 28 Personen × 14 Tage.
+- **CI** (`.github/workflows/test.yml`) führt `npm ci` + `npm test` bei jedem Push/PR aus (Node 20);
+  ein roter Test blockt den Merge.
+- Hinweis: `session-user-deletion.test.js` ist gelegentlich flaky (IPC) → Suite erneut laufen lassen.
+  Backend-Änderungen mindestens mit `node -c` + manuell prüfen (Backend wenig automatisiert).
 
 ---
 
@@ -356,104 +356,71 @@ git push origin feature/xyz
 
 ### 🔴 Häufige Probleme
 
-#### "Cannot find template XLSX"
-```
-Error: fetch('Wachplan Template.xlsx') failed
-```
-**Lösung:**
-- Datei `public/Wachplan Template.xlsx` existiert nicht
-- Manuell kopieren oder neu erstellen
-- Im Browser: F12 → Network → XLSX-Fetch prüfen
+**„Cannot find module 'sqlite3'" beim Test**
+→ `npm install` im frischen Container ausführen.
 
-#### "Login funktioniert nicht"
-```
-POST /api/auth/login → 401 Unauthorized
-```
-**Lösungen:**
-1. Admin-User erstellt? → `/api/auth/init` aufrufen
-2. Passwort korrekt?
-3. DB vorhanden? → `/data/wachplan.db` prüfen
-4. SERVER neugstartet? → `docker-compose restart`
+**`validateEnv` bricht den Start ab**
+→ `MASTER_SECRET` (≥ 32), `SALT` (≥ 16) und `SESSION_SECRET` (≥ 16) in `.env` setzen.
 
-#### "Plan wird nicht gespeichert"
-```
-PUT /api/plans/:id → 500 Error
-```
-**Lösungen:**
-1. Server läuft? → `curl http://localhost:3000/health`
-2. DB-Fehler? → Server-Logs prüfen: `docker logs wachplan`
-3. Vollständig der Plan-State? → Browser Console prüfen
+**Login schlägt fehl (401)**
+→ Erst-Admin via `POST /api/auth/init` oder `ADMIN_*` in `.env` angelegt? Passwort korrekt?
+DB unter `data/wachplan.db` vorhanden? Bei Docker `docker compose restart`.
 
-#### "Boote werden nicht angezeigt"
-```
-Turm wird angezeigt, aber keine Boote darunter
-```
-**Lösungen:**
-1. Boot zur Tower hinzugefügt? → Sidebar prüfen
-2. Boot-slotCount > 0?
-3. Seite neuladen (F5)?
+**Plan wird nicht gespeichert (500)**
+→ Server-Logs prüfen (`docker logs dlrg-wachplan`); `curl /health`; Plan-State im Browser-Console kontrollieren.
+
+**XLSX-Export bricht / Template fehlt**
+→ `public/Wachplan Template.xlsx` muss existieren; die CSP des öffentlichen Servers erlaubt
+`cdnjs.cloudflare.com` (JSZip) – bei eigenem Reverse-Proxy nicht blockieren.
 
 ### ❓ Häufige Fragen
 
-**F: Kann ich Pläne ohne Login verwenden?**  
-A: Ja, im Development-Mode. Production erfordert Login (Encryption-Keys brauchen userId).
+**Wie viele Personen/Tage sind möglich?**
+Max. 28 Personen (XLSX-Limit), 1–14 Tage, 16 Stationsspalten. Türme `slotCount` 1–10, Boote 1–3.
 
-**F: Wie viele Personen/Tage sind möglich?**  
-A: Max. 28 Personen (XLSX-Limit), 1–14 Tage, ∞ Türme/Boote. Performance ~20ms bei max. Auslastung.
+**Wie funktioniert die Echtzeit-Kollaboration?**
+WebSocket verbindet beim Login; jeder Save wird an andere Nutzer gebroadcastet (Konflikt: letzter Save gewinnt).
 
-**F: Wie funktioniert Echtzeit-Kollaboration?**  
-A: WebSocket verbindet sich beim Login. Jeder Save wird an andere Users gebroadcasted. Konflikt-Auflösung: letzter Save gewinnt.
+**Was bewirkt der Seed?**
+`0` = keiner. `1–999` = deterministische Permutation an Tag 1; die Gesamtfairness pendelt sich über die Tage ein.
 
-**F: Kann ich alte Plans importieren?**  
-A: Ja, via `POST /api/import/plans` oder UI (Menü: 📋 Meine Pläne → Importieren). Auto-Encryption beim Import.
+**Kann ich alte Pläne importieren?**
+Ja – über die UI (📋 Meine Pläne → Importieren) oder `POST /api/import/plans`. Auto-Verschlüsselung beim Import.
 
-**F: Was passiert bei Seed-Input?**  
-A: 0 = Standard, 1–999 = deterministische Fisher-Yates Permutation auf Tag 1. Alle Seeds → identische Gesamtfairness nach Ausbalancierung.
-
-**F: Wie rückgängig machen bei Fehlern?**  
-A: Transparent-Verschiebung (Folgetage unverändert) oder manuell einzelne Personen neu ziehen. Keine Undo-Funktion (müsste Vollversion + Diff speichern).
+**Wie funktioniert die Update-Anzeige?**
+`GET /api/version` vergleicht die laufende Version mit dem neuesten GitHub-Release (6 h gecacht);
+das Frontend zeigt Badge + Toast bei einem Update.
 
 ---
 
 ## 🤝 Beitragen
 
-Contributions sind **sehr willkommen**! Bitte:
-
 1. **Fork** das Repository
-2. Erstelle einen **Feature-Branch:** `git checkout -b feature/deine-feature`
-3. **Commit** mit beschreibendem Message: `git commit -m "Add feature: XYZ"`
-4. **Push** zum Repository: `git push origin feature/deine-feature`
-5. Öffne einen **Pull Request** mit Beschreibung
+2. **Feature-Branch:** `git checkout -b feature/deine-feature`
+3. **Commit** mit Conventional-Commit-Prefix: `git commit -m "feat: XYZ"`
+4. **Push:** `git push origin feature/deine-feature`
+5. **Pull Request** gegen `main` öffnen
 
 ### 📋 Contribution Checklist
-- [ ] Feature/Fix lokal getestet
-- [ ] VERSION Datei erhöht (CLAUDE.md Konvention)
-- [ ] CLAUDE.md aktualisiert (neue Features dokumentiert)
-- [ ] Keine Co-authored-by Zeilen in Commits
-- [ ] PR gegen `main` (nicht gegen Production-Branches)
+- [ ] `npm test` lokal grün
+- [ ] Conventional-Commit-Prefix gesetzt (steuert das Release)
+- [ ] Passende Doku aktualisiert (FEATURES.md / CLAUDE.md / HANDOFF.md – s. Wartungsvertrag in CLAUDE.md)
+- [ ] PR gegen `main`
 
 ---
 
 ## 📋 Lizenz
 
-MIT License – siehe [LICENSE](LICENSE) für vollständigen Text.
+MIT License – siehe [LICENSE](LICENSE).
 
 ---
 
-## 📞 Support & Community
+## 📞 Support
 
 - **Issues & Bugs:** [GitHub Issues](https://github.com/Toupsy/Wachplan-Generator/issues)
-- **Diskussionen:** [GitHub Discussions](https://github.com/Toupsy/Wachplan-Generator/discussions)
 - **Technische Details:** [CLAUDE.md](CLAUDE.md)
-- **Deployment-Guide:** [DEPLOYMENT.md](docs/DEPLOYMENT.md)
+- **Deployment-Guide:** [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 
 ---
 
 **Made with ❤️ for DLRG Wasserrettungsdienste**
-
-```
-Version: 2.1.0 (Production Ready)
-Last Updated: 2026-06-04
-Status: ✅ Multi-User, Encrypted, Real-Time
-```
-# Preview Deployment Test
