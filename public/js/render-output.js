@@ -857,9 +857,6 @@ function _applyBoatReassignment(boatId, dayIdx, kind, slotId){
 /** Erstellt gestapeltes SVG-Balkendiagramm für Hauptstrand / Nebenstrand pro Person */
 function renderAssignmentsChart(){
   if(!lastResult?.stats) return '';
-  const hasMain = towers.some(t => t.mainBeach);
-  const hasOuter = towers.some(t => !t.mainBeach);
-  if(!hasMain || !hasOuter) return '';
 
   const stats = Object.entries(lastResult.stats)
     .filter(([id]) => people.find(p => p.id === parseInt(id)))
