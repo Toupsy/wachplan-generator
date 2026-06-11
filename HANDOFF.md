@@ -11,10 +11,14 @@
 > Doku-Wartungsvertrag s. CLAUDE.md.
 
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
-`main` ist nach dem Review-Lauf vom 2026-06-10 sauber: **34/34 Tests grün**, alle Server
-parsen (`node -c`). **Keine offenen PRs.**
+**34/34 Tests grün**, alle Server parsen (`node -c`).
 
-**Letzter Lauf (2026-06-10, Maintainer-Review):**
+**Letzter Lauf (2026-06-11, Issue #276):**
+- **#276 Bugfix:** `renderOutput()` crashte mit `TypeError` wenn `lastResult === null`
+  (frisch geladene App, vor erstem Generieren). Defensiver Guard `if(!lastResult) return;`
+  in `render-output.js` Z.42 (nach `getElementById`, vor Destructuring). Schließt #276.
+
+**Vorletzter Lauf (2026-06-10, Maintainer-Review):**
 - **PR #231 gemergt** → Feature 28 **Fairness-Visualisierung** (SVG-Balkendiagramme: Einsätze/
   Person, HW-Tage/Person, Turmauslastung; rein CSS/SVG, CSP-konform, im Druck aus,
   `fairnessChartsDisplay`). War gegen veralteten `main` → Konflikte (VERSION/CLAUDE.md) gelöst,
