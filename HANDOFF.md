@@ -13,7 +13,18 @@
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: **34/34 Tests grün**, alle Server parsen (`node -c`).
 
-**Letzter Lauf (2026-06-11, Optimierungs-Audit #2 – Branch `claude/confident-shannon-jq07g7`):**
+**Letzter Lauf (2026-06-11, Mobile-Ansicht-Fixes – Branch `claude/sleepy-wright-em50jz`):**
+- **Hauptbug gefixt:** Wachplan war auf Mobile immer sichtbar (auch im Einstellungen-Tab),
+  weil `#output-panel{display:flex !important}` die Tab-Regel `.main-panel{display:none}`
+  überschrieb → Regel auf `@media(min-width:901px)` gescoped (neue Falle in CLAUDE.md).
+- Weitere Mobile-Fixes (Details: docs/FEATURES.md, letzter Eintrag): `.tower-row-meta`-Grid
+  ≤520px, `.occupant`-Ellipsis via neuem `.o-name`-Span in `renderOccupant`, Stats-Bar
+  2-spaltig ≤520px, iOS-Zoom-Fix (16px-Inputs ≤900px), Einzeltag-Druck via `afterprint`,
+  `mobileShowPanel()`-Dedupe in init.js. 34/34 Tests grün (1× flaky Re-Run).
+- **Offen/prüfen:** Visuelle Verifikation auf echtem Gerät/Browser steht aus – Headless-
+  Chromium-Download war in der Sandbox geblockt; CSS-Scoping programmatisch verifiziert.
+
+**Vorheriger Lauf (2026-06-11, Optimierungs-Audit #2 – Branch `claude/confident-shannon-jq07g7`):**
 - **Security-Fix (#279, Medium):** `POST /api/import/plans` umging die Eingabe-Limits aus
   #218/#270 komplett (kein Name-/Größen-/Typ-Check, rohe `planError.message` an den Client).
   Fix: `validatePlanInput` aus `plans.js` exportiert + im Import-Loop angewandt, generische
