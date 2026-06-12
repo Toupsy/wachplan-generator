@@ -68,14 +68,16 @@ plans-ui → login-modal → init
 server.js          Express (Port 3000), Static aus ../public, Route-Registration, Scheduler
 admin-server.js    Admin-Server (Port 3001), gleiches Image, anderer Entry-Point
 realtime.js        WebSocket-Server (setupRealtime, broadcastPlanUpdate)
+mailer.js          E-Mail-Versand (nodemailer, SMTP_* env; MAIL_TRANSPORT=outbox für Tests)
+captcha.js         reCAPTCHA-v3-Verify (fail-closed; no-op ohne RECAPTCHA_*-Keys)
 config.json        Template-Config (Türme/Boote/exportColumns) → GET /api/config
-db/connection.js   Zentrale SQLite-Verbindung
+db/connection.js   Zentrale SQLite-Verbindung (DATABASE_PATH env respektiert)
 db/init.js         Init, Schema-Migration (idempotente ALTER TABLE), Admin-Seed, validateEnv()
-db/schema.sql      Schema (users, plans, plan_shares, audit_log; sessions via connect-sqlite3)
+db/schema.sql      Schema (users, plans, plan_shares, auth_tokens, audit_log; sessions via connect-sqlite3)
 db/crypto.js       AES-256-GCM + deriveKey (PBKDF2 100k, Key-Cache pro userId)
-db/session.js      createSessionMiddleware (SQLite-Store, DRY für beide Server)
+db/session.js      createSessionMiddleware (SQLite-Store in Haupt-DB, DRY für beide Server)
 db/access.js       getPlanAccess() zentral (Owner/Share-Prüfung, kein IDOR)
-api/auth.js        login/logout/init/me/register/password + Rate-Limiting
+api/auth.js        login/logout/init/me/register/password + E-Mail-Verifizierung/Passwort-Reset + Rate-Limiting
 api/plans.js       Plan-CRUD mit Verschlüsselung + Sharing
 api/admin.js       Admin-Endpoints (Admin-only) inkl. audit-log, DSGVO-Export
 api/import.js      Bulk-Import alter .json-Pläne
@@ -190,6 +192,14 @@ PBKDF2 100k (gecacht pro userId), Rate-Limit IP+Account (10/15min), Session-Fixa
 CSP/HSTS/Security-Header. **Secrets in `.env`** (Pflicht: `MASTER_SECRET`≥32, `SALT`≥16,
 `SESSION_SECRET`≥16; geprüft von `validateEnv()`). API-Endpoints s. README/Code.
 
+**Registrierung/E-Mail/Passwort-Reset (Feature 30, Setup: docs/REGISTRATION.md):**
+Mit `SMTP_HOST` (+`APP_BASE_URL`) wird E-Mail bei Registrierung Pflicht, Account erst nach
+Bestätigungslink aktiv (`users.pending_verification`, Login vorher 403 `email_unverified`);
+„Passwort vergessen?" → Einmal-Token-Link (60 min), Reset invalidiert alle Sessions.
+Tokens in `auth_tokens` (nur SHA-256-Hash, Ablauf Epoch-ms). reCAPTCHA v3 via
+`RECAPTCHA_SITE_KEY`+`SECRET_KEY` (fail-closed, Action-Bindung; CSP wird nur dann um
+Google-Hosts erweitert). Plan-Key hängt NICHT am Passwort → Reset zerstört keine Pläne.
+
 ---
 
 ## Konventionen & Fallen (haben schon Bugs verursacht)
@@ -199,6 +209,12 @@ CSP/HSTS/Security-Header. **Secrets in `.env`** (Pflicht: `MASTER_SECRET`≥32, 
 - **DB-Verbindung:** `db/connection.js` exportiert **kein** `db`-Feld, nur `getDb()`/`dbRun`/
   `dbGet`/`dbAll`. Für eine rohe Verbindung **immer `getDb()`** nutzen – `require('./db/connection').db`
   ist `undefined` (verursachte den toten Plan-Retention-Cleanup, #272).
+- **connect-sqlite3-Optionen:** `mode` sind **sqlite3-Open-Flags**, keine Datei-Permissions –
+  `mode: 0o666` enthält Bit `0x80` = `OPEN_MEMORY` → Sessions lagen unbemerkt in einer
+  In-Memory-DB (Merke-mich + GDPR-Session-Löschung wirkungslos). Pfad immer als
+  `{ dir, db: basename }` übergeben (`dir + '/' + db`-Konkatenation). Außerdem: Session-Store
+  erst NACH `await dbRun('SELECT 1')` erzeugen (WAL-Switch der Haupt-Connection racet sonst
+  mit `CREATE TABLE sessions` → IOERR).
 - **CSP divergiert je Server:** public-Server erlaubt `script-src 'self' 'unsafe-inline'
   https://cdnjs.cloudflare.com` (JSZip von cdnjs!); admin-Server nur `script-src 'self'`. Beim
   Zentralisieren der Header diese Differenz erhalten, sonst **bricht der XLSX-Export**.
@@ -221,7 +237,8 @@ CSP/HSTS/Security-Header. **Secrets in `.env`** (Pflicht: `MASTER_SECRET`≥32, 
 kein geschlossener Turm/Boot belegt, `slotCount`+`leaderCount` eingehalten. Perf-Baseline
 ~20ms für 28 Pers. × 14 Tage. **Backend kaum automatisiert** → bei Server-Änderungen mind.
 `node -c` + manuell. `npm install` im frischen Container nötig (sonst `sqlite3`-Fehler in
-`session-user-deletion.test.js`); dieser Test ist gelegentlich flaky (IPC-Serialisierung) →
+`session-user-deletion.test.js`); `session-user-deletion`/`auth-flow` sind in Sandbox-FS
+gelegentlich flaky (IPC-Serialisierung bzw. sporadisches `SQLITE_CORRUPT`) →
 erneut laufen lassen, grün = alle.
 **CI:** `.github/workflows/test.yml` führt `npm ci` + `npm test` bei jedem `push`/`pull_request`
 aus (Node 20) → roter Test blockt den Merge. (GDPR-Art.-17-Löschung ist über
