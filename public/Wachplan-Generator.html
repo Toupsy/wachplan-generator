@@ -572,6 +572,7 @@
       </form>
       <div id="login-footer" style="text-align:center;margin-top:16px;font-size:.875rem;color:var(--text-dim)">
         <span id="register-link-text"></span>
+        <div id="forgot-link-text" style="margin-top:6px"></div>
       </div>
     </div>
 
@@ -606,9 +607,49 @@
         </label>
         <button type="submit">Account erstellen</button>
         <div id="register-error" style="color:var(--coral);font-size:.85rem;min-height:1.2em"></div>
+        <div class="captcha-hint" style="display:none;font-size:.7rem;color:var(--text-dim);margin-top:4px">Geschützt durch reCAPTCHA – es gelten die <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Datenschutzbestimmungen</a> und <a href="https://policies.google.com/terms" target="_blank" rel="noopener">Nutzungsbedingungen</a> von Google.</div>
       </form>
       <div id="register-footer" style="text-align:center;margin-top:16px;font-size:.875rem;color:var(--text-dim)">
         <button type="button" id="back-to-login-btn" style="background:none;border:none;color:var(--sea-bright);cursor:pointer;text-decoration:underline;font-size:inherit">← Zurück zum Login</button>
+      </div>
+    </div>
+
+    <!-- Forgot-Password View (Reset-Link per E-Mail anfordern) -->
+    <div id="forgot-view" style="display:none">
+      <h2>🔑 Passwort vergessen</h2>
+      <p class="subtitle">Wir senden Ihnen einen Link zum Zurücksetzen</p>
+      <form id="forgot-form" class="login-form">
+        <input id="forgot-email" type="email" placeholder="E-Mail-Adresse" autocomplete="email" required>
+        <button type="submit">Reset-Link anfordern</button>
+        <div id="forgot-error" style="color:var(--coral);font-size:.85rem;min-height:1.2em"></div>
+        <div class="captcha-hint" style="display:none;font-size:.7rem;color:var(--text-dim);margin-top:4px">Geschützt durch reCAPTCHA – es gelten die <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Datenschutzbestimmungen</a> und <a href="https://policies.google.com/terms" target="_blank" rel="noopener">Nutzungsbedingungen</a> von Google.</div>
+      </form>
+      <div style="text-align:center;margin-top:16px;font-size:.875rem;color:var(--text-dim)">
+        <button type="button" id="forgot-back-btn" style="background:none;border:none;color:var(--sea-bright);cursor:pointer;text-decoration:underline;font-size:inherit">← Zurück zum Login</button>
+      </div>
+    </div>
+
+    <!-- Reset-Password View (neues Passwort via Reset-Link setzen) -->
+    <div id="reset-view" style="display:none">
+      <h2>🔑 Neues Passwort</h2>
+      <p class="subtitle">Bitte vergeben Sie ein neues Passwort</p>
+      <form id="reset-form" class="login-form">
+        <input id="reset-password" type="password" placeholder="Neues Passwort (min. 10 Zeichen)" autocomplete="new-password" required>
+        <input id="reset-password2" type="password" placeholder="Passwort wiederholen" autocomplete="new-password" required>
+        <button type="submit">Passwort speichern</button>
+        <div id="reset-error" style="color:var(--coral);font-size:.85rem;min-height:1.2em"></div>
+      </form>
+      <div style="text-align:center;margin-top:16px;font-size:.875rem;color:var(--text-dim)">
+        <button type="button" id="reset-back-btn" style="background:none;border:none;color:var(--sea-bright);cursor:pointer;text-decoration:underline;font-size:inherit">← Zurück zum Login</button>
+      </div>
+    </div>
+
+    <!-- Info View (z.B. „Bestätigungs-E-Mail gesendet") -->
+    <div id="auth-info-view" style="display:none">
+      <h2 id="auth-info-title">ℹ️ Hinweis</h2>
+      <p class="subtitle" id="auth-info-text"></p>
+      <div style="text-align:center;margin-top:16px;font-size:.875rem;color:var(--text-dim)">
+        <button type="button" id="auth-info-back-btn" style="background:none;border:none;color:var(--sea-bright);cursor:pointer;text-decoration:underline;font-size:inherit">← Zurück zum Login</button>
       </div>
     </div>
 

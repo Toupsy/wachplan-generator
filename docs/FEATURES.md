@@ -214,9 +214,54 @@ zurück ins Repo committete (`package.json` blieb stehen, GitHub war schon bei v
 - **Caveat:** Falls Branch-Protection auf `main` Pushes des `GITHUB_TOKEN` blockt, schlägt
   der Release-Commit fehl → Actions-Ausnahme in der Branch-Protection nötig.
 
+### Feature 30: Registrierung mit E-Mail-Verifizierung, reCAPTCHA v3 & Passwort-Reset
+Selbstregistrierung um Bot-Schutz, E-Mail-Bestätigung und „Passwort vergessen?" erweitert.
+Alles env-gesteuert und einzeln optional (Setup-Guide: **docs/REGISTRATION.md**).
+- **Mail-Versand (`server/mailer.js`, nodemailer):** via `SMTP_*` + `APP_BASE_URL`;
+  `MAIL_TRANSPORT=outbox` = In-Memory-Outbox für Tests. Ohne SMTP: Verhalten wie bisher.
+- **E-Mail-Verifizierung:** Mit SMTP wird E-Mail bei Registrierung Pflicht (Format-,
+  Eindeutigkeitsprüfung, generische Fehler gegen Enumeration), Account startet mit
+  `users.pending_verification=1`, kein Auto-Login; Login vorher → 403
+  `code:'email_unverified'` (Frontend bietet Resend an). `GET /verify-email?token=…`
+  aktiviert + Redirect `/?verified=1|0`. Mail-Fehler bei Registrierung → User-Rollback.
+- **Passwort-Reset:** `POST /request-password-reset` (generische Antwort) → Mail-Link
+  `/?reset=<token>` (60 min) → SPA-View „Neues Passwort" → `POST /reset-password`:
+  bcrypt-Hash neu, **alle Sessions des Users invalidiert**, gilt zugleich als
+  E-Mail-Bestätigung. Plan-Verschlüsselung unberührt (Key aus userId+MASTER_SECRET).
+- **Tokens (`auth_tokens`-Tabelle):** 32-Byte-Random, nur SHA-256-Hash gespeichert,
+  Einmal-Nutzung (`used_at`), Ablauf als Epoch-ms, pro User+Typ nur das neueste gültig.
+- **Bot-Schutz (`server/captcha.js`, reCAPTCHA v3):** aktiv bei gesetzten
+  `RECAPTCHA_SITE_KEY`+`RECAPTCHA_SECRET_KEY` (validateEnv erzwingt Paar); serverseitige
+  Verifizierung mit Action-Bindung (`register`/`password_reset`) + Score-Schwelle
+  (`RECAPTCHA_MIN_SCORE`, Def. 0.5), **fail-closed**. CSP wird nur bei aktiven Keys um
+  Google-Hosts erweitert. Frontend lädt das Script nur bei geliefertem `captchaSiteKey`.
+- **Frontend (`login-modal.js` + HTML):** neue Views `#forgot-view`, `#reset-view`,
+  `#auth-info-view`; „Passwort vergessen?"-Link; URL-Param-Handling (`?reset=`,
+  `?verified=`); reCAPTCHA-Hinweistext (Google-Attribution).
+- **Tests:** `test/auth-flow.test.js` – 17 Subtests über den kompletten Flow inkl.
+  Token-Expiry/-Reuse, Enumeration-Schutz, Session-Invalidierung, CAPTCHA (gemockt).
+
 ---
 
 ## Bugfixes
+
+### Session-Store lag versehentlich in einer In-Memory-DB (Feature-30-Beifang)
+**Problem:** `db/session.js` übergab `new SqliteStore({ db: dbPath, mode: 0o666 })`.
+connect-sqlite3 reicht `mode` aber als **sqlite3-Open-Flags** durch – `0o666` (438)
+enthält Bit `0x80` = `OPEN_MEMORY` → Sessions lebten in einer In-Memory-DB statt in
+`wachplan.db`. Folgen: (a) Sessions überlebten keinen Neustart („Merke mich" 30 Tage
+wirkungslos), (b) die GDPR-Session-Löschung in `admin.js` (`DELETE FROM sessions` auf
+der Haupt-DB) war ein No-op, (c) Session-Invalidierung beim Passwort-Reset wäre ebenso
+ins Leere gelaufen. Zusätzlich baut connect-sqlite3 den Pfad als `dir + '/' + db` –
+ein absoluter `db`-Pfad wäre nach Mode-Fix an einem cwd-relativen Ort gelandet.
+- **Lösung:** `{ dir: path.dirname(dbPath), db: path.basename(dbPath) }` ohne `mode`
+  → Sessions persistent in der Haupt-DB (wie von #211 beabsichtigt). Der
+  `DROP TABLE sessions`-Migrationsschritt in `db/init.js` läuft jetzt nur noch bei
+  altem Schema (Spalten `session`/`expiryDate`), sonst würden persistente Sessions
+  bei jedem Start gelöscht. In `server.js` wird vor Store-Erstellung die
+  Pragma-Queue der Haupt-Connection abgewartet (`await dbRun('SELECT 1')`), sonst
+  racen WAL-Switch und `CREATE TABLE sessions` (IOERR); Error-Handler prüft jetzt
+  `res.headersSent`.
 
 ### Plan-Retention-Cleanup lief nie – `db` undefined (#272)
 **Problem:** `server.js` startete die DSGVO-Plan-Retention mit

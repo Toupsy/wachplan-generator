@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
   username TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
   email TEXT,
+  pending_verification BOOLEAN DEFAULT 0,     -- 1 = E-Mail noch nicht bestätigt → Login blockiert
   is_admin BOOLEAN DEFAULT 0,
   last_login DATETIME,                       -- Letzter erfolgreicher Login (UTC), NULL = noch nie
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -43,6 +44,20 @@ CREATE TABLE IF NOT EXISTS plan_shares (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Einmal-Tokens für E-Mail-Verifizierung & Passwort-Reset.
+-- Gespeichert wird nur der SHA-256-Hash des Tokens (DB-Leak ≠ gültige Links).
+-- expires_at = Unix-Epoch in Millisekunden (timezone-sicher vergleichbar).
+CREATE TABLE IF NOT EXISTS auth_tokens (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  token_hash TEXT UNIQUE NOT NULL,
+  type TEXT NOT NULL,                       -- 'verify_email' | 'password_reset'
+  expires_at INTEGER NOT NULL,              -- Epoch ms
+  used_at DATETIME,                         -- NULL = noch nicht eingelöst
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- Audit Log (DSGVO Art. 5 Abs. 1 f – Accountability, Art. 32 – Sicherheit)
 CREATE TABLE IF NOT EXISTS audit_log (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,6 +73,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
 
 -- Indices für Performance
 CREATE INDEX IF NOT EXISTS idx_plans_user_id ON plans(user_id);
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_user ON auth_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_plan_shares_user ON plan_shares(user_id);
 CREATE INDEX IF NOT EXISTS idx_plan_shares_plan ON plan_shares(plan_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log(user_id);

@@ -6,7 +6,10 @@
 const sqlite3 = require('sqlite3');
 const path = require('path');
 
-const dbPath = path.join(__dirname, '..', '..', 'data', 'wachplan.db');
+// DATABASE_PATH wie in db/init.js respektieren – vorher las init.js die eine,
+// connection.js stur die andere Datei (Inkonsistenz); außerdem nutzen Tests
+// darüber eine Wegwerf-DB.
+const dbPath = process.env.DATABASE_PATH || path.join(__dirname, '..', '..', 'data', 'wachplan.db');
 let db = null;
 
 function getDb() {
