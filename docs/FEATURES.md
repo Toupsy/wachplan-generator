@@ -12,6 +12,19 @@
 
 ## Features
 
+### Feature 30: Vollständiges Audit-Log für Benutzer-Aktionen (Issue #293)
+Bisher wurden nur System-Events (`plan_cleanup`) und Admin-Aktionen ins `audit_log` geschrieben.
+Ab v0.11.x werden alle schreibenden Benutzer-Aktionen geloggt:
+- `login` / `logout` in `server/api/auth.js`
+- `plan_create` / `plan_update` / `plan_delete` / `plan_share` / `plan_share_revoke` in `server/api/plans.js`
+- `plan_import` in `server/api/import.js`
+
+Alle Einträge enthalten nur Metadaten (Name, Share-Rolle, User-IDs) – niemals Plan-Inhalt/State.
+Pattern: **fire-and-forget** (`.catch()`), damit ein Logging-Fehler die eigentliche Aktion nicht scheitern lässt.
+Admin-UI (`/admin.html`) filtert diese Aktionen bereits via `AUDIT_ACTION_LABELS`.
+
+**Datenschutz-Abwägung `login`/`logout`:** Erzeugt Aktivitätsdatensatz pro Nutzer. Entscheidung zugunsten der DSGVO-Rechenschaftspflicht (Art. 5 Abs. 2) bei personenbezogenen Plan-Daten.
+
 ### Feature 5: BF-Schutz (surplusBF-Penalty)
 Übrige Bootsführer (nicht auf Booten) sollen nicht an Türmen mit aktivem Boot stehen.
 - +800 Penalty auf aktive-Boot-Türmen; -350 auf deaktivierten-Boot-Türmen → 1150 Swing.

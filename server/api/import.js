@@ -5,9 +5,10 @@
 
 const express = require('express');
 const router = express.Router();
-const { dbRun } = require('../db/connection');
+const { getDb, dbRun } = require('../db/connection');
 const { encryptPlanState } = require('../db/crypto');
 const { validatePlanInput } = require('./plans');
+const { auditLog } = require('../db/init');
 
 // ───────────────────────────────────────────────────────────
 // Authentication Middleware
@@ -78,6 +79,11 @@ router.post('/plans', express.json(), async (req, res) => {
         console.error(`Import plan error ("${label}"):`, planError);
         errors.push(`Plan "${label}": Import fehlgeschlagen`);
       }
+    }
+
+    if (importedCount > 0) {
+      auditLog(getDb(), req.session.userId, 'plan_import', 'plan', null, { imported: importedCount, total: plans.length }, req.ip)
+        .catch(err => console.error('Audit log error (plan_import):', err));
     }
 
     res.json({
