@@ -163,5 +163,6 @@ function resetGlobalState() {
   startDate = '';
   currentPlanId = null;
   currentPlanName = 'Wachplan';
+  currentPlanCanEdit = true;   // Default: eigener/neuer Plan ist bearbeitbar (Beobachter-Modus aus)
   console.log('✓ Global state reset');
 }

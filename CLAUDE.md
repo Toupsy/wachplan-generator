@@ -212,6 +212,10 @@ CSP/HSTS/Security-Header. **Secrets in `.env`** (Pflicht: `MASTER_SECRET`≥32, 
   `escapeHtml()`/`textContent` (XSS).
 - **Constraints:** max 28 Personen (XLSX), 16 Stationsspalten, Paarungs-Matrix nur bei 2–18 E/U,
   DAYS 1–14, Turm slotCount 1–10, Boot 1–3.
+- **Beobachter-Modus (Feature 30):** Nur-Lese-Pläne (Share-Rolle `view`, `currentPlanCanEdit=false`)
+  schalten `body.view-only` (via `_updateSaveIndicator()`) → Sidebar + alle Editier-Bedienelemente
+  weg, schlanke Turmbesetzungs-Ansicht. Neue Editier-UI in `render-output.js` daher IMMER hinter
+  `if(!viewOnly)` (sonst sehen/triggern Beobachter sie); Schreiben ist serverseitig ohnehin 403.
 
 ---
 
