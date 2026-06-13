@@ -281,7 +281,8 @@ function renderOutput(){
       html+=`<div class="notice warn-n">🚤 <div>Boot zu (Turm zu): <strong>${d.boatsClosedTower.map(b=>escapeHtml(b.name)).join(', ')}</strong></div></div>`;
     if(d.boatsNoBootsf.length)
       html+=`<div class="notice warn-n">🚤 <div>Boot zu (kein BF): <strong>${d.boatsNoBootsf.map(b=>escapeHtml(b.name)).join(', ')}</strong></div></div>`;
-    const uuToday = d.assign.filter(s=>s.kind==='tower'&&s.occupants.length===2&&(effLevel(s.occupants[0])+effLevel(s.occupants[1]))==='UU').length;
+    // Beobachter-Modus: UU-Hinweis ausblenden (Erfahrungs-Einstufung nicht offenlegen).
+    const uuToday = viewOnly ? 0 : d.assign.filter(s=>s.kind==='tower'&&s.occupants.length===2&&(effLevel(s.occupants[0])+effLevel(s.occupants[1]))==='UU').length;
     if(uuToday>0) html+=`<div class="notice warn-n">⚠️ <div>${uuToday}× zwei Unerfahrene auf einem Turm.</div></div>`;
 
     // ── Karten ─────────────────────────────────────────────────
@@ -304,11 +305,15 @@ function renderOutput(){
           .filter(l => l)
         : [];
       const labelText = labels.length > 0 ? ' - <span class="person-labels">' + labels.map(l => `<span class="label-tag">${escapeHtml(l)}</span>`).join(' ') + '</span>' : '';
+      // Beobachter-Modus: Erfahrung (erfahren/unerfahren) nicht erkennbar machen –
+      // weder über die Punkt-Farbe noch über das Label.
+      const dotCls  = viewOnly ? roleDotSafe(p) : roleDot(p);
+      const roleTxt = label || (viewOnly ? roleLabelSafe(p) : roleLabel(p));
       return `
           <div class="occupant" draggable="${viewOnly?'false':'true'}" data-person-id="${p.id}" data-source-kind="${kind}" data-source-slot="${slotId}">
-            <i class="role-dot rd-${roleDot(p)}"></i>${escapeHtml(p.name)}${labelText}
+            <i class="role-dot rd-${dotCls}"></i>${escapeHtml(p.name)}${labelText}
             ${forcedIds.has(p.id)?'<span class="forced-badge" title="Manuell fixiert">🔒</span>':''}
-            <span class="o-role">${label||roleLabel(p)}</span>
+            <span class="o-role">${roleTxt}</span>
             ${viewOnly?'':`<button class="move-btn" data-move-person="${p.id}" data-move-day="${di}"
               data-move-kind="${kind}" data-move-slot="${slotId||''}" title="Verschieben">↕</button>`}
           </div>`;
@@ -333,11 +338,11 @@ function renderOutput(){
         html += `<div class="tower-card main" id="card-main-${di}" style="grid-column:span 2;" data-drop-kind="main" data-drop-slot="${MAIN_ID}" data-panel-name="Hauptwache" data-card-type="main">
           <div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="main" data-card-slot="${MAIN_ID}" title="Zum Sortieren ziehen"><span class="tc-name">⛱ ${slot.tower}</span><span class="tc-type main">Zentrale · k=${slot.k}</span></div>
           ${slot.fuehrung.map(p=>renderOccupant(p,'Führung','main',MAIN_ID)).join('')}
-          ${slot.mainGuards.map(p=>renderOccupant(p,p.experienced?'Erfahren · HW':'Unerf. · HW','main',MAIN_ID)).join('')}
-          ${slot.base.map(p=>renderOccupant(p,p.experienced?'Erfahren · HW':'Unerf. · HW','main',MAIN_ID)).join('')}
+          ${slot.mainGuards.map(p=>renderOccupant(p,viewOnly?'Hauptwache':(p.experienced?'Erfahren · HW':'Unerf. · HW'),'main',MAIN_ID)).join('')}
+          ${slot.base.map(p=>renderOccupant(p,viewOnly?'Hauptwache':(p.experienced?'Erfahren · HW':'Unerf. · HW'),'main',MAIN_ID)).join('')}
           ${slot.bootsfLeft.map(p=>renderOccupant(p,'Bootsführer · HW','main',MAIN_ID)).join('')}
           ${renderInlineBoat(boatsByTower['HW'])}
-          ${slot.sick.map(p=>`<div class="occupant" style="opacity:.55"><i class="role-dot rd-${roleDot(p)}"></i><span style="text-decoration:line-through">${escapeHtml(p.name)}</span><span class="o-role" style="color:var(--coral)">außer Dienst</span></div>`).join('')}
+          ${slot.sick.map(p=>`<div class="occupant" style="opacity:.55"><i class="role-dot rd-${viewOnly?roleDotSafe(p):roleDot(p)}"></i><span style="text-decoration:line-through">${escapeHtml(p.name)}</span><span class="o-role" style="color:var(--coral)">außer Dienst</span></div>`).join('')}
         </div>`;
       }
       // ─ Turm (inkl. inline Boot, falls vorhanden) ─
@@ -345,7 +350,7 @@ function renderOutput(){
         html += `<div class="tower-card" id="card-tower-${di}-${slot.towerId}" data-drop-kind="tower" data-drop-slot="${slot.towerId}" data-panel-name="Turm: ${escapeHtml(slot.tower)}" data-card-type="tower" data-tower-id="${slot.towerId}">
           <div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="tower" data-card-slot="${slot.towerId}" title="Zum Sortieren ziehen"><span class="tc-name">🗼 ${escapeHtml(slot.tower)}</span><span class="tc-type normal">${slot.mainBeach?'🏖️ ':''}Turm · ${escapeHtml(slot.code||'?')} · P${slot.prio}</span></div>
           ${slot.occupants.map(p=>renderOccupant(p, null, 'tower', slot.towerId)).join('')}
-          ${slot.warn?`<div class="warn-pair">⚠ ${slot.warn}</div>`:''}
+          ${(!viewOnly && slot.warn)?`<div class="warn-pair">⚠ ${slot.warn}</div>`:''}
           ${renderInlineBoat(boatsByTower[slot.towerId])}
         </div>`;
       }

@@ -217,6 +217,11 @@ mit wem sie am nächsten Tag auf dem Turm sind.
   Tag-Tab-Listenern verhindert das Anhängen aller Editier-/Drag&Drop-/Export-Listener; nur
   `#vo-plans`→`openPlansModal()` und `#vo-logout`→`logout()` werden verdrahtet.
 - **Plan-Wechsel/Abmelden** bleiben möglich (Top-Level-`#plans-modal` ist sidebar-unabhängig).
+- **Erfahrung verborgen:** im Beobachter-Modus ist die Einstufung erfahren/unerfahren nicht
+  erkennbar – weder über die Punkt-Farbe (Wachgänger → neutraler `rd-w` statt grün/grau)
+  noch über das Label (`roleLabelSafe`/`roleDotSafe` in `state.js`: W→„Wachgänger",
+  B→„Bootsführer", HW-Guards→„Hauptwache"). Zudem werden UU-Warnungen unterdrückt
+  (`slot.warn`/„zwei Unerfahrene"-Notiz), damit keine Rückschlüsse möglich sind.
 
 ### Feature 29: Version-Badge an GitHub-Releases gekoppelt + Update-Hinweis
 Das Header-Badge zeigte dauerhaft „v 0.5.1", weil Semantic Release den Versions-Bump nie

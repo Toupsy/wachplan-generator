@@ -30,6 +30,21 @@ function roleLabel(p){
   return p.experienced ? 'Erfahren' : 'Unerfahren';  // W
 }
 
+// Beobachter-Modus (view-only): role-dot OHNE Erfahrungs-Unterscheidung.
+// Wachgänger → neutraler 'w'-Punkt, damit erfahren/unerfahren nicht erkennbar ist.
+function roleDotSafe(p){
+  if(p.role === 'F') return 'f';
+  if(p.role === 'B') return 'b';
+  return 'w';  // W: erfahren/unerfahren nicht unterscheidbar
+}
+
+// Beobachter-Modus (view-only): Rollen-Label ohne Erfahrungs-Angabe.
+function roleLabelSafe(p){
+  if(p.role === 'F') return 'Führung';
+  if(p.role === 'B') return 'Bootsführer';
+  return 'Wachgänger';  // W
+}
+
 let uid = 0;
 let randomSeed = 0;
 
