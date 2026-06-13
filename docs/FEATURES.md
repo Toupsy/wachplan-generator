@@ -377,6 +377,16 @@ State-Größe (max. 1 MB → 413) gegen Storage-Exhaustion (`validatePlanInput`)
 Helfer `server/db/ids.js` (`parsePositiveInt`) ersetzt `parseInt(req.params.id)` in `admin.js`
 (DELETE/PUT-password/GET-export) → `'5abc'`/`NaN`/`≤0` fließen nicht mehr in Queries.
 
+### UX: Aufklappbare Ausgabe-Sektionen + Navigationsleiste (Issue #298)
+Die vier Bereiche im Ausgabe-Panel (Wachplan, Turm-Einsatzverteilung, Boot & Bootsführer,
+Paarungs-Matrix) wurden von statischen Überschriften in `<details>`/`<summary>`-Elemente
+umgewandelt. **Wachplan** ist standardmäßig aufgeklappt, die drei Auswertungen zugeklappt.
+Eine kompakte Navigationsleiste (`.out-section-nav`) am Anfang des Ausgabe-Panels erlaubt
+den direkten Sprung zu jeder Sektion (öffnet sie ggf. und scrollt dorthin). Der Auf-/Zu-Zustand
+jeder Sektion wird in `outSectionOpen` (in-memory, pro Session) persistiert und überlebt
+`renderOutput()`-Neuaufbauten. IDs der Sektionen: `section-wachplan`, `section-tower-stats`,
+`section-boat-stats`, `section-matrix`.
+
 ### Security: Bulk-Import umging die Eingabe-Limits aus #218 + leakte Fehlerdetails (Issue #279)
 `POST /api/import/plans` fügte Pläne ohne jede Validierung ein – beliebig lange Namen,
 States bis zum 10-MB-Body-Limit, `plan.name` ohne Typprüfung; rohe `planError.message`
