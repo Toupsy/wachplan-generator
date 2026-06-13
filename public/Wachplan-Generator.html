@@ -500,6 +500,27 @@
     }
   }
 
+  /* ── Sidebar Master-Detail Drill-Down (sidebar-layout.js) ── */
+  .sb-view{display:none}
+  .sb-view.sb-active{display:block;animation:sbViewIn .18s ease}
+  @keyframes sbViewIn{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:none}}
+  .sb-menu{display:flex;flex-direction:column;gap:8px;margin-bottom:6px}
+  .sb-card{display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:10px;width:100%;text-align:left;background:var(--deep);border:1px solid var(--line);border-radius:10px;padding:11px 12px;cursor:pointer;color:var(--text);font-family:'Spline Sans',sans-serif;transition:all .15s}
+  .sb-card:hover{border-color:var(--sea-bright);background:rgba(24,168,216,.07)}
+  .sb-card:focus-visible{outline:2px solid var(--sea-bright);outline-offset:1px}
+  .sb-card-icon{font-size:1.15rem;text-align:center}
+  .sb-card-body{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .sb-card-title{font-weight:600;font-size:.88rem}
+  .sb-card-sum{font-family:'Spline Sans Mono',monospace;font-size:.68rem;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sb-card-chev{color:var(--text-dim);font-size:1.15rem;line-height:1}
+  .sb-detail-head{display:flex;align-items:center;gap:10px;margin-bottom:6px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+  .sb-back{background:transparent;border:1px solid var(--line-strong);color:var(--foam);border-radius:8px;padding:7px 12px;cursor:pointer;font-family:'Spline Sans Mono',monospace;font-size:.72rem;letter-spacing:.05em;transition:all .15s;white-space:nowrap}
+  .sb-back:hover{border-color:var(--sea-bright);background:rgba(24,168,216,.08)}
+  .sb-detail-title{font-family:'Spline Sans Mono',monospace;font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:var(--foam)}
+  .sb-generate-footer{position:sticky;bottom:0;z-index:15;margin-top:12px;background:linear-gradient(165deg,var(--navy-2),var(--paper));border:1px solid var(--line);border-radius:12px;padding:12px 14px;box-shadow:0 -8px 24px rgba(6,19,32,.55)}
+  .sb-generate-footer .gen-row{margin-top:0}
+  .sb-generate-footer .generate{margin-top:0}
+
   @media print{
     @page{size:A4 landscape;margin:8mm}
     *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -737,6 +758,103 @@
       <aside class="sidebar">
         <div class="panel" id="sidebar-inner-panel" data-panel-name="Wachgänger & Konfiguration (Inhalt)">
 
+          <!-- ── Home-Ansicht: Kategorie-Menü (Master-Detail, sidebar-layout.js) ── -->
+          <div class="sb-view sb-view-home sb-active" id="sb-view-home" data-sb-view="home">
+            <div class="sb-menu" id="sb-menu">
+              <button type="button" class="sb-card" data-sb-target="account" id="sb-card-account" style="display:none">
+                <span class="sb-card-icon">👤</span>
+                <span class="sb-card-body">
+                  <span class="sb-card-title">Konto &amp; Pläne</span>
+                  <span class="sb-card-sum" id="sb-sum-account">Nicht angemeldet</span>
+                </span>
+                <span class="sb-card-chev">›</span>
+              </button>
+              <button type="button" class="sb-card" data-sb-target="people">
+                <span class="sb-card-icon">👥</span>
+                <span class="sb-card-body">
+                  <span class="sb-card-title">Wachgänger</span>
+                  <span class="sb-card-sum" id="sb-sum-people">–</span>
+                </span>
+                <span class="sb-card-chev">›</span>
+              </button>
+              <button type="button" class="sb-card" data-sb-target="towers">
+                <span class="sb-card-icon">🗼</span>
+                <span class="sb-card-body">
+                  <span class="sb-card-title">Türme &amp; Hauptwache</span>
+                  <span class="sb-card-sum" id="sb-sum-towers">–</span>
+                </span>
+                <span class="sb-card-chev">›</span>
+              </button>
+              <button type="button" class="sb-card" data-sb-target="boats">
+                <span class="sb-card-icon">🚤</span>
+                <span class="sb-card-body">
+                  <span class="sb-card-title">Boote</span>
+                  <span class="sb-card-sum" id="sb-sum-boats">–</span>
+                </span>
+                <span class="sb-card-chev">›</span>
+              </button>
+              <button type="button" class="sb-card" data-sb-target="positions">
+                <span class="sb-card-icon">🏷️</span>
+                <span class="sb-card-body">
+                  <span class="sb-card-title">Positionen &amp; Export</span>
+                  <span class="sb-card-sum" id="sb-sum-positions">–</span>
+                </span>
+                <span class="sb-card-chev">›</span>
+              </button>
+              <button type="button" class="sb-card" data-sb-target="fairness">
+                <span class="sb-card-icon">⚖️</span>
+                <span class="sb-card-body">
+                  <span class="sb-card-title">Fairness &amp; Algorithmus</span>
+                  <span class="sb-card-sum" id="sb-sum-fairness">–</span>
+                </span>
+                <span class="sb-card-chev">›</span>
+              </button>
+              <button type="button" class="sb-card" data-sb-target="options">
+                <span class="sb-card-icon">🎛️</span>
+                <span class="sb-card-body">
+                  <span class="sb-card-title">Plan-Optionen</span>
+                  <span class="sb-card-sum" id="sb-sum-options">–</span>
+                </span>
+                <span class="sb-card-chev">›</span>
+              </button>
+              <button type="button" class="sb-card" data-sb-target="storage">
+                <span class="sb-card-icon">💾</span>
+                <span class="sb-card-body">
+                  <span class="sb-card-title">Planstatus</span>
+                  <span class="sb-card-sum" id="sb-sum-storage">–</span>
+                </span>
+                <span class="sb-card-chev">›</span>
+              </button>
+            </div>
+
+            <!-- Datum & Tageanzahl: dauerhaft auf der Home-Ansicht sichtbar -->
+            <div id="section-schedule" class="section section-schedule">
+              <div class="section-label" style="margin-top:18px;">Datum &amp; Tageanzahl</div>
+              <div class="start-date-cfg">
+                <div class="sd-row">
+                  <div class="sd-label">📅 Startdatum (Tag 1)
+                    <span class="sub">Folgetage werden automatisch berechnet</span>
+                  </div>
+                  <input type="date" id="start-date" value="">
+                </div>
+                <div class="sd-row" style="margin-top:10px;">
+                  <div class="sd-label">📆 Anzahl Wachtage
+                    <span class="sub">1–14 Tage möglich</span>
+                  </div>
+                  <input type="number" id="num-days" min="1" max="14" value="6"
+                    style="background:var(--navy-2);border:1px solid var(--line-strong);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.82rem;padding:7px 9px;width:62px;text-align:center;color-scheme:dark;">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Detail-Ansicht: Konto & Pläne ── -->
+          <div class="sb-view sb-view-detail" data-sb-view="account">
+            <div class="sb-detail-head">
+              <button type="button" class="sb-back">← Zurück</button>
+              <div class="sb-detail-title">Konto &amp; Pläne</div>
+            </div>
+
           <!-- User Info & Admin Panel -->
           <div id="user-info-header" class="section section-user-info" data-panel-name="Benutzerinfo & Admin" style="background:var(--deep);border:1px solid var(--line);border-radius:6px;padding:12px;margin-bottom:20px;display:none">
             <div style="font-size:.85em;color:var(--text-dim);margin-bottom:8px">Angemeldet als</div>
@@ -749,6 +867,14 @@
             <button id="btn-plans" class="ghost-btn" style="width:100%;margin-top:8px;border-color:var(--sea-bright);color:var(--sea-bright);font-size:.75rem;padding:6px">📋 Meine Pläne</button>
             <button id="btn-share-plan" class="ghost-btn" style="width:100%;margin-top:8px;border-color:var(--green);color:var(--green);font-size:.75rem;padding:6px">👥 Plan teilen</button>
           </div>
+          </div>
+
+          <!-- ── Detail-Ansicht: Wachgänger ── -->
+          <div class="sb-view sb-view-detail" data-sb-view="people">
+            <div class="sb-detail-head">
+              <button type="button" class="sb-back">← Zurück</button>
+              <div class="sb-detail-title">Wachgänger</div>
+            </div>
 
           <!-- Wachgänger -->
           <div id="section-people" class="section section-people">
@@ -769,6 +895,14 @@
             <button data-role="W" data-exp="true">+ Erfahren</button>
             <button data-role="W" data-exp="false">+ Unerf.</button>
           </div>
+          </div>
+
+          <!-- ── Detail-Ansicht: Türme & Hauptwache ── -->
+          <div class="sb-view sb-view-detail" data-sb-view="towers">
+            <div class="sb-detail-head">
+              <button type="button" class="sb-back">← Zurück</button>
+              <div class="sb-detail-title">Türme &amp; Hauptwache</div>
+            </div>
 
           <!-- Türme -->
           <div id="section-towers" class="section section-towers">
@@ -784,6 +918,14 @@
             <div id="tower-cfg"></div>
           </div>
           <button class="add-btn" id="add-tower">+ Turm hinzufügen</button>
+          </div>
+
+          <!-- ── Detail-Ansicht: Boote ── -->
+          <div class="sb-view sb-view-detail" data-sb-view="boats">
+            <div class="sb-detail-head">
+              <button type="button" class="sb-back">← Zurück</button>
+              <div class="sb-detail-title">Boote</div>
+            </div>
 
           <!-- Boote -->
           <div id="section-boats" class="section section-boats">
@@ -792,6 +934,14 @@
             <div id="boat-cfg"></div>
           </div>
           <button class="add-btn" id="add-boat">+ Boot hinzufügen</button>
+          </div>
+
+          <!-- ── Detail-Ansicht: Positionen & Export ── -->
+          <div class="sb-view sb-view-detail" data-sb-view="positions">
+            <div class="sb-detail-head">
+              <button type="button" class="sb-back">← Zurück</button>
+              <div class="sb-detail-title">Positionen &amp; Export</div>
+            </div>
 
           <!-- Positionsbeschriftungen (Feature 2) -->
           <div id="section-positions" class="section section-positions">
@@ -807,6 +957,14 @@
             <button class="add-btn" id="btn-auto-export-cols" style="margin-bottom:8px">↺ Automatisch aus Türmen &amp; Booten befüllen</button>
             <div id="export-col-fields"></div>
           </div>
+          </div>
+
+          <!-- ── Detail-Ansicht: Fairness & Algorithmus ── -->
+          <div class="sb-view sb-view-detail" data-sb-view="fairness">
+            <div class="sb-detail-head">
+              <button type="button" class="sb-back">← Zurück</button>
+              <div class="sb-detail-title">Fairness &amp; Algorithmus</div>
+            </div>
 
           <!-- Fairness-Metriken Anzeige -->
           <div id="section-fairness-metrics" class="section section-fairness-metrics">
@@ -849,25 +1007,19 @@
             <div class="info-box">Passe die Scoring-Gewichte des Fairness-Algorithmus an. Die Standardwerte sind für typische DLRG-Wachen optimiert. Änderungen wirken sofort beim nächsten <b>Plan generieren</b>. Hover über einen Parameter für eine kurze Erklärung.</div>
             <div id="algo-params-fields"></div>
           </div>
+          </div>
 
-          <!-- Datum & Generierung -->
-          <div id="section-schedule" class="section section-schedule">
-            <div class="section-label" style="margin-top:18px;">Datum &amp; Tageanzahl</div>
+          <!-- ── Detail-Ansicht: Plan-Optionen (Dienstzeit + Seed) ── -->
+          <div class="sb-view sb-view-detail" data-sb-view="options">
+            <div class="sb-detail-head">
+              <button type="button" class="sb-back">← Zurück</button>
+              <div class="sb-detail-title">Plan-Optionen</div>
+            </div>
+
+          <div id="section-plan-options" class="section section-plan-options">
+            <div class="section-label" style="margin-top:18px;">Dienstzeit &amp; Seed</div>
             <div class="start-date-cfg">
               <div class="sd-row">
-                <div class="sd-label">📅 Startdatum (Tag 1)
-                  <span class="sub">Folgetage werden automatisch berechnet</span>
-                </div>
-                <input type="date" id="start-date" value="">
-              </div>
-              <div class="sd-row" style="margin-top:10px;">
-                <div class="sd-label">📆 Anzahl Wachtage
-                  <span class="sub">1–14 Tage möglich</span>
-                </div>
-                <input type="number" id="num-days" min="1" max="14" value="6"
-                  style="background:var(--navy-2);border:1px solid var(--line-strong);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.82rem;padding:7px 9px;width:62px;text-align:center;color-scheme:dark;">
-              </div>
-              <div class="sd-row" style="margin-top:10px;">
                 <div class="sd-label">⏰ Dienstzeit (Stunden)
                   <span class="sub">08:00 bis 19:00 verfügbar</span>
                 </div>
@@ -895,14 +1047,15 @@
               <input id="seed-input" type="number" min="0" max="999" value="0"
                 style="width:100%;background:var(--navy-2);border:1px solid rgba(160,120,255,.35);border-radius:7px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.95rem;text-align:center;padding:8px 4px">
             </div>
-
-            <div class="gen-row">
-              <button class="generate" id="generate">⚓ Plan generieren</button>
-            </div>
-            <div style="text-align:center;margin-top:5px;min-height:18px">
-              <span id="seed-display" class="seed-badge" style="display:none"></span>
-            </div>
           </div>
+          </div>
+
+          <!-- ── Detail-Ansicht: Planstatus ── -->
+          <div class="sb-view sb-view-detail" data-sb-view="storage">
+            <div class="sb-detail-head">
+              <button type="button" class="sb-back">← Zurück</button>
+              <div class="sb-detail-title">Planstatus</div>
+            </div>
 
           <!-- Planstatus Import/Export (Feature 7) -->
           <div id="section-import-export" class="section section-import-export">
@@ -917,6 +1070,17 @@
           <button class="ghost-btn" id="btn-clear-save" style="width:100%;margin-top:8px;border-color:var(--coral);color:var(--coral);font-size:.75rem;">🗑 Lokalen Speicherstand löschen</button>
           <input type="file" id="import-file-input" accept=".json" style="display:none">
           <input type="file" id="import-plans-file-input" accept=".json" style="display:none" multiple>
+          </div>
+          </div>
+
+          <!-- ── Sticky-Footer: Generieren (in Home- UND Detail-Ansicht sichtbar) ── -->
+          <div class="sb-generate-footer" id="sb-generate-footer">
+            <div class="gen-row">
+              <button class="generate" id="generate">⚓ Plan generieren</button>
+            </div>
+            <div style="text-align:center;margin-top:5px;min-height:18px">
+              <span id="seed-display" class="seed-badge" style="display:none"></span>
+            </div>
           </div>
 
         </div>
@@ -955,6 +1119,7 @@
 <script src="js/realtime.js"></script>
 <script src="js/plans-ui.js"></script>
 <script src="js/login-modal.js"></script>
+<script src="js/sidebar-layout.js"></script>
 <script src="js/init.js"></script>
 
 <!-- Version tracker -->
