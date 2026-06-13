@@ -616,6 +616,48 @@
     body.print-single-day .tower-card{display:block !important}
     body.print-single-day .out-extras{display:none !important}
   }
+
+  /* ── Hamburger-Menü (Mobile <768px) ── */
+  .hamburger-fab{
+    display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    z-index:200;align-items:center;justify-content:center;
+    background:linear-gradient(135deg,var(--sea),var(--sea-bright));
+    color:#fff;border:none;border-radius:50px;width:56px;height:56px;
+    font-size:1.5rem;cursor:pointer;
+    box-shadow:0 4px 20px rgba(13,124,168,.5);transition:background .2s;
+  }
+  .hamburger-fab[aria-expanded="true"]{
+    background:linear-gradient(135deg,var(--coral-deep),var(--coral));
+    box-shadow:0 4px 20px rgba(216,57,44,.5);
+  }
+  .hamburger-overlay{display:none;position:fixed;inset:0;z-index:199;background:rgba(0,0,0,.3)}
+  .hamburger-overlay.active{display:block}
+  .hamburger-nav{
+    position:fixed;bottom:90px;left:50%;transform:translateX(-50%);z-index:200;
+    display:none;flex-direction:column;gap:6px;
+    width:min(300px,88vw);
+    background:linear-gradient(165deg,var(--navy-2),var(--paper));
+    border:1px solid var(--line-strong);border-radius:16px;padding:14px;
+    box-shadow:0 12px 40px rgba(0,0,0,.5);
+  }
+  .hamburger-nav.open{display:flex;animation:hamNavIn .18s ease forwards}
+  @keyframes hamNavIn{
+    from{opacity:0;transform:translateX(-50%) translateY(12px)}
+    to{opacity:1;transform:translateX(-50%) translateY(0)}
+  }
+  .ham-item{
+    display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+    padding:12px 14px;background:var(--deep);border:1px solid var(--line);
+    border-radius:9px;color:var(--text);font-family:'Spline Sans',sans-serif;
+    font-size:.9rem;cursor:pointer;transition:all .15s;
+  }
+  .ham-item:hover{background:rgba(24,168,216,.1);border-color:var(--sea-bright);color:var(--foam)}
+  @media(max-width:768px){
+    .mobile-switch{display:none!important}
+    /* Auf sehr kleinen Bildschirmen ausreichend Abstand nach unten für den FAB */
+    .wrap{padding-bottom:80px}
+    .hamburger-fab{display:flex}
+  }
 </style>
 </head>
 <body>
@@ -1212,6 +1254,18 @@
   }
 })();
 </script>
+
+<!-- ── Hamburger-Menü (Mobile <768px) ── -->
+<div id="hamburger-overlay" class="hamburger-overlay"></div>
+<button id="hamburger-btn" type="button" class="hamburger-fab" aria-label="Navigation öffnen" aria-controls="hamburger-menu" aria-expanded="false">☰</button>
+<nav id="hamburger-menu" class="hamburger-nav" aria-label="Hauptnavigation">
+  <button type="button" class="ham-item" data-ham-action="info">ℹ️ Info</button>
+  <button type="button" class="ham-item" data-ham-action="config">⚙️ Konfiguration</button>
+  <button type="button" class="ham-item" data-ham-action="plan">📋 Wachplan</button>
+  <button type="button" class="ham-item" data-ham-action="tower-stats">🗼 Turm-Einsatzverteilung</button>
+  <button type="button" class="ham-item" data-ham-action="boat-stats">🚤 Boot &amp; Bootsführer-Fairness</button>
+  <button type="button" class="ham-item" data-ham-action="matrix">👥 Paarungs-Matrix</button>
+</nav>
 
 </body>
 </html>

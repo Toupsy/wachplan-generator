@@ -51,4 +51,76 @@
     try { initOpen = localStorage.getItem(INFO_KEY) === '1'; } catch (e) { /* ignore */ }
     setInfoOpen(initOpen);
   }
+
+  // ── 3. Hamburger-Menü (Mobile <768px) ──
+  const hamburgerBtn = document.getElementById('hamburger-btn');
+  const hamburgerMenu = document.getElementById('hamburger-menu');
+  const hamburgerOverlay = document.getElementById('hamburger-overlay');
+
+  function closeHamburger() {
+    if (!hamburgerMenu) return;
+    hamburgerMenu.classList.remove('open');
+    if (hamburgerOverlay) hamburgerOverlay.classList.remove('active');
+    if (hamburgerBtn) hamburgerBtn.setAttribute('aria-expanded', 'false');
+  }
+
+  function openHamburgerMenu() {
+    if (!hamburgerMenu) return;
+    hamburgerMenu.classList.add('open');
+    if (hamburgerOverlay) hamburgerOverlay.classList.add('active');
+    if (hamburgerBtn) hamburgerBtn.setAttribute('aria-expanded', 'true');
+  }
+
+  function switchMobilePanel(idx) {
+    document.querySelectorAll('.main-panel').forEach((p, i) => p.classList.toggle('mobile-active', i === idx));
+    document.querySelectorAll('.ms-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
+  }
+
+  function scrollToOutputSection(id) {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  if (hamburgerBtn) {
+    hamburgerBtn.addEventListener('click', () => {
+      if (hamburgerMenu && hamburgerMenu.classList.contains('open')) {
+        closeHamburger();
+      } else {
+        openHamburgerMenu();
+      }
+    });
+  }
+
+  if (hamburgerOverlay) {
+    hamburgerOverlay.addEventListener('click', closeHamburger);
+  }
+
+  if (hamburgerMenu) {
+    hamburgerMenu.querySelectorAll('.ham-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const action = item.dataset.hamAction;
+        closeHamburger();
+
+        if (action === 'info') {
+          setInfoOpen(!infoBox || !infoBox.classList.contains('open'));
+          if (infoBox) infoBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else if (action === 'config') {
+          switchMobilePanel(0);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else if (action === 'plan') {
+          switchMobilePanel(1);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else if (action === 'tower-stats') {
+          switchMobilePanel(1);
+          setTimeout(() => scrollToOutputSection('out-tower-stats'), 80);
+        } else if (action === 'boat-stats') {
+          switchMobilePanel(1);
+          setTimeout(() => scrollToOutputSection('out-boat-stats'), 80);
+        } else if (action === 'matrix') {
+          switchMobilePanel(1);
+          setTimeout(() => scrollToOutputSection('out-matrix'), 80);
+        }
+      });
+    });
+  }
 })();

@@ -372,7 +372,7 @@ function renderOutput(){
 
   // Zusatz-Auswertungen (im Druck ausgeblendet via .out-extras; im Beobachter-Modus weggelassen)
   if(!viewOnly)
-    html += `<div class="out-extras">${renderFairnessCharts()}${renderTowerStatsPerPerson()}${renderBoatStatsPerPerson()}${renderMatrix()}</div>`;
+    html += `<div class="out-extras"><div id="out-fairness-charts">${renderFairnessCharts()}</div><div id="out-tower-stats">${renderTowerStatsPerPerson()}</div><div id="out-boat-stats">${renderBoatStatsPerPerson()}</div><div id="out-matrix">${renderMatrix()}</div></div>`;
   panel.innerHTML = html;
 
   // ── Event-Listener ─────────────────────────────────────────────
