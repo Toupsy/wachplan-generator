@@ -13,6 +13,12 @@
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: **34/34 Tests grün**, alle Server parsen (`node -c`).
 
+**Letzter Lauf (2026-06-13, Sidebar-Redesign Feature 30 – PR #291 gemergt):**
+- **Feature 30: Master-Detail Drill-Down Sidebar** auf `main` gemergt (squash-Merge `3d4599e`).
+  Neue Datei `public/js/sidebar-layout.js`. Sidebar zeigt jetzt ein Home-Menü mit 8 Kategorie-
+  Karten (Live-Zusammenfassungen) + Detail-Views pro Kategorie. `#generate` in sticky Footer.
+  CLAUDE.md und docs/FEATURES.md aktualisiert. 5 alternative Draft-PRs (#286–#290) geschlossen.
+
 **Letzter Lauf (2026-06-11, Optimierungs-Audit #2 – Branch `claude/confident-shannon-jq07g7`):**
 - **Security-Fix (#279, Medium):** `POST /api/import/plans` umging die Eingabe-Limits aus
   #218/#270 komplett (kein Name-/Größen-/Typ-Check, rohe `planError.message` an den Client).

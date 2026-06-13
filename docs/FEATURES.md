@@ -12,6 +12,17 @@
 
 ## Features
 
+### Feature 30: Master-Detail Drill-Down Sidebar (PR #291, v0.12.0)
+Sidebar als Settings-App umstrukturiert. Home-Ansicht zeigt Kategorie-Karten mit Live-
+Zusammenfassungen (Personenzahl, Turm-/Boot-Anzahl, aktive Metriken, Dienstzeit/Seed-Status).
+Klick auf eine Karte öffnet die Detail-Ansicht für diese Kategorie mit "← Zurück"-Button.
+`#generate` lebt in einem `position:sticky`-Footer, sichtbar in Home- und Detail-Ansicht.
+`Datum & Tageanzahl` (#start-date, #num-days) dauerhaft auf der Home-Ansicht; Dienstzeit +
+Seed in "Plan-Optionen", Fairness + Algorithmus bundled, Positionen + XLSX-Spalten bundled.
+Letzter Ansicht-Stand wird in `localStorage` (`dlrg_sidebar_view`) persistiert.
+Neue Datei: `public/js/sidebar-layout.js` (vanilla JS IIFE, ~140 Zeilen). Alle bestehenden
+Element-IDs bleiben statisch im DOM, keine Listener-Änderungen an `init.js` o.ä. nötig.
+
 ### Feature 5: BF-Schutz (surplusBF-Penalty)
 Übrige Bootsführer (nicht auf Booten) sollen nicht an Türmen mit aktivem Boot stehen.
 - +800 Penalty auf aktive-Boot-Türmen; -350 auf deaktivierten-Boot-Türmen → 1150 Swing.
