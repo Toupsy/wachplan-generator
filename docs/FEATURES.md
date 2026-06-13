@@ -214,6 +214,20 @@ zurück ins Repo committete (`package.json` blieb stehen, GitHub war schon bei v
 - **Caveat:** Falls Branch-Protection auf `main` Pushes des `GITHUB_TOKEN` blockt, schlägt
   der Release-Commit fehl → Actions-Ausnahme in der Branch-Protection nötig.
 
+### Feature 30: Kompaktere Top-Bar + einklappbare Sidebar
+Top-Bar (header) und Sidebar nahmen auf Desktop viel Platz weg. Neues Modul `layout-chrome.js`.
+- **Top-Bar kompakter:** `header`-Padding/`margin` reduziert (38/28/32 → 16/14/18 px), `h1`
+  kleiner (`clamp(1.5rem,3.4vw,2.3rem)`), Badge-Abstand & Subtitle verkleinert.
+- **Top-Bar weg-scrollen:** Beim Runterscrollen im Output-Panel (bzw. Dokument auf Mobile)
+  klappt der Header per `.wrap.chrome-header-hidden` weg (`max-height`/`padding`/`opacity`-
+  Transition), beim Hochscrollen / am Seitenanfang erscheint er wieder. Richtungsbasiert mit
+  6 px-Hysterese, Schwelle 60 px.
+- **Sidebar einklappbar (nur Desktop ≥901px):** „« Einklappen"-Button (sticky oben im
+  Sidebar-Panel) blendet die Sidebar aus, das Output-Panel nutzt die volle Breite; ein
+  vertikaler „» Konfiguration"-Tab am linken Rand klappt sie wieder auf. Zustand in
+  `localStorage['dlrg_sidebar_collapsed']`. Auf Mobile (<900px) übernimmt weiterhin der
+  bestehende Tab-Switch – die Buttons sind dort per CSS ausgeblendet.
+
 ---
 
 ## Bugfixes
