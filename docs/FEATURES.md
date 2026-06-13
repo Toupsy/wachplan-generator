@@ -99,6 +99,20 @@ automatisch gelöscht. v0.4.15.
 und Aktualisieren-Button (`loadAuditLog()`, `AUDIT_ACTION_LABELS`). Nur Metadaten, alle Werte
 via `textContent` (XSS-sicher). Damit ist Akzeptanzkriterium „Admin kann Log einsehen" erfüllt.
 
+**Schreibende Admin-Aktionen werden jetzt protokolliert (Nachtrag zu #154):** Bis dahin
+schrieb *nur* der Plan-Retention-Cleanup (`plan_cleanup`) ins `audit_log` – die in #154
+geforderten Aktionen „Create/Delete/SetPassword/Export erzeugen Audit-Einträge" fehlten, das
+Frontend definierte zwar passende `AUDIT_ACTION_LABELS`, der Server emittierte sie aber nie
+(Admin-Log faktisch leer). Behoben: neuer fire-and-forget-Helfer `recordAdminAudit(req, action,
+entityType, entityId, details)` in `server/api/admin.js` (nutzt den bestehenden
+`auditLog`-Helfer, ein Logging-Fehler darf die Admin-Aktion nie scheitern lassen). Verdrahtet in
+`POST /users` (`admin_user_create`), `DELETE /users/:id` (`admin_user_delete`),
+`PUT /users/:id/password` (`admin_password_reset`) und `GET /users/:id/export`
+(`admin_user_export`, neues Label in `admin.html`). Es werden **nur Metadaten** geloggt
+(handelnder Admin = `user_id`, Ziel = `entity_id`, IP, ggf. `username`/`isAdmin`) – **niemals
+Passwörter/Plan-Inhalte**. `audit_log.user_id` ist FK `ON DELETE SET NULL`, `entity_id` ist
+kein FK → Logging eines gelöschten Users ist unkritisch.
+
 ### Feature 22: Selbstregistrierung
 `REGISTRATION_MODE` (disabled|open|code, Default disabled). `POST /api/auth/register` +
 `GET /api/auth/registration-status`. Neuer User immer `is_admin=0`; Rate-Limit 10/15min;

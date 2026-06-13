@@ -10,13 +10,28 @@ const router = express.Router();
 const path = require('path');
 const fs = require('fs');
 const bcryptjs = require('bcryptjs');
-const { dbRun, dbGet, dbAll } = require('../db/connection');
+const { dbRun, dbGet, dbAll, getDb } = require('../db/connection');
 const { parsePositiveInt } = require('../db/ids');
+const { auditLog } = require('../db/init');
 
 // ───────────────────────────────────────────────────────────
 // Security Constants
 // ───────────────────────────────────────────────────────────
 const MIN_PASSWORD_LENGTH = 10;
+
+// ───────────────────────────────────────────────────────────
+// Audit-Log-Helfer (DSGVO Art. 5 Abs. 2 – Rechenschaftspflicht, Issue #154)
+// Schreibt schreibende Admin-Aktionen ins audit_log. Bewusst fire-and-forget:
+// ein Fehler beim Logging darf die eigentliche Admin-Aktion NIE scheitern lassen.
+// Es werden nur Metadaten gespeichert (handelnder Admin, Aktion, Ziel-ID) –
+// niemals Geheimnisse/Passwörter oder Plan-Inhalte.
+// ───────────────────────────────────────────────────────────
+function recordAdminAudit(req, action, entityType, entityId, details = null) {
+  const actorId = req.session && req.session.userId ? req.session.userId : null;
+  const ip = req.ip || null;
+  auditLog(getDb(), actorId, action, entityType, entityId, details, ip)
+    .catch(err => console.error('Audit-Log write failed:', err.message));
+}
 
 // ───────────────────────────────────────────────────────────
 // Admin-only Middleware
@@ -101,6 +116,8 @@ router.post('/users', express.json(), async (req, res) => {
       [username, passwordHash, email || null, isAdmin ? 1 : 0]
     );
 
+    recordAdminAudit(req, 'admin_user_create', 'user', result.lastID, { username, isAdmin: !!isAdmin });
+
     res.status(201).json({
       id: result.lastID,
       username: username,
@@ -154,6 +171,8 @@ router.delete('/users/:id', async (req, res) => {
     await dbRun('DELETE FROM plans WHERE user_id = ?', [userId]);
     await dbRun('DELETE FROM users WHERE id = ?', [userId]);
 
+    recordAdminAudit(req, 'admin_user_delete', 'user', userId, { wasAdmin: !!user.is_admin });
+
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
     console.error('Delete user error:', error);
@@ -182,6 +201,8 @@ router.put('/users/:id/password', express.json(), async (req, res) => {
 
     const passwordHash = await bcryptjs.hash(newPassword, 10);
     await dbRun('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, userId]);
+
+    recordAdminAudit(req, 'admin_password_reset', 'user', userId);
 
     res.json({ success: true, message: 'Password updated' });
   } catch (error) {
@@ -270,6 +291,8 @@ router.get('/users/:id/export', async (req, res) => {
         updatedAt: p.updated_at
       }))
     };
+
+    recordAdminAudit(req, 'admin_user_export', 'user', userId);
 
     // Send as JSON download
     const filename = `wachplan-userdaten-${user.username}.json`;

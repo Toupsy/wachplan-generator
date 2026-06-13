@@ -13,7 +13,25 @@
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: **34/34 Tests grün**, alle Server parsen (`node -c`).
 
-**Letzter Lauf (2026-06-11, Optimierungs-Audit #2 – Branch `claude/confident-shannon-jq07g7`):**
+**Letzter Lauf (2026-06-13, Optimierungs-Audit #3 – Branch `claude/kind-allen-1f0abd`):**
+- **Audit-Log-Lücke geschlossen (Nachtrag zu #154, Medium):** #154 war als „completed/released"
+  geschlossen, das Akzeptanzkriterium „Create/Delete/SetPassword/Export/Purge erzeugen
+  Audit-Einträge" war aber **nur für Purge** (`plan_cleanup`) erfüllt – die schreibenden
+  Admin-Aktionen schrieben **nie** ins `audit_log` (Admin-Ansicht faktisch leer, obwohl
+  `AUDIT_ACTION_LABELS` im Frontend die Codes bereits kannte). Fix: fire-and-forget-Helfer
+  `recordAdminAudit()` in `server/api/admin.js`, verdrahtet in Create/Delete/SetPassword/Export
+  (`admin_user_create/_delete/_password_reset/_user_export`); neues Label in `admin.html`.
+  Nur Metadaten, keine Secrets. 34/34 Tests grün, `node -c` ok, End-to-End-Insert/Read via
+  `node -e` verifiziert. → docs/FEATURES.md aktualisiert.
+- **Geprüft, bewusst NICHT umgesetzt:** Login/Logout/`plan_*`-Events haben zwar ebenfalls
+  Frontend-Labels, werden aber nie geschrieben → eigener, größerer Scope (auth.js + plans.js +
+  Datenschutz-Abwägung „jeden Login loggen?"). Als Issue gemeldet (s. u.), nicht implementiert.
+- **Geprüft, kein Befund:** Session-Cascade-Delete (`json_extract($.userId)`) ist über
+  `session-user-deletion.test.js` (CI) abgesichert; Login-Brute-Force-Maps werden pro
+  Request via `_cleanupExpiredEntries()` beschnitten; `dates.js` guardet malformed Startdatum;
+  Frontend-`renderOutput`/`renderMatrix`-Crash ist über PR #277 (#276) abgedeckt.
+
+**Vorheriger Lauf (2026-06-11, Optimierungs-Audit #2 – Branch `claude/confident-shannon-jq07g7`):**
 - **Security-Fix (#279, Medium):** `POST /api/import/plans` umging die Eingabe-Limits aus
   #218/#270 komplett (kein Name-/Größen-/Typ-Check, rohe `planError.message` an den Client).
   Fix: `validatePlanInput` aus `plans.js` exportiert + im Import-Loop angewandt, generische
