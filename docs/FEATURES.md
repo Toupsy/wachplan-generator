@@ -195,6 +195,34 @@ Planungszeitraum – ergänzend zu den vorhandenen Zahlen-Metriken und der Pro-P
   `init.js` (`CHARTS_MAP`), Sync nach State-Import via `syncMetricCheckboxes()`.
 - **Druck:** `@media print { .charts-container { display:none } }` – Charts im Ausdruck aus.
 
+### Feature 30: Beobachter-Modus (Nur-Ansicht) – minimalistische Plan-Ansicht
+Pläne, die mit Leserechten (Share-Rolle `view`) geteilt werden, öffneten sich bisher in der
+vollen Editier-UI (Sidebar, ↕-Verschieben, Drag&Drop, Steuerungen). Schreiben war zwar
+serverseitig blockiert (PUT 403 für `view`, autoSave durch `currentPlanCanEdit=false`
+unterdrückt), aber der Beobachter konnte den Plan lokal „bearbeiten" und sah die ganze
+Konfigurations-Sidebar. Gedacht ist die Rolle aber für Wachgänger, die nur sehen wollen,
+mit wem sie am nächsten Tag auf dem Turm sind.
+- **Auslöser:** `currentPlanCanEdit === false` (aus `GET /api/plans/:id` → `canEdit`).
+  `_updateSaveIndicator()` schaltet `document.body.classList.toggle('view-only', …)` – greift
+  zentral bei autoLoad, loadPlanById, createNewPlan, renameCurrentPlan, autoSave und
+  `applyRemotePlanState` (Live-Update). `resetGlobalState()` setzt `currentPlanCanEdit=true`.
+- **CSS (`Wachplan-Generator.html`):** `body.view-only` blendet `#sidebar-panel`,
+  `.mobile-switch`, Header-Subtitle, `.export-row`, `.stats-bar`, `.out-extras`,
+  `.day-controls` und `.move-btn` aus; `.main-panels` wird einspaltig; auf <900px wird das
+  Output-Panel sichtbar erzwungen. Neue `.vo-bar`/`.vo-day-head`-Styles.
+- **Render (`render-output.js`):** lokales `viewOnly`. Schlanke Kopfzeile (`.vo-bar`:
+  Plan-Name, „Nur Ansicht"-Badge, Buttons 📋 Pläne / 🚪 Abmelden) + Tag-Navigation; pro Tag
+  ein kompakter `.vo-day-head` (Datum) statt der Editier-Steuerung; Occupants ohne ↕-Button
+  und `draggable=false`; `out-extras`/Statistiken weggelassen. `early return` nach den
+  Tag-Tab-Listenern verhindert das Anhängen aller Editier-/Drag&Drop-/Export-Listener; nur
+  `#vo-plans`→`openPlansModal()` und `#vo-logout`→`logout()` werden verdrahtet.
+- **Plan-Wechsel/Abmelden** bleiben möglich (Top-Level-`#plans-modal` ist sidebar-unabhängig).
+- **Erfahrung verborgen:** im Beobachter-Modus ist die Einstufung erfahren/unerfahren nicht
+  erkennbar – weder über die Punkt-Farbe (Wachgänger → neutraler `rd-w` statt grün/grau)
+  noch über das Label (`roleLabelSafe`/`roleDotSafe` in `state.js`: W→„Wachgänger",
+  B→„Bootsführer", HW-Guards→„Hauptwache"). Zudem werden UU-Warnungen unterdrückt
+  (`slot.warn`/„zwei Unerfahrene"-Notiz), damit keine Rückschlüsse möglich sind.
+
 ### Feature 29: Version-Badge an GitHub-Releases gekoppelt + Update-Hinweis
 Das Header-Badge zeigte dauerhaft „v 0.5.1", weil Semantic Release den Versions-Bump nie
 zurück ins Repo committete (`package.json` blieb stehen, GitHub war schon bei v0.9.1).

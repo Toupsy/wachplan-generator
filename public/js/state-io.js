@@ -349,6 +349,9 @@ function clearLocalSave(){
 }
 
 function _updateSaveIndicator(){
+  // Beobachter-Modus (nur-Lese-Plan) → body.view-only schaltet die minimalistische,
+  // sidebar-lose Ansicht ein (s. render-output.js + CSS).
+  try { document.body.classList.toggle('view-only', currentPlanCanEdit === false); } catch(e) {}
   const el = document.getElementById('autosave-indicator');
   if(!el) return;
   try {

@@ -39,6 +39,9 @@ function renderOutput(){
   }
 
   const panel = document.getElementById('output-panel');
+  // Beobachter-Modus: aktueller Plan ist nur mit Leserechten geteilt (share-role 'view').
+  // → minimalistische Ansicht ohne Sidebar/Editier-UI (s. body.view-only CSS).
+  const viewOnly = (typeof currentPlanCanEdit !== 'undefined' && currentPlanCanEdit === false);
   let { schedule } = lastResult;
 
   // ── Wende transparent placements visuell an (ohne generate()) ────
@@ -145,19 +148,37 @@ function renderOutput(){
   const towerDistColor = towerDist.minUniqueTowers >= towers.length * 0.5 ? 'var(--green)' : 'var(--warn)';
 
   // ── Kopfbereich ────────────────────────────────────────────────
-  let html = `
+  const dayTabsHtml = schedule.map((d,i) => {
+    const flags = [];
+    if(d.sickCount > 0)            flags.push('🤒');
+    if(d.absentCount > 0)          flags.push('👋');
+    if(d.manualClosed.length > 0)  flags.push('⛔');
+    return `<button class="day-tab ${i===activeDay?'active':''}" data-day="${i}">${dayLabel(i)}${flags.length?`<span class="flag">${flags.join('')}</span>`:''}</button>`;
+  }).join('');
+
+  let html;
+  if(viewOnly){
+    // Beobachter: schlanke Kopfzeile (Plan-Name, Tag-Navigation, Pläne wechseln, Abmelden).
+    html = `
+    <div class="vo-bar">
+      <div class="vo-title">👁 ${escapeHtml(typeof currentPlanName !== 'undefined' ? currentPlanName : 'Wachplan')} <span class="vo-badge">Nur Ansicht</span></div>
+      <div class="vo-actions">
+        <button class="ghost-btn" id="vo-plans" style="border-color:var(--sea-bright);color:var(--sea-bright)">📋 Pläne</button>
+        <button class="ghost-btn" id="vo-logout" style="border-color:var(--coral);color:var(--coral)">🚪 Abmelden</button>
+      </div>
+    </div>
+    <div class="out-header">
+      <div>
+        <div class="section-label" style="margin-bottom:8px;">Turmbesetzungen · ${DAYS} Tage</div>
+        <div class="day-tabs">${dayTabsHtml}</div>
+      </div>
+    </div>`;
+  } else {
+    html = `
     <div class="out-header">
       <div>
         <div class="section-label" style="margin-bottom:8px;">Wachplan · ${DAYS} Tage · sukzessiv</div>
-        <div class="day-tabs">
-          ${schedule.map((d,i) => {
-            const flags = [];
-            if(d.sickCount > 0)            flags.push('🤒');
-            if(d.absentCount > 0)          flags.push('👋');
-            if(d.manualClosed.length > 0)  flags.push('⛔');
-            return `<button class="day-tab ${i===activeDay?'active':''}" data-day="${i}">${dayLabel(i)}${flags.length?`<span class="flag">${flags.join('')}</span>`:''}</button>`;
-          }).join('')}
-        </div>
+        <div class="day-tabs">${dayTabsHtml}</div>
       </div>
       <div class="export-row">
         <button class="ghost-btn" id="btn-official" style="border-color:var(--warn);color:var(--warn)">📋 XLSX (${dayLabel(activeDay)})</button>
@@ -176,6 +197,7 @@ function renderOutput(){
       ${fairnessMetricsDisplay.towerDistribution ? `<div class="stat"><div class="num" style="color:${towerDistColor}">${towerDist.avgUniqueTowers||0}</div><div class="lbl">📍 Ø verschiedene Türme</div></div>` : ''}
       ${fairnessMetricsDisplay.boatPairingDiversity ? `<div class="stat"><div class="num" style="color:${boatDiversityColor}">${boatDiversity.diversePercent||0}%</div><div class="lbl">👥 Boot-Paare unique</div></div>` : ''}
     </div>`;
+  }
 
   // ── Tages-Panels ──────────────────────────────────────────────
   schedule.forEach((d, di) => {
@@ -185,6 +207,11 @@ function renderOutput(){
 
     html += `<div class="day-panel ${di===activeDay?'active':''}" id="day-panel-${di}" style="display:${di===activeDay?'block':'none'}" data-panel="${di}" data-panel-name="Tag ${di + 1} - ${dayLabelTxt}" data-day-index="${di}">`;
 
+    // Beobachter-Modus: kompakter Tages-Header (Datum statt Editier-Steuerung)
+    if(viewOnly){
+      const _vd = computeDayDates()[di];
+      html += `<div class="vo-day-head"><span class="dc-title">${dayLabel(di)}</span>${_vd?`<span class="vo-date">📅 ${_vd}</span>`:''}</div>`;
+    } else {
     // Tages-Steuerung
     html += `<div class="day-controls">
       <div class="dc-head">
@@ -241,6 +268,7 @@ function renderOutput(){
           data-clear-all-day="${di}">Alle Fixierungen heute aufheben</button>`,
         dayForced.length) : ''}
     </div>`;
+    }
 
     // Warn-Notices
     if(d.manualClosed.length)
@@ -253,7 +281,8 @@ function renderOutput(){
       html+=`<div class="notice warn-n">🚤 <div>Boot zu (Turm zu): <strong>${d.boatsClosedTower.map(b=>escapeHtml(b.name)).join(', ')}</strong></div></div>`;
     if(d.boatsNoBootsf.length)
       html+=`<div class="notice warn-n">🚤 <div>Boot zu (kein BF): <strong>${d.boatsNoBootsf.map(b=>escapeHtml(b.name)).join(', ')}</strong></div></div>`;
-    const uuToday = d.assign.filter(s=>s.kind==='tower'&&s.occupants.length===2&&(effLevel(s.occupants[0])+effLevel(s.occupants[1]))==='UU').length;
+    // Beobachter-Modus: UU-Hinweis ausblenden (Erfahrungs-Einstufung nicht offenlegen).
+    const uuToday = viewOnly ? 0 : d.assign.filter(s=>s.kind==='tower'&&s.occupants.length===2&&(effLevel(s.occupants[0])+effLevel(s.occupants[1]))==='UU').length;
     if(uuToday>0) html+=`<div class="notice warn-n">⚠️ <div>${uuToday}× zwei Unerfahrene auf einem Turm.</div></div>`;
 
     // ── Karten ─────────────────────────────────────────────────
@@ -276,13 +305,17 @@ function renderOutput(){
           .filter(l => l)
         : [];
       const labelText = labels.length > 0 ? ' - <span class="person-labels">' + labels.map(l => `<span class="label-tag">${escapeHtml(l)}</span>`).join(' ') + '</span>' : '';
+      // Beobachter-Modus: Erfahrung (erfahren/unerfahren) nicht erkennbar machen –
+      // weder über die Punkt-Farbe noch über das Label.
+      const dotCls  = viewOnly ? roleDotSafe(p) : roleDot(p);
+      const roleTxt = label || (viewOnly ? roleLabelSafe(p) : roleLabel(p));
       return `
-          <div class="occupant" draggable="true" data-person-id="${p.id}" data-source-kind="${kind}" data-source-slot="${slotId}">
-            <i class="role-dot rd-${roleDot(p)}"></i>${escapeHtml(p.name)}${labelText}
+          <div class="occupant" draggable="${viewOnly?'false':'true'}" data-person-id="${p.id}" data-source-kind="${kind}" data-source-slot="${slotId}">
+            <i class="role-dot rd-${dotCls}"></i>${escapeHtml(p.name)}${labelText}
             ${forcedIds.has(p.id)?'<span class="forced-badge" title="Manuell fixiert">🔒</span>':''}
-            <span class="o-role">${label||roleLabel(p)}</span>
-            <button class="move-btn" data-move-person="${p.id}" data-move-day="${di}"
-              data-move-kind="${kind}" data-move-slot="${slotId||''}" title="Verschieben">↕</button>
+            <span class="o-role">${roleTxt}</span>
+            ${viewOnly?'':`<button class="move-btn" data-move-person="${p.id}" data-move-day="${di}"
+              data-move-kind="${kind}" data-move-slot="${slotId||''}" title="Verschieben">↕</button>`}
           </div>`;
     };
 
@@ -305,11 +338,11 @@ function renderOutput(){
         html += `<div class="tower-card main" id="card-main-${di}" style="grid-column:span 2;" data-drop-kind="main" data-drop-slot="${MAIN_ID}" data-panel-name="Hauptwache" data-card-type="main">
           <div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="main" data-card-slot="${MAIN_ID}" title="Zum Sortieren ziehen"><span class="tc-name">⛱ ${slot.tower}</span><span class="tc-type main">Zentrale · k=${slot.k}</span></div>
           ${slot.fuehrung.map(p=>renderOccupant(p,'Führung','main',MAIN_ID)).join('')}
-          ${slot.mainGuards.map(p=>renderOccupant(p,p.experienced?'Erfahren · HW':'Unerf. · HW','main',MAIN_ID)).join('')}
-          ${slot.base.map(p=>renderOccupant(p,p.experienced?'Erfahren · HW':'Unerf. · HW','main',MAIN_ID)).join('')}
+          ${slot.mainGuards.map(p=>renderOccupant(p,viewOnly?'Hauptwache':(p.experienced?'Erfahren · HW':'Unerf. · HW'),'main',MAIN_ID)).join('')}
+          ${slot.base.map(p=>renderOccupant(p,viewOnly?'Hauptwache':(p.experienced?'Erfahren · HW':'Unerf. · HW'),'main',MAIN_ID)).join('')}
           ${slot.bootsfLeft.map(p=>renderOccupant(p,'Bootsführer · HW','main',MAIN_ID)).join('')}
           ${renderInlineBoat(boatsByTower['HW'])}
-          ${slot.sick.map(p=>`<div class="occupant" style="opacity:.55"><i class="role-dot rd-${roleDot(p)}"></i><span style="text-decoration:line-through">${escapeHtml(p.name)}</span><span class="o-role" style="color:var(--coral)">außer Dienst</span></div>`).join('')}
+          ${slot.sick.map(p=>`<div class="occupant" style="opacity:.55"><i class="role-dot rd-${viewOnly?roleDotSafe(p):roleDot(p)}"></i><span style="text-decoration:line-through">${escapeHtml(p.name)}</span><span class="o-role" style="color:var(--coral)">außer Dienst</span></div>`).join('')}
         </div>`;
       }
       // ─ Turm (inkl. inline Boot, falls vorhanden) ─
@@ -317,7 +350,7 @@ function renderOutput(){
         html += `<div class="tower-card" id="card-tower-${di}-${slot.towerId}" data-drop-kind="tower" data-drop-slot="${slot.towerId}" data-panel-name="Turm: ${escapeHtml(slot.tower)}" data-card-type="tower" data-tower-id="${slot.towerId}">
           <div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="tower" data-card-slot="${slot.towerId}" title="Zum Sortieren ziehen"><span class="tc-name">🗼 ${escapeHtml(slot.tower)}</span><span class="tc-type normal">${slot.mainBeach?'🏖️ ':''}Turm · ${escapeHtml(slot.code||'?')} · P${slot.prio}</span></div>
           ${slot.occupants.map(p=>renderOccupant(p, null, 'tower', slot.towerId)).join('')}
-          ${slot.warn?`<div class="warn-pair">⚠ ${slot.warn}</div>`:''}
+          ${(!viewOnly && slot.warn)?`<div class="warn-pair">⚠ ${slot.warn}</div>`:''}
           ${renderInlineBoat(boatsByTower[slot.towerId])}
         </div>`;
       }
@@ -337,13 +370,23 @@ function renderOutput(){
     html += `</div></div>`;
   });
 
-  // Zusatz-Auswertungen (im Druck ausgeblendet via .out-extras)
-  html += `<div class="out-extras">${renderFairnessCharts()}${renderTowerStatsPerPerson()}${renderBoatStatsPerPerson()}${renderMatrix()}</div>`;
+  // Zusatz-Auswertungen (im Druck ausgeblendet via .out-extras; im Beobachter-Modus weggelassen)
+  if(!viewOnly)
+    html += `<div class="out-extras">${renderFairnessCharts()}${renderTowerStatsPerPerson()}${renderBoatStatsPerPerson()}${renderMatrix()}</div>`;
   panel.innerHTML = html;
 
   // ── Event-Listener ─────────────────────────────────────────────
   panel.querySelectorAll('.day-tab').forEach(t =>
     t.onclick = e => { activeDay = +e.currentTarget.dataset.day; renderOutput(); });
+
+  // Beobachter-Modus: nur Plan-Wechsel + Abmelden, keine Editier-/Drag&Drop-Listener.
+  if(viewOnly){
+    const vp = document.getElementById('vo-plans');
+    if(vp) vp.onclick = () => { if(typeof openPlansModal === 'function') openPlansModal(); };
+    const vl = document.getElementById('vo-logout');
+    if(vl) vl.onclick = () => { if(typeof logout === 'function') logout(); };
+    return;
+  }
 
   // Auf-/Zuklapp-Zustand der Tages-Steuerungs-Sektionen merken (überdauert Re-Renders)
   panel.querySelectorAll('details[data-dc-section]').forEach(dt =>

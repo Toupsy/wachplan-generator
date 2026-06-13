@@ -80,7 +80,7 @@
   .legend{display:flex;flex-wrap:wrap;gap:12px;margin:14px 0 4px;font-size:.72rem;color:var(--text-dim)}
   .legend span{display:flex;align-items:center;gap:5px}
   .legend .role-dot{width:8px;height:8px;border-radius:50%}
-  .rd-f{background:var(--warn)}.rd-b{background:var(--sea-bright)}.rd-e{background:var(--green)}.rd-u{background:var(--text-dim)}
+  .rd-f{background:var(--warn)}.rd-b{background:var(--sea-bright)}.rd-e{background:var(--green)}.rd-u{background:var(--text-dim)}.rd-w{background:var(--foam)}
   /* Turm-Zeile: Name oben (volle Breite), CODE/PRIO/× unten kompakt */
   .tower-row{display:flex;flex-direction:column;gap:8px;background:var(--deep);border:1px solid var(--line);border-radius:9px;padding:11px 12px;margin-bottom:10px;font-size:.85rem}
   .tower-row input.tname{width:100%;background:var(--navy-2);border:1px solid var(--line-strong);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'Spline Sans',sans-serif;font-size:.88rem}
@@ -520,6 +520,27 @@
   .sb-generate-footer{position:sticky;bottom:0;z-index:15;margin-top:12px;background:linear-gradient(165deg,var(--navy-2),var(--paper));border:1px solid var(--line);border-radius:12px;padding:12px 14px;box-shadow:0 -8px 24px rgba(6,19,32,.55)}
   .sb-generate-footer .gen-row{margin-top:0}
   .sb-generate-footer .generate{margin-top:0}
+
+  /* ── Beobachter-Modus (Nur-Ansicht / view-only): minimalistische, auf die
+     Turmbesetzungen fokussierte Ansicht. Keine Sidebar, keine Editier-Bedienelemente. ── */
+  body.view-only #sidebar-panel,
+  body.view-only .mobile-switch,
+  body.view-only .wrap>header .subtitle,
+  body.view-only .export-row,
+  body.view-only .stats-bar,
+  body.view-only .out-extras,
+  body.view-only .day-controls,
+  body.view-only .move-btn{display:none !important}
+  body.view-only .main-panels{grid-template-columns:1fr}
+  body.view-only .occupant,body.view-only .tc-head,body.view-only .boat-inline{cursor:default !important}
+  .vo-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;padding:12px 14px;background:var(--deep);border:1px solid var(--line);border-radius:10px}
+  .vo-title{font-weight:600;font-size:1rem;color:var(--text);display:flex;align-items:center;gap:8px;min-width:0}
+  .vo-badge{font-family:'Spline Sans Mono',monospace;font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;color:var(--sea-bright);border:1px solid var(--line-strong);border-radius:6px;padding:2px 7px;white-space:nowrap}
+  .vo-actions{display:flex;gap:8px;flex-wrap:wrap}
+  .vo-day-head{display:flex;align-items:center;gap:12px;margin:4px 0 14px;flex-wrap:wrap}
+  .vo-day-head .dc-title{font-size:1.05rem;font-weight:600;color:var(--text)}
+  .vo-date{font-family:'Spline Sans Mono',monospace;font-size:.8rem;color:var(--text-dim)}
+  @media(max-width:900px){body.view-only .main-panel-1{display:block !important}}
 
   @media print{
     @page{size:A4 landscape;margin:8mm}
