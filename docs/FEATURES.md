@@ -216,12 +216,12 @@ zurück ins Repo committete (`package.json` blieb stehen, GitHub war schon bei v
 
 ### Feature 30: Kompaktere Top-Bar + einklappbare Sidebar
 Top-Bar (header) und Sidebar nahmen auf Desktop viel Platz weg. Neues Modul `layout-chrome.js`.
-- **Top-Bar kompakter:** `header`-Padding/`margin` reduziert (38/28/32 → 16/14/18 px), `h1`
-  kleiner (`clamp(1.5rem,3.4vw,2.3rem)`), Badge-Abstand & Subtitle verkleinert.
-- **Top-Bar weg-scrollen:** Beim Runterscrollen im Output-Panel (bzw. Dokument auf Mobile)
-  klappt der Header per `.wrap.chrome-header-hidden` weg (`max-height`/`padding`/`opacity`-
-  Transition), beim Hochscrollen / am Seitenanfang erscheint er wieder. Richtungsbasiert mit
-  6 px-Hysterese, Schwelle 60 px.
+- **Top-Bar kompakter:** `header`-Padding/`margin` reduziert, `h1` kleiner
+  (`clamp(1.5rem,3.4vw,2.3rem)`). Standardmäßig steht nur noch der Titel „Wachplan·Generator"
+  in der Leiste.
+- **Info-Kästchen statt Subtitle:** Ein kleiner „ℹ Info"-Button (rechts neben dem Titel)
+  klappt ein Kästchen (`#header-info`) mit DLRG-/Versions-Badge und der Beschreibung auf
+  (`max-height`/`opacity`-Transition). Zustand in `localStorage['dlrg_header_info_open']`.
 - **Sidebar einklappbar (nur Desktop ≥901px):** „« Einklappen"-Button (sticky oben im
   Sidebar-Panel) blendet die Sidebar aus, das Output-Panel nutzt die volle Breite; ein
   vertikaler „» Konfiguration"-Tab am linken Rand klappt sie wieder auf. Zustand in

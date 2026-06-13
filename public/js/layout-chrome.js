@@ -1,8 +1,8 @@
 // ============================================================
 // layout-chrome.js – Layout-Chrome (Top-Bar + Sidebar)
 // Zwei reine UI-Verbesserungen, ohne Eingriff in State/Plan:
-//   1. Top-Bar (header) klappt beim Runterscrollen weg und
-//      erscheint beim Hochscrollen / am Seitenanfang wieder.
+//   1. Top-Bar zeigt nur den Titel; Badges + Beschreibung
+//      stecken in einem einklappbaren Info-Kästchen (ℹ-Button).
 //   2. Sidebar lässt sich ein-/ausklappen (Desktop ≥901px);
 //      Zustand wird in localStorage persistiert.
 // Auf Mobile (<900px) übernimmt der vorhandene Tab-Switch das
@@ -31,24 +31,24 @@
   try { initCollapsed = localStorage.getItem(SIDEBAR_KEY) === '1'; } catch (e) { /* ignore */ }
   setCollapsed(initCollapsed);
 
-  // ── 2. Top-Bar weg-scrollen ──
-  const wrap = document.querySelector('.wrap');
-  const output = document.getElementById('output-panel');
-  let last = 0;
+  // ── 2. Info-Kästchen ein-/ausklappen ──
+  const INFO_KEY = 'dlrg_header_info_open';
+  const infoToggle = document.getElementById('info-toggle');
+  const infoBox = document.getElementById('header-info');
 
-  function onScroll(top) {
-    if (!wrap) return;
-    if (top <= 4) {                       // am Anfang immer zeigen
-      wrap.classList.remove('chrome-header-hidden');
-    } else if (top > last + 6 && top > 60) { // runter → wegklappen
-      wrap.classList.add('chrome-header-hidden');
-    } else if (top < last - 6) {          // hoch → wieder zeigen
-      wrap.classList.remove('chrome-header-hidden');
-    }
-    last = top;
+  function setInfoOpen(open) {
+    if (!infoToggle || !infoBox) return;
+    infoBox.classList.toggle('open', open);
+    infoToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    try { localStorage.setItem(INFO_KEY, open ? '1' : '0'); } catch (e) { /* private mode */ }
   }
 
-  // Desktop scrollt im Output-Panel, Mobile im Dokument.
-  if (output) output.addEventListener('scroll', () => onScroll(output.scrollTop), { passive: true });
-  window.addEventListener('scroll', () => onScroll(window.scrollY || document.documentElement.scrollTop || 0), { passive: true });
+  if (infoToggle && infoBox) {
+    infoToggle.addEventListener('click', () => {
+      setInfoOpen(!infoBox.classList.contains('open'));
+    });
+    let initOpen = false;
+    try { initOpen = localStorage.getItem(INFO_KEY) === '1'; } catch (e) { /* ignore */ }
+    setInfoOpen(initOpen);
+  }
 })();
