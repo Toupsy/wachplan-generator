@@ -13,7 +13,16 @@
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: **34/34 Tests grün**, alle Server parsen (`node -c`).
 
-**Letzter Lauf (2026-06-11, Optimierungs-Audit #2 – Branch `claude/confident-shannon-jq07g7`):**
+**Letzter Lauf (2026-06-13, Layout: Top-Bar + Sidebar – Branch `claude/sidebar-topbar-layout-71mf2i`):**
+- **Feature 30 (s. docs/FEATURES.md):** Top-Bar zeigt nur den Titel, Beschreibung/Badges in
+  einem einklappbaren Info-Kästchen (ℹ-Button); Sidebar einklappbar.
+  Neues Frontend-Modul `public/js/layout-chrome.js` (in Ladereihenfolge nach `sidebar-layout`).
+  Reine UI-Schicht, kein Eingriff in State/Plan/Serialisierung. 34/34 Tests grün
+  (`npm install` im frischen Container nötig, sonst `sqlite3`-Fehler – dokumentierte Falle).
+- **Nicht visuell verifiziert:** Kein Browser/Netzwerk im Container für Playwright-Screenshot;
+  Änderungen sind reines CSS/JS, per Code-Review geprüft. → PR offen.
+
+**Vorheriger Lauf (2026-06-11, Optimierungs-Audit #2 – Branch `claude/confident-shannon-jq07g7`):**
 - **Security-Fix (#279, Medium):** `POST /api/import/plans` umging die Eingabe-Limits aus
   #218/#270 komplett (kein Name-/Größen-/Typ-Check, rohe `planError.message` an den Client).
   Fix: `validatePlanInput` aus `plans.js` exportiert + im Import-Loop angewandt, generische
