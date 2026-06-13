@@ -87,6 +87,9 @@ api/import.js      Bulk-Import alter .json-Pläne
 UI-Panel-IDs (`#sidebar-panel`, `#output-panel`, `#section-people/-towers/-boats/...`,
 Modals `#login-modal`/`#move-modal`/`#share-modal`/`#plans-modal` …) sind eindeutig benannt
 (Issue #61) → in Issues/Code präzise referenzierbar.
+Ausgabe-Sektionen (Issue #298): `#section-wachplan` (default open), `#section-tower-stats`,
+`#section-boat-stats`, `#section-matrix` – alle als `<details>`/`<summary>` mit `data-key`-Attribut;
+Zustand in `outSectionOpen` (render-output.js); `openOutputSection(key)` öffnet + scrollt.
 
 ---
 
