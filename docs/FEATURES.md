@@ -276,6 +276,11 @@ die Namensliste wird **dynamisch aus Startdatum + Anzahl Wachtage** abgeleitet. 
   werden tageweise als `absent` markiert** (nutzt Feature 27). Importierte Personen starten
   als **unerfahren**. Ändert der User Startdatum oder Tageanzahl, wird die Liste neu
   abgeleitet (`init.js`-Handler) → „dynamisch".
+- **An-/Abreisetag:** In der Wachliste ist `bis` einer Woche identisch mit `von` der Folgewoche
+  (gemeinsamer Wechseltag). Das Verfügbarkeitsintervall wird daher **halb-offen** `[von, bis)`
+  behandelt – der Abreisetag ist kein aktiver Dienst-Tag. So gehört der Wechseltag nur der
+  anreisenden Woche und die abreisende Vorwochen-Crew wird nicht fälschlich in die aktive Woche
+  gezogen. Eintägige Einträge (`von == bis`) bekommen `to = von+1` (1 Tag aktiv).
 - **CSP:** `worker-src 'self' blob: https://cdnjs.cloudflare.com` im public-Server (für den
   pdf.js-Worker); Admin-Server unverändert (kein Wachlisten-Upload dort).
 

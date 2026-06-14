@@ -89,9 +89,18 @@ function parseRosterCSV(text){
   return out;
 }
 
+/** ISO-Datum + 1 Tag (lokale Arithmetik). 'YYYY-MM-DD' → Folgetag. */
+function _isoAddDay(iso){
+  const [y, m, d] = iso.split('-').map(Number);
+  const dt = new Date(y, m - 1, d + 1);
+  return dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+}
+
 /**
  * Wandelt Roh-Zeilen (CSV oder PDF) in das globale roster-Format um:
  * filtert auf "zugesagt", mappt Job→Rolle, Datum→ISO.
+ * `to` ist halb-offen (Abreisetag, s. deriveRosterPeople). Bei `von == bis`
+ * (eintägiger Eintrag) wird `to` auf den Folgetag gesetzt, damit der eine Tag aktiv bleibt.
  * @returns {Array<{name, role, from, to}>}
  */
 function normalizeRoster(rawEntries){
@@ -99,11 +108,12 @@ function normalizeRoster(rawEntries){
   (rawEntries||[]).forEach(e => {
     if(String(e.status||'').toLowerCase() !== 'zugesagt') return;
     const from = rosterDateToISO(e.von);
-    const to   = rosterDateToISO(e.bis);
+    let   to   = rosterDateToISO(e.bis);
     if(!from || !to) return;
+    if(to <= from) to = _isoAddDay(from);   // einzelner Tag (von==bis) bzw. invertiert → 1 Tag aktiv
     const name = `${(e.vorname||'').trim()} ${(e.nachname||'').trim()}`.trim();
     if(!name) return;
-    out.push({ name, role: rosterJobToRole(e.job), from, to: (to < from ? from : to) });
+    out.push({ name, role: rosterJobToRole(e.job), from, to });
   });
   return out;
 }
@@ -115,6 +125,13 @@ function normalizeRoster(rawEntries){
  *   - aufgenommen, sobald ihre Verfügbarkeit den Plan-Zeitraum überlappt,
  *   - Rolle = die mit der größten Überlappung (Gleichstand: F vor B vor W),
  *   - absentDays = Plan-Tage, an denen die Person NICHT verfügbar ist.
+ *
+ * **An-/Abreisetag (wichtig):** In der Wachliste ist das `bis`-Datum der Abreisetag und
+ * gleichzeitig das `von`-Datum (Anreisetag) der Folgewoche – der Tag überschneidet sich also
+ * immer. Damit nur die AKTIVE Woche zählt, wird das Intervall halb-offen behandelt: aktiv ist
+ * `von … bis-1` (`d >= from && d < to`). Der gemeinsame Wechseltag gehört damit nur der
+ * anreisenden Woche → die abreisende Vorwochen-Crew wird nicht fälschlich mitgezählt.
+ *
  * @param {Array} rosterArr  – [{name, role, from, to}]
  * @param {Array<string>} dayDates – ISO-Datum pro Plan-Tag ('YYYY-MM-DD')
  * @returns {Array<{name, role, experienced, absentDays:number[]}>}
@@ -126,7 +143,8 @@ function deriveRosterPeople(rosterArr, dayDates){
 
   const groups = new Map();   // key → { name, entries:[] }
   (rosterArr||[]).forEach(e => {
-    if(!(e.from <= windowEnd && e.to >= windowStart)) return;   // keine Überlappung
+    // Halb-offen [from, to): Abreisetag (to) zählt nicht → to muss STRIKT nach Fensterstart liegen.
+    if(!(e.from <= windowEnd && e.to > windowStart)) return;   // keine (aktive) Überlappung
     const key = e.name.toLowerCase();
     if(!groups.has(key)) groups.set(key, { name: e.name, entries: [] });
     groups.get(key).entries.push(e);
@@ -139,13 +157,13 @@ function deriveRosterPeople(rosterArr, dayDates){
     const roleOverlap = { F:0, B:0, W:0 };
     g.entries.forEach(e => {
       dayDates.forEach((d, di) => {
-        if(d && d >= e.from && d <= e.to){
+        if(d && d >= e.from && d < e.to){   // halb-offen: Abreisetag (to) ist kein aktiver Tag
           avail.add(di);
           roleOverlap[e.role] = (roleOverlap[e.role]||0) + 1;
         }
       });
     });
-    if(avail.size === 0) return;      // überlappt nur außerhalb der konkreten Tage
+    if(avail.size === 0) return;      // überlappt nur außerhalb der konkreten Tage / nur am Wechseltag
 
     // Rolle mit größter Überlappung (Gleichstand → F vor B vor W)
     let role = 'W', best = -1;

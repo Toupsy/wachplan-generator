@@ -88,17 +88,21 @@ test('deriveRosterPeople: Tage außerhalb der Verfügbarkeit werden abwesend', (
 
   // Freytag verfügbar 25.07.–15.08. → im Fenster nur Tag 0..8 (07.–15.08.),
   // abwesend an Tag 9,10 (16.,17.08.)
+  // Halb-offen: bis (Abreisetag) ist kein aktiver Tag.
+  // Freytag verfügbar 25.07.–15.08. → aktiv nur Tag 0..7 (07.–14.08.); 15.08. = Abreise,
+  // abwesend an Tag 8,9,10 (15.,16.,17.08.)
   const frey = derived.find(p => p.name === 'Vanessa Marie Freytag');
-  assert.deepStrictEqual([...frey.absentDays], [9, 10]);
+  assert.deepStrictEqual([...frey.absentDays], [8, 9, 10]);
 
-  // Toups verfügbar 15.08.–22.08. → im Fenster nur Tag 8,9,10 (15.–17.08.),
+  // Toups verfügbar 15.08.–22.08. → aktiv Tag 8,9,10 (15.–17.08., 22.08. außerhalb Fenster),
   // abwesend Tag 0..7
   const toups = derived.find(p => p.name === 'Yannis Toups');
   assert.deepStrictEqual([...toups.absentDays], [0, 1, 2, 3, 4, 5, 6, 7]);
 
-  // Kuhlmann 08.–13.08. → verfügbar Tag 1..6, abwesend 0 und 7..10
+  // Kuhlmann 08.–13.08. → aktiv Tag 1..5 (08.–12.08.); 13.08. = Abreise,
+  // abwesend 0 und 6..10
   const kuhl = derived.find(p => p.name === 'Leon Kuhlmann');
-  assert.deepStrictEqual([...kuhl.absentDays], [0, 7, 8, 9, 10]);
+  assert.deepStrictEqual([...kuhl.absentDays], [0, 6, 7, 8, 9, 10]);
 });
 
 test('deriveRosterPeople: Person außerhalb des Fensters fällt raus', () => {
@@ -124,4 +128,36 @@ test('deriveRosterPeople: gleicher Name in mehreren Blöcken wird zusammengefüh
   const derived = deriveRosterPeople(norm, win);
   assert.strictEqual(derived.length, 1, 'eine zusammengeführte Person');
   assert.strictEqual(derived[0].role, 'F', 'Rolle mit größter Überlappung gewinnt');
+});
+
+function iso(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+
+test('An-/Abreisetag: abreisende Vorwochen-Crew (bis = Fensterstart) wird ausgeschlossen', () => {
+  // In der Wachliste ist bis(Woche A) == von(Woche B) == 08.08. (gemeinsamer Wechseltag).
+  const norm = [
+    { name: 'Alte Crew', role: 'W', from: '2026-08-01', to: '2026-08-08' },  // Abreise 08.08.
+    { name: 'Neue Crew', role: 'W', from: '2026-08-08', to: '2026-08-15' },  // Anreise 08.08.
+  ];
+  // Aktive Woche ab 08.08. (7 Tage)
+  const win = [];
+  for(let i = 0; i < 7; i++) win.push(iso(new Date(2026, 7, 8 + i)));
+
+  const derived = deriveRosterPeople(norm, win);
+  assert.strictEqual(derived.length, 1, 'nur die aktive (anreisende) Woche zählt');
+  assert.strictEqual(derived[0].name, 'Neue Crew');
+  // Neue Crew aktiv 08.–14.08.; 15.08. liegt außerhalb des 7-Tage-Fensters → keine Abwesenheit
+  assert.deepStrictEqual([...derived[0].absentDays], []);
+});
+
+test('Eintägiger Eintrag (von == bis) bleibt aktiv', () => {
+  const norm = normalizeRoster([
+    { vorname: 'Ein', nachname: 'Tag', job: 'RS', von: '10.08.2026', bis: '10.08.2026', status: 'zugesagt' },
+  ]);
+  assert.strictEqual(norm.length, 1);
+  assert.strictEqual(norm[0].to, '2026-08-11', 'to wird auf Folgetag gesetzt');
+  const win = [];
+  for(let i = 0; i < 3; i++) win.push(iso(new Date(2026, 7, 9 + i)));   // 09.,10.,11.08.
+  const derived = deriveRosterPeople(norm, win);
+  assert.strictEqual(derived.length, 1);
+  assert.deepStrictEqual([...derived[0].absentDays], [0, 2], 'nur 10.08. aktiv');
 });
