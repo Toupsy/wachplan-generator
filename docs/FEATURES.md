@@ -256,6 +256,34 @@ Top-Bar (header) und Sidebar nahmen auf Desktop viel Platz weg. Neues Modul `lay
   `localStorage['dlrg_sidebar_collapsed']`. Auf Mobile (<900px) übernimmt weiterhin der
   bestehende Tab-Switch – die Buttons sind dort per CSS ausgeblendet.
 
+### Feature 31: Hamburger-Menü für Mobile-Navigation (Issue #297, Variante 2)
+Bei `max-width: 768px` erscheint zusätzlich ein kreisrundes Hamburger-Icon (☰) am unteren
+Bildschirmrand. **Der bestehende 2-Tab-Switch (⚙️ Einstellungen / 📋 Wachplan) bleibt sichtbar**
+und übernimmt weiterhin den Panel-Wechsel; das ☰-Menü ergänzt nur die Sprünge zu Info + den
+Auswertungs-Sektionen (so ist der Wechsel Einstellungen↔Wachplan immer ein Tap, ohne Menü).
+- **Trigger:** `@media(max-width:768px)` – `.hamburger-fab` (fixed, bottom-center) eingeblendet;
+  `.mobile-switch` bleibt eingeblendet (kein `display:none` mehr).
+- **Menüpunkte:** Info · Turm-Einsatzverteilung · Boot & Bootsführer-Fairness · Paarungs-Matrix
+- **Navigation:** Die Auswertungs-Sektionen (Tower-Stats, Boot-Stats, Matrix) → Panel-Switch auf
+  Wachplan via `switchMobilePanel(1)` + `gotoOutputSection(key)`, das die zugehörige aufklappbare
+  `<details data-key>`-Sektion via `openOutputSection()` (aus Issue #298) **aufklappt und** dorthin
+  scrollt. So greifen Hamburger-Menü (#297) und aufklappbare Sektionen (#298) ineinander – ein
+  Sprung aus dem Menü öffnet eine zugeklappte Sektion automatisch.
+- **Info-Action:** togglet `#header-info` (nutzt `setInfoOpen()` aus layout-chrome.js).
+- **Dismiss:** Klick außerhalb (Overlay) oder Menüpunkt-Wahl schließt das Menü.
+- **Animation:** `@keyframes hamNavIn` – Slide-in von unten + Fade.
+- **Dateien:** `public/Wachplan-Generator.html` (CSS + Markup), `public/js/layout-chrome.js`
+  (JS-Logik), `public/js/render-output.js` (Sektion-IDs).
+- **Bugfix (Folge-Commit):** Markup muss VOR `<script src="js/layout-chrome.js">` stehen, sonst
+  findet die IIFE die Elemente nicht (Listener nie gebunden → Button tot).
+- **Bugfix (Mobile-Panel-Leak):** `#output-panel` setzt global `display:flex !important` (ID +
+  !important, Zeile ~53). Das hebelte auf Mobile `.main-panel{display:none}` /
+  `.mobile-active` aus → der Wachplan war auch im Einstellungen-Tab dauerhaft sichtbar. Fix:
+  im `@media(max-width:900px)`-Block `#output-panel{display:none!important}` +
+  `#output-panel.mobile-active{display:flex!important}`, damit das Output-Panel dem Tab-Switch
+  folgt. **Falle:** ID-Selektoren mit `!important` brauchen ebenbürtige Overrides – Klassen
+  reichen nicht.
+
 ---
 
 ## Bugfixes
@@ -376,6 +404,16 @@ zeigt bei Truncation eine `confirm()`-Warnung (analog zur >28-Personen-Warnung).
 State-Größe (max. 1 MB → 413) gegen Storage-Exhaustion (`validatePlanInput`). Neuer gemeinsamer
 Helfer `server/db/ids.js` (`parsePositiveInt`) ersetzt `parseInt(req.params.id)` in `admin.js`
 (DELETE/PUT-password/GET-export) → `'5abc'`/`NaN`/`≤0` fließen nicht mehr in Queries.
+
+### UX: Aufklappbare Ausgabe-Sektionen + Navigationsleiste (Issue #298)
+Die vier Bereiche im Ausgabe-Panel (Wachplan, Turm-Einsatzverteilung, Boot & Bootsführer,
+Paarungs-Matrix) wurden von statischen Überschriften in `<details>`/`<summary>`-Elemente
+umgewandelt. **Wachplan** ist standardmäßig aufgeklappt, die drei Auswertungen zugeklappt.
+Eine kompakte Navigationsleiste (`.out-section-nav`) am Anfang des Ausgabe-Panels erlaubt
+den direkten Sprung zu jeder Sektion (öffnet sie ggf. und scrollt dorthin). Der Auf-/Zu-Zustand
+jeder Sektion wird in `outSectionOpen` (in-memory, pro Session) persistiert und überlebt
+`renderOutput()`-Neuaufbauten. IDs der Sektionen: `section-wachplan`, `section-tower-stats`,
+`section-boat-stats`, `section-matrix`.
 
 ### Security: Bulk-Import umging die Eingabe-Limits aus #218 + leakte Fehlerdetails (Issue #279)
 `POST /api/import/plans` fügte Pläne ohne jede Validierung ein – beliebig lange Namen,

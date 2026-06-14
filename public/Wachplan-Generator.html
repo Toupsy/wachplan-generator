@@ -235,6 +235,34 @@
   table.matrix td.multi{color:var(--coral);font-weight:600}
   table.matrix td.self{background:var(--deep)}
 
+  /* ── Aufklappbare Haupt-Ausgabe-Sektionen (<details>/<summary>) ── */
+  details.out-section { margin-bottom: 20px; }
+  details.out-section > summary.out-section-summary {
+    display: flex; align-items: center; gap: 10px; cursor: pointer;
+    list-style: none; user-select: none;
+    font-family: 'Spline Sans Mono', monospace; font-size: 11px;
+    letter-spacing: .18em; text-transform: uppercase; color: var(--foam);
+    padding: 10px 0; border-bottom: 1px solid var(--line); margin-bottom: 16px;
+  }
+  details.out-section > summary.out-section-summary::-webkit-details-marker { display: none; }
+  details.out-section > summary.out-section-summary::before {
+    content: '▸'; color: var(--text-dim); font-size: .75rem;
+    transition: transform .15s; flex: 0 0 auto;
+  }
+  details.out-section[open] > summary.out-section-summary::before { transform: rotate(90deg); }
+  details.out-section > summary.out-section-summary:hover { color: var(--sea-bright); }
+  .out-section-sub { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--text-dim); font-size: 11px; }
+  .out-section-body { padding-bottom: 8px; }
+  /* Navigationsleiste im Ausgabebereich (Sprung zu Abschnitt) */
+  .out-section-nav { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+  .out-nav-btn {
+    font-family: 'Spline Sans Mono', monospace; font-size: .68rem; letter-spacing: .06em;
+    text-transform: uppercase; background: var(--deep); border: 1px solid var(--line-strong);
+    color: var(--foam); border-radius: 8px; padding: 6px 12px; cursor: pointer; transition: all .15s;
+  }
+  .out-nav-btn:hover { border-color: var(--sea-bright); background: rgba(24,168,216,.08); }
+  .out-nav-btn:focus-visible { outline: 2px solid var(--sea-bright); outline-offset: 1px; }
+
   /* ── Fairness-Visualisierungen (Charts) ── */
   .charts-container { margin-top: 30px; }
   .chart-section { margin-bottom: 28px; }
@@ -430,6 +458,13 @@
       height: auto;
       grid-column: auto;
     }
+
+    /* Output-Panel folgt auf Mobile dem Tab-Switch wie jedes andere Panel.
+       Nötig, weil #output-panel oben global `display:flex !important` setzt (ID + !important),
+       was sonst `.main-panel{display:none}` / `.mobile-active` aushebelt → Wachplan wäre
+       auch im Einstellungen-Tab dauerhaft sichtbar. */
+    #output-panel { display: none !important; }
+    #output-panel.mobile-active { display: flex !important; }
   }
 
   /* ── Responsive: Schmale Displays (<520px) – Person/Turm-Reflow ── */
@@ -579,6 +614,10 @@
     .day-controls .dc-section,.move-btn,.mobile-switch{display:none !important}
     .notice:not(.bad):not(.warn-n){display:none !important}
     .wrap,.panel,#output-panel,.main-panels{display:block !important;max-width:none !important;width:auto !important;margin:0 !important;padding:0 !important;background:#fff !important;border:none !important;box-shadow:none !important;grid-template-columns:none !important;height:auto !important}
+    /* Navigationsleiste + Sektions-Zusammenfassungen ausblenden; Wachplan-Inhalt immer zeigen */
+    .out-section-nav{display:none !important}
+    details#section-wachplan>summary{display:none !important}
+    details#section-wachplan>.out-section-body{display:block !important}
     /* Jeder Tag genau eine Seite */
     .day-panel{display:block !important;page-break-after:always;break-after:page;break-inside:avoid;padding:0 !important;margin:0 !important}
     .day-panel:last-child{page-break-after:avoid;break-after:auto}
@@ -615,6 +654,49 @@
     body.print-single-day .towers-grid{display:grid !important}
     body.print-single-day .tower-card{display:block !important}
     body.print-single-day .out-extras{display:none !important}
+  }
+
+  /* ── Hamburger-Menü (Mobile <768px) ── */
+  .hamburger-fab{
+    display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    z-index:200;align-items:center;justify-content:center;
+    background:linear-gradient(135deg,var(--sea),var(--sea-bright));
+    color:#fff;border:none;border-radius:50px;width:56px;height:56px;
+    font-size:1.5rem;cursor:pointer;
+    box-shadow:0 4px 20px rgba(13,124,168,.5);transition:background .2s;
+  }
+  .hamburger-fab[aria-expanded="true"]{
+    background:linear-gradient(135deg,var(--coral-deep),var(--coral));
+    box-shadow:0 4px 20px rgba(216,57,44,.5);
+  }
+  .hamburger-overlay{display:none;position:fixed;inset:0;z-index:199;background:rgba(0,0,0,.3)}
+  .hamburger-overlay.active{display:block}
+  .hamburger-nav{
+    position:fixed;bottom:90px;left:50%;transform:translateX(-50%);z-index:200;
+    display:none;flex-direction:column;gap:6px;
+    width:min(300px,88vw);
+    background:linear-gradient(165deg,var(--navy-2),var(--paper));
+    border:1px solid var(--line-strong);border-radius:16px;padding:14px;
+    box-shadow:0 12px 40px rgba(0,0,0,.5);
+  }
+  .hamburger-nav.open{display:flex;animation:hamNavIn .18s ease forwards}
+  @keyframes hamNavIn{
+    from{opacity:0;transform:translateX(-50%) translateY(12px)}
+    to{opacity:1;transform:translateX(-50%) translateY(0)}
+  }
+  .ham-item{
+    display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+    padding:12px 14px;background:var(--deep);border:1px solid var(--line);
+    border-radius:9px;color:var(--text);font-family:'Spline Sans',sans-serif;
+    font-size:.9rem;cursor:pointer;transition:all .15s;
+  }
+  .ham-item:hover{background:rgba(24,168,216,.1);border-color:var(--sea-bright);color:var(--foam)}
+  @media(max-width:768px){
+    /* Der Zwei-Tab-Switch (⚙️/📋) bleibt sichtbar und übernimmt Einstellungen↔Wachplan;
+       das ☰-Menü liefert nur zusätzlich die Sprünge zu Info + Auswertungs-Sektionen. */
+    /* Auf sehr kleinen Bildschirmen ausreichend Abstand nach unten für den FAB */
+    .wrap{padding-bottom:80px}
+    .hamburger-fab{display:flex}
   }
 </style>
 </head>
@@ -1156,6 +1238,16 @@
     </div>
   </div>
 </div>
+
+<!-- ── Hamburger-Menü (Mobile <768px) – vor den Scripts, damit layout-chrome.js die Elemente findet ── -->
+<div id="hamburger-overlay" class="hamburger-overlay"></div>
+<button id="hamburger-btn" type="button" class="hamburger-fab" aria-label="Navigation öffnen" aria-controls="hamburger-menu" aria-expanded="false">☰</button>
+<nav id="hamburger-menu" class="hamburger-nav" aria-label="Schnellnavigation zu Auswertungen">
+  <button type="button" class="ham-item" data-ham-action="info">ℹ️ Info</button>
+  <button type="button" class="ham-item" data-ham-action="tower-stats">🗼 Turm-Einsatzverteilung</button>
+  <button type="button" class="ham-item" data-ham-action="boat-stats">🚤 Boot &amp; Bootsführer-Fairness</button>
+  <button type="button" class="ham-item" data-ham-action="matrix">👥 Paarungs-Matrix</button>
+</nav>
 
 <!-- CDNs -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>

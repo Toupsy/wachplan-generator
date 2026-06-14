@@ -7,6 +7,20 @@
 // gerade geöffnete Sektion nach einem Klick nicht wieder zuklappt. Default: alles zu.
 const dcSectionOpen = {};
 
+// Aufklapp-Zustand der vier Haupt-Ausgabe-Sektionen.
+// Wachplan ist standardmäßig offen, die drei Auswertungen geschlossen.
+const outSectionOpen = { wachplan: true, towerStats: false, boatStats: false, matrix: false };
+
+/** Öffnet eine Ausgabe-Sektion und scrollt dorthin (vom Navigationsmenü aufgerufen). */
+function openOutputSection(key) {
+  const panel = document.getElementById('output-panel');
+  const d = panel ? panel.querySelector(`details[data-key="${key}"]`) : null;
+  if (!d) return;
+  d.open = true;
+  outSectionOpen[key] = true;
+  d.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 /**
  * Rendert eine einklappbare Sektion der Tages-Steuerung als <details>/<summary>.
  * @param {string} key   eindeutiger Sektionstyp (z. B. 'sick') → Auf/Zu-Zustand wird gemerkt
@@ -156,6 +170,9 @@ function renderOutput(){
     return `<button class="day-tab ${i===activeDay?'active':''}" data-day="${i}">${dayLabel(i)}${flags.length?`<span class="flag">${flags.join('')}</span>`:''}</button>`;
   }).join('');
 
+  // Vorab-Berechnung (nur non-viewOnly), damit Navigationsbar + out-extras darauf zugreifen können.
+  let towerStatsContent = '', boatStatsContent = '', matrixContent = '';
+
   let html;
   if(viewOnly){
     // Beobachter: schlanke Kopfzeile (Plan-Name, Tag-Navigation, Pläne wechseln, Abmelden).
@@ -174,10 +191,24 @@ function renderOutput(){
       </div>
     </div>`;
   } else {
+    // Inhalte der drei Auswertungs-Sektionen vorab berechnen, damit der Navigationsbereich
+    // nur Buttons für tatsächlich vorhandene Sektionen zeigt.
+    towerStatsContent = renderTowerStatsPerPerson();
+    boatStatsContent  = renderBoatStatsPerPerson();
+    matrixContent     = renderMatrix();
+
     html = `
+    <nav class="out-section-nav" aria-label="Zu Abschnitt springen">
+      <button class="out-nav-btn" onclick="openOutputSection('wachplan')">⛵ Wachplan</button>
+      ${towerStatsContent ? `<button class="out-nav-btn" onclick="openOutputSection('towerStats')">📊 Turm-Einsatz</button>` : ''}
+      ${boatStatsContent  ? `<button class="out-nav-btn" onclick="openOutputSection('boatStats')">🚤 Boot &amp; BF</button>` : ''}
+      ${matrixContent     ? `<button class="out-nav-btn" onclick="openOutputSection('matrix')">🔢 Paarungs-Matrix</button>` : ''}
+    </nav>
+    <details id="section-wachplan" class="out-section" data-key="wachplan"${outSectionOpen.wachplan ? ' open' : ''}>
+      <summary class="out-section-summary">⛵ Wachplan · ${DAYS} Tage · sukzessiv</summary>
+      <div class="out-section-body">
     <div class="out-header">
       <div>
-        <div class="section-label" style="margin-bottom:8px;">Wachplan · ${DAYS} Tage · sukzessiv</div>
         <div class="day-tabs">${dayTabsHtml}</div>
       </div>
       <div class="export-row">
@@ -370,9 +401,27 @@ function renderOutput(){
     html += `</div></div>`;
   });
 
-  // Zusatz-Auswertungen (im Druck ausgeblendet via .out-extras; im Beobachter-Modus weggelassen)
-  if(!viewOnly)
-    html += `<div class="out-extras">${renderFairnessCharts()}${renderTowerStatsPerPerson()}${renderBoatStatsPerPerson()}${renderMatrix()}</div>`;
+  // Wachplan-Sektion schließen + Auswertungen (im Druck ausgeblendet via .out-extras)
+  if(!viewOnly){
+    html += `${renderFairnessCharts()}</div></details>`;
+    html += `<div class="out-extras">`;
+    if(towerStatsContent) html += `
+      <details id="section-tower-stats" class="out-section" data-key="towerStats"${outSectionOpen.towerStats ? ' open' : ''}>
+        <summary class="out-section-summary">📊 Turm-Einsatzverteilung pro Person</summary>
+        <div class="out-section-body">${towerStatsContent}</div>
+      </details>`;
+    if(boatStatsContent) html += `
+      <details id="section-boat-stats" class="out-section" data-key="boatStats"${outSectionOpen.boatStats ? ' open' : ''}>
+        <summary class="out-section-summary">🚤 Boot &amp; Bootsführer</summary>
+        <div class="out-section-body">${boatStatsContent}</div>
+      </details>`;
+    if(matrixContent) html += `
+      <details id="section-matrix" class="out-section" data-key="matrix"${outSectionOpen.matrix ? ' open' : ''}>
+        <summary class="out-section-summary">🔢 Paarungs-Matrix <span class="out-section-sub">(wie oft zwei Personen über alle Tage zusammen am Turm)</span></summary>
+        <div class="out-section-body">${matrixContent}</div>
+      </details>`;
+    html += `</div>`;
+  }
   panel.innerHTML = html;
 
   // ── Event-Listener ─────────────────────────────────────────────
@@ -391,6 +440,10 @@ function renderOutput(){
   // Auf-/Zuklapp-Zustand der Tages-Steuerungs-Sektionen merken (überdauert Re-Renders)
   panel.querySelectorAll('details[data-dc-section]').forEach(dt =>
     dt.addEventListener('toggle', () => { dcSectionOpen[dt.dataset.dcSection] = dt.open; }));
+
+  // Auf-/Zuklapp-Zustand der vier Haupt-Ausgabe-Sektionen merken
+  panel.querySelectorAll('details.out-section').forEach(dt =>
+    dt.addEventListener('toggle', () => { outSectionOpen[dt.dataset.key] = dt.open; }));
 
   const togSets = [
     // exclusive: beim Aktivieren wird die jeweils andere Personen-Markierung entfernt
@@ -806,8 +859,7 @@ function renderTowerStatsPerPerson(){
   if(!lastResult?.stats) return '';
   const tMap = {}; towers.forEach(t => tMap[t.id] = t);
   const threshold = towers.length * 0.5;
-  let html = '<div class="section-label" style="margin-top:30px;">Turm-Einsatzverteilung pro Person</div>';
-  html += '<div style="font-size:.85rem;overflow-x:auto"><table style="width:100%;border-collapse:collapse">';
+  let html = '<div style="font-size:.85rem;overflow-x:auto"><table style="width:100%;border-collapse:collapse">';
   html += '<tr style="border-bottom:1px solid var(--line)"><th style="text-align:left;padding:6px;font-weight:bold">Person</th>';
   html += '<th style="text-align:center;padding:6px;font-weight:bold">Gesamt</th><th style="text-align:center;padding:6px;font-weight:bold">Türme</th>';
   html += '<th style="text-align:left;padding:6px;font-weight:bold">Details</th></tr>';
@@ -835,8 +887,7 @@ function renderBoatStatsPerPerson(){
 
   if(bfOnlyStats.length === 0) return '';
 
-  let html = '<div class="section-label" style="margin-top:30px;">Boot & Bootsführer-Fairness</div>';
-  html += '<div style="font-size:.85rem;overflow-x:auto"><table style="width:100%;border-collapse:collapse">';
+  let html = '<div style="font-size:.85rem;overflow-x:auto"><table style="width:100%;border-collapse:collapse">';
   html += '<tr style="border-bottom:1px solid var(--line)"><th style="text-align:left;padding:6px;font-weight:bold">Bootsführer</th>';
   html += '<th style="text-align:center;padding:6px;font-weight:bold">Boot-Tage</th><th style="text-align:center;padding:6px;font-weight:bold">Verschiedene Boote</th>';
   html += '<th style="text-align:left;padding:6px;font-weight:bold">Boot-Details</th></tr>';
@@ -861,11 +912,7 @@ function renderBoatStatsPerPerson(){
 function renderMatrix(){
   const g = lastResult.peopleGuards;
   if(g.length < 2 || g.length > 18) return '';
-  let h = `<div class="section-label" style="margin-top:30px;">Paarungs-Matrix
-    <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-dim);font-size:11px">
-      (wie oft zwei Personen über alle Tage zusammen am Turm)
-    </span></div>
-    <div class="matrix-wrap"><table class="matrix"><tr><th></th>`;
+  let h = `<div class="matrix-wrap"><table class="matrix"><tr><th></th>`;
   g.forEach(p => h += `<th>${escapeHtml(p.name.slice(0,6))}</th>`);
   h += '</tr>';
   g.forEach(a => {
