@@ -273,6 +273,15 @@ ein kreisrundes Hamburger-Icon (☰) am unteren Bildschirmrand ersetzt.
 - **Animation:** `@keyframes hamNavIn` – Slide-in von unten + Fade.
 - **Dateien:** `public/Wachplan-Generator.html` (CSS + Markup), `public/js/layout-chrome.js`
   (JS-Logik), `public/js/render-output.js` (Sektion-IDs).
+- **Bugfix (Folge-Commit):** Markup muss VOR `<script src="js/layout-chrome.js">` stehen, sonst
+  findet die IIFE die Elemente nicht (Listener nie gebunden → Button tot).
+- **Bugfix (Mobile-Panel-Leak):** `#output-panel` setzt global `display:flex !important` (ID +
+  !important, Zeile ~53). Das hebelte auf Mobile `.main-panel{display:none}` /
+  `.mobile-active` aus → der Wachplan war auch im Einstellungen-Tab dauerhaft sichtbar. Fix:
+  im `@media(max-width:900px)`-Block `#output-panel{display:none!important}` +
+  `#output-panel.mobile-active{display:flex!important}`, damit das Output-Panel dem Tab-Switch
+  folgt. **Falle:** ID-Selektoren mit `!important` brauchen ebenbürtige Overrides – Klassen
+  reichen nicht.
 
 ---
 

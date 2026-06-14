@@ -458,6 +458,13 @@
       height: auto;
       grid-column: auto;
     }
+
+    /* Output-Panel folgt auf Mobile dem Tab-Switch wie jedes andere Panel.
+       Nötig, weil #output-panel oben global `display:flex !important` setzt (ID + !important),
+       was sonst `.main-panel{display:none}` / `.mobile-active` aushebelt → Wachplan wäre
+       auch im Einstellungen-Tab dauerhaft sichtbar. */
+    #output-panel { display: none !important; }
+    #output-panel.mobile-active { display: flex !important; }
   }
 
   /* ── Responsive: Schmale Displays (<520px) – Person/Turm-Reflow ── */
