@@ -110,12 +110,6 @@
         if (action === 'info') {
           setInfoOpen(!infoBox || !infoBox.classList.contains('open'));
           if (infoBox) infoBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } else if (action === 'config') {
-          switchMobilePanel(0);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        } else if (action === 'plan') {
-          switchMobilePanel(1);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
         } else if (action === 'tower-stats') {
           switchMobilePanel(1);
           setTimeout(() => gotoOutputSection('towerStats'), 80);

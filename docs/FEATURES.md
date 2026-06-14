@@ -256,18 +256,19 @@ Top-Bar (header) und Sidebar nahmen auf Desktop viel Platz weg. Neues Modul `lay
   `localStorage['dlrg_sidebar_collapsed']`. Auf Mobile (<900px) übernimmt weiterhin der
   bestehende Tab-Switch – die Buttons sind dort per CSS ausgeblendet.
 
-### Feature 31: Hamburger-Menü für Mobile-Navigation (Issue #297)
-Bei `max-width: 768px` wird der bestehende 2-Tab-Switch (⚙️ Einstellungen / 📋 Wachplan) durch
-ein kreisrundes Hamburger-Icon (☰) am unteren Bildschirmrand ersetzt.
-- **Trigger:** `@media(max-width:768px)` – `.mobile-switch` mit `display:none!important`
-  ausgeblendet; `.hamburger-fab` (fixed, bottom-center) eingeblendet.
-- **Menüpunkte:** Info · Konfiguration · Wachplan · Turm-Einsatzverteilung · Boot & Bootsführer-Fairness · Paarungs-Matrix
-- **Navigation:** Konfiguration/Wachplan → Panel-Switch via `switchMobilePanel()`; die
-  Auswertungs-Sektionen (Tower-Stats, Boot-Stats, Matrix) → Panel-Switch + `gotoOutputSection(key)`,
-  das die zugehörige aufklappbare `<details data-key>`-Sektion via `openOutputSection()`
-  (aus Issue #298) **aufklappt und** dorthin scrollt. So greifen Hamburger-Menü (#297) und
-  aufklappbare Sektionen (#298) ineinander – ein Sprung aus dem Menü öffnet eine zugeklappte
-  Sektion automatisch.
+### Feature 31: Hamburger-Menü für Mobile-Navigation (Issue #297, Variante 2)
+Bei `max-width: 768px` erscheint zusätzlich ein kreisrundes Hamburger-Icon (☰) am unteren
+Bildschirmrand. **Der bestehende 2-Tab-Switch (⚙️ Einstellungen / 📋 Wachplan) bleibt sichtbar**
+und übernimmt weiterhin den Panel-Wechsel; das ☰-Menü ergänzt nur die Sprünge zu Info + den
+Auswertungs-Sektionen (so ist der Wechsel Einstellungen↔Wachplan immer ein Tap, ohne Menü).
+- **Trigger:** `@media(max-width:768px)` – `.hamburger-fab` (fixed, bottom-center) eingeblendet;
+  `.mobile-switch` bleibt eingeblendet (kein `display:none` mehr).
+- **Menüpunkte:** Info · Turm-Einsatzverteilung · Boot & Bootsführer-Fairness · Paarungs-Matrix
+- **Navigation:** Die Auswertungs-Sektionen (Tower-Stats, Boot-Stats, Matrix) → Panel-Switch auf
+  Wachplan via `switchMobilePanel(1)` + `gotoOutputSection(key)`, das die zugehörige aufklappbare
+  `<details data-key>`-Sektion via `openOutputSection()` (aus Issue #298) **aufklappt und** dorthin
+  scrollt. So greifen Hamburger-Menü (#297) und aufklappbare Sektionen (#298) ineinander – ein
+  Sprung aus dem Menü öffnet eine zugeklappte Sektion automatisch.
 - **Info-Action:** togglet `#header-info` (nutzt `setInfoOpen()` aus layout-chrome.js).
 - **Dismiss:** Klick außerhalb (Overlay) oder Menüpunkt-Wahl schließt das Menü.
 - **Animation:** `@keyframes hamNavIn` – Slide-in von unten + Fade.

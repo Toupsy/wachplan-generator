@@ -692,7 +692,8 @@
   }
   .ham-item:hover{background:rgba(24,168,216,.1);border-color:var(--sea-bright);color:var(--foam)}
   @media(max-width:768px){
-    .mobile-switch{display:none!important}
+    /* Der Zwei-Tab-Switch (⚙️/📋) bleibt sichtbar und übernimmt Einstellungen↔Wachplan;
+       das ☰-Menü liefert nur zusätzlich die Sprünge zu Info + Auswertungs-Sektionen. */
     /* Auf sehr kleinen Bildschirmen ausreichend Abstand nach unten für den FAB */
     .wrap{padding-bottom:80px}
     .hamburger-fab{display:flex}
@@ -1241,10 +1242,8 @@
 <!-- ── Hamburger-Menü (Mobile <768px) – vor den Scripts, damit layout-chrome.js die Elemente findet ── -->
 <div id="hamburger-overlay" class="hamburger-overlay"></div>
 <button id="hamburger-btn" type="button" class="hamburger-fab" aria-label="Navigation öffnen" aria-controls="hamburger-menu" aria-expanded="false">☰</button>
-<nav id="hamburger-menu" class="hamburger-nav" aria-label="Hauptnavigation">
+<nav id="hamburger-menu" class="hamburger-nav" aria-label="Schnellnavigation zu Auswertungen">
   <button type="button" class="ham-item" data-ham-action="info">ℹ️ Info</button>
-  <button type="button" class="ham-item" data-ham-action="config">⚙️ Konfiguration</button>
-  <button type="button" class="ham-item" data-ham-action="plan">📋 Wachplan</button>
   <button type="button" class="ham-item" data-ham-action="tower-stats">🗼 Turm-Einsatzverteilung</button>
   <button type="button" class="ham-item" data-ham-action="boat-stats">🚤 Boot &amp; Bootsführer-Fairness</button>
   <button type="button" class="ham-item" data-ham-action="matrix">👥 Paarungs-Matrix</button>
