@@ -14,7 +14,7 @@ const ctx = vm.createContext({ console, Math, Date, Set, Map, Object, Array, JSO
 const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'roster.js'), 'utf8');
 vm.runInContext(src, ctx, { filename: 'roster.js' });
 const { rosterDateToISO, rosterJobToRole, parseRosterCSV, normalizeRoster, deriveRosterPeople,
-  _pdfParseLine, _pdfGroupLines } = ctx;
+  mergeRosterOverrides, _pdfParseLine, _pdfGroupLines } = ctx;
 
 // Kleine, repräsentative CSV-Probe (Semikolon-getrennt wie die echte DLRG-Liste).
 const SAMPLE_CSV = [
@@ -148,6 +148,34 @@ test('An-/Abreisetag: abreisende Vorwochen-Crew (bis = Fensterstart) wird ausges
   assert.strictEqual(derived[0].name, 'Neue Crew');
   // Neue Crew aktiv 08.–14.08.; 15.08. liegt außerhalb des 7-Tage-Fensters → keine Abwesenheit
   assert.deepStrictEqual([...derived[0].absentDays], []);
+});
+
+// ── Manuelle Overrides (überleben Neu-Ableiten) ──────────────────────────────
+
+test('mergeRosterOverrides: manuelle Rolle/Erfahrung überschreiben die Ableitung', () => {
+  const derived = [
+    { name: 'Linus Wolf', role: 'B', experienced: false, absentDays: [] },
+    { name: 'Vanessa Marie Freytag', role: 'W', experienced: false, absentDays: [] },
+  ];
+  const overrides = {
+    'linus wolf': { role: 'F' },                       // Rolle von Hand geändert
+    'vanessa marie freytag': { experienced: true },    // als erfahren markiert
+  };
+  const merged = mergeRosterOverrides(derived, overrides);
+  assert.strictEqual(merged.find(p => p.name === 'Linus Wolf').role, 'F');
+  assert.strictEqual(merged.find(p => p.name === 'Vanessa Marie Freytag').experienced, true);
+  // Unveränderte Felder behalten den Ableitungswert
+  assert.strictEqual(merged.find(p => p.name === 'Linus Wolf').experienced, false);
+  assert.strictEqual(merged.find(p => p.name === 'Vanessa Marie Freytag').role, 'W');
+});
+
+test('mergeRosterOverrides: ohne Override bleibt alles bei der Ableitung', () => {
+  const derived = [{ name: 'A B', role: 'W', experienced: false, absentDays: [] }];
+  const merged = mergeRosterOverrides(derived, {});
+  assert.strictEqual(merged[0].role, 'W');
+  assert.strictEqual(merged[0].experienced, false);
+  assert.strictEqual(merged[0].wantsHW, false);
+  assert.strictEqual(merged[0].enableLabels, true);
 });
 
 // ── PDF-Parsing (inhaltsbasiert) ─────────────────────────────────────────────

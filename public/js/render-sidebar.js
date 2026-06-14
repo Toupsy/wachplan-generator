@@ -59,6 +59,7 @@ function renderPeople(){
       const personId = +e.target.dataset.id;
       const p = getP(personId);
       p.enableLabels = e.target.checked;
+      if(typeof recordRosterOverride === 'function') recordRosterOverride(p, 'enableLabels', p.enableLabels);
       const labelsRow = Array.from(c.querySelectorAll('.person-labels-row')).find(row => +row.getAttribute('data-id') === personId);
       if (labelsRow) {
         labelsRow.style.display = e.target.checked ? 'grid' : 'none';
@@ -70,19 +71,20 @@ function renderPeople(){
   c.querySelectorAll('.pname').forEach(i =>
     i.oninput = e => { getP(+e.target.dataset.id).name = e.target.value; });
   c.querySelectorAll('.plabels').forEach(i =>
-    i.oninput = e => { getP(+e.target.dataset.id).labels = e.target.value; });
+    i.oninput = e => { const p = getP(+e.target.dataset.id); p.labels = e.target.value; if(typeof recordRosterOverride === 'function') recordRosterOverride(p, 'labels', p.labels); });
   c.querySelectorAll('.prole').forEach(s =>
     s.onchange = e => {
       const p = getP(+e.target.dataset.id);
       p.role = e.target.value;
       if(p.experienced === undefined) p.experienced = true;  // Default erfahren
+      if(typeof recordRosterOverride === 'function') recordRosterOverride(p, 'role', p.role);
       renderPeople();
       scheduleAutoSave();
     });
   c.querySelectorAll('.exp-checkbox').forEach(cb =>
-    cb.onchange = e => { getP(+e.target.dataset.id).experienced = e.target.checked; scheduleAutoSave(); renderOutput(); });
+    cb.onchange = e => { const p = getP(+e.target.dataset.id); p.experienced = e.target.checked; if(typeof recordRosterOverride === 'function') recordRosterOverride(p, 'experienced', p.experienced); scheduleAutoSave(); renderOutput(); });
   c.querySelectorAll('.hwwish-checkbox').forEach(cb =>
-    cb.onchange = e => { getP(+e.target.dataset.id).wantsHW = e.target.checked; generate(); scheduleAutoSave(); });
+    cb.onchange = e => { const p = getP(+e.target.dataset.id); p.wantsHW = e.target.checked; if(typeof recordRosterOverride === 'function') recordRosterOverride(p, 'wantsHW', p.wantsHW); generate(); scheduleAutoSave(); });
   c.querySelectorAll('.del-p').forEach(b =>
     b.onclick = e => {
       const id = +e.target.dataset.id;

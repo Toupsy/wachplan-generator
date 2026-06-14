@@ -58,6 +58,7 @@ function _buildStateObject(){
       return obj;
     }),
     roster:               (typeof roster !== 'undefined' ? roster : []).map(r => ({ ...r })),
+    rosterOverrides:      (typeof rosterOverrides !== 'undefined' && rosterOverrides) ? JSON.parse(JSON.stringify(rosterOverrides)) : {},
     towers:               towers.map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0, mainBeach: !!t.mainBeach })),
     boats:                boats.map(b => ({ ...b, slotCount: b.slotCount || 1 })),
     dayState: dayState.map(d => ({
@@ -137,6 +138,7 @@ function importStateJSON(json, silent = false){
     wantsHW: !!p.wantsHW    // BF-HW-Wunsch (Default false für Altpläne)
   }));
   roster = Array.isArray(s.roster) ? s.roster.map(r => ({ ...r })) : [];   // hochgeladene Wachliste (Feature 31; Default [] für Altpläne)
+  rosterOverrides = (s.rosterOverrides && typeof s.rosterOverrides === 'object') ? s.rosterOverrides : {};   // manuelle Korrekturen (Feature 31)
   towers = (s.towers || []).map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0, mainBeach: !!t.mainBeach }));
   boats  = (s.boats  || []).map(b => ({ ...b, slotCount: b.slotCount || 1 }));
 

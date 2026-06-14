@@ -89,6 +89,10 @@ let people   = [];   // [{ id, name, role:'F'|'B'|'W', experienced:bool, labels:
 // [{ name, role:'F'|'B'|'W', from:'YYYY-MM-DD', to:'YYYY-MM-DD' }]. Aus dieser Liste leitet
 // applyRosterToWindow() die people[] + tageweisen Abwesenheiten dynamisch aus startDate + DAYS ab.
 let roster   = [];
+// Manuelle Korrekturen an roster-abgeleiteten Personen, die ein Neu-Ableiten überleben sollen
+// (z.B. Rolle/Erfahrung von Hand geändert). Key = normalisierter Name → { role?, experienced?,
+// wantsHW?, labels?, enableLabels? } (nur explizit geänderte Felder). Feature 31.
+let rosterOverrides = {};
 let towers   = [];   // [{ id, name, prio, code, slotCount, leaderCount, mainBeach:bool }] (mainBeach: Hauptstrand-Turm für fairen Ausgleich)
 let boats    = [];   // [{ id, name, code, towerId, prio, slotCount }]
 
@@ -158,6 +162,7 @@ function resetGlobalState() {
   randomSeed = 0;
   people = [];
   roster = [];
+  rosterOverrides = {};
   towers = [];
   boats = [];
   mainK = 2;

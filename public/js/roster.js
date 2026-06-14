@@ -179,11 +179,31 @@ function deriveRosterPeople(rosterArr, dayDates){
   return result;
 }
 
+/**
+ * Legt manuelle Korrekturen (overrides, key = normalisierter Name) auf die abgeleiteten
+ * Personen. Nur explizit gesetzte Felder überschreiben; Rest bleibt der Ableitungswert.
+ * Liefert reine Personen-Attribute (ohne id) – pur & testbar.
+ */
+function mergeRosterOverrides(derived, overrides){
+  const ov = overrides || {};
+  return (derived || []).map(d => {
+    const o = ov[_rosterKey(d.name)] || {};
+    return {
+      name: d.name,
+      role:         o.role         !== undefined ? o.role         : d.role,
+      experienced:  o.experienced  !== undefined ? o.experienced  : !!d.experienced,
+      wantsHW:      o.wantsHW       !== undefined ? o.wantsHW      : false,
+      labels:       o.labels        !== undefined ? o.labels       : '',
+      enableLabels: o.enableLabels  !== undefined ? o.enableLabels : true,
+    };
+  });
+}
+
 // In Node-Testumgebung exportieren (Browser ignoriert das).
 // _pdfParseLine / _pdfGroupLines werden erst weiter unten definiert (function-hoisting greift hier).
 if(typeof module !== 'undefined' && module.exports){
   module.exports = { rosterDateToISO, rosterJobToRole, parseRosterCSV, normalizeRoster, deriveRosterPeople,
-    _pdfParseLine, _pdfGroupLines };
+    mergeRosterOverrides, _rosterKey, _pdfParseLine, _pdfGroupLines };
 }
 
 // ── PDF-Parsing (lädt pdf.js bei Bedarf von cdnjs) ───────────────────────────
@@ -302,9 +322,27 @@ function updateRosterIndicator(){
   if(clearBtn) clearBtn.style.display = loaded ? '' : 'none';
 }
 
+/** Normalisierter Name als Override-Key. */
+function _rosterKey(name){ return String(name||'').trim().toLowerCase(); }
+
+/**
+ * Merkt sich eine manuelle Korrektur an einer roster-abgeleiteten Person, damit sie ein
+ * Neu-Ableiten (Datum/Tage ändern) übersteht. Wird aus den Sidebar-Editoren aufgerufen.
+ * Nur aktiv, wenn eine Wachliste geladen ist.
+ */
+function recordRosterOverride(person, field, value){
+  if(typeof roster === 'undefined' || !roster.length || !person) return;
+  const key = _rosterKey(person.name);
+  if(!key) return;
+  if(!rosterOverrides[key]) rosterOverrides[key] = {};
+  rosterOverrides[key][field] = value;
+  scheduleAutoSave();
+}
+
 /**
  * Baut people[] + tageweise Abwesenheiten neu aus dem roster auf,
  * ausgehend von startDate + DAYS. Kern der "dynamischen" Namensliste.
+ * Manuelle Korrekturen (rosterOverrides) werden auf die abgeleiteten Werte gelegt.
  */
 function applyRosterToWindow(){
   if(typeof roster === 'undefined' || !roster.length) return;
@@ -318,8 +356,8 @@ function applyRosterToWindow(){
     return;
   }
 
-  // Neue people[] mit frischen IDs
-  people = derived.map(d => ({ id: ++uid, name: d.name, role: d.role, experienced: !!d.experienced, enableLabels: true }));
+  // Neue people[] mit frischen IDs; manuelle Overrides (Rolle/Erfahrung/…) überschreiben die Ableitung
+  people = mergeRosterOverrides(derived, rosterOverrides).map(p => ({ id: ++uid, ...p }));
 
   // Zwangszuweisungen referenzieren alte IDs → zurücksetzen
   forcedPlacements = freshForcedPlacements();

@@ -279,6 +279,12 @@ die Namensliste wird **dynamisch aus Startdatum + Anzahl Wachtage** abgeleitet. 
   werden tageweise als `absent` markiert** (nutzt Feature 27). Importierte Personen starten
   als **unerfahren**. Ändert der User Startdatum oder Tageanzahl, wird die Liste neu
   abgeleitet (`init.js`-Handler) → „dynamisch".
+- **Manuelle Korrekturen überleben das Neu-Ableiten:** Ändert der User Rolle/Erfahrung/HW-Wunsch/
+  Labels einer abgeleiteten Person, wird das in `rosterOverrides` (Key = normalisierter Name, nur
+  explizit geänderte Felder) gemerkt und nach jedem `applyRosterToWindow()` per
+  `mergeRosterOverrides()` wieder aufgelegt. So gehen Hand-Korrekturen beim Ändern von Datum/Tagen
+  nicht verloren – unangetastete Personen behalten aber ihre fensterabhängige Ableitung
+  (z.B. wochenabhängige Rolle). Mit-serialisiert.
 - **An-/Abreisetag:** In der Wachliste ist `bis` einer Woche identisch mit `von` der Folgewoche
   (gemeinsamer Wechseltag). Das Verfügbarkeitsintervall wird daher **halb-offen** `[von, bis)`
   behandelt – der Abreisetag ist kein aktiver Dienst-Tag. So gehört der Wechseltag nur der
