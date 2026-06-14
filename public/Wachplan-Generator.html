@@ -1231,6 +1231,18 @@
   </div>
 </div>
 
+<!-- ── Hamburger-Menü (Mobile <768px) – vor den Scripts, damit layout-chrome.js die Elemente findet ── -->
+<div id="hamburger-overlay" class="hamburger-overlay"></div>
+<button id="hamburger-btn" type="button" class="hamburger-fab" aria-label="Navigation öffnen" aria-controls="hamburger-menu" aria-expanded="false">☰</button>
+<nav id="hamburger-menu" class="hamburger-nav" aria-label="Hauptnavigation">
+  <button type="button" class="ham-item" data-ham-action="info">ℹ️ Info</button>
+  <button type="button" class="ham-item" data-ham-action="config">⚙️ Konfiguration</button>
+  <button type="button" class="ham-item" data-ham-action="plan">📋 Wachplan</button>
+  <button type="button" class="ham-item" data-ham-action="tower-stats">🗼 Turm-Einsatzverteilung</button>
+  <button type="button" class="ham-item" data-ham-action="boat-stats">🚤 Boot &amp; Bootsführer-Fairness</button>
+  <button type="button" class="ham-item" data-ham-action="matrix">👥 Paarungs-Matrix</button>
+</nav>
+
 <!-- CDNs -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -1286,18 +1298,6 @@
   }
 })();
 </script>
-
-<!-- ── Hamburger-Menü (Mobile <768px) ── -->
-<div id="hamburger-overlay" class="hamburger-overlay"></div>
-<button id="hamburger-btn" type="button" class="hamburger-fab" aria-label="Navigation öffnen" aria-controls="hamburger-menu" aria-expanded="false">☰</button>
-<nav id="hamburger-menu" class="hamburger-nav" aria-label="Hauptnavigation">
-  <button type="button" class="ham-item" data-ham-action="info">ℹ️ Info</button>
-  <button type="button" class="ham-item" data-ham-action="config">⚙️ Konfiguration</button>
-  <button type="button" class="ham-item" data-ham-action="plan">📋 Wachplan</button>
-  <button type="button" class="ham-item" data-ham-action="tower-stats">🗼 Turm-Einsatzverteilung</button>
-  <button type="button" class="ham-item" data-ham-action="boat-stats">🚤 Boot &amp; Bootsführer-Fairness</button>
-  <button type="button" class="ham-item" data-ham-action="matrix">👥 Paarungs-Matrix</button>
-</nav>
 
 </body>
 </html>
