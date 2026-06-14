@@ -1,0 +1,127 @@
+// test/roster.test.js – Wachlisten-Import & dynamische Namensliste (Feature 31)
+//
+// Testet die reinen Parser-/Ableitungs-Funktionen aus public/js/roster.js
+// (DOM-frei). PDF-Parsing (pdf.js/Browser) ist hier nicht abgedeckt.
+
+const test = require('node:test');
+const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+
+// roster.js in eine isolierte vm-Context laden und die Funktionen herausziehen.
+const ctx = vm.createContext({ console, Math, Date, Set, Map, Object, Array, JSON });
+const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'roster.js'), 'utf8');
+vm.runInContext(src, ctx, { filename: 'roster.js' });
+const { rosterDateToISO, rosterJobToRole, parseRosterCSV, normalizeRoster, deriveRosterPeople } = ctx;
+
+// Kleine, repräsentative CSV-Probe (Semikolon-getrennt wie die echte DLRG-Liste).
+const SAMPLE_CSV = [
+  'Wachliste;Dahme;;Von: 07.08.2026;Bis: 17.08.2026',
+  '',
+  'Name;Vorname;Job;Zusatzqualifikationen;von;bis;Alter*;PLZ;Ort;E-Mailadresse;Telefonnummer;Telefonnummer Sorgeberechtigte;Status',
+  'Freytag;Vanessa Marie;RS;DRSA Silber;25.07.2026;15.08.2026;23;31275;Lehrte;a@b.de;+49;;zugesagt;',
+  'Wolf;Linus;BF;DRSA Gold;08.08.2026;15.08.2026;23;76698;Ubstadt;c@d.de;+49;;zugesagt;',
+  'Kuhlmann;Leon;WF;Wachführer;08.08.2026;13.08.2026;28;38442;Fallersleben;e@f.de;+49;;zugesagt;',
+  'Maas;Martin;RS;DRSA Gold;08.08.2026;15.08.2026;19;47652;Weeze;g@h.de;+49;;abgesagt;',
+  'Toups;Yannis;BF;DLRG Bootsführerschein A;15.08.2026;22.08.2026;31;50259;Pulheim;i@j.de;+49;;zugesagt;',
+  '',
+  ';*zum Zeitpunkt des Dienstbeginns',
+].join('\n');
+
+// 11-Tage-Fenster 07.08.–17.08.2026 (wie die Liste).
+const window11 = [];
+for(let i = 0; i < 11; i++){
+  const d = new Date(2026, 7, 7 + i);   // lokal, August = Monat 7
+  window11.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
+}
+
+test('rosterDateToISO konvertiert DD.MM.YYYY → ISO', () => {
+  assert.strictEqual(rosterDateToISO('07.08.2026'), '2026-08-07');
+  assert.strictEqual(rosterDateToISO('7.8.2026'), '2026-08-07');
+  assert.strictEqual(rosterDateToISO('quatsch'), '');
+  assert.strictEqual(rosterDateToISO(''), '');
+});
+
+test('rosterJobToRole mappt Job-Kürzel auf Rollen', () => {
+  assert.strictEqual(rosterJobToRole('WF'), 'F');
+  assert.strictEqual(rosterJobToRole('BF'), 'B');
+  assert.strictEqual(rosterJobToRole('RS'), 'W');
+  assert.strictEqual(rosterJobToRole('xx'), 'W');
+});
+
+test('parseRosterCSV liest nur echte Datenzeilen (zugesagt + abgesagt)', () => {
+  const raw = parseRosterCSV(SAMPLE_CSV);
+  assert.strictEqual(raw.length, 5);   // 5 Personen-Zeilen, Meta-/Fußzeilen ignoriert
+  assert.strictEqual(raw[0].nachname, 'Freytag');
+  assert.strictEqual(raw[0].vorname, 'Vanessa Marie');
+  assert.strictEqual(raw[0].job, 'RS');
+  assert.strictEqual(raw[0].von, '25.07.2026');
+});
+
+test('normalizeRoster filtert abgesagt heraus und mappt Felder', () => {
+  const norm = normalizeRoster(parseRosterCSV(SAMPLE_CSV));
+  // 4 zugesagte (Maas ist abgesagt → raus)
+  assert.strictEqual(norm.length, 4);
+  assert.ok(!norm.some(p => p.name.includes('Martin')), 'abgesagte Person darf nicht erscheinen');
+  const wolf = norm.find(p => p.name === 'Linus Wolf');
+  assert.strictEqual(wolf.role, 'B');
+  assert.strictEqual(wolf.from, '2026-08-08');
+  assert.strictEqual(wolf.to, '2026-08-15');
+});
+
+test('deriveRosterPeople: Namensliste + Rollen für das Fenster', () => {
+  const norm = normalizeRoster(parseRosterCSV(SAMPLE_CSV));
+  const derived = deriveRosterPeople(norm, window11);
+  const names = [...derived].map(p => p.name).sort();
+  // Alle 4 zugesagten überlappen das Fenster 07.–17.08.
+  assert.deepStrictEqual(names, ['Leon Kuhlmann', 'Linus Wolf', 'Vanessa Marie Freytag', 'Yannis Toups']);
+  assert.strictEqual(derived.find(p => p.name === 'Leon Kuhlmann').role, 'F');
+  assert.strictEqual(derived.find(p => p.name === 'Yannis Toups').role, 'B');
+  // Vorgabe: importierte Personen sind unerfahren
+  assert.ok(derived.every(p => p.experienced === false));
+});
+
+test('deriveRosterPeople: Tage außerhalb der Verfügbarkeit werden abwesend', () => {
+  const norm = normalizeRoster(parseRosterCSV(SAMPLE_CSV));
+  const derived = deriveRosterPeople(norm, window11);
+
+  // Freytag verfügbar 25.07.–15.08. → im Fenster nur Tag 0..8 (07.–15.08.),
+  // abwesend an Tag 9,10 (16.,17.08.)
+  const frey = derived.find(p => p.name === 'Vanessa Marie Freytag');
+  assert.deepStrictEqual([...frey.absentDays], [9, 10]);
+
+  // Toups verfügbar 15.08.–22.08. → im Fenster nur Tag 8,9,10 (15.–17.08.),
+  // abwesend Tag 0..7
+  const toups = derived.find(p => p.name === 'Yannis Toups');
+  assert.deepStrictEqual([...toups.absentDays], [0, 1, 2, 3, 4, 5, 6, 7]);
+
+  // Kuhlmann 08.–13.08. → verfügbar Tag 1..6, abwesend 0 und 7..10
+  const kuhl = derived.find(p => p.name === 'Leon Kuhlmann');
+  assert.deepStrictEqual([...kuhl.absentDays], [0, 7, 8, 9, 10]);
+});
+
+test('deriveRosterPeople: Person außerhalb des Fensters fällt raus', () => {
+  const norm = normalizeRoster(parseRosterCSV(SAMPLE_CSV));
+  // Fenster komplett VOR allen Verfügbarkeiten
+  const earlyWindow = ['2026-07-01', '2026-07-02', '2026-07-03'];
+  const derived = deriveRosterPeople(norm, earlyWindow);
+  // Nur Freytag (ab 25.07.) ... liegt auch nach 03.07. → niemand
+  assert.strictEqual(derived.length, 0);
+});
+
+test('deriveRosterPeople: gleicher Name in mehreren Blöcken wird zusammengeführt', () => {
+  const norm = [
+    { name: 'Yannis Toups', role: 'F', from: '2026-08-08', to: '2026-08-15' },
+    { name: 'Yannis Toups', role: 'B', from: '2026-08-15', to: '2026-08-22' },
+  ];
+  // Fenster, in dem der F-Block mehr Überlappung hat (08.–14.08., 7 Tage F vs. 0 B)
+  const win = [];
+  for(let i = 0; i < 7; i++){
+    const d = new Date(2026, 7, 8 + i);
+    win.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
+  }
+  const derived = deriveRosterPeople(norm, win);
+  assert.strictEqual(derived.length, 1, 'eine zusammengeführte Person');
+  assert.strictEqual(derived[0].role, 'F', 'Rolle mit größter Überlappung gewinnt');
+});

@@ -2,7 +2,7 @@
 // state-io.js – Planstatus-Import / Export (Feature 7) + Server-Sync
 // ============================================================
 
-const STATE_VERSION = 7;
+const STATE_VERSION = 8;
 
 // Migriert eine Person vom alten Rollenmodell (role 'E'/'U' + bfLevel) auf das
 // neue Modell (role 'F'|'B'|'W' + experienced:bool). Idempotent.
@@ -57,6 +57,7 @@ function _buildStateObject(){
       if(obj.experienced === undefined) obj.experienced = (p.role !== 'F');  // Default erfahren (außer F)
       return obj;
     }),
+    roster:               (typeof roster !== 'undefined' ? roster : []).map(r => ({ ...r })),
     towers:               towers.map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0, mainBeach: !!t.mainBeach })),
     boats:                boats.map(b => ({ ...b, slotCount: b.slotCount || 1 })),
     dayState: dayState.map(d => ({
@@ -135,6 +136,7 @@ function importStateJSON(json, silent = false){
     enableLabels: p.enableLabels !== undefined ? p.enableLabels : ((p.labels||'').trim().length > 0),  // Fallback für alte Exporte
     wantsHW: !!p.wantsHW    // BF-HW-Wunsch (Default false für Altpläne)
   }));
+  roster = Array.isArray(s.roster) ? s.roster.map(r => ({ ...r })) : [];   // hochgeladene Wachliste (Feature 31; Default [] für Altpläne)
   towers = (s.towers || []).map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0, mainBeach: !!t.mainBeach }));
   boats  = (s.boats  || []).map(b => ({ ...b, slotCount: b.slotCount || 1 }));
 
@@ -178,6 +180,7 @@ function importStateJSON(json, silent = false){
   renderPositionDescUI();
   renderExportColumnUI();
   renderAlgoParams();
+  if(typeof updateRosterIndicator === 'function') updateRosterIndicator();
 
   // Plan neu berechnen falls Ergebnis vorhanden war
   if(lastResult) generate();

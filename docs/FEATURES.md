@@ -256,6 +256,29 @@ Top-Bar (header) und Sidebar nahmen auf Desktop viel Platz weg. Neues Modul `lay
   `localStorage['dlrg_sidebar_collapsed']`. Auf Mobile (<900px) übernimmt weiterhin der
   bestehende Tab-Switch – die Buttons sind dort per CSS ausgeblendet.
 
+### Feature 31: DLRG-Wachliste hochladen → dynamische Namensliste (CSV/PDF)
+Statt jede Person von Hand einzutragen, lädt der User die offizielle DLRG-Wachliste hoch;
+die Namensliste wird **dynamisch aus Startdatum + Anzahl Wachtage** abgeleitet. Neues Modul
+`public/js/roster.js` (in Ladereihenfolge nach `state-io.js`).
+- **Upload-UI** in der Wachgänger-Detailansicht (`#section-roster`, `#btn-roster-upload`,
+  `#roster-file-input`, `#roster-status`, `#btn-roster-clear`). Akzeptiert `.csv` und `.pdf`.
+- **CSV-Parsing** (`parseRosterCSV`): Semikolon-getrennt, Kopfzeile via Überschriften gemappt
+  (robust gegen Metazeilen/Fußnoten). **PDF-Parsing** (`parseRosterPDF`): pdf.js (lazy von
+  cdnjs, `loadPdfJsLib`), Text wird über die x-Positionen der Kopfzeile spaltenweise
+  rekonstruiert. CSV ist der zuverlässige Pfad, PDF best-effort.
+- **Normalisierung** (`normalizeRoster`): filtert auf Status „zugesagt", mappt Job→Rolle
+  (WF→F, BF→B, RS→W), Datum `DD.MM.YYYY`→ISO. Ergebnis im neuen State-Feld `roster`
+  (`[{name, role, from, to}]`), mit-serialisiert (`STATE_VERSION` 7→8).
+- **Dynamische Ableitung** (`deriveRosterPeople` + `applyRosterToWindow`): für das Fenster
+  `[startDate … startDate+DAYS-1]` werden alle Personen aufgenommen, deren Verfügbarkeit
+  überlappt; gleiche Namen über mehrere Wochenblöcke werden zusammengeführt (Rolle = größte
+  Überlappung, Gleichstand F vor B vor W). **Tage außerhalb der persönlichen Verfügbarkeit
+  werden tageweise als `absent` markiert** (nutzt Feature 27). Importierte Personen starten
+  als **unerfahren**. Ändert der User Startdatum oder Tageanzahl, wird die Liste neu
+  abgeleitet (`init.js`-Handler) → „dynamisch".
+- **CSP:** `worker-src 'self' blob: https://cdnjs.cloudflare.com` im public-Server (für den
+  pdf.js-Worker); Admin-Server unverändert (kein Wachlisten-Upload dort).
+
 ---
 
 ## Bugfixes

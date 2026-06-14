@@ -52,7 +52,7 @@
   /* Force panel-output to fill available height */
   #output-panel{height:100% !important;display:flex !important;flex-direction:column !important;overflow-y:auto !important;overflow-x:hidden !important}
   .section{position:relative;display:block}
-  .section-people,.section-towers,.section-boats,.section-positions,.section-export-columns,.section-fairness-metrics,.section-algo-params,.section-schedule,.section-import-export{position:relative;display:block;width:100%}
+  .section-people,.section-roster,.section-towers,.section-boats,.section-positions,.section-export-columns,.section-fairness-metrics,.section-algo-params,.section-schedule,.section-import-export{position:relative;display:block;width:100%}
   .sidebar::-webkit-scrollbar{width:12px}
   .sidebar::-webkit-scrollbar-track{background:transparent}
   .sidebar::-webkit-scrollbar-thumb{background:rgba(127,212,232,.35);border-radius:6px;border:3px solid transparent;background-clip:padding-box}
@@ -936,6 +936,16 @@
               <div class="sb-detail-title">Wachgänger</div>
             </div>
 
+          <!-- Wachliste hochladen (Feature 31) -->
+          <div id="section-roster" class="section section-roster">
+            <div class="section-label">Wachliste hochladen</div>
+            <div class="info-box">Lade die DLRG-Wachliste (<b>CSV</b> oder <b>PDF</b>) hoch. Die Namensliste wird automatisch aus deinem <b>Startdatum</b> und der <b>Anzahl Wachtage</b> erzeugt – nur Personen mit Status „zugesagt", deren Verfügbarkeit in den Zeitraum fällt. Tage außerhalb der persönlichen Verfügbarkeit werden als <b>abwesend</b> markiert.<br><br><span style="color:var(--text-dim);font-size:0.75rem">ℹ️ Rollen: WF→Führung · BF→Bootsführer · RS→Wachgänger. Importierte Personen starten als „unerfahren" und sind unten anpassbar.</span></div>
+            <input type="file" id="roster-file-input" accept=".csv,.pdf,text/csv,application/pdf" style="display:none">
+            <button class="add-btn" id="btn-roster-upload">⬆️ Wachliste hochladen (CSV/PDF)</button>
+            <div id="roster-status" style="display:none;font-size:.8rem;color:var(--green);margin-top:8px;padding:8px;border-left:3px solid var(--green);background:rgba(80,200,120,.06);border-radius:4px"></div>
+            <button id="btn-roster-clear" class="ghost-btn" style="display:none;width:100%;margin-top:8px;border-color:var(--coral);color:var(--coral);font-size:.75rem;padding:6px">🗑️ Wachliste entfernen</button>
+          </div>
+
           <!-- Wachgänger -->
           <div id="section-people" class="section section-people">
             <div class="section-label">Wachgänger</div>
@@ -1174,6 +1184,7 @@
 <script src="js/export.js"></script>
 <script src="js/move.js"></script>
 <script src="js/state-io.js"></script>
+<script src="js/roster.js"></script>
 <script src="js/user-info.js"></script>
 <script src="js/share.js"></script>
 <script src="js/realtime.js"></script>
