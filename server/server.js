@@ -158,13 +158,30 @@ async function start() {
 
     console.log('✓ API routes registered');
 
-    // Register static files and SPA routes AFTER API routes
-    app.use(express.static(path.join(__dirname, '..', 'public')));
+    // Index-HTML mit Cache-Busting servieren: lokale js/css-Assets bekommen ?v=<token>
+    // angehängt (Token = Datei-Änderungszeit, Fallback App-Version) → nach jedem Deploy laden
+    // Browser/CDN garantiert die passenden Dateien (verhindert „neues HTML, alte JS"-Mismatch).
+    // Muss VOR express.static stehen.
+    const _publicDir = path.join(__dirname, '..', 'public');
+    const _indexHtmlPath = path.join(_publicDir, 'Wachplan-Generator.html');
+    const _assetVer = (relPath) => {
+      try { return String(Math.floor(fs.statSync(path.join(_publicDir, relPath)).mtimeMs)); }
+      catch { return encodeURIComponent(APP_VERSION); }
+    };
+    const sendIndexHtml = (req, res) => {
+      fs.readFile(_indexHtmlPath, 'utf-8', (err, html) => {
+        if (err) { res.status(500).json({ error: 'Index not available' }); return; }
+        html = html
+          .replace(/(<script\s+src=")(js\/[^"?]+)(")/g, (m, a, p, c) => `${a}${p}?v=${_assetVer(p)}${c}`)
+          .replace(/(<link\b[^>]*\bhref=")((?!https?:)[^"?]+\.css)(")/g, (m, a, p, c) => `${a}${p}?v=${_assetVer(p)}${c}`);
+        res.set('Cache-Control', 'no-cache');
+        res.type('html').send(html);
+      });
+    };
+    app.get(['/', '/Wachplan-Generator.html'], sendIndexHtml);
 
-    // SPA-Route: Immer index/main servieren
-    app.get('/', (req, res) => {
-      res.sendFile(path.join(__dirname, '..', 'public', 'Wachplan-Generator.html'));
-    });
+    // Register static files AFTER the cache-busted index route
+    app.use(express.static(path.join(__dirname, '..', 'public')));
 
     // 404 Handler (NACH all anderen routes)
     app.use((req, res) => {

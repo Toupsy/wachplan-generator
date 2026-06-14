@@ -216,6 +216,12 @@ CSP/HSTS/Security-Header. **Secrets in `.env`** (Pflicht: `MASTER_SECRET`≥32, 
   Zusätzlich: public-Server hat `worker-src 'self' blob: https://cdnjs.cloudflare.com` für den
   **pdf.js-Worker** (Wachlisten-PDF-Import, Feature 31) – beim Zentralisieren NICHT auf `'self'`
   zwingen, sonst bricht der PDF-Upload. Admin-Server braucht das nicht.
+- **Index-HTML wird Cache-gebustet serviert (nicht plain static):** `server.js` fängt `/` und
+  `/Wachplan-Generator.html` VOR `express.static` ab (`sendIndexHtml`), hängt an jede lokale
+  `js/*.js`-/`*.css`-URL `?v=<Datei-mtime>` an und setzt `Cache-Control: no-cache`. So laden
+  Browser/CDN nach jedem Deploy die passenden Assets (kein „neues HTML, alte JS"-Mismatch).
+  **Neue `<script src="js/…">`/CSS-Tags werden automatisch versioniert** – cdnjs-URLs bleiben
+  unberührt. Reihenfolge beachten: der Route-Handler muss vor `express.static` registriert sein.
 - **Neue State-Felder** an 3 Stellen pflegen: `state.js` (Default + `resetGlobalState`),
   `state-io.js` `_buildStateObject()` (serialisieren) + `importStateJSON()` (deserialisieren mit
   Default für Altpläne); ggf. `STATE_VERSION` erhöhen.
