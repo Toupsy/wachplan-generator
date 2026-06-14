@@ -228,6 +228,7 @@ function renderOutput(){
       ${fairnessMetricsDisplay.towerDistribution ? `<div class="stat"><div class="num" style="color:${towerDistColor}">${towerDist.avgUniqueTowers||0}</div><div class="lbl">📍 Ø verschiedene Türme</div></div>` : ''}
       ${fairnessMetricsDisplay.boatPairingDiversity ? `<div class="stat"><div class="num" style="color:${boatDiversityColor}">${boatDiversity.diversePercent||0}%</div><div class="lbl">👥 Boot-Paare unique</div></div>` : ''}
     </div>`;
+  }
 
   // ── Tages-Panels ──────────────────────────────────────────────
   schedule.forEach((d, di) => {
