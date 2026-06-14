@@ -52,6 +52,7 @@ render-output.js  Ausgabe: Tageskarten, Stats-Bar, Pro-Person-/Matrix-Statistike
 export.js         XLSX (XML-Patch via JSZip) + CSV-Export
 move.js           Modal „Person verschieben" (↕) + D&D-Logik
 state-io.js       Server-Sync (autoSave/autoLoad), Plan-Manager, State-Serialisierung
+roster.js         Wachlisten-Upload (CSV/PDF) → dynamische Namensliste aus startDate+DAYS (Feature 31)
 user-info.js      User-Header, Admin-Link, Logout, Passwort
 share.js          Plan-Teilen-Modal (👥)
 realtime.js       WebSocket-Client (deaktiviert in .workers.dev Preview)
@@ -62,7 +63,7 @@ layout-chrome.js  Top-Bar-Info-Kästchen (#header-info, localStorage `dlrg_heade
 init.js           Event-Listener + Startsequenz (autoLoad → seed fallback)
 ```
 **Ladereihenfolge:** state → utils → dates → autoCodes → config → seed → render-sidebar →
-generate → render-output → export → move → state-io → user-info → share → realtime →
+generate → render-output → export → move → state-io → roster → user-info → share → realtime →
 plans-ui → login-modal → sidebar-layout → layout-chrome → init
 
 **Backend `server/`:**
@@ -93,6 +94,8 @@ Modals `#login-modal`/`#move-modal`/`#share-modal`/`#plans-modal` …) sind eind
 ## Globaler Zustand (state.js)
 ```js
 people[]    // { id, name, role:'F'|'B'|'W', experienced:bool, wantsHW:bool } (experienced gilt für B & W; wantsHW nur für B: ≥1 aktiver HW-Dienst bei BF-Überzahl)
+roster[]    // hochgeladene Wachliste: { name, role:'F'|'B'|'W', from:'YYYY-MM-DD', to:'YYYY-MM-DD' } (Feature 31). applyRosterToWindow() leitet people[]+absent dynamisch aus startDate+DAYS ab (roster.js)
+rosterOverrides // { normName → { role?, experienced?, wantsHW?, labels?, enableLabels? } } – manuelle Korrekturen, die das Neu-Ableiten überleben (mergeRosterOverrides, Feature 31)
 towers[]    // { id, name, prio, code, slotCount(1–10,Def2), leaderCount(0–3,Def0), mainBeach(bool,Def false) }
 boats[]     // { id, name, code, towerId:number|'HW'|null, prio, slotCount(1–3,Def1) }
 dayState[]      // Array[DAYS]: { sick:Set, absent:Set, closed:Set, closedBoats:Set }
@@ -184,7 +187,13 @@ via `renderInlineBoat()`; per D&D auf anderen Turm/HW ziehbar (`kind:'boat-reass
 
 **Autosave/State-IO (state-io.js):** `autoSave()` nach jeder `generate()` → `PUT /api/plans/:id`
 (localStorage-Fallback). `autoLoad()` beim Start. `_buildStateObject()` zentrale Serialisierung;
-Sets als Arrays. `STATE_VERSION = 7`; `migratePerson()` für Altpläne.
+Sets als Arrays. `STATE_VERSION = 8`; `migratePerson()` für Altpläne.
+
+**Wachlisten-Import (roster.js, Feature 31):** Upload (CSV/PDF) → `roster[]` (Roh-Verfügbarkeiten).
+`applyRosterToWindow()` baut `people[]` + tageweise `absent` **dynamisch** aus `startDate`+`DAYS`
+neu auf (auch bei jeder Datum-/Tage-Änderung in init.js). CSV-Parsing zuverlässig; PDF via pdf.js
+(lazy von cdnjs, Spalten-Rekonstruktion über x-Positionen) best-effort. Job→Rolle WF/BF/RS→F/B/W,
+importierte Personen starten unerfahren. Kernfunktionen DOM-frei + testbar (`test/roster.test.js`).
 
 **Auth/Encryption:** Session-Cookies (HTTPOnly, sameSite:lax, 7d / 30d „Merke mich"), bcryptjs
 (10 Rounds), Passwort ≥10 Zeichen, AES-256-GCM mit **Owner-Key** (kein Re-Encrypt beim Teilen),
@@ -204,6 +213,9 @@ CSP/HSTS/Security-Header. **Secrets in `.env`** (Pflicht: `MASTER_SECRET`≥32, 
 - **CSP divergiert je Server:** public-Server erlaubt `script-src 'self' 'unsafe-inline'
   https://cdnjs.cloudflare.com` (JSZip von cdnjs!); admin-Server nur `script-src 'self'`. Beim
   Zentralisieren der Header diese Differenz erhalten, sonst **bricht der XLSX-Export**.
+  Zusätzlich: public-Server hat `worker-src 'self' blob: https://cdnjs.cloudflare.com` für den
+  **pdf.js-Worker** (Wachlisten-PDF-Import, Feature 31) – beim Zentralisieren NICHT auf `'self'`
+  zwingen, sonst bricht der PDF-Upload. Admin-Server braucht das nicht.
 - **Neue State-Felder** an 3 Stellen pflegen: `state.js` (Default + `resetGlobalState`),
   `state-io.js` `_buildStateObject()` (serialisieren) + `importStateJSON()` (deserialisieren mit
   Default für Altpläne); ggf. `STATE_VERSION` erhöhen.

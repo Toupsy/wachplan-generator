@@ -13,6 +13,20 @@
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: **34/34 Tests grün**, alle Server parsen (`node -c`).
 
+**Letzter Lauf (2026-06-14, Feature 31: Wachliste hochladen → dynamische Namensliste – Branch `claude/dynamic-name-list-dates-sfyz4u`):**
+- **Neues Feature (s. docs/FEATURES.md Feature 31):** Upload der DLRG-Wachliste (CSV **und** PDF);
+  die Namensliste wird dynamisch aus **Startdatum + Anzahl Wachtage** abgeleitet (nur „zugesagt",
+  Verfügbarkeits-Überlappung; Tage außerhalb der persönlichen `von/bis` werden tageweise `absent`).
+  Neues Modul `public/js/roster.js`, State-Feld `roster[]`, `STATE_VERSION` 7→8.
+- **CSV** zuverlässig (Header-Mapping); **PDF** via pdf.js (lazy von cdnjs, Spalten-Rekonstruktion
+  über x-Positionen) best-effort. Job→Rolle WF/BF/RS→F/B/W, Importe starten **unerfahren**.
+- **CSP:** public-Server um `worker-src 'self' blob: https://cdnjs.cloudflare.com` ergänzt (pdf.js-Worker).
+- **Tests:** neuer `test/roster.test.js` (8 Tests, alle grün). Reale Beispiel-CSV verifiziert
+  (71 Zeilen → 63 zugesagt → 56 Personen im 11-Tage-Fenster). Volle Suite grün
+  (`session-user-deletion.test.js` einmal flaky → Rerun grün, dokumentiert). `node -c` für beide Server OK.
+- **Nicht im Browser verifiziert:** Kein Browser im Container; PDF-Pfad per Code-Review/Struktur
+  geprüft, nicht visuell. CSV-Pfad end-to-end per Node-Skript gegen die echte Datei getestet.
+
 **Letzter Lauf (2026-06-13, Layout: Top-Bar + Sidebar – Branch `claude/sidebar-topbar-layout-71mf2i`):**
 - **Feature 30 (s. docs/FEATURES.md):** Top-Bar zeigt nur den Titel, Beschreibung/Badges in
   einem einklappbaren Info-Kästchen (ℹ-Button); Sidebar einklappbar.
@@ -120,8 +134,8 @@ Multi-User mit **AES-256-GCM at rest**, Sessions, Sharing, Realtime (WebSocket),
 |---|---|---|
 | #223 | Plan duplizieren („Als Vorlage verwenden") | reiner Frontend-Flow über `_buildStateObject()` + `POST /api/plans` |
 | #222 | Persönlicher ICS-Export pro Wachgänger | Zeiten via `serviceStartHour/EndHour`, strikt lokal (kein UTC-Shift); Scope im Blick behalten |
-| #221 | Mehrtägige Abwesenheiten (von–bis) pro Person | **nicht** durch Feature 27 abgedeckt (das ist tageweise `absent`). Hier: Bereichserfassung + Ableitung beim `generate()` |
-| #220 | Wachgänger-Bulk-Import (CSV/Text) | robustes Parsing, `escapeHtml`, `generate()`/Autosave nach Import |
+| #221 | Mehrtägige Abwesenheiten (von–bis) pro Person | **nicht** durch Feature 27 abgedeckt (das ist tageweise `absent`). Hier: Bereichserfassung + Ableitung beim `generate()`. **Teilweise abgedeckt durch Feature 31** (von/bis aus Wachliste → tageweise `absent`), aber noch keine manuelle Bereichserfassung pro Person. |
+| #220 | Wachgänger-Bulk-Import (CSV/Text) | robustes Parsing, `escapeHtml`, `generate()`/Autosave nach Import. **Weitgehend abgedeckt durch Feature 31** (CSV/PDF-Upload der Wachliste). |
 
 **Refactor:**
 | Issue | Thema | Anmerkung |

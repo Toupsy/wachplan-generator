@@ -256,6 +256,43 @@ Top-Bar (header) und Sidebar nahmen auf Desktop viel Platz weg. Neues Modul `lay
   `localStorage['dlrg_sidebar_collapsed']`. Auf Mobile (<900px) übernimmt weiterhin der
   bestehende Tab-Switch – die Buttons sind dort per CSS ausgeblendet.
 
+### Feature 31: DLRG-Wachliste hochladen → dynamische Namensliste (CSV/PDF)
+Statt jede Person von Hand einzutragen, lädt der User die offizielle DLRG-Wachliste hoch;
+die Namensliste wird **dynamisch aus Startdatum + Anzahl Wachtage** abgeleitet. Neues Modul
+`public/js/roster.js` (in Ladereihenfolge nach `state-io.js`).
+- **Upload-UI** in der Wachgänger-Detailansicht (`#section-roster`, `#btn-roster-upload`,
+  `#roster-file-input`, `#roster-status`, `#btn-roster-clear`). Akzeptiert `.csv` und `.pdf`.
+- **CSV-Parsing** (`parseRosterCSV`): Semikolon-getrennt, Kopfzeile via Überschriften gemappt
+  (robust gegen Metazeilen/Fußnoten). **PDF-Parsing** (`parseRosterPDF`): pdf.js (lazy von
+  cdnjs, `loadPdfJsLib`). Der Worker wird als normales `<script>` vorgeladen → pdf.js läuft im
+  **Main-Thread** (Fake-Worker via `window.pdfjsWorker`), das umgeht die Cross-Origin-Worker-
+  Beschränkung (`new Worker('https://cdnjs…')` ist verboten). Zeilen werden y-weise gruppiert
+  (`_pdfGroupLines`) und **inhaltsbasiert** geparst (`_pdfParseLine`: Status + 2 Datumsangaben +
+  Job-Kürzel per Regex, Name = Text davor) – unabhängig von der Kopfzeilen-Geometrie.
+- **Normalisierung** (`normalizeRoster`): filtert auf Status „zugesagt", mappt Job→Rolle
+  (WF→F, BF→B, RS→W), Datum `DD.MM.YYYY`→ISO. Ergebnis im neuen State-Feld `roster`
+  (`[{name, role, from, to}]`), mit-serialisiert (`STATE_VERSION` 7→8).
+- **Dynamische Ableitung** (`deriveRosterPeople` + `applyRosterToWindow`): für das Fenster
+  `[startDate … startDate+DAYS-1]` werden alle Personen aufgenommen, deren Verfügbarkeit
+  überlappt; gleiche Namen über mehrere Wochenblöcke werden zusammengeführt (Rolle = größte
+  Überlappung, Gleichstand F vor B vor W). **Tage außerhalb der persönlichen Verfügbarkeit
+  werden tageweise als `absent` markiert** (nutzt Feature 27). Importierte Personen starten
+  als **unerfahren**. Ändert der User Startdatum oder Tageanzahl, wird die Liste neu
+  abgeleitet (`init.js`-Handler) → „dynamisch".
+- **Manuelle Korrekturen überleben das Neu-Ableiten:** Ändert der User Rolle/Erfahrung/HW-Wunsch/
+  Labels einer abgeleiteten Person, wird das in `rosterOverrides` (Key = normalisierter Name, nur
+  explizit geänderte Felder) gemerkt und nach jedem `applyRosterToWindow()` per
+  `mergeRosterOverrides()` wieder aufgelegt. So gehen Hand-Korrekturen beim Ändern von Datum/Tagen
+  nicht verloren – unangetastete Personen behalten aber ihre fensterabhängige Ableitung
+  (z.B. wochenabhängige Rolle). Mit-serialisiert.
+- **An-/Abreisetag:** In der Wachliste ist `bis` einer Woche identisch mit `von` der Folgewoche
+  (gemeinsamer Wechseltag). Das Verfügbarkeitsintervall wird daher **halb-offen** `[von, bis)`
+  behandelt – der Abreisetag ist kein aktiver Dienst-Tag. So gehört der Wechseltag nur der
+  anreisenden Woche und die abreisende Vorwochen-Crew wird nicht fälschlich in die aktive Woche
+  gezogen. Eintägige Einträge (`von == bis`) bekommen `to = von+1` (1 Tag aktiv).
+- **CSP:** `worker-src 'self' blob: https://cdnjs.cloudflare.com` im public-Server (für den
+  pdf.js-Worker); Admin-Server unverändert (kein Wachlisten-Upload dort).
+
 ---
 
 ## Bugfixes
