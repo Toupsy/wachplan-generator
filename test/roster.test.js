@@ -13,7 +13,8 @@ const vm = require('node:vm');
 const ctx = vm.createContext({ console, Math, Date, Set, Map, Object, Array, JSON });
 const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'roster.js'), 'utf8');
 vm.runInContext(src, ctx, { filename: 'roster.js' });
-const { rosterDateToISO, rosterJobToRole, parseRosterCSV, normalizeRoster, deriveRosterPeople } = ctx;
+const { rosterDateToISO, rosterJobToRole, parseRosterCSV, normalizeRoster, deriveRosterPeople,
+  _pdfParseLine, _pdfGroupLines } = ctx;
 
 // Kleine, repräsentative CSV-Probe (Semikolon-getrennt wie die echte DLRG-Liste).
 const SAMPLE_CSV = [
@@ -147,6 +148,54 @@ test('An-/Abreisetag: abreisende Vorwochen-Crew (bis = Fensterstart) wird ausges
   assert.strictEqual(derived[0].name, 'Neue Crew');
   // Neue Crew aktiv 08.–14.08.; 15.08. liegt außerhalb des 7-Tage-Fensters → keine Abwesenheit
   assert.deepStrictEqual([...derived[0].absentDays], []);
+});
+
+// ── PDF-Parsing (inhaltsbasiert) ─────────────────────────────────────────────
+
+test('_pdfParseLine extrahiert Felder aus einer rekonstruierten Tabellenzeile', () => {
+  const line = 'Freytag Vanessa Marie RS DRSA Silber | Erste Hilfe-Lehrgang (9 UE) '
+    + '25.07.2026 15.08.2026 23 31275 Lehrte a@b.de +4917653386039 zugesagt';
+  const r = _pdfParseLine(line);
+  assert.ok(r, 'Datenzeile erkannt');
+  assert.strictEqual(r.nachname, 'Freytag');
+  assert.strictEqual(r.vorname, 'Vanessa Marie');
+  assert.strictEqual(r.job, 'RS');
+  assert.strictEqual(r.von, '25.07.2026');
+  assert.strictEqual(r.bis, '15.08.2026');
+  assert.strictEqual(r.status, 'zugesagt');
+});
+
+test('_pdfParseLine: Kopfzeile / Quals-Umbruch liefern null', () => {
+  // Kopfzeile (keine Datumsangaben)
+  assert.strictEqual(_pdfParseLine('Name Vorname Job Zusatzqualifikationen von bis Alter* PLZ Ort Status'), null);
+  // Umgebrochene Qualifikationszeile (kein Status, keine 2 Daten)
+  assert.strictEqual(_pdfParseLine('Sanitätslehrgang A | Sanitätslehrgang B | Notfallsanitäter'), null);
+});
+
+test('_pdfParseLine: BF/WF, abgesagt, mehrteiliger Vorname', () => {
+  const wolf = _pdfParseLine('Wolf Linus BF DRSA Gold 01.08.2026 08.08.2026 23 76698 Ubstadt c@d.de +49 zugesagt');
+  assert.strictEqual(wolf.job, 'BF');
+  assert.strictEqual(wolf.vorname, 'Linus');
+  const ab = _pdfParseLine('Maas Martin RS DRSA Gold 15.08.2026 22.08.2026 19 47652 Weeze g@h.de +49 abgesagt');
+  assert.strictEqual(ab.status, 'abgesagt');
+});
+
+test('_pdfParseLine → normalizeRoster ergibt dieselbe Struktur wie der CSV-Pfad', () => {
+  const raw = [
+    _pdfParseLine('Wolf Linus BF DRSA Gold 08.08.2026 15.08.2026 23 76698 Ubstadt c@d.de +49 zugesagt'),
+    _pdfParseLine('Maas Martin RS DRSA Gold 08.08.2026 15.08.2026 19 47652 Weeze g@h.de +49 abgesagt'),
+  ];
+  const norm = normalizeRoster(raw);
+  assert.strictEqual(norm.length, 1);   // abgesagt gefiltert
+  assert.deepStrictEqual({ ...norm[0] }, { name: 'Linus Wolf', role: 'B', from: '2026-08-08', to: '2026-08-15' });
+});
+
+test('_pdfGroupLines gruppiert Tokens nach y und sortiert nach x', () => {
+  const it = (str, x, y) => ({ str, transform: [1, 0, 0, 1, x, y] });
+  const lines = _pdfGroupLines([ it('B', 50, 700), it('A', 10, 700), it('C', 10, 680) ]);
+  assert.strictEqual(lines.length, 2);
+  assert.deepStrictEqual([...lines[0]].map(t => t.str), ['A', 'B']);   // gleiche y, nach x sortiert
+  assert.deepStrictEqual([...lines[1]].map(t => t.str), ['C']);
 });
 
 test('Eintägiger Eintrag (von == bis) bleibt aktiv', () => {

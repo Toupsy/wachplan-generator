@@ -180,29 +180,44 @@ function deriveRosterPeople(rosterArr, dayDates){
 }
 
 // In Node-Testumgebung exportieren (Browser ignoriert das).
+// _pdfParseLine / _pdfGroupLines werden erst weiter unten definiert (function-hoisting greift hier).
 if(typeof module !== 'undefined' && module.exports){
-  module.exports = { rosterDateToISO, rosterJobToRole, parseRosterCSV, normalizeRoster, deriveRosterPeople };
+  module.exports = { rosterDateToISO, rosterJobToRole, parseRosterCSV, normalizeRoster, deriveRosterPeople,
+    _pdfParseLine, _pdfGroupLines };
 }
 
 // ── PDF-Parsing (lädt pdf.js bei Bedarf von cdnjs) ───────────────────────────
 
 let _pdfjsPromise = null;
+function _loadScript(src){
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('Konnte nicht geladen werden: ' + src));
+    document.head.appendChild(s);
+  });
+}
+/**
+ * Lädt pdf.js (UMD) von cdnjs. Der Worker (pdf.worker.min.js) wird als normales
+ * <script> vorgeladen → pdf.js nutzt `window.pdfjsWorker` auf dem MAIN-THREAD
+ * (Fake-Worker). Das umgeht die Cross-Origin-Worker-Beschränkung des Browsers
+ * (ein `new Worker('https://cdnjs…')` ist nicht erlaubt) und CSP-Worker-Fallstricke.
+ */
 function loadPdfJsLib(){
   if(typeof window !== 'undefined' && window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
   if(_pdfjsPromise) return _pdfjsPromise;
   const VER = '3.11.174';
   const base = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/' + VER + '/';
-  _pdfjsPromise = new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = base + 'pdf.min.js';
-    s.onload = () => {
-      if(!window.pdfjsLib){ reject(new Error('pdf.js nicht verfügbar')); return; }
-      try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = base + 'pdf.worker.min.js'; } catch(e){}
-      resolve(window.pdfjsLib);
-    };
-    s.onerror = () => { _pdfjsPromise = null; reject(new Error('pdf.js konnte nicht geladen werden (Internetverbindung nötig)')); };
-    document.head.appendChild(s);
-  });
+  _pdfjsPromise = (async () => {
+    await _loadScript(base + 'pdf.min.js');
+    if(!window.pdfjsLib) throw new Error('pdf.js nicht verfügbar');
+    // Worker-Code als Script vorladen (setzt window.pdfjsWorker) → Main-Thread-Fallback
+    try { await _loadScript(base + 'pdf.worker.min.js'); } catch(e){ console.warn('pdf.js-Worker-Preload fehlgeschlagen, Main-Thread-Fallback:', e); }
+    try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = base + 'pdf.worker.min.js'; } catch(e){}
+    return window.pdfjsLib;
+  })();
+  _pdfjsPromise.catch(() => { _pdfjsPromise = null; });   // bei Fehler erneuter Versuch möglich
   return _pdfjsPromise;
 }
 
@@ -226,67 +241,50 @@ function _pdfGroupLines(items){
   return lines.map(l => l.toks);
 }
 
-/** Erkennt aus einer Kopfzeile die Spalten-Anker (x-Position je Überschrift). */
-function _pdfDetectColumns(lineToks){
-  const lower = lineToks.map(t => t.str.trim().toLowerCase());
-  if(!(lower.includes('name') && lower.includes('vorname') && lower.some(s => s.startsWith('status')))) return null;
-  const keyFor = s => {
-    const l = s.trim().toLowerCase();
-    if(l === 'name') return 'nachname';
-    if(l === 'vorname') return 'vorname';
-    if(l === 'job') return 'job';
-    if(l.startsWith('zusatz')) return 'quals';
-    if(l === 'von') return 'von';
-    if(l === 'bis') return 'bis';
-    if(l.startsWith('status')) return 'status';
-    return null;   // Anker ohne Zielfeld (nur als Spaltengrenze)
-  };
-  return lineToks.map(t => ({ key: keyFor(t.str), x: t.x })).sort((a, b) => a.x - b.x);
+/**
+ * Parst EINE rekonstruierte Tabellenzeile (Tokens links→rechts zu Text verbunden) inhaltlich.
+ * Unabhängig von Kopfzeilen-Geometrie – robust gegen das Chrome/Skia-PDF-Layout.
+ * Erwartete Struktur einer Datenzeile (oberste Zeile eines Tabellen-Eintrags):
+ *   "Nachname Vorname[…] <Job> <Quals…> DD.MM.YYYY DD.MM.YYYY Alter PLZ Ort E-Mail Tel… <Status>"
+ * @returns {null|{nachname,vorname,job,quals,von,bis,status}}
+ */
+function _pdfParseLine(text){
+  if(!text) return null;
+  const statusM = text.match(/\b(zugesagt|abgesagt)\b/i);
+  if(!statusM) return null;
+  const dates = text.match(/\d{1,2}\.\d{1,2}\.\d{4}/g);
+  if(!dates || dates.length < 2) return null;            // von + bis nötig
+  const von = dates[0], bis = dates[1];
+
+  // Job = erstes alleinstehendes RS/BF/WF; Name = alles davor (sonst alles vor dem ersten Datum)
+  const jobM = text.match(/\b(RS|BF|WF)\b/);
+  const job = jobM ? jobM[1] : '';
+  let namePart = (jobM ? text.slice(0, jobM.index) : text.slice(0, text.indexOf(von)));
+  namePart = namePart.replace(/\s+/g, ' ').trim();
+  if(!namePart) return null;
+  const toks = namePart.split(' ').filter(Boolean);
+  const nachname = toks.shift() || '';
+  const vorname = toks.join(' ');     // mehrteilige Vornamen ("Vanessa Marie") bleiben erhalten
+
+  return { nachname, vorname, job, quals: '', von, bis, status: statusM[1].toLowerCase() };
 }
 
-/** Verteilt die Tokens einer Datenzeile auf die Spalten-Anker und baut eine Roh-Zeile. */
-function _pdfBucketRow(lineToks, columns){
-  const buckets = columns.map(() => []);
-  lineToks.forEach(t => {
-    let ci = 0;
-    for(let i = 0; i < columns.length; i++){ if(columns[i].x <= t.x + 2) ci = i; else break; }
-    buckets[ci].push(t.str);
-  });
-  const row = {};
-  columns.forEach((c, i) => { if(c.key) row[c.key] = (row[c.key] ? row[c.key] + ' ' : '') + buckets[i].join(' ').trim(); });
-  const status = String(row.status||'').toLowerCase().trim();
-  const isStatus = status === 'zugesagt' || status === 'abgesagt';
-  const hasDates = rosterDateToISO(row.von) && rosterDateToISO(row.bis);
-  if(!isStatus || !hasDates) return null;
-  return {
-    nachname: (row.nachname||'').trim(),
-    vorname:  (row.vorname||'').trim(),
-    job:      (row.job||'').trim(),
-    quals:    (row.quals||'').trim(),
-    von:      (row.von||'').trim(),
-    bis:      (row.bis||'').trim(),
-    status,
-  };
-}
-
-/** Liest die Wachliste aus einem PDF (ArrayBuffer) → Roh-Zeilen. */
+/** Liest die Wachliste aus einem PDF (ArrayBuffer) → Roh-Zeilen (inhaltsbasiert, kopfzeilenfrei). */
 async function parseRosterPDF(arrayBuffer){
   const pdfjs = await loadPdfJsLib();
   const doc = await pdfjs.getDocument({ data: arrayBuffer }).promise;
-  let columns = null;
   const rows = [];
   for(let p = 1; p <= doc.numPages; p++){
     const page = await doc.getPage(p);
     const tc = await page.getTextContent();
     const lines = _pdfGroupLines(tc.items);
     for(const line of lines){
-      const maybeCols = _pdfDetectColumns(line);
-      if(maybeCols){ columns = maybeCols; continue; }
-      if(!columns) continue;
-      const row = _pdfBucketRow(line, columns);
+      const text = line.map(t => t.str).join(' ').replace(/\s+/g, ' ').trim();
+      const row = _pdfParseLine(text);
       if(row) rows.push(row);
     }
   }
+  console.log('[roster] PDF: ' + doc.numPages + ' Seite(n), ' + rows.length + ' Datenzeilen erkannt');
   return rows;
 }
 

@@ -264,8 +264,11 @@ die Namensliste wird **dynamisch aus Startdatum + Anzahl Wachtage** abgeleitet. 
   `#roster-file-input`, `#roster-status`, `#btn-roster-clear`). Akzeptiert `.csv` und `.pdf`.
 - **CSV-Parsing** (`parseRosterCSV`): Semikolon-getrennt, Kopfzeile via Überschriften gemappt
   (robust gegen Metazeilen/Fußnoten). **PDF-Parsing** (`parseRosterPDF`): pdf.js (lazy von
-  cdnjs, `loadPdfJsLib`), Text wird über die x-Positionen der Kopfzeile spaltenweise
-  rekonstruiert. CSV ist der zuverlässige Pfad, PDF best-effort.
+  cdnjs, `loadPdfJsLib`). Der Worker wird als normales `<script>` vorgeladen → pdf.js läuft im
+  **Main-Thread** (Fake-Worker via `window.pdfjsWorker`), das umgeht die Cross-Origin-Worker-
+  Beschränkung (`new Worker('https://cdnjs…')` ist verboten). Zeilen werden y-weise gruppiert
+  (`_pdfGroupLines`) und **inhaltsbasiert** geparst (`_pdfParseLine`: Status + 2 Datumsangaben +
+  Job-Kürzel per Regex, Name = Text davor) – unabhängig von der Kopfzeilen-Geometrie.
 - **Normalisierung** (`normalizeRoster`): filtert auf Status „zugesagt", mappt Job→Rolle
   (WF→F, BF→B, RS→W), Datum `DD.MM.YYYY`→ISO. Ergebnis im neuen State-Feld `roster`
   (`[{name, role, from, to}]`), mit-serialisiert (`STATE_VERSION` 7→8).
