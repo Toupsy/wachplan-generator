@@ -14,14 +14,19 @@ function renderPeople(){
     c.appendChild(warning);
   }
 
+  let dragSrcPerson = null;
+  let dragMode = null; // 'swap' oder 'insert'
+
   people.forEach((p, i) => {
     const row = document.createElement('div');
     row.className = 'person-edit';
+    row.draggable = true;
+    row.dataset.idx = i;
     const hasLabels = (p.labels || '').trim().length > 0;
     row.innerHTML = `
-      <span class="pnr" title="Nr. in Besetzungsliste">${i+1}</span>
-      <input type="text" value="${escapeHtml(p.name)}" data-id="${p.id}" class="pname" placeholder="Name">
-      <select data-id="${p.id}" class="prole">
+      <span class="pnr" style="cursor:grab" title="Ziehen zum Sortieren – ändert die Nr. in der Besetzungsliste (XLSX-Export)">${i+1}</span>
+      <input type="text" value="${escapeHtml(p.name)}" data-id="${p.id}" class="pname" placeholder="Name" draggable="false">
+      <select data-id="${p.id}" class="prole" draggable="false">
         <option value="F" ${p.role==='F'?'selected':''}>Führung</option>
         <option value="B" ${p.role==='B'?'selected':''}>Bootsführer</option>
         <option value="W" ${p.role==='W'?'selected':''}>Wachgänger</option>
@@ -51,6 +56,62 @@ function renderPeople(){
     labelsRow.innerHTML = `
       <input type="text" value="${escapeHtml(p.labels||'')}" data-id="${p.id}" class="plabels" placeholder="Labels (z.B. Sanitäter, Rettungsschwimmer)" maxlength="200">`;
     c.appendChild(labelsRow);
+
+    // ── Drag & Drop: Reihenfolge (= Nr. im XLSX-Export) ändern ──────
+    row.addEventListener('dragstart', e => {
+      dragSrcPerson = i;
+      e.dataTransfer.effectAllowed = 'move';
+      setTimeout(() => row.style.opacity = '0.4', 0);
+    });
+    row.addEventListener('dragend', () => {
+      row.style.opacity = '';
+      c.querySelectorAll('.person-edit').forEach(r => {
+        r.style.background = '';
+        r.style.borderTop = '';
+      });
+    });
+    row.addEventListener('dragover', e => {
+      if(dragSrcPerson === null) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      // Obere Hälfte = Einfügen (Reorder), untere Hälfte = Tauschen
+      const rect = row.getBoundingClientRect();
+      const midpoint = rect.top + rect.height / 2;
+      if(e.clientY < midpoint){
+        dragMode = 'insert';
+        row.style.borderTop = '3px solid var(--green)';
+        row.style.background = '';
+      } else {
+        dragMode = 'swap';
+        row.style.borderTop = '';
+        row.style.background = 'rgba(24,168,216,.15)';
+      }
+    });
+    row.addEventListener('dragleave', () => {
+      row.style.background = '';
+      row.style.borderTop = '';
+    });
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      row.style.background = '';
+      row.style.borderTop = '';
+      if(dragSrcPerson === null || dragSrcPerson === i) return;
+
+      if(dragMode === 'swap'){
+        [people[dragSrcPerson], people[i]] = [people[i], people[dragSrcPerson]];
+      } else {
+        const moved = people.splice(dragSrcPerson, 1)[0];
+        const targetIdx = dragSrcPerson < i ? i - 1 : i;
+        people.splice(targetIdx, 0, moved);
+      }
+
+      dragSrcPerson = null;
+      dragMode = null;
+      // Reihenfolge ändert nur die Besetzungs-Nr. (personNr) → KEIN generate(),
+      // der Plan selbst bleibt unverändert; nur neu rendern + speichern.
+      renderPeople();
+      scheduleAutoSave();
+    });
   });
 
   // Event handler for label checkbox
