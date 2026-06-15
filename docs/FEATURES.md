@@ -293,6 +293,20 @@ die Namensliste wird **dynamisch aus Startdatum + Anzahl Wachtage** abgeleitet. 
 - **CSP:** `worker-src 'self' blob: https://cdnjs.cloudflare.com` im public-Server (für den
   pdf.js-Worker); Admin-Server unverändert (kein Wachlisten-Upload dort).
 
+### Feature 32: Wachgänger per Drag & Drop sortieren (Besetzungs-Nr. im XLSX)
+Die Reihenfolge des `people[]`-Arrays bestimmt via `personNr()` die 1-basierte Nummer in der
+Besetzungsliste des XLSX-Exports (Namen 1–28, Stundendaten verweisen darauf). Bisher war diese
+Reihenfolge nur über Hinzufügen/Löschen beeinflussbar.
+- Die Wachgänger-Liste (`#section-people` / `renderPeople()`) bekommt dasselbe Drag-&-Drop-
+  Muster wie Türme/Boote: die **Nummer (`.pnr`) ist der Ziehgriff** (`cursor:grab`), obere
+  Zeilenhälfte = **Einfügen** (Reorder), untere Hälfte = **Tauschen** (analog `renderTowerCfg`/
+  `renderBoatCfg`). Name-Input und Rollen-Select sind `draggable="false"`, damit Textauswahl/
+  -bearbeitung erhalten bleibt; die Drop-/Dragover-Listener liegen auf der ganzen `.person-edit`-Zeile.
+- **Reordering ändert nur die Besetzungs-Nr., NICHT den generierten Plan** → bewusst **kein**
+  `generate()`, nur `renderPeople()` + `scheduleAutoSave()`. `people[]` wird ohnehin serialisiert,
+  daher keine `STATE_VERSION`-/Serialisierungs-Änderung nötig. Hinweis in der Info-Box von
+  `#section-people` ergänzt.
+
 ---
 
 ## Bugfixes
