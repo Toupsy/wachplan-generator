@@ -11,7 +11,18 @@
 > Doku-Wartungsvertrag s. CLAUDE.md.
 
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
-`main` ist sauber: **34/34 Tests grün**, alle Server parsen (`node -c`).
+`main` ist sauber: Tests grün, alle Server parsen (`node -c`).
+
+**Letzter Lauf (2026-06-15, Feature 32: BF-an-HW-Pflicht bei BF-Überschuss – Branch `claude/bf-surplus-staffing-fld551`):**
+- **Neues Feature (s. docs/FEATURES.md Feature 32):** Globaler Schalter „Bei BF-Überschuss immer
+  1 BF auf der Hauptwache" (Checkbox `#require-bf-hw` im HW-Konfig-Block). Bei echter BF-Überzahl
+  (mehr BF als Boote) sitzt täglich mind. 1 überzähliger BF aktiv auf der HW (z.B. 3 HW-Slots →
+  2 WG + 1 BF). Neues State-Feld `requireBfAtHw` (Default false), an 3 Stellen gepflegt + UI-Sync.
+  Algorithmus: Vorab-Platzierung eines surplus-BF im HW-Abschnitt (`generate.js`), fair rotierend
+  (`hwGuardDays` asc). Komplementär zu Feature 26 (per-Person-Wunsch).
+- **Tests:** neuer `test/require-bf-hw.test.js` (4 Tests, alle grün). Volle Suite **55 Tests grün**.
+  `node -c` für alle geänderten Frontend-Dateien OK. **Nicht im Browser verifiziert** (kein Browser
+  im Container) – Checkbox/Handler per Code-Review geprüft, Algorithmus per Test abgesichert.
 
 **Letzter Lauf (2026-06-14, Feature 31: Wachliste hochladen → dynamische Namensliste – Branch `claude/dynamic-name-list-dates-sfyz4u`):**
 - **Neues Feature (s. docs/FEATURES.md Feature 31):** Upload der DLRG-Wachliste (CSV **und** PDF);

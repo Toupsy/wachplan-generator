@@ -500,6 +500,26 @@ function generate(startDay = 0){
       mainGuards.push(p);
     });
 
+    // Feature: BF-an-HW-Pflicht. Bei aktivierter Option und echter BF-Überzahl wird VOR
+    // der normalen HW-Befüllung ein überzähliger Bootsführer als fester Guard platziert –
+    // so bleibt z.B. bei k=3 Platz für 2 Wachgänger (→ 2 WG + 1 BF). Die übrigen Slots
+    // füllt der Algorithmus regulär (E/U-Mix). Fairste Rotation: BF mit den wenigsten
+    // aktiven HW-Diensten zuerst (dann Gesamteinsätze / HW-Tage). poolSBF enthält nur
+    // überzählige BF → automatisches Gating (leer = keine Überzahl).
+    if(requireBfAtHw && poolSBF.length > 0 && mainGuards.length < k
+       && !mainGuards.some(p => p.role === 'B')){
+      const bf = [...poolSBF].sort((a,b) => {
+        const sa = ensure(a.id), sb = ensure(b.id);
+        return (sa.hwGuardDays - sb.hwGuardDays)
+            || (sa.total - sb.total)
+            || ((sa.hwVisits||0) - (sb.hwVisits||0))
+            || (a.id - b.id);
+      })[0];
+      removeAll(bf);
+      commitPerson(bf, mainPseudo);
+      mainGuards.push(bf);
+    }
+
     while(mainGuards.length < k && guardPoolSize() > 0){
       const remaining = k - mainGuards.length;
       if(remaining >= 2 && guardPoolSize() >= 2){

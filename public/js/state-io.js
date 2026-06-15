@@ -44,6 +44,7 @@ function _buildStateObject(){
     randomSeed,
     startDate,
     mainK,
+    requireBfAtHw,
     serviceStartHour,
     serviceEndHour,
     days:                 DAYS,
@@ -112,6 +113,7 @@ function importStateJSON(json, silent = false){
   randomSeed        = s.randomSeed        ?? 0;
   startDate         = s.startDate         ?? '';
   mainK             = s.mainK             ?? 2;
+  requireBfAtHw     = s.requireBfAtHw     ?? false;
   serviceStartHour  = s.serviceStartHour  ?? 9;
   serviceEndHour    = s.serviceEndHour    ?? 17;
   DAYS              = s.days              ?? 6;
@@ -172,6 +174,8 @@ function importStateJSON(json, silent = false){
   // UI neu aufbauen
   document.getElementById('start-date').value = startDate;
   document.getElementById('main-k').value     = mainK;
+  const reqBfEl = document.getElementById('require-bf-hw');
+  if(reqBfEl) reqBfEl.checked = requireBfAtHw;
   document.getElementById('service-start-hour').value = serviceStartHour;
   document.getElementById('service-end-hour').value   = serviceEndHour;
   updateSeedDisplay();
@@ -385,6 +389,7 @@ async function fetchPlansList(){
 function _rebuildAllUI(){
   const sd = document.getElementById('start-date'); if(sd) sd.value = startDate || '';
   const mk = document.getElementById('main-k');     if(mk) mk.value = mainK;
+  const rbf = document.getElementById('require-bf-hw'); if(rbf) rbf.checked = requireBfAtHw;
   if(typeof updateSeedDisplay === 'function') updateSeedDisplay();
   autoCodes();
   renderPeople(); renderTowerCfg(); renderBoatCfg();
