@@ -239,6 +239,14 @@ if(mainKInput) mainKInput.oninput = e => {
   mainK = Math.max(0, +e.target.value||0);
 };
 
+// BF-an-HW-Pflicht: bei BF-Überschuss immer 1 BF aktiv auf der Hauptwache
+const requireBfHwInput = document.getElementById('require-bf-hw');
+if(requireBfHwInput) requireBfHwInput.onchange = e => {
+  requireBfAtHw = !!e.target.checked;
+  if(lastResult) generate();
+  scheduleAutoSave();
+};
+
 // ── Sidebar – Dienstzeit (Feature 15) ────────────────────────────────
 const serviceStartHourInput = document.getElementById('service-start-hour');
 const serviceEndHourInput = document.getElementById('service-end-hour');

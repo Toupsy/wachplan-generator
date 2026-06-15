@@ -295,6 +295,30 @@ die Namensliste wird **dynamisch aus Startdatum + Anzahl Wachtage** abgeleitet. 
 
 ---
 
+### Feature 32: Bei BF-Überschuss immer 1 BF auf der Hauptwache
+Globaler Schalter „Bei BF-Überschuss immer 1 BF auf der Hauptwache" (Checkbox `#require-bf-hw`
+im HW-Konfig-Block, neben den Guard-Slots). Wunsch: Wenn es **mehr Bootsführer als besetzbare
+Boote** gibt (echte BF-Überzahl), soll an **jedem Tag** mindestens ein überzähliger BF einen
+**aktiven** HW-Dienst leisten – z.B. bei 3 HW-Slots → **2 Wachgänger + 1 BF**.
+- **State:** neues globales Flag `requireBfAtHw` (Default `false`) in `state.js`
+  (+ `resetGlobalState`), mit-serialisiert in `state-io.js` (`_buildStateObject` +
+  `importStateJSON`, Default für Altpläne), UI-Sync in `importStateJSON`/`_rebuildAllUI`.
+  Event-Handler in `init.js` (regeneriert bei Änderung, falls bereits ein Plan existiert).
+- **Algorithmus (`generate.js`, HW-Abschnitt):** Vor der regulären HW-Befüllung wird – wenn das
+  Flag aktiv ist, `poolSBF` (überzählige BF) nicht leer ist, noch HW-Plätze frei sind und noch
+  kein BF unter den `mainGuards` ist – ein überzähliger BF als **fester Guard** vorab platziert.
+  Auswahl fair rotierend: wenigste aktive HW-Dienste (`hwGuardDays`) zuerst, dann
+  Gesamteinsätze/HW-Tage. Die übrigen HW-Slots füllt der Algorithmus regulär (E/U-Mix), also
+  bleibt Platz für Wachgänger. `poolSBF` enthält nur überzählige BF → automatisches Gating:
+  ohne echte Überzahl wird nichts erzwungen.
+- **Komplementär zum BF-HW-Wunsch (Feature 26):** Feature 26 ist ein *per-Person*-Wunsch auf
+  ≥1 HW-Dienst pro Woche; dieses Feature ist ein *globaler, täglicher* Zwang bei BF-Überzahl.
+- **Tests:** `test/require-bf-hw.test.js` (4 Tests): Flag an + Überzahl → täglich ≥1 BF auf HW
+  (und ≥1 WG bleibt); keine Überzahl → kein BF erzwungen; HW wird nicht mit BF überflutet;
+  Flag aus → Default-Verhalten unverändert.
+
+---
+
 ## Bugfixes
 
 ### Plan-Retention-Cleanup lief nie – `db` undefined (#272)

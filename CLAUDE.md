@@ -107,6 +107,7 @@ fairnessMetricsDisplay // { hwBoatBalance, towerDistribution, boatPairingDiversi
 exportColumns[] // 16 Stationscodes → Template-Spalten
 lastResult      // { schedule, pairCount, stats, peopleGuards, fairnessMetrics }
 activeDay, DAYS(1–14), uid, randomSeed(0=keiner), mainK
+requireBfAtHw   // global Bool (Def false): bei echter BF-Überzahl täglich ≥1 überzähliger BF aktiv auf der HW (Feature 32)
 serviceStartHour/EndHour // Def 9/17, clamp 8–19
 ```
 **Rollen:** F=Führung, B=Bootsführer, W=Wachgänger · **MAIN_ID = 0** (HW-Pseudo-ID).
@@ -159,6 +160,13 @@ HW-Dienst (`mainGuards`) bekommen. `hwWishBonus` gibt noch unerfüllten Wünsche
 Wochenende eskalierenden HW-Bonus (600→6000→100000), eingebaut in `bestPair` (HW-Zweig) +
 HW-Einzelbefüllung. Sicherheitsnetz im `availB`-Sort drückt unerfüllte Wunsch-BF bei echter
 Überzahl in den letzten 2 Tagen in die surplus-Hälfte. `hwGuardDays==0` = noch offen.
+
+**BF-an-HW-Pflicht (Feature 32, global `requireBfAtHw`):** Ist das Flag aktiv und gibt es echte
+BF-Überzahl (`poolSBF` nicht leer), wird im HW-Abschnitt VOR der regulären Befüllung ein
+überzähliger BF als fester `mainGuard` vorab platziert (fairste Rotation: wenigste `hwGuardDays`
+zuerst) – aber nur, wenn noch HW-Plätze frei sind und nicht schon ein BF unter den `mainGuards`
+ist. Restliche HW-Slots füllt der Algorithmus regulär (z.B. k=3 → 2 WG + 1 BF). Anders als
+Feature 26 (per-Person-Wunsch, ≥1×/Woche) ist das ein globaler, **täglicher** Zwang.
 
 **Zwangszuweisungen (forcedPlacements):** `transparent:false` → Person aus Pool, fest
 vorab platziert, zählt in Statistik (Folgetage berücksichtigen Wechsel). `transparent:true`
