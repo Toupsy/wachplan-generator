@@ -251,6 +251,10 @@ CSP/HSTS/Security-Header. **Secrets in `.env`** (Pflicht: `MASTER_SECRET`≥32, 
 - `personNr()` / `showConfirmation()` NUR in `utils.js` (lädt früh) – nicht duplizieren.
 - **Kein Framework:** Re-Renders via komplettem `innerHTML`-Replace; alle User-Inputs via
   `escapeHtml()`/`textContent` (XSS).
+- **Mobile-Tab-Switch:** `#output-panel{display:flex !important;…}` MUSS in
+  `@media(min-width:901px)` gescoped bleiben – ungescoped schlägt es (ID + `!important`)
+  die Mobile-Regel `.main-panel{display:none}` und der Wachplan ist auf Mobile immer
+  sichtbar (auch im Einstellungen-Tab). Breakpoint des Tab-Switch: **900px** (nicht 768).
 - **Constraints:** max 28 Personen (XLSX), 16 Stationsspalten, Paarungs-Matrix nur bei 2–18 E/U,
   DAYS 1–14, Turm slotCount 1–10, Boot 1–3.
 - **Beobachter-Modus (Feature 30):** Nur-Lese-Pläne (Share-Rolle `view`, `currentPlanCanEdit=false`)

@@ -564,3 +564,22 @@ exportiert und pro importiertem Plan angewandt (gleiche Limits wie POST/PUT: Nam
 State ≤ 1 MB; ungültige Pläne werden mit klarer Meldung übersprungen, Teilimport bleibt
 möglich). Fehlermeldungen an den Client sind jetzt generisch („Import fehlgeschlagen“),
 Details nur noch via `console.error`; Namen in Fehler-Strings String-koerziert + gekürzt.
+
+### Mobile: Wachplan im Einstellungen-Tab sichtbar + chaotische Zeilenumbrüche (Mobile-Fix-Sammel)
+Der Desktop-Layout-Hack `#output-panel{display:flex !important;height:100% !important;…}`
+überschrieb per ID-Spezifität + `!important` die Mobile-Tab-Regel `.main-panel{display:none}`
+(@media ≤900px) → das Output-Panel (Wachplan) war auf Mobile **immer** sichtbar und hing mit
+100%-Höhe unter dem Einstellungen-Tab. **Lösung:** Regel in `@media(min-width:901px)` gescoped;
+die Tab-Logik (`init.js`) war korrekt. Weitere Mobile-Fixes im selben Zug:
+- **Turm-/Boot-Steuerzeilen** (`.tower-row-meta`): bei ≤520px geordnetes Grid
+  (CODE | PRIO | × / Spinner bzw. Boot-Zuordnung volle Breite) statt zufälligem `flex-wrap`.
+- **Besatzungszeilen** (`.occupant`): Name jetzt in `<span class="o-name"><span class="nm">`
+  (zentral in `renderOccupant`, render-output.js) mit `flex:1;min-width:0` + Ellipsis →
+  lange Namen/Labels sprengen die Zeile nicht mehr; Rolle/↕-Button `flex-shrink:0`.
+- **Stats-Bar**: bei ≤520px feste 2 Spalten statt gequetschtem `auto-fit`-Grid.
+- **iOS-Auto-Zoom**: Sidebar-Inputs/Selects bekommen bei ≤900px `font-size:16px`
+  (CODE/PRIO-Inputs dafür etwas breiter).
+- **Einzeltag-Druck mobil**: `print-single-day`-Klasse wird via `afterprint`-Event entfernt
+  (Fallback 2 s) statt `setTimeout(100ms)` – mobile Browser drucken asynchron.
+- Auto-Tab-Switch nach „Plan generieren" dedupliziert (`mobileShowPanel()` in init.js);
+  veraltete „<768px"-Kommentare auf den echten Breakpoint 900px korrigiert.

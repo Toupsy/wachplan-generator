@@ -305,14 +305,14 @@ function renderOutput(){
           .map(l => l.trim())
           .filter(l => l)
         : [];
-      const labelText = labels.length > 0 ? ' - <span class="person-labels">' + labels.map(l => `<span class="label-tag">${escapeHtml(l)}</span>`).join(' ') + '</span>' : '';
+      const labelText = labels.length > 0 ? '<span class="person-labels">' + labels.map(l => `<span class="label-tag">${escapeHtml(l)}</span>`).join(' ') + '</span>' : '';
       // Beobachter-Modus: Erfahrung (erfahren/unerfahren) nicht erkennbar machen –
       // weder über die Punkt-Farbe noch über das Label.
       const dotCls  = viewOnly ? roleDotSafe(p) : roleDot(p);
       const roleTxt = label || (viewOnly ? roleLabelSafe(p) : roleLabel(p));
       return `
           <div class="occupant" draggable="${viewOnly?'false':'true'}" data-person-id="${p.id}" data-source-kind="${kind}" data-source-slot="${slotId}">
-            <i class="role-dot rd-${dotCls}"></i>${escapeHtml(p.name)}${labelText}
+            <i class="role-dot rd-${dotCls}"></i><span class="o-name"><span class="nm">${escapeHtml(p.name)}</span>${labelText}</span>
             ${forcedIds.has(p.id)?'<span class="forced-badge" title="Manuell fixiert">🔒</span>':''}
             <span class="o-role">${roleTxt}</span>
             ${viewOnly?'':`<button class="move-btn" data-move-person="${p.id}" data-move-day="${di}"
@@ -792,9 +792,12 @@ function renderOutput(){
   if(btnPrintDay) {
     btnPrintDay.onclick = () => {
       document.body.classList.add('print-single-day');
+      // Mobile Browser drucken asynchron: Klasse erst nach afterprint entfernen,
+      // sonst rendert der Druckdialog ohne Single-Day-Modus (Fallback: 2s).
+      const cleanup = () => document.body.classList.remove('print-single-day');
+      window.addEventListener('afterprint', cleanup, { once: true });
+      setTimeout(cleanup, 2000);
       window.print();
-      // Remove class after print dialog closes (user may cancel)
-      setTimeout(() => document.body.classList.remove('print-single-day'), 100);
     };
   }
 
