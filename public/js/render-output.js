@@ -778,10 +778,6 @@ function renderOutput(){
   document.getElementById('btn-csv').onclick   = exportCSV;
   document.getElementById('btn-export-stats-csv').onclick = exportStatsCSV;
 
-  // Persönlicher .ics-Export pro Person (Feature 38, #222)
-  panel.querySelectorAll('.ics-btn').forEach(b =>
-    b.onclick = () => exportPersonICS(+b.dataset.icsPerson));
-
   // Print button handlers - two modes: all days vs. single day
   const btnPrintAll = document.getElementById('btn-print-all');
   const btnPrintDay = document.getElementById('btn-print-day');
@@ -822,9 +818,7 @@ function renderTowerStatsPerPerson(){
     const cnt = Object.keys(stat.towerVisits||{}).length;
     const deets = Object.entries(stat.towerVisits||{}).sort(([a],[b])=>(tMap[b]?.prio||0)-(tMap[a]?.prio||0))
       .map(([tid,c])=>(tMap[tid]?.name||`T${tid}`)+'('+c+')').join(', ');
-    html += `<tr style="border-bottom:1px solid var(--line-strong)"><td style="padding:6px">`
-      + `<button class="ghost-btn ics-btn" data-ics-person="${p.id}" title="Persönlichen Dienstplan als Kalender (.ics) exportieren" `
-      + `style="padding:1px 6px;font-size:.8rem;margin-right:6px">📅</button>${escapeHtml(p.name)}</td>`;
+    html += `<tr style="border-bottom:1px solid var(--line-strong)"><td style="padding:6px">${escapeHtml(p.name)}</td>`;
     html += `<td style="text-align:center;padding:6px">${stat.total}</td><td style="text-align:center;padding:6px;color:${cnt>=threshold?'var(--green)':'var(--warn)'};font-weight:bold">${cnt}</td>`;
     html += `<td style="padding:6px;font-size:.75rem;color:var(--text-dim)">${escapeHtml(deets)}</td></tr>`;
   });

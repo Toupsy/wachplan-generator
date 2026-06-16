@@ -37,18 +37,6 @@ dem Owner-Key des aktuellen Nutzers verschlüsselt (auch das Duplizieren geteilt
 - **Nicht im Browser verifiziert** (kein Browser im Container) – reiner Frontend-/Netzwerk-Flow,
   per Code-Review geprüft (nutzt den bestehenden, getesteten `POST /api/plans`-Pfad).
 
-### Feature 38: Persönlicher Dienstplan-Export pro Wachgänger (iCal/.ics) (Issue #222)
-Pro Person ein „📅"-Button in der Pro-Person-Tabelle (Turm-Einsatzverteilung) exportiert
-einen persönlichen Dienstplan als `.ics`-Kalenderdatei (`wachplan-<Name>.ics`).
-- Pro **Diensttag** ein `VEVENT` aus `lastResult.schedule`: Turm-/Boot-/HW-Slot der Person.
-  `DTSTART`/`DTEND` aus `startDate`+Tag-Index und `serviceStartHour`/`serviceEndHour`.
-- **Zeiten strikt lokal** (floating local time, `YYYYMMDDTHHMMSS`, kein `Z`/UTC, kein
-  `toISOString`) – konsistent mit `dates.js` (Off-by-one-Falle vermieden).
-- `SUMMARY` = Stationsname (Turm/Boot/„Hauptwache"), `LOCATION` = Stationscode; RFC-5545-Escaping.
-- Tage ohne Dienst bzw. „außer Dienst" (sick) erzeugen **kein** Event.
-- Kern (`buildPersonICS`, `_findPersonStation`, `_icsEscape`, `_icsLocalDT`) DOM-frei und
-  unit-getestet (`test/ics-export.test.js`); Button nur außerhalb des Beobachter-Modus.
-
 ### Feature 5: BF-Schutz (surplusBF-Penalty)
 Übrige Bootsführer (nicht auf Booten) sollen nicht an Türmen mit aktivem Boot stehen.
 - +800 Penalty auf aktive-Boot-Türmen; -350 auf deaktivierten-Boot-Türmen → 1150 Swing.
