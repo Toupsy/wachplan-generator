@@ -25,6 +25,18 @@ Admin-UI (`/admin.html`) filtert diese Aktionen bereits via `AUDIT_ACTION_LABELS
 
 **Datenschutz-Abwägung `login`/`logout`:** Erzeugt Aktivitätsdatensatz pro Nutzer. Entscheidung zugunsten der DSGVO-Rechenschaftspflicht (Art. 5 Abs. 2) bei personenbezogenen Plan-Daten.
 
+### Feature 40: Plan duplizieren („Als Vorlage verwenden") im Plan-Manager (Issue #223)
+Je Plan-Eintrag im Plan-Manager (`📋 Meine Pläne`) ein „⧉"-Button, der den Plan als **neuen,
+unabhängigen** Plan unter dem aktuellen Nutzer dupliziert (Personen/Türme/Boote/Config). Ablauf:
+Quelle via `GET /api/plans/:id` laden → State tief klonen → `POST /api/plans` mit neuem Namen
+(Default „… (Kopie)") → Duplikat öffnen. Das Original bleibt unverändert; das Duplikat wird mit
+dem Owner-Key des aktuellen Nutzers verschlüsselt (auch das Duplizieren geteilter Pläne möglich).
+- **Checkbox „manuelle Zuweisungen übernehmen"** (Default an): aus → `forcedPlacements` werden im
+  Duplikat geleert; `dayState` (sick/absent/closed) wird stets mitkopiert.
+- Implementiert in `state-io.js` (`duplicatePlanById`) + `plans-ui.js` (Button/Handler).
+- **Nicht im Browser verifiziert** (kein Browser im Container) – reiner Frontend-/Netzwerk-Flow,
+  per Code-Review geprüft (nutzt den bestehenden, getesteten `POST /api/plans`-Pfad).
+
 ### Feature 39: Mehrtägige Abwesenheiten pro Wachgänger vorab markieren (Issue #221)
 Pro Person ein „🗓️"-Toggle in `#section-people`, das eine **von–bis**-Zeile (Tag 1..DAYS)
 einblendet. Die markierten Tage werden als `people[i].absentDays` (0-basierte Tagesindizes)

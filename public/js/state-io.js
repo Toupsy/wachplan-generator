@@ -452,6 +452,38 @@ function renameCurrentPlan(name){
   scheduleAutoSave(200);
 }
 
+/**
+ * Plan duplizieren (#223): Quelle laden, State serialisieren, als NEUEN, unabhängigen
+ * Plan unter dem aktuellen Nutzer anlegen (verschlüsselt mit dessen Owner-Key) und öffnen.
+ * @param id          ID der Quelle (aktueller oder anderer Plan; auch geteilte gehen)
+ * @param newName      Name des Duplikats (Default: Quellname + " (Kopie)")
+ * @param keepManual   true = forcedPlacements (manuelle Zuweisungen) mitkopieren, sonst leeren
+ */
+async function duplicatePlanById(id, newName, { keepManual = true } = {}){
+  try {
+    const res = await fetch(`/api/plans/${id}`, { credentials:'include' });
+    if(!res.ok){ showToast('Quelle konnte nicht geladen werden', true); return false; }
+    const data = await res.json().catch(()=>({}));
+    if(!data.state){ showToast('Plan ist leer/ungültig', true); return false; }
+    // State als eigenständige Kopie (String oder Objekt → tiefes Klonen).
+    const state = (typeof data.state === 'string') ? JSON.parse(data.state)
+                                                    : JSON.parse(JSON.stringify(data.state));
+    if(!keepManual && Array.isArray(state.forcedPlacements)){
+      state.forcedPlacements = state.forcedPlacements.map(() => []);   // manuelle Zuweisungen verwerfen
+    }
+    const name = (newName || '').trim() || ((data.name || 'Wachplan') + ' (Kopie)');
+    const resp = await fetch('/api/plans', {
+      method:'POST', headers:{ 'Content-Type':'application/json' }, credentials:'include',
+      body: JSON.stringify({ name, state })
+    });
+    if(!resp.ok){ const d = await resp.json().catch(()=>({})); showToast(d.error || 'Duplizieren fehlgeschlagen', true); return false; }
+    const created = await resp.json();
+    await loadPlanById(created.id);     // neues Duplikat öffnen (Original bleibt unverändert)
+    showToast('⧉ Dupliziert als „' + name + '"');
+    return true;
+  } catch(e){ console.error('duplicatePlanById', e); return false; }
+}
+
 /** Plan löschen. Wenn es der aktuelle ist → auf einen anderen wechseln oder neuen anlegen. */
 async function deletePlanById(id){
   try {
