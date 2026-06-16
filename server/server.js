@@ -93,7 +93,9 @@ app.use((req, res, next) => {
   res.setHeader('Content-Security-Policy',
     "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
     "font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com" +
-    _cspScriptExtra + "; connect-src 'self' ws: wss:; " + _cspFrameSrc + "frame-ancestors 'self'");
+    _cspScriptExtra + "; " +
+    "worker-src 'self' blob: https://cdnjs.cloudflare.com; " +   // pdf.js-Worker für Wachlisten-PDF-Import (Feature 31)
+    "connect-src 'self' ws: wss:; " + _cspFrameSrc + "frame-ancestors 'self'");
   if (process.env.NODE_ENV === 'production')
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   next();

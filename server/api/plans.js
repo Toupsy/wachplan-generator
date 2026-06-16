@@ -9,11 +9,12 @@
 
 const express = require('express');
 const router = express.Router();
-const { dbRun, dbGet, dbAll } = require('../db/connection');
+const { getDb, dbRun, dbGet, dbAll } = require('../db/connection');
 const { encryptPlanState, decryptPlanState } = require('../db/crypto');
 const { getPlanAccess } = require('../db/access');
 const { broadcastPlanUpdate } = require('../realtime');
 const { parsePositiveInt } = require('../db/ids');
+const { auditLog } = require('../db/init');
 
 // ───────────────────────────────────────────────────────────
 // ID Parsing Helpers – zentral über db/ids.js (strikte Validierung:
@@ -117,6 +118,9 @@ router.post('/', express.json(), async (req, res) => {
       [req.session.userId, name, encrypted, iv, authTag]
     );
 
+    auditLog(getDb(), req.session.userId, 'plan_create', 'plan', result.lastID, { name }, req.ip)
+      .catch(err => console.error('Audit log error (plan_create):', err));
+
     res.status(201).json({
       id: result.lastID,
       name: name,
@@ -200,10 +204,16 @@ router.put('/:id', express.json(), async (req, res) => {
 
     const { encrypted, iv, authTag } = encryptPlanState(plainJSON, access.ownerId);
 
-    // Update in database
+    // Update in database.
+    // marked_for_deletion zurücksetzen: Ein aktiv gespeicherter Plan darf NICHT durch den
+    // Retention-Cleanup gelöscht werden. Die Markierung (init.js) setzt das Flag nur auf stale
+    // Plänen (marked_for_deletion = 0 AND updated_at < cutoff); ohne explizites Zurücksetzen
+    // beim Speichern bliebe ein bereits markierter Plan markiert und würde nach Ablauf der
+    // Schonfrist gelöscht – obwohl er gerade bearbeitet wurde (stiller Datenverlust).
     await dbRun(
       `UPDATE plans
-       SET encrypted_state = ?, iv = ?, auth_tag = ?, updated_at = CURRENT_TIMESTAMP
+       SET encrypted_state = ?, iv = ?, auth_tag = ?, updated_at = CURRENT_TIMESTAMP,
+           marked_for_deletion = 0, marked_for_deletion_at = NULL
        ${name ? ', name = ?' : ''}
        WHERE id = ?`,
       name
@@ -214,6 +224,9 @@ router.put('/:id', express.json(), async (req, res) => {
     // Live-Update: andere verbundene Mitbearbeiter dieses Plans benachrichtigen
     // (außer dem Speichernden selbst).
     broadcastPlanUpdate(planId, req.session.userId);
+
+    auditLog(getDb(), req.session.userId, 'plan_update', 'plan', planId, name ? { name } : null, req.ip)
+      .catch(err => console.error('Audit log error (plan_update):', err));
 
     res.json({
       id: planId,
@@ -233,9 +246,9 @@ router.delete('/:id', async (req, res) => {
     const planId = parsePlanId(req.params.id);
     if (!planId) return res.status(400).json({ error: 'Ungültige Plan-ID' });
 
-    // Verify plan belongs to user
+    // Verify plan belongs to user (fetch name for audit log)
     const plan = await dbGet(
-      'SELECT id FROM plans WHERE id = ? AND user_id = ?',
+      'SELECT id, name FROM plans WHERE id = ? AND user_id = ?',
       [planId, req.session.userId]
     );
 
@@ -248,6 +261,9 @@ router.delete('/:id', async (req, res) => {
       'DELETE FROM plans WHERE id = ?',
       [planId]
     );
+
+    auditLog(getDb(), req.session.userId, 'plan_delete', 'plan', planId, { name: plan.name }, req.ip)
+      .catch(err => console.error('Audit log error (plan_delete):', err));
 
     res.json({ message: 'Plan deleted' });
   } catch (error) {
@@ -314,6 +330,10 @@ router.post('/:id/share', express.json(), async (req, res) => {
        ON CONFLICT(plan_id, user_id) DO UPDATE SET role = excluded.role`,
       [planId, target.id, role]
     );
+
+    auditLog(getDb(), req.session.userId, 'plan_share', 'plan', planId, { sharedWithUserId: target.id, role }, req.ip)
+      .catch(err => console.error('Audit log error (plan_share):', err));
+
     res.status(201).json({ success: true, userId: target.id, username, role, message: 'Geteilt' });
   } catch (error) {
     console.error('Share plan error:', error);
@@ -337,6 +357,10 @@ router.delete('/:id/share/:userId', async (req, res) => {
     if (access.role !== 'owner') return res.status(403).json({ error: 'Only the owner can manage sharing' });
 
     await dbRun('DELETE FROM plan_shares WHERE plan_id = ? AND user_id = ?', [planId, userId]);
+
+    auditLog(getDb(), req.session.userId, 'plan_share_revoke', 'plan', planId, { revokedUserId: userId }, req.ip)
+      .catch(err => console.error('Audit log error (plan_share_revoke):', err));
+
     res.json({ success: true, message: 'Mitbearbeiter entfernt' });
   } catch (error) {
     console.error('Unshare plan error:', error);
@@ -345,5 +369,4 @@ router.delete('/:id/share/:userId', async (req, res) => {
 });
 
 module.exports = router;
-// Für weitere Schreibpfade (z. B. Bulk-Import, #279), damit Limits überall identisch gelten
 module.exports.validatePlanInput = validatePlanInput;

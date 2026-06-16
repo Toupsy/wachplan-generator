@@ -14,14 +14,19 @@ function renderPeople(){
     c.appendChild(warning);
   }
 
+  let dragSrcPerson = null;
+  let dragMode = null; // 'swap' oder 'insert'
+
   people.forEach((p, i) => {
     const row = document.createElement('div');
     row.className = 'person-edit';
+    row.draggable = true;
+    row.dataset.idx = i;
     const hasLabels = (p.labels || '').trim().length > 0;
     row.innerHTML = `
-      <span class="pnr" title="Nr. in Besetzungsliste">${i+1}</span>
-      <input type="text" value="${escapeHtml(p.name)}" data-id="${p.id}" class="pname" placeholder="Name">
-      <select data-id="${p.id}" class="prole">
+      <span class="pnr" style="cursor:grab" title="Ziehen zum Sortieren – ändert die Nr. in der Besetzungsliste (XLSX-Export)">${i+1}</span>
+      <input type="text" value="${escapeHtml(p.name)}" data-id="${p.id}" class="pname" placeholder="Name" draggable="false">
+      <select data-id="${p.id}" class="prole" draggable="false">
         <option value="F" ${p.role==='F'?'selected':''}>Führung</option>
         <option value="B" ${p.role==='B'?'selected':''}>Bootsführer</option>
         <option value="W" ${p.role==='W'?'selected':''}>Wachgänger</option>
@@ -34,6 +39,10 @@ function renderPeople(){
         ${p.role==='B' ? `<label class="hw-wish-toggle" title="HW-Wunsch: bei BF-Überzahl mindestens 1× aktiver Hauptwache-Dienst pro Woche">
           <input type="checkbox" data-id="${p.id}" class="hwwish-checkbox" ${p.wantsHW?'checked':''}>
           <span>🏠</span>
+        </label>` : ''}
+        ${(p.role==='W' || p.role==='B') ? `<label class="san-toggle" title="Sanitäter – wird auf San-Türmen wenn möglich immer eingesetzt">
+          <input type="checkbox" data-id="${p.id}" class="san-checkbox" ${p.sanitaeter?'checked':''}>
+          <span>🚑</span>
         </label>` : ''}
       </div>`}
       <label class="label-toggle" title="Labels bearbeiten">
@@ -51,6 +60,62 @@ function renderPeople(){
     labelsRow.innerHTML = `
       <input type="text" value="${escapeHtml(p.labels||'')}" data-id="${p.id}" class="plabels" placeholder="Labels (z.B. Sanitäter, Rettungsschwimmer)" maxlength="200">`;
     c.appendChild(labelsRow);
+
+    // ── Drag & Drop: Reihenfolge (= Nr. im XLSX-Export) ändern ──────
+    row.addEventListener('dragstart', e => {
+      dragSrcPerson = i;
+      e.dataTransfer.effectAllowed = 'move';
+      setTimeout(() => row.style.opacity = '0.4', 0);
+    });
+    row.addEventListener('dragend', () => {
+      row.style.opacity = '';
+      c.querySelectorAll('.person-edit').forEach(r => {
+        r.style.background = '';
+        r.style.borderTop = '';
+      });
+    });
+    row.addEventListener('dragover', e => {
+      if(dragSrcPerson === null) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      // Obere Hälfte = Einfügen (Reorder), untere Hälfte = Tauschen
+      const rect = row.getBoundingClientRect();
+      const midpoint = rect.top + rect.height / 2;
+      if(e.clientY < midpoint){
+        dragMode = 'insert';
+        row.style.borderTop = '3px solid var(--green)';
+        row.style.background = '';
+      } else {
+        dragMode = 'swap';
+        row.style.borderTop = '';
+        row.style.background = 'rgba(24,168,216,.15)';
+      }
+    });
+    row.addEventListener('dragleave', () => {
+      row.style.background = '';
+      row.style.borderTop = '';
+    });
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      row.style.background = '';
+      row.style.borderTop = '';
+      if(dragSrcPerson === null || dragSrcPerson === i) return;
+
+      if(dragMode === 'swap'){
+        [people[dragSrcPerson], people[i]] = [people[i], people[dragSrcPerson]];
+      } else {
+        const moved = people.splice(dragSrcPerson, 1)[0];
+        const targetIdx = dragSrcPerson < i ? i - 1 : i;
+        people.splice(targetIdx, 0, moved);
+      }
+
+      dragSrcPerson = null;
+      dragMode = null;
+      // Reihenfolge ändert nur die Besetzungs-Nr. (personNr) → KEIN generate(),
+      // der Plan selbst bleibt unverändert; nur neu rendern + speichern.
+      renderPeople();
+      scheduleAutoSave();
+    });
   });
 
   // Event handler for label checkbox
@@ -59,6 +124,7 @@ function renderPeople(){
       const personId = +e.target.dataset.id;
       const p = getP(personId);
       p.enableLabels = e.target.checked;
+      if(typeof recordRosterOverride === 'function') recordRosterOverride(p, 'enableLabels', p.enableLabels);
       const labelsRow = Array.from(c.querySelectorAll('.person-labels-row')).find(row => +row.getAttribute('data-id') === personId);
       if (labelsRow) {
         labelsRow.style.display = e.target.checked ? 'grid' : 'none';
@@ -70,19 +136,22 @@ function renderPeople(){
   c.querySelectorAll('.pname').forEach(i =>
     i.oninput = e => { getP(+e.target.dataset.id).name = e.target.value; });
   c.querySelectorAll('.plabels').forEach(i =>
-    i.oninput = e => { getP(+e.target.dataset.id).labels = e.target.value; });
+    i.oninput = e => { const p = getP(+e.target.dataset.id); p.labels = e.target.value; if(typeof recordRosterOverride === 'function') recordRosterOverride(p, 'labels', p.labels); });
   c.querySelectorAll('.prole').forEach(s =>
     s.onchange = e => {
       const p = getP(+e.target.dataset.id);
       p.role = e.target.value;
       if(p.experienced === undefined) p.experienced = true;  // Default erfahren
+      if(typeof recordRosterOverride === 'function') recordRosterOverride(p, 'role', p.role);
       renderPeople();
       scheduleAutoSave();
     });
   c.querySelectorAll('.exp-checkbox').forEach(cb =>
-    cb.onchange = e => { getP(+e.target.dataset.id).experienced = e.target.checked; scheduleAutoSave(); renderOutput(); });
+    cb.onchange = e => { const p = getP(+e.target.dataset.id); p.experienced = e.target.checked; if(typeof recordRosterOverride === 'function') recordRosterOverride(p, 'experienced', p.experienced); scheduleAutoSave(); renderOutput(); });
   c.querySelectorAll('.hwwish-checkbox').forEach(cb =>
-    cb.onchange = e => { getP(+e.target.dataset.id).wantsHW = e.target.checked; generate(); scheduleAutoSave(); });
+    cb.onchange = e => { const p = getP(+e.target.dataset.id); p.wantsHW = e.target.checked; if(typeof recordRosterOverride === 'function') recordRosterOverride(p, 'wantsHW', p.wantsHW); generate(); scheduleAutoSave(); });
+  c.querySelectorAll('.san-checkbox').forEach(cb =>
+    cb.onchange = e => { const p = getP(+e.target.dataset.id); p.sanitaeter = e.target.checked; if(typeof recordRosterOverride === 'function') recordRosterOverride(p, 'sanitaeter', p.sanitaeter); generate(); scheduleAutoSave(); });
   c.querySelectorAll('.del-p').forEach(b =>
     b.onclick = e => {
       const id = +e.target.dataset.id;
@@ -128,12 +197,12 @@ function renderTowerCfg(){
           <span class="slot-display">${t.slotCount||2}</span>
           <button class="slot-btn slot-plus" data-id="${t.id}" data-type="tower">+</button>
           <span style="font-size:.65rem;color:var(--text-dim)">Wachgänger</span>
-          ${(t.leaderCount||0)===0?`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-left:8px"><input type="checkbox" class="leader-checkbox" data-id="${t.id}" style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0"><span style="font-size:.75rem;color:var(--text-dim)">👔</span></label>`:''}
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-left:8px" title="Als Führungsturm markieren – hier wird wenn möglich immer eine Führungskraft eingesetzt"><input type="checkbox" class="leadertower-checkbox" data-id="${t.id}" ${t.leaderTower?'checked':''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0"><span style="font-size:.75rem;color:var(--text-dim)">👔</span></label>
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-left:8px" title="Als Hauptstrand-Turm markieren – fairer Ausgleich Hauptstrand ↔ Außentürme"><input type="checkbox" class="mainbeach-checkbox" data-id="${t.id}" ${t.mainBeach?'checked':''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0"><span style="font-size:.75rem;color:var(--text-dim)">🏖️</span></label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-left:8px" title="Als San-Turm markieren – hier wird wenn möglich immer ein Sanitäter eingesetzt"><input type="checkbox" class="santower-checkbox" data-id="${t.id}" ${t.sanTower?'checked':''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--coral);flex-shrink:0"><span style="font-size:.75rem;color:var(--text-dim)">🚑</span></label>
         </div>
         <button class="mini-btn del-t" data-id="${t.id}">×</button>
       </div>
-      ${(t.leaderCount||0)>0?`<div class="tower-row-meta" style="margin-top:8px"><div class="leader-spinner" style="display:flex;align-items:center;gap:8px"><label style="font-size:.75rem;flex-shrink:0;color:var(--text-dim)">👔</label><button class="slot-btn leader-minus" data-id="${t.id}">−</button><span class="leader-display">${t.leaderCount||0}</span><button class="slot-btn leader-plus" data-id="${t.id}">+</button><input type="checkbox" class="leader-checkbox" data-id="${t.id}" checked style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0"><span style="font-size:.65rem;color:var(--text-dim)">Führung</span></div></div>`:''}
       ${assignedBoats.length > 0 ? `<div class="tower-boats">${assignedBoats.map(b => `<div class="tower-boat-item" data-boat-id="${b.id}" draggable="true" data-tower-id="${t.id}" title="Zum Turm bewegen">🚤 ${escapeHtml(b.name)} (${escapeHtml(b.code||'?')})</div>`).join('')}</div>` : ''}
     `;
 
@@ -233,23 +302,16 @@ function renderTowerCfg(){
       getT(+e.target.dataset.id).mainBeach = e.target.checked;
       generate(); renderTowerCfg(); scheduleAutoSave();
     });
-  c.querySelectorAll('.leader-checkbox').forEach(cb =>
+  c.querySelectorAll('.santower-checkbox').forEach(cb =>
     cb.onchange = e => {
-      const t = getT(+e.target.dataset.id);
-      const spinner = e.target.closest('.tower-row-meta').querySelector('.leader-spinner');
-      if(!e.target.checked) {
-        t.leaderCount = 0;
-        if(spinner) spinner.style.display = 'none';
-      } else {
-        if((t.leaderCount||0) === 0) { t.leaderCount = 1; }
-        if(spinner) spinner.style.display = 'flex';
-      }
+      getT(+e.target.dataset.id).sanTower = e.target.checked;
       generate(); renderTowerCfg(); scheduleAutoSave();
     });
-  c.querySelectorAll('.leader-minus').forEach(b =>
-    b.onclick = e => { const t = getT(+e.target.dataset.id); if((t.leaderCount||0) > 0) { t.leaderCount--; if(t.leaderCount === 0) { const cb = e.target.closest('.tower-row-meta').querySelector('.leader-checkbox'); if(cb) cb.checked = false; } generate(); renderTowerCfg(); } });
-  c.querySelectorAll('.leader-plus').forEach(b =>
-    b.onclick = e => { const t = getT(+e.target.dataset.id); if((t.leaderCount||0) < 3) { t.leaderCount++; const cb = e.target.closest('.tower-row-meta').querySelector('.leader-checkbox'); if(cb) cb.checked = true; generate(); renderTowerCfg(); } });
+  c.querySelectorAll('.leadertower-checkbox').forEach(cb =>
+    cb.onchange = e => {
+      getT(+e.target.dataset.id).leaderTower = e.target.checked;
+      generate(); renderTowerCfg(); scheduleAutoSave();
+    });
   c.querySelectorAll('.del-t').forEach(b =>
     b.onclick = e => {
       const id = +e.target.dataset.id;
@@ -539,7 +601,6 @@ function renderAlgoParams(){
         { key:'surplusBfActivePenalty', label:'Überzahl-BF auf Boot-Turm',     desc:'Überzählige BF meiden Türme mit aktivem Boot (verhindert BF ohne Boot)',     min:0, max:3000 },
         { key:'surplusBfClosedBonus',   label:'Überzahl-BF auf inakt. Boot-T.',desc:'Bonus: Überzählige BF bevorzugt an Türme ohne aktives Boot',                  min:0, max:1000 },
         { key:'towerBoatHeavyPenalty',  label:'Beide boot-lastig auf Turm',    desc:'Strafe wenn beide Turm-Personen schon viele Turm+Boot-Dienste hatten',       min:0, max:500  },
-        { key:'leaderBonus',            label:'Führung auf Leader-Turm',       desc:'Bonus für Führungskräfte auf Türmen mit Führungsslot (leaderCount > 0)',      min:0, max:500  },
       ],
     },
     {

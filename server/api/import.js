@@ -5,9 +5,10 @@
 
 const express = require('express');
 const router = express.Router();
-const { dbRun } = require('../db/connection');
+const { getDb, dbRun } = require('../db/connection');
 const { encryptPlanState } = require('../db/crypto');
 const { validatePlanInput } = require('./plans');
+const { auditLog } = require('../db/init');
 
 // ───────────────────────────────────────────────────────────
 // Authentication Middleware
@@ -43,22 +44,20 @@ router.post('/plans', express.json(), async (req, res) => {
     const errors = [];
 
     for (const plan of plans) {
-      // Anzeigename für Fehlermeldungen: immer String, gekürzt (plan.name kann beliebiger Typ sein)
-      const label = String(plan && plan.name != null ? plan.name : 'Unbenannt').slice(0, 80);
+      // Normalize name: type-coerce non-strings to fallback, truncate for error messages
+      const safeName = (typeof plan.name === 'string' ? plan.name.slice(0, 200) : '') || 'Importierter Plan';
       try {
         if (!plan.state) {
-          errors.push(`Plan "${label}" hat keine state data`);
+          errors.push(`Plan "${safeName}" hat keine state data`);
           continue;
         }
 
-        const name = typeof plan.name === 'string' && plan.name.trim() !== ''
-          ? plan.name : 'Importierter Plan';
-
-        // Gleiche Limits wie POST/PUT /api/plans (#218/#270): Name ≤ 200, State ≤ 1 MB
         const plainJSON = JSON.stringify(plan.state);
-        const invalid = validatePlanInput(name, plainJSON, { nameRequired: true });
+
+        // Validate name length + state size (consistent with POST/PUT /api/plans)
+        const invalid = validatePlanInput(safeName, plainJSON, { nameRequired: true });
         if (invalid) {
-          errors.push(`Plan "${label}": ${invalid.error}`);
+          errors.push(`Plan "${safeName}": ${invalid.error}`);
           continue;
         }
 
@@ -69,15 +68,19 @@ router.post('/plans', express.json(), async (req, res) => {
         await dbRun(
           `INSERT INTO plans (user_id, name, encrypted_state, iv, auth_tag)
            VALUES (?, ?, ?, ?, ?)`,
-          [req.session.userId, name, encrypted, iv, authTag]
+          [req.session.userId, safeName, encrypted, iv, authTag]
         );
 
         importedCount++;
       } catch (planError) {
-        // Interne Details (Crypto/DB) nicht an den Client leaken
-        console.error(`Import plan error ("${label}"):`, planError);
-        errors.push(`Plan "${label}": Import fehlgeschlagen`);
+        console.error(`Import error for plan "${safeName}":`, planError);
+        errors.push(`Plan "${safeName}": Import fehlgeschlagen`);
       }
+    }
+
+    if (importedCount > 0) {
+      auditLog(getDb(), req.session.userId, 'plan_import', 'plan', null, { imported: importedCount, total: plans.length }, req.ip)
+        .catch(err => console.error('Audit log error (plan_import):', err));
     }
 
     res.json({

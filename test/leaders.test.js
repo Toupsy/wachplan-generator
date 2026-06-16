@@ -1,12 +1,15 @@
 /**
- * test/leaders.test.js – Tests für Feature 12 (Führungskräfte auf leaderCount-Türme, Issue #91)
+ * test/leaders.test.js – Tests für Führungstürme (Feature 34, ersetzt den leaderCount-Spinner)
  *
- * Kernanforderungen der korrigierten Fassung (vs. PR #99, der die HW leerzog):
- * 1. Ohne leaderCount-Türme bleibt die Führung an der Hauptwache (keine F auf Türmen).
- * 2. Mit leaderCount>0 steht eine Führungskraft auf dem Turm – aber die HW behält
- *    Führung, solange genug F vorhanden sind.
- * 3. Reichen die F nicht für alle Leader-Slots, werden die übrigen Slots regulär
- *    besetzt (Turm bleibt voll); kein Crash.
+ * Turm-Haken `leaderTower`: ein als Führungsturm markierter Turm bekommt – wenn möglich –
+ * immer mindestens eine Führungskraft (auf einem REGULÄREN Slot, kein Zusatz-Slot; analog
+ * zur San-Turm-Logik). Führungskräfte stehen sonst an der Hauptwache.
+ *
+ * Kernanforderungen:
+ * 1. Ohne Führungsturm bleibt die Führung an der Hauptwache (keine F auf Türmen).
+ * 2. Mit leaderTower steht genau eine Führungskraft auf dem Turm – innerhalb von slotCount
+ *    (kein Zusatz-Slot) – und die HW behält Führung, solange genug F vorhanden sind.
+ * 3. Reicht die Führung nicht, wird der Turm regulär gefüllt (kein Crash).
  */
 
 const { test } = require('node:test');
@@ -45,13 +48,13 @@ const fOnTowers = day =>
     .flatMap(s => s.occupants.filter(o => o.role === 'F'));
 const hwFuehrung = day => (day.assign.find(s => s.kind === 'main').fuehrung || []);
 
-test('Feature 12: ohne leaderCount bleibt die Führung an der HW', () => {
+test('Feature 34: ohne Führungsturm bleibt die Führung an der HW', () => {
   const res = run({
     people: PEOPLE,
     towers: [
-      { id: 21, name: 'T1', prio: 1, code: 'T1', slotCount: 2, leaderCount: 0 },
-      { id: 22, name: 'T2', prio: 2, code: 'T2', slotCount: 2, leaderCount: 0 },
-      { id: 23, name: 'T3', prio: 3, code: 'T3', slotCount: 2, leaderCount: 0 },
+      { id: 21, name: 'T1', prio: 1, code: 'T1', slotCount: 2 },
+      { id: 22, name: 'T2', prio: 2, code: 'T2', slotCount: 2 },
+      { id: 23, name: 'T3', prio: 3, code: 'T3', slotCount: 2 },
     ],
   });
   res.schedule.forEach((day, i) => {
@@ -60,21 +63,22 @@ test('Feature 12: ohne leaderCount bleibt die Führung an der HW', () => {
   });
 });
 
-test('Feature 12: leaderCount>0 → F steht auf dem Turm, HW behält Führung', () => {
+test('Feature 34: leaderTower → genau eine F auf dem Turm, kein Zusatz-Slot, HW behält Führung', () => {
   const res = run({
     people: PEOPLE,
     towers: [
-      { id: 21, name: 'T1', prio: 1, code: 'T1', slotCount: 2, leaderCount: 1 },
-      { id: 22, name: 'T2', prio: 2, code: 'T2', slotCount: 2, leaderCount: 0 },
-      { id: 23, name: 'T3', prio: 3, code: 'T3', slotCount: 2, leaderCount: 0 },
+      { id: 21, name: 'T1', prio: 1, code: 'T1', slotCount: 2, leaderTower: true },
+      { id: 22, name: 'T2', prio: 2, code: 'T2', slotCount: 2 },
+      { id: 23, name: 'T3', prio: 3, code: 'T3', slotCount: 2 },
     ],
   });
   res.schedule.forEach((day, i) => {
     const t1 = day.assign.find(s => s.kind === 'tower' && s.towerId === 21);
     assert.ok(t1, `Tag ${i + 1}: T1 offen`);
+    assert.equal(t1.occupants.length, 2, `Tag ${i + 1}: kein Zusatz-Slot (slotCount=2)`);
     assert.equal(t1.occupants.filter(o => o.role === 'F').length, 1,
       `Tag ${i + 1}: genau eine Führungskraft auf T1`);
-    // 2 F vorhanden, 1 Leader-Slot → 1 F bleibt an der HW
+    // 2 F vorhanden, 1 steht auf dem Turm → 1 F bleibt an der HW
     assert.ok(hwFuehrung(day).length >= 1, `Tag ${i + 1}: HW behält Führung`);
   });
   // Rotation: über 4 Tage sollten beide F mal auf T1 gestanden haben
@@ -86,7 +90,7 @@ test('Feature 12: leaderCount>0 → F steht auf dem Turm, HW behält Führung', 
   assert.equal(onT1.size, 2, 'beide Führungskräfte rotieren über die Tage auf T1');
 });
 
-test('Feature 12: zu wenige F → Leader-Slot regulär gefüllt, Turm voll, kein Crash', () => {
+test('Feature 34: mehr Führungstürme als F → wichtigster (prio asc) bekommt die F', () => {
   const res = run({
     people: [
       { id: 1, name: 'F1', role: 'F' },  // nur 1 F
@@ -95,7 +99,32 @@ test('Feature 12: zu wenige F → Leader-Slot regulär gefüllt, Turm voll, kein
       { id: 7, name: 'U1', role: 'W', experienced: false }, { id: 8, name: 'U2', role: 'W', experienced: false },
     ],
     towers: [
-      { id: 21, name: 'T1', prio: 1, code: 'T1', slotCount: 2, leaderCount: 2 }, // 2 Leader-Slots, nur 1 F
+      { id: 21, name: 'T1', prio: 1, code: 'T1', slotCount: 2, leaderTower: true },
+      { id: 22, name: 'T2', prio: 2, code: 'T2', slotCount: 2, leaderTower: true },
+    ],
+    mainK: 0,
+    days: 2,
+  });
+  res.schedule.forEach((day, i) => {
+    const t1 = day.assign.find(s => s.kind === 'tower' && s.towerId === 21);
+    const t2 = day.assign.find(s => s.kind === 'tower' && s.towerId === 22);
+    assert.equal(t1.occupants.length, 2, `Tag ${i + 1}: T1 voll (slotCount=2)`);
+    assert.equal(t1.occupants.filter(o => o.role === 'F').length, 1,
+      `Tag ${i + 1}: die eine F steht auf dem wichtigsten Führungsturm`);
+    assert.equal(t2.occupants.filter(o => o.role === 'F').length, 0,
+      `Tag ${i + 1}: unwichtigerer Führungsturm geht leer aus (keine F übrig)`);
+  });
+});
+
+test('Feature 34: zu wenige F → Turm regulär gefüllt, kein Crash', () => {
+  const res = run({
+    people: [
+      { id: 3, name: 'E1', role: 'W', experienced: true }, { id: 4, name: 'E2', role: 'W', experienced: true },
+      { id: 5, name: 'E3', role: 'W', experienced: true }, { id: 6, name: 'E4', role: 'W', experienced: true },
+      { id: 7, name: 'U1', role: 'W', experienced: false }, { id: 8, name: 'U2', role: 'W', experienced: false },
+    ],  // gar keine F
+    towers: [
+      { id: 21, name: 'T1', prio: 1, code: 'T1', slotCount: 2, leaderTower: true },
     ],
     mainK: 0,
     days: 2,
@@ -103,9 +132,7 @@ test('Feature 12: zu wenige F → Leader-Slot regulär gefüllt, Turm voll, kein
   res.schedule.forEach((day, i) => {
     const t1 = day.assign.find(s => s.kind === 'tower' && s.towerId === 21);
     assert.ok(t1, `Tag ${i + 1}: T1 offen`);
-    // slotCount(2)+leaderCount(2)=4 Slots; mit 7 Personen voll besetzbar
-    assert.equal(t1.occupants.length, 4, `Tag ${i + 1}: T1 voll besetzt (4)`);
-    assert.equal(t1.occupants.filter(o => o.role === 'F').length, 1,
-      `Tag ${i + 1}: die eine vorhandene F steht auf T1`);
+    assert.equal(t1.occupants.length, 2, `Tag ${i + 1}: T1 voll besetzt (2), trotz fehlender F`);
+    assert.equal(t1.occupants.filter(o => o.role === 'F').length, 0, `Tag ${i + 1}: keine F vorhanden`);
   });
 });
