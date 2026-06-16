@@ -52,16 +52,19 @@ render-output.js  Ausgabe: Tageskarten, Stats-Bar, Pro-Person-/Matrix-Statistike
 export.js         XLSX (XML-Patch via JSZip) + CSV-Export
 move.js           Modal „Person verschieben" (↕) + D&D-Logik
 state-io.js       Server-Sync (autoSave/autoLoad), Plan-Manager, State-Serialisierung
+roster.js         Wachlisten-Upload (CSV/PDF) → dynamische Namensliste aus startDate+DAYS (Feature 31)
 user-info.js      User-Header, Admin-Link, Logout, Passwort
 share.js          Plan-Teilen-Modal (👥)
 realtime.js       WebSocket-Client (deaktiviert in .workers.dev Preview)
 plans-ui.js       Plan-Manager (📋 Meine Pläne)
 login-modal.js    Login/Setup/Register-Modal
+sidebar-layout.js Master-Detail-Drill-Down der Sidebar (Home-Menü + Detail-Views, localStorage `dlrg_sidebar_view`)
+layout-chrome.js  Top-Bar-Info-Kästchen (#header-info, localStorage `dlrg_header_info_open`) + Sidebar ein-/ausklappen (localStorage `dlrg_sidebar_collapsed`, nur Desktop ≥901px)
 init.js           Event-Listener + Startsequenz (autoLoad → seed fallback)
 ```
 **Ladereihenfolge:** state → utils → dates → autoCodes → config → seed → render-sidebar →
-generate → render-output → export → move → state-io → user-info → share → realtime →
-plans-ui → login-modal → init
+generate → render-output → export → move → state-io → roster → user-info → share → realtime →
+plans-ui → login-modal → sidebar-layout → layout-chrome → init
 
 **Backend `server/`:**
 ```
@@ -90,8 +93,10 @@ Modals `#login-modal`/`#move-modal`/`#share-modal`/`#plans-modal` …) sind eind
 
 ## Globaler Zustand (state.js)
 ```js
-people[]    // { id, name, role:'F'|'B'|'W', experienced:bool, wantsHW:bool } (experienced gilt für B & W; wantsHW nur für B: ≥1 aktiver HW-Dienst bei BF-Überzahl)
-towers[]    // { id, name, prio, code, slotCount(1–10,Def2), leaderCount(0–3,Def0), mainBeach(bool,Def false) }
+people[]    // { id, name, role:'F'|'B'|'W', experienced:bool, wantsHW:bool, sanitaeter:bool } (experienced gilt für B & W; wantsHW nur für B: ≥1 aktiver HW-Dienst bei BF-Überzahl; sanitaeter für W & B: wird auf San-Türmen bevorzugt eingesetzt – bei BF nur, wenn überzählig/im Guard-Pool – sonst normal – Feature 33/35)
+roster[]    // hochgeladene Wachliste: { name, role:'F'|'B'|'W', from:'YYYY-MM-DD', to:'YYYY-MM-DD' } (Feature 31). applyRosterToWindow() leitet people[]+absent dynamisch aus startDate+DAYS ab (roster.js)
+rosterOverrides // { normName → { role?, experienced?, wantsHW?, sanitaeter?, labels?, enableLabels? } } – manuelle Korrekturen, die das Neu-Ableiten überleben (mergeRosterOverrides, Feature 31)
+towers[]    // { id, name, prio, code, slotCount(1–10,Def2), mainBeach(bool,Def false), sanTower(bool,Def false), leaderTower(bool,Def false) } (sanTower: wenn möglich ≥1 Sanitäter – Feature 33; leaderTower: wenn möglich ≥1 Führungskraft auf regulärem Slot – Feature 34)
 boats[]     // { id, name, code, towerId:number|'HW'|null, prio, slotCount(1–3,Def1) }
 dayState[]      // Array[DAYS]: { sick:Set, absent:Set, closed:Set, closedBoats:Set }
                 //   sick   = außer Dienst → wird an der HW geführt (zählt im Plan/Export)
@@ -102,6 +107,7 @@ fairnessMetricsDisplay // { hwBoatBalance, towerDistribution, boatPairingDiversi
 exportColumns[] // 16 Stationscodes → Template-Spalten
 lastResult      // { schedule, pairCount, stats, peopleGuards, fairnessMetrics }
 activeDay, DAYS(1–14), uid, randomSeed(0=keiner), mainK
+requireBfAtHw   // global Bool (Def false): bei echter BF-Überzahl täglich ≥1 überzähliger BF aktiv auf der HW (Feature 32)
 serviceStartHour/EndHour // Def 9/17, clamp 8–19
 ```
 **Rollen:** F=Führung, B=Bootsführer, W=Wachgänger · **MAIN_ID = 0** (HW-Pseudo-ID).
@@ -122,7 +128,7 @@ Läuft **sequenziell** über alle Tage; akkumulierte `stats` übertragen sich au
 **Zuweisung pro Tag (Reihenfolge):**
 0. **BF-Fairness-Sort** – `availB` nach `(boatDays*50 - hwVisits*10)` VOR activeBF/surplusBF-Split
 1. **Hauptwache** – forced → Paare via `bestPair` → Einzelpersonen
-2. **Türme** – je `slotCount + leaderCount` via `bestPair(t, true)`, Türme nach prio **ASC** (Prio 1 = wichtigster, öffnet zuerst). `leaderCount`-Slots vorab aus separatem `poolF`.
+2. **Türme** – je `slotCount` via `bestPair(t, true)`, Türme nach prio **ASC** (Prio 1 = wichtigster, öffnet zuerst). Führungstürme (`leaderTower`) bekommen vorab 1 F aus separatem `poolF` auf einen regulären Slot (Feature 34).
 3. **Boote** – je 1 BF pro aktivem Boot (inkl. HW-Boote `towerId==='HW'`); im Standardfall **Min-Cost-Matching** (global optimal) statt gieriger Vergabe + Lookback-Rotation (`boatRotationPenalty` meidet die letzten `Boote−1` Tage → frühestens nach #Boote Tagen wieder)
 4. Boot-Captain-Paarungen-Tracking
 5. **HW finalize** – forced → Rest + Overflow; alle in `main.base`/`poolB` bekommen `hwVisits++`
@@ -134,7 +140,7 @@ Läuft **sequenziell** über alle Tage; akkumulierte `stats` übertragen sich au
 +250×  bisherige gemeinsame Turmdienste (Paar-Wdh.)     +200×v Turmbesuche A/B (linear)
 +10×   (totalA+totalB) Fairness                         +800/-350 surplusBF aktiv/inaktiv-Boot
 +200×  konsekutive Tage gleicher Turm (Feature 8)       +150 beide viele Boot-Tage
--60×   hwVisits (Bonus für Turm)  / +60× an HW-k-Slots  -100 F wenn Tower leaderCount>0
+-60×   hwVisits (Bonus für Turm)  / +60× an HW-k-Slots
 +5000  E an HW wenn reserveExpAtHW (Experience-Reservierung, s. u.)
 +60×   Außen-/Hauptstrand-Überhang (Feature 25, nur wenn beide Turm-Sorten existieren)
 + Tiebreaker (deterministisch bzw. seededRand() für Tag 1)
@@ -155,12 +161,39 @@ Wochenende eskalierenden HW-Bonus (600→6000→100000), eingebaut in `bestPair`
 HW-Einzelbefüllung. Sicherheitsnetz im `availB`-Sort drückt unerfüllte Wunsch-BF bei echter
 Überzahl in den letzten 2 Tagen in die surplus-Hälfte. `hwGuardDays==0` = noch offen.
 
+**BF-an-HW-Pflicht (Feature 32, global `requireBfAtHw`):** Ist das Flag aktiv und gibt es echte
+BF-Überzahl (`poolSBF` nicht leer), wird im HW-Abschnitt VOR der regulären Befüllung ein
+überzähliger BF als fester `mainGuard` vorab platziert (fairste Rotation: wenigste `hwGuardDays`
+zuerst) – aber nur, wenn noch HW-Plätze frei sind und nicht schon ein BF unter den `mainGuards`
+ist. Restliche HW-Slots füllt der Algorithmus regulär (z.B. k=3 → 2 WG + 1 BF). Anders als
+Feature 26 (per-Person-Wunsch, ≥1×/Woche) ist das ein globaler, **täglicher** Zwang.
+
+**Sanitäter & San-Türme (Feature 33/35):** Person-Flag `sanitaeter` (W **und** B – Feature 35)
++ Turm-Flag `sanTower`. Pro Tag `sanActive` = es gibt einen offenen San-Turm UND ≥1 Sanitäter
+**im Guard-Pool** (`getGuardPool()` = poolE/poolU + überzählige BF poolSBF; aktive BF fahren ein
+Boot und kommen für einen Turm ohnehin nicht in Frage) – nur dann greift die Logik (sonst normal). `sanTowerBonus` (5000) zieht – solange der San-Turm
+noch keinen Sanitäter hat – einen Sanitäter an (Bonus pro Paar nur **einmal** → keine Häufung);
+`sanReservePenalty` (350) hält Sanitäter von Nicht-San-Türmen/HW als Reserve fern (hebt sich
+unter Sanitätern auf → Fairness bleibt). Eingebaut in `bestPair` (Param `towerNeedsSan`),
+Turm-Einzelbefüllung und HW-Sortierung. Faire Rotation entsteht aus den bestehenden
+`towerVisit`-/Konsekutiv-Strafen; wichtigere San-Türme (prio asc) zuerst befüllt.
+
+**Führungstürme (Feature 34, Turm-Flag `leaderTower`, ersetzt den früheren `leaderCount`-Spinner):**
+Markierte Türme bekommen – wenn möglich – genau **eine** Führungskraft auf einen **regulären**
+Slot (kein Zusatz-Slot mehr). Mechanik: F sind nicht im Guard-Pool, sondern separat in `poolF`;
+vor der regulären Turm-Befüllung wird auf einem Führungsturm 1 F aus `poolF` platziert (fairste
+Rotation: wenigste Gesamteinsätze/Turmbesuche zuerst), sofern noch keine F im Slot sitzt und
+poolF/Bedarf vorhanden sind. Übrige F bleiben Führung an der HW. `expDemand` zählt Führungstürme
+mit gedeckter F nicht als „braucht Erfahrenen". Migration alter Pläne (`state-io`/`config`):
+`leaderCount>0` → `leaderTower:true`, die ehemaligen Zusatz-Slots werden in `slotCount` integriert
+(max 10), Headcount bleibt erhalten.
+
 **Zwangszuweisungen (forcedPlacements):** `transparent:false` → Person aus Pool, fest
 vorab platziert, zählt in Statistik (Folgetage berücksichtigen Wechsel). `transparent:true`
 → bleibt im Pool, Algorithmus normal, danach **nur visuell** in Zielslot verschoben.
 
 **BF-Schutz:** surplusBF +800 auf Turm mit aktivem Boot, -350 wenn Boot außer Dienst
-(1150 Swing). **Vorab-Schätzung** `tempOpen` über `(slotCount||2)+(leaderCount||0)` Plätze.
+(1150 Swing). **Vorab-Schätzung** `tempOpen` über `(slotCount||2)` Plätze.
 
 Detail-Historie aller Features/Bugfixes → **docs/FEATURES.md**.
 
@@ -182,7 +215,13 @@ via `renderInlineBoat()`; per D&D auf anderen Turm/HW ziehbar (`kind:'boat-reass
 
 **Autosave/State-IO (state-io.js):** `autoSave()` nach jeder `generate()` → `PUT /api/plans/:id`
 (localStorage-Fallback). `autoLoad()` beim Start. `_buildStateObject()` zentrale Serialisierung;
-Sets als Arrays. `STATE_VERSION = 7`; `migratePerson()` für Altpläne.
+Sets als Arrays. `STATE_VERSION = 8`; `migratePerson()` für Altpläne.
+
+**Wachlisten-Import (roster.js, Feature 31):** Upload (CSV/PDF) → `roster[]` (Roh-Verfügbarkeiten).
+`applyRosterToWindow()` baut `people[]` + tageweise `absent` **dynamisch** aus `startDate`+`DAYS`
+neu auf (auch bei jeder Datum-/Tage-Änderung in init.js). CSV-Parsing zuverlässig; PDF via pdf.js
+(lazy von cdnjs, Spalten-Rekonstruktion über x-Positionen) best-effort. Job→Rolle WF/BF/RS→F/B/W,
+importierte Personen starten unerfahren. Kernfunktionen DOM-frei + testbar (`test/roster.test.js`).
 
 **Auth/Encryption:** Session-Cookies (HTTPOnly, sameSite:lax, 7d / 30d „Merke mich"), bcryptjs
 (10 Rounds), Passwort ≥10 Zeichen, AES-256-GCM mit **Owner-Key** (kein Re-Encrypt beim Teilen),
@@ -202,6 +241,9 @@ CSP/HSTS/Security-Header. **Secrets in `.env`** (Pflicht: `MASTER_SECRET`≥32, 
 - **CSP divergiert je Server:** public-Server erlaubt `script-src 'self' 'unsafe-inline'
   https://cdnjs.cloudflare.com` (JSZip von cdnjs!); admin-Server nur `script-src 'self'`. Beim
   Zentralisieren der Header diese Differenz erhalten, sonst **bricht der XLSX-Export**.
+  Zusätzlich: public-Server hat `worker-src 'self' blob: https://cdnjs.cloudflare.com` für den
+  **pdf.js-Worker** (Wachlisten-PDF-Import, Feature 31) – beim Zentralisieren NICHT auf `'self'`
+  zwingen, sonst bricht der PDF-Upload. Admin-Server braucht das nicht.
 - **Neue State-Felder** an 3 Stellen pflegen: `state.js` (Default + `resetGlobalState`),
   `state-io.js` `_buildStateObject()` (serialisieren) + `importStateJSON()` (deserialisieren mit
   Default für Altpläne); ggf. `STATE_VERSION` erhöhen.
@@ -215,6 +257,10 @@ CSP/HSTS/Security-Header. **Secrets in `.env`** (Pflicht: `MASTER_SECRET`≥32, 
   sichtbar (auch im Einstellungen-Tab). Breakpoint des Tab-Switch: **900px** (nicht 768).
 - **Constraints:** max 28 Personen (XLSX), 16 Stationsspalten, Paarungs-Matrix nur bei 2–18 E/U,
   DAYS 1–14, Turm slotCount 1–10, Boot 1–3.
+- **Beobachter-Modus (Feature 30):** Nur-Lese-Pläne (Share-Rolle `view`, `currentPlanCanEdit=false`)
+  schalten `body.view-only` (via `_updateSaveIndicator()`) → Sidebar + alle Editier-Bedienelemente
+  weg, schlanke Turmbesetzungs-Ansicht. Neue Editier-UI in `render-output.js` daher IMMER hinter
+  `if(!viewOnly)` (sonst sehen/triggern Beobachter sie); Schreiben ist serverseitig ohnehin 403.
 
 ---
 
@@ -222,7 +268,7 @@ CSP/HSTS/Security-Header. **Secrets in `.env`** (Pflicht: `MASTER_SECRET`≥32, 
 `npm test` → Node `--test`, Algorithmus-Invarianten sind die eigentliche Absicherung
 (`test/harness.js` lädt Browser-Globals via vm.Context; `test/invariants.test.js`: Checks über
 9 Szenarien + 100 Fuzz). Invarianten: keine Person doppelt/Tag, keine Kranken in aktiven Slots,
-kein geschlossener Turm/Boot belegt, `slotCount`+`leaderCount` eingehalten. Perf-Baseline
+kein geschlossener Turm/Boot belegt, `slotCount` eingehalten. Perf-Baseline
 ~20ms für 28 Pers. × 14 Tage. **Backend kaum automatisiert** → bei Server-Änderungen mind.
 `node -c` + manuell. `npm install` im frischen Container nötig (sonst `sqlite3`-Fehler in
 `session-user-deletion.test.js`); dieser Test ist gelegentlich flaky (IPC-Serialisierung) →

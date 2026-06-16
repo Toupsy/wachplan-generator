@@ -157,6 +157,7 @@ async function initAfterAuth() {
     renderBoatCfg();
     renderPositionDescUI();
     renderExportColumnUI();   // Render exportColumns (bereits von seedFromConfig() gesetzt)
+    renderAlgoParams();
 
     // Neu erstellten Plan sofort speichern
     await autoSave();
@@ -177,7 +178,7 @@ setupMobileSwitch();
 // ── Sidebar – Wachgänger ─────────────────────────────────────────
 const addPersonBtn = document.getElementById('add-person');
 if(addPersonBtn) addPersonBtn.onclick = () => {
-  people.push({ id:++uid, name:'', role:'W', experienced:true, enableLabels: true });
+  people.push({ id:++uid, name:'', role:'W', experienced:true, enableLabels: true, sanitaeter:false });
   renderPeople();
   scheduleAutoSave();
 };
@@ -189,11 +190,24 @@ document.querySelectorAll('.quick-add button').forEach(b =>
     scheduleAutoSave();
   });
 
+// ── Sidebar – Wachliste hochladen (Feature 31) ───────────────────
+const rosterUploadBtn = document.getElementById('btn-roster-upload');
+const rosterFileInput = document.getElementById('roster-file-input');
+if(rosterUploadBtn && rosterFileInput) rosterUploadBtn.onclick = () => rosterFileInput.click();
+if(rosterFileInput) rosterFileInput.onchange = e => {
+  const file = e.target.files[0];
+  if(file && typeof handleRosterFile === 'function') handleRosterFile(file);
+  e.target.value = '';
+};
+const rosterClearBtn = document.getElementById('btn-roster-clear');
+if(rosterClearBtn) rosterClearBtn.onclick = () => { if(typeof clearRoster === 'function') clearRoster(); };
+if(typeof updateRosterIndicator === 'function') updateRosterIndicator();
+
 // ── Sidebar – Türme & Boote ──────────────────────────────────────
 const addTowerBtn = document.getElementById('add-tower');
 if(addTowerBtn) addTowerBtn.onclick = () => {
   const minP = towers.length ? Math.min(...towers.map(t=>t.prio)) : 1;
-  towers.push({ id:++uid, name:`Turm ${towers.length+1}`, prio:Math.max(1,minP), code:'', slotCount:2, leaderCount:0 });
+  towers.push({ id:++uid, name:`Turm ${towers.length+1}`, prio:Math.max(1,minP), code:'', slotCount:2, sanTower:false, leaderTower:false });
   renderTowerCfg(); renderBoatCfg(); renderPositionDescUI();
   scheduleAutoSave();
 };
@@ -219,6 +233,14 @@ if(mainKInput) mainKInput.oninput = e => {
   mainK = Math.max(0, +e.target.value||0);
 };
 
+// BF-an-HW-Pflicht: bei BF-Überschuss immer 1 BF aktiv auf der Hauptwache
+const requireBfHwInput = document.getElementById('require-bf-hw');
+if(requireBfHwInput) requireBfHwInput.onchange = e => {
+  requireBfAtHw = !!e.target.checked;
+  if(lastResult) generate();
+  scheduleAutoSave();
+};
+
 // ── Sidebar – Dienstzeit (Feature 15) ────────────────────────────────
 const serviceStartHourInput = document.getElementById('service-start-hour');
 const serviceEndHourInput = document.getElementById('service-end-hour');
@@ -237,7 +259,11 @@ if(serviceEndHourInput) serviceEndHourInput.onchange = e => {
 
 // ── Sidebar – Datum & Generierung ────────────────────────────────
 const startDateInput = document.getElementById('start-date');
-if(startDateInput) startDateInput.onchange = e => { startDate = e.target.value; };
+if(startDateInput) startDateInput.onchange = e => {
+  startDate = e.target.value;
+  // Dynamische Namensliste: bei hochgeladener Wachliste neu ableiten
+  if(typeof roster !== 'undefined' && roster.length && typeof applyRosterToWindow === 'function') applyRosterToWindow();
+};
 const generateBtn = document.getElementById('generate');
 if(generateBtn) generateBtn.onclick = async () => {
   const seedVal = +document.getElementById('seed-input').value || 0;
@@ -325,6 +351,12 @@ if(numDaysInput) numDaysInput.oninput = e => {
   const v = Math.min(14, Math.max(1, +e.target.value || 6));
   if(v === DAYS) return;
   DAYS = v;
+  // Dynamische Namensliste: bei hochgeladener Wachliste komplett neu ableiten
+  if(typeof roster !== 'undefined' && roster.length && typeof applyRosterToWindow === 'function'){
+    if(activeDay >= DAYS) activeDay = 0;
+    applyRosterToWindow();
+    return;
+  }
   // dayState und forcedPlacements anpassen
   while(dayState.length < DAYS)        dayState.push({ sick:new Set(), absent:new Set(), closed:new Set(), closedBoats:new Set() });
   while(forcedPlacements.length < DAYS) forcedPlacements.push([]);
