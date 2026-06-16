@@ -26,7 +26,7 @@ async function renderPlansList(){
   try { plans = await fetchPlansList(); } catch(e){}
   if(!plans.length){ listEl.innerHTML = '<div style="color:var(--text-dim);font-size:.82rem">Noch keine Pläne.</div>'; return; }
 
-  listEl.innerHTML = plans.map(p => {
+  const rows = plans.map(p => {
     const isCurrent = p.id === currentPlanId;
     const badge = p.isOwner
       ? '<span style="font-size:.62rem;color:var(--text-dim);text-transform:uppercase">Eigen</span>'
@@ -34,6 +34,7 @@ async function renderPlansList(){
     const del = p.isOwner
       ? `<button class="ghost-btn pl-del" data-id="${p.id}" data-name="${escapeHtml(p.name||'')}" style="border-color:var(--coral);color:var(--coral);font-size:.72rem;padding:4px 8px" title="Löschen">🗑️</button>`
       : '';
+    const dup = `<button class="ghost-btn pl-dup" data-id="${p.id}" data-name="${escapeHtml(p.name||'')}" style="border-color:var(--sea-bright);color:var(--sea-bright);font-size:.72rem;padding:4px 8px" title="Als Vorlage duplizieren">⧉</button>`;
     const openBtn = isCurrent
       ? '<span style="font-size:.66rem;color:var(--green);text-transform:uppercase">● aktuell</span>'
       : `<button class="ghost-btn pl-open" data-id="${p.id}" style="border-color:var(--sea-bright);color:var(--sea-bright);font-size:.72rem;padding:4px 8px">Öffnen</button>`;
@@ -42,9 +43,15 @@ async function renderPlansList(){
         <div style="font-size:.88rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(p.name||'(ohne Name)')}</div>
         <div>${badge}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">${openBtn}${del}</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">${openBtn}${dup}${del}</div>
     </div>`;
   }).join('');
+  // Option: manuelle Zuweisungen beim Duplizieren übernehmen (#223)
+  const dupOpt = `<label style="display:flex;align-items:center;gap:6px;font-size:.74rem;color:var(--text-dim);margin-bottom:8px">
+      <input type="checkbox" id="dup-keep-manual" checked style="width:15px;height:15px;accent-color:var(--sea-bright)">
+      Beim Duplizieren (⧉) manuelle Zuweisungen übernehmen
+    </label>`;
+  listEl.innerHTML = dupOpt + rows;
 
   listEl.querySelectorAll('.pl-open').forEach(b => b.onclick = async () => {
     await loadPlanById(+b.dataset.id);
@@ -54,6 +61,16 @@ async function renderPlansList(){
   listEl.querySelectorAll('.pl-del').forEach(b => b.onclick = async () => {
     if(!confirm(`Plan „${b.dataset.name}" wirklich löschen?`)) return;
     await deletePlanById(+b.dataset.id);
+    await renderPlansList();
+    const ni = document.getElementById('plan-name-input'); if(ni) ni.value = currentPlanName || '';
+  });
+  listEl.querySelectorAll('.pl-dup').forEach(b => b.onclick = async () => {
+    const keepEl = document.getElementById('dup-keep-manual');
+    const keepManual = keepEl ? keepEl.checked : true;
+    const suggested = (b.dataset.name || 'Wachplan') + ' (Kopie)';
+    const name = prompt('Name für die Kopie:', suggested);
+    if(name === null) return;
+    await duplicatePlanById(+b.dataset.id, name, { keepManual });
     await renderPlansList();
     const ni = document.getElementById('plan-name-input'); if(ni) ni.value = currentPlanName || '';
   });
