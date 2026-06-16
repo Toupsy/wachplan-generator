@@ -37,18 +37,6 @@ dem Owner-Key des aktuellen Nutzers verschlüsselt (auch das Duplizieren geteilt
 - **Nicht im Browser verifiziert** (kein Browser im Container) – reiner Frontend-/Netzwerk-Flow,
   per Code-Review geprüft (nutzt den bestehenden, getesteten `POST /api/plans`-Pfad).
 
-### Feature 39: Mehrtägige Abwesenheiten pro Wachgänger vorab markieren (Issue #221)
-Pro Person ein „🗓️"-Toggle in `#section-people`, das eine **von–bis**-Zeile (Tag 1..DAYS)
-einblendet. Die markierten Tage werden als `people[i].absentDays` (0-basierte Tagesindizes)
-gespeichert; `generate()` behandelt die Person an diesen Tagen als komplett **abwesend**
-(`isAbsent` prüft jetzt zusätzlich `absentDays`) → nicht aktiv eingeplant, nicht im Export/Druck,
-keine inaktiven Tage in der Statistik. Spart das tageweise „Außer Dienst"-Toggeln bei Urlaub/Lehrgang.
-- **Persistenz:** `absentDays` reist über `_buildStateObject()` mit, `importStateJSON()` setzt
-  Default `[]` für Altpläne; `STATE_VERSION` 10→11. Neue Personen (init.js) starten mit `[]`.
-- **Tests:** `test/absence-range.test.js` (nicht eingeplant an Abwesenheitstagen, durchgehend
-  abwesend = kein Dienst, leeres absentDays = Default-Verhalten). Invarianten weiterhin grün.
-- **Nicht im Browser verifiziert** (kein Browser im Container) – UI per Code-Review, Algorithmus per Test.
-
 ### Feature 38: Persönlicher Dienstplan-Export pro Wachgänger (iCal/.ics) (Issue #222)
 Pro Person ein „📅"-Button in der Pro-Person-Tabelle (Turm-Einsatzverteilung) exportiert
 einen persönlichen Dienstplan als `.ics`-Kalenderdatei (`wachplan-<Name>.ics`).
