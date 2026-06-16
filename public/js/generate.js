@@ -157,7 +157,13 @@ function generate(startDay = 0){
 
   for(let d = startDay; d < DAYS; d++){
     const ds       = dayState[d] || { sick: new Set(), absent: new Set(), closed: new Set(), closedBoats: new Set() };
-    const isAbsent = id => (ds.absent || new Set()).has(id);
+    // Abwesend = tageweise „komplett abwesend"-Set ODER eine vorab markierte mehrtägige
+    // Abwesenheit der Person (people[i].absentDays, 0-basierte Tagesindizes; Feature, #221).
+    const isAbsent = id => {
+      if((ds.absent || new Set()).has(id)) return true;
+      const p = people.find(x => x.id === id);
+      return !!(p && Array.isArray(p.absentDays) && p.absentDays.includes(d));
+    };
     // "außer Dienst" (HW-Anzeige) gilt nur für nicht komplett abwesende Personen.
     const isSick   = id => ds.sick.has(id) && !isAbsent(id);
 

@@ -23,6 +23,10 @@ function renderPeople(){
     row.draggable = true;
     row.dataset.idx = i;
     const hasLabels = (p.labels || '').trim().length > 0;
+    const absDays = Array.isArray(p.absentDays) ? p.absentDays : [];
+    const hasAbsence = absDays.length > 0;
+    const absFrom = hasAbsence ? Math.min(...absDays) + 1 : '';
+    const absTo   = hasAbsence ? Math.max(...absDays) + 1 : '';
     row.innerHTML = `
       <span class="pnr" style="cursor:grab" title="Ziehen zum Sortieren – ändert die Nr. in der Besetzungsliste (XLSX-Export)">${i+1}</span>
       <input type="text" value="${escapeHtml(p.name)}" data-id="${p.id}" class="pname" placeholder="Name" draggable="false">
@@ -49,6 +53,10 @@ function renderPeople(){
         <input type="checkbox" data-id="${p.id}" class="labels-checkbox" ${hasLabels ? 'checked' : ''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0">
         <span style="font-size:0.7rem;color:var(--text-dim)">🏷️</span>
       </label>
+      <label class="label-toggle" title="Mehrtägige Abwesenheit (Urlaub/Lehrgang) – an diesen Tagen nicht eingeplant">
+        <input type="checkbox" data-id="${p.id}" class="absence-checkbox" ${hasAbsence ? 'checked' : ''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0">
+        <span style="font-size:0.7rem;color:var(--text-dim)">🗓️</span>
+      </label>
       <button class="mini-btn del-p" data-id="${p.id}">×</button>`;
     c.appendChild(row);
 
@@ -60,6 +68,19 @@ function renderPeople(){
     labelsRow.innerHTML = `
       <input type="text" value="${escapeHtml(p.labels||'')}" data-id="${p.id}" class="plabels" placeholder="Labels (z.B. Sanitäter, Rettungsschwimmer)" maxlength="200">`;
     c.appendChild(labelsRow);
+
+    // Abwesenheits-Bereich (von–bis), nur sichtbar wenn 🗓️ aktiv / gesetzt (Feature, #221)
+    const absenceRow = document.createElement('div');
+    absenceRow.className = 'person-absence-row';
+    absenceRow.style.display = hasAbsence ? 'flex' : 'none';
+    absenceRow.style.cssText += ';gap:6px;align-items:center;font-size:.78rem;color:var(--text-dim);padding:2px 0 6px 26px';
+    absenceRow.setAttribute('data-id', p.id);
+    absenceRow.innerHTML = `
+      <span>🗓️ Abwesend Tag</span>
+      <input type="number" min="1" max="${DAYS}" value="${absFrom}" data-id="${p.id}" class="pabs-from" style="width:54px" placeholder="von">
+      <span>bis</span>
+      <input type="number" min="1" max="${DAYS}" value="${absTo}" data-id="${p.id}" class="pabs-to" style="width:54px" placeholder="bis">`;
+    c.appendChild(absenceRow);
 
     // ── Drag & Drop: Reihenfolge (= Nr. im XLSX-Export) ändern ──────
     row.addEventListener('dragstart', e => {
@@ -131,6 +152,42 @@ function renderPeople(){
       }
       scheduleAutoSave();
       renderOutput();
+    };
+  });
+
+  // Abwesenheit (#221): 🗓️ blendet die von–bis-Zeile ein/aus; Eingaben füllen absentDays.
+  const recomputeAbsence = (p, fromVal, toVal) => {
+    let from = parseInt(fromVal, 10), to = parseInt(toVal, 10);
+    if(!Number.isFinite(from) || !Number.isFinite(to)){ p.absentDays = []; return; }
+    from = Math.max(1, Math.min(DAYS, from));
+    to   = Math.max(1, Math.min(DAYS, to));
+    if(to < from){ const t = from; from = to; to = t; }
+    const days = [];
+    for(let day = from; day <= to; day++) days.push(day - 1); // 0-basierte Tagesindizes
+    p.absentDays = days;
+  };
+  c.querySelectorAll('.absence-checkbox').forEach(cb => {
+    cb.onchange = e => {
+      const personId = +e.target.dataset.id;
+      const p = getP(personId);
+      const absRow = Array.from(c.querySelectorAll('.person-absence-row')).find(r => +r.getAttribute('data-id') === personId);
+      if(e.target.checked){
+        if(absRow) absRow.style.display = 'flex';
+      } else {
+        if(absRow) absRow.style.display = 'none';
+        p.absentDays = [];           // 🗓️ deaktiviert → Abwesenheit aufheben
+        generate(); scheduleAutoSave();
+      }
+    };
+  });
+  c.querySelectorAll('.pabs-from, .pabs-to').forEach(inp => {
+    inp.onchange = e => {
+      const personId = +e.target.dataset.id;
+      const p = getP(personId);
+      const fromEl = c.querySelector(`.pabs-from[data-id="${personId}"]`);
+      const toEl   = c.querySelector(`.pabs-to[data-id="${personId}"]`);
+      recomputeAbsence(p, fromEl && fromEl.value, toEl && toEl.value);
+      generate(); scheduleAutoSave();
     };
   });
   c.querySelectorAll('.pname').forEach(i =>
