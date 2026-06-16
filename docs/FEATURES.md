@@ -379,7 +379,10 @@ auch für **Bootsführer** verfügbar. Ein BF-Sanitäter deckt einen San-Turm ab
 Turmplatz verfügbar ist** – das ist bei **überzähligen** BF der Fall (sie stehen im Guard-Pool
 `poolSBF`); aktive BF fahren ein Boot und kommen für einen Turm ohnehin nicht in Frage.
 - **UI (`render-sidebar.js`):** San-Checkbox jetzt für Rolle `W` **und** `B` (neben dem
-  HW-Wunsch-Haken). Serialisierung war bereits rollenunabhängig.
+  HW-Wunsch-Haken). Serialisierung war bereits rollenunabhängig. Da eine BF-Zeile damit drei
+  Toggles trägt (Erf. + 🏠 HW-Wunsch + 🚑 Sani), wurde die Toggle-Spalte der Personen-Zeile auf
+  feste 140px gesetzt und die Sidebar etwas verbreitert (`clamp(440px,36vw,600px)`) – sie ist
+  einklappbar, daher unkritisch (`Wachplan-Generator.html`).
 - **Algorithmus (`generate.js`):** Das `sanActive`-Gating prüft den Sanitäter jetzt im gesamten
   Guard-Pool (`getGuardPool()` = Wachgänger + überzählige BF) statt nur unter den Wachgängern.
   Bonus/Reserve in `bestPair` etc. wirkten schon zuvor auf alle Guard-Pool-Personen (inkl. poolSBF)

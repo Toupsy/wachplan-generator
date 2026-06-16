@@ -20,9 +20,12 @@
 - **Änderung:** UI-Checkbox für `W`+`B` (`render-sidebar.js`); `sanActive`-Gating prüft den
   Sanitäter im gesamten `getGuardPool()` statt nur unter den Wachgängern (`generate.js`). Bonus/
   Reserve wirkten schon zuvor auf alle Guard-Pool-Personen → keine weitere Algorithmus-Änderung.
+- **Layout-Fix:** BF-Zeile trägt nun 3 Toggles (Erf./🏠/🚑) – Toggle-Spalte der Personen-Zeile
+  fest auf 140px, Sidebar verbreitert auf `clamp(440px,36vw,600px)` (einklappbar, daher unkritisch).
+  Per CSS-Maß geprüft (BF-Toggle-Inhalt ≈124px passt in die 140px-Spalte); Playwright-Browser nicht
+  installierbar (Netzwerk blockiert) → nicht visuell verifiziert.
 - **Tests:** `test/san-tower.test.js` um 1 Test erweitert. Volle Suite grün. Auf `main` (mit
   Feature 33/34) rebased; Doku-Konflikte (HANDOFF/FEATURES) zugunsten beider Features aufgelöst.
-  Nicht im Browser verifiziert.
 
 **Letzter Lauf (2026-06-16, Feature 34: Führungstürme statt leaderCount-Spinner – Branch `claude/leader-tower-checkbox`):**
 - **Neues Feature (s. docs/FEATURES.md Feature 34):** Der Pro-Turm-Spinner „Führungsslots"
