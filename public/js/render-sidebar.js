@@ -40,7 +40,7 @@ function renderPeople(){
           <input type="checkbox" data-id="${p.id}" class="hwwish-checkbox" ${p.wantsHW?'checked':''}>
           <span>🏠</span>
         </label>` : ''}
-        ${p.role==='W' ? `<label class="san-toggle" title="Sanitäter – wird auf San-Türmen wenn möglich immer eingesetzt">
+        ${(p.role==='W' || p.role==='B') ? `<label class="san-toggle" title="Sanitäter – wird auf San-Türmen wenn möglich immer eingesetzt">
           <input type="checkbox" data-id="${p.id}" class="san-checkbox" ${p.sanitaeter?'checked':''}>
           <span>🚑</span>
         </label>` : ''}
