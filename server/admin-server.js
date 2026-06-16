@@ -84,15 +84,6 @@ async function start() {
       res.status(500).json({ error: 'Internal server error' });
     });
 
-    // Handle uncaught errors
-    process.on('uncaughtException', (err) => {
-      console.error('❌ Uncaught Exception:', err);
-    });
-
-    process.on('unhandledRejection', (reason, promise) => {
-      console.error('❌ Unhandled Rejection:', reason);
-    });
-
     // Start admin server
     const server = app.listen(ADMIN_PORT, HOST, () => {
       console.log(`🔐 DLRG Wachplan-Generator Admin Panel läuft`);
@@ -114,5 +105,28 @@ async function start() {
     process.exit(1);
   }
 }
+
+// Handle uncaught errors – auf Modulebene registriert (vor start()), konsistent mit
+// server/server.js (#274): bei DB-Fehlern beenden, damit der Orchestrator neu startet,
+// statt den Admin-Server in einem kaputten Zustand „am Leben" zu lassen.
+process.on('uncaughtException', (err) => {
+  console.error('❌ Uncaught Exception:', err);
+  // For database errors, this is likely fatal - exit
+  if (err.message && err.message.includes('database')) {
+    console.error('⚠️  Database error - exiting');
+    process.exit(1);
+  }
+  // Don't exit for other errors, let the server continue
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection:', reason);
+  // For database errors, this is likely fatal - exit
+  if (reason && reason.message && reason.message.includes('database')) {
+    console.error('⚠️  Database error - exiting');
+    process.exit(1);
+  }
+  // Don't exit for other errors, let the server continue
+});
 
 start();
