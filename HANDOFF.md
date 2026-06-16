@@ -10,8 +10,27 @@
 > **Pflege:** Diese Datei nach jeder Aufgabe auf den aktuellen Stand bringen (Abschnitt 4/5);
 > Doku-Wartungsvertrag s. CLAUDE.md.
 
-**Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
+**Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth, aktuell **0.17.0**).
 `main` ist sauber: Tests grün, alle Server parsen (`node -c`).
+
+**Letzter Lauf (2026-06-16, Optimierungs-Audit – Branch `claude/kind-allen-kv6062`):**
+- **Bug #305 (High, Datenverlust, gefixt):** `PUT /api/plans/:id` setzte beim Speichern die
+  Retention-Lösch-Markierung (`marked_for_deletion`) nicht zurück → ein bereits markierter,
+  dann wieder bearbeiteter Plan wurde nach Ablauf der 7-Tage-Schonfrist trotzdem gelöscht
+  (stiller Datenverlust; durch #272 praktisch auslösbar). Fix: `UPDATE` setzt
+  `marked_for_deletion=0, marked_for_deletion_at=NULL`. Keine Migration nötig.
+- **Bug #307 (High, Fairness, gefixt):** `_reAccumulateDayStats` (Teil-Neuberechnung bei
+  „Person verschieben + Folgetage neu berechnen") wich an 3 Stellen vom Voll-Lauf ab
+  (HW-`pairCount`, `towerWithBoatDays` bei BF-Knappheit, `hwGuardDays` der Führung) → der
+  regenerierte Rest driftete in ~25–35 % der Pläne. Fix: HW-Paare via `mainPairs` nachziehen,
+  `towerWithBoatDays` faithful aus dem Schedule (`boatsNoBootsf`) rekonstruieren, `fuehrung`
+  von `mainGuards` trennen. Neue `test/partial-regen-equivalence.test.js` (Voll- vs. Teil-Lauf
+  jetzt 0 Abweichungen). **Volle Suite 57/57 grün**, `node -c` ok.
+- **Bug #308 (Medium, NICHT gefixt – Issue):** Effektive Zwangszuweisung auf einen geschlossenen
+  Turm lässt die Person ganz aus Plan+Statistik verschwinden (über veraltete `forcedPlacements`
+  erreichbar). Bewusst nur als Issue (eigene Fallback-Logik + Stat-Konsistenz nötig).
+- **Nicht im Browser verifiziert** (kein Browser im Container) – Backend-Fix per Code-Review,
+  Algorithmus-Fix per Äquivalenz-Fuzz + Suite abgesichert.
 
 **Letzter Lauf (2026-06-15, Feature 32: BF-an-HW-Pflicht bei BF-Überschuss – Branch `claude/bf-surplus-staffing-fld551`):**
 - **Neues Feature (s. docs/FEATURES.md Feature 32):** Globaler Schalter „Bei BF-Überschuss immer

@@ -333,6 +333,42 @@ vom `catch` verschluckt wurde. Die Retention (Feature 22/23, DSGVO Art. 5) tat n
 - **Verifikation:** Reproduziert (`require(...).db === undefined`); mit `getDb()` läuft die
   exakte Retention-`UPDATE`-Query fehlerfrei.
 
+### Plan-Retention: Speichern hob die Lösch-Markierung nicht auf → stiller Datenverlust (#305)
+**Problem:** Der Retention-Cleanup (`db/init.js`) markiert lange unbearbeitete Pläne
+(`marked_for_deletion = 1`, `marked_for_deletion_at = now`) und löscht sie nach 7 Tagen
+Schonfrist endgültig. `PUT /api/plans/:id` aktualisierte beim Speichern zwar `updated_at`,
+ließ das Flag aber **nie zurücksetzen**. Die Markierungs-Query greift nur auf
+`marked_for_deletion = 0`-Zeilen → ein bereits markierter, dann wieder bearbeiteter Plan
+blieb markiert und wurde nach Ablauf der Schonfrist gelöscht, obwohl er gerade benutzt wurde.
+Erst durch den #272-Fix (Cleanup läuft überhaupt) wird das praktisch ausgelöst.
+- **Ort:** `server/api/plans.js` (PUT-Handler) ↔ `server/db/init.js` (`startPlanRetentionCleanup`).
+- **Lösung:** Die `UPDATE`-Query setzt beim Speichern zusätzlich
+  `marked_for_deletion = 0, marked_for_deletion_at = NULL` → ein aktiv gespeicherter Plan
+  ist nie löschmarkiert.
+- **Verifikation:** Code-Review + volle Test-Suite grün (55/55), `node -c` ok. Schema-Spalten
+  existieren bereits (idempotenter `ALTER TABLE` in `init.js`), keine Migration nötig.
+
+### Teil-Neuberechnung driftete die Fairness – `_reAccumulateDayStats` ≠ Voll-Lauf (#307)
+**Problem:** `generate(startDay>0)` (Person verschieben + „Folgetage neu berechnen") akkumuliert
+die behaltenen Tage über `_reAccumulateDayStats()` und generiert nur den Rest neu. Diese
+Re-Akkumulation muss EXAKT dieselben Stats wie der Voll-Lauf `generate(0)` liefern, sonst
+basiert der neue Rest auf falschem Fairness-Zustand. Drei Abweichungen:
+1. **`pairCount`** zählte HW-`bestPair`-Paare nicht (nur Türme) → HW-Paarungen der behaltenen
+   Tage verloren (fließt über `pairRepeatWeight` ins Scoring).
+2. **`towerWithBoatDays`** zählte nur BESETZTE Boote (aus dem Schedule), der Voll-Lauf aber
+   jedes zugewiesene, nicht geschlossene Boot (`activeBoatTowers`) – bei BF-Knappheit
+   systematische Abweichung (fließt über `towerBoatHeavyPenalty` ins Scoring).
+3. **`hwGuardDays`** wurde fälschlich auch der HW-Führung (`fuehrung`) gutgeschrieben; der
+   Voll-Lauf gibt `poolF` nur `total++`/`hwVisits++` (latent, da `hwGuardDays` nur für Rolle B gelesen).
+- **Ort:** `public/js/generate.js` (`_reAccumulateDayStats` vs. Voll-Lauf-Pfad).
+- **Lösung:** (1) HW-Paare im Voll-Lauf auf dem `main`-Slot mitführen (`mainPairs`) und exakt
+  nachziehen. (2) `towerWithBoatDays` faithful rekonstruieren: besetzte Boot-Slots + unbesetzte-
+  aber-aktive Boote (`day.boatsNoBootsf`). (3) `fuehrung` von `mainGuards` trennen (kein
+  `hwGuardDays++`).
+- **Verifikation:** Neue `test/partial-regen-equivalence.test.js` (No-op-Re-Accumulate-Stats +
+  Tail-Schedule identisch zum Voll-Lauf über 25 Szenarien × 3 Schnittpunkte). Vorher 77 Stat-
+  Diffs / 10 Tail-Abweichungen → jetzt 0/0. Volle Suite 57/57 grün.
+
 ### Robustheit/Wartbarkeit – Export-Leak, WebSocket-Fehler, Audit-JSON, ID-Parser (#273)
 - **Export-Memory-Leak:** `URL.createObjectURL()` wurde in `export.js` (XLSX/CSV/Stats) und
   `state-io.js` nie freigegeben. Neuer Helfer `downloadBlob(blob, filename)` in `utils.js`
