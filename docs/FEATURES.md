@@ -434,6 +434,15 @@ Turmplatz verfügbar ist** – das ist bei **überzähligen** BF der Fall (sie s
 
 ## Bugfixes
 
+### admin-server.js: globale Error-Handler auf Modulebene + Exit bei DB-Fehlern (#274)
+**Problem:** `server/admin-server.js` registrierte `uncaughtException`/`unhandledRejection`
+**innerhalb** von `start()` (nach DB-Init) und **ohne `process.exit`** – anders als
+`server/server.js` (Modulebene + Exit bei DB-Fehlern). Folge: inkonsistentes Fehlerverhalten;
+ein fataler DB-Fehler zur Laufzeit ließ den Admin-Server in kaputtem Zustand „am Leben", statt
+sich – wie der Hauptserver – sauber zu beenden (Restart durch den Orchestrator).
+- **Lösung:** Handler aus `start()` entfernt und auf Modulebene (vor `start()`) registriert,
+  exakt analog zu `server.js`: bei DB-bezogenen Fehlern `process.exit(1)`, sonst weiterlaufen.
+
 ### Zwangszuweisung auf geschlossenen Turm ließ die Person verschwinden (#308)
 **Problem:** Eine effektive (`transparent:false`) Turm-Zwangszuweisung entfernt die Person
 aus allen Pools (`removeFromPools`) und legt sie in `forcedByTower[slotId]` ab. Dieser
