@@ -11,14 +11,124 @@
 > Doku-Wartungsvertrag s. CLAUDE.md.
 
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
-**34/34 Tests grün**, alle Server parsen (`node -c`).
+`main` ist sauber: Tests grün, alle Server parsen (`node -c`).
 
-**Letzter Lauf (2026-06-11, Issue #276):**
-- **#276 Bugfix:** `renderOutput()` crashte mit `TypeError` wenn `lastResult === null`
-  (frisch geladene App, vor erstem Generieren). Defensiver Guard `if(!lastResult) return;`
-  in `render-output.js` Z.42 (nach `getElementById`, vor Destructuring). Schließt #276.
+**Letzter Lauf (2026-06-16, Feature 35: Auch Bootsführer können Sanitäter sein – Branch `claude/bf-can-be-sanitaeter`, basiert auf `main` mit Feature 33/34):**
+- **Erweiterung von Feature 33 (s. docs/FEATURES.md Feature 35):** Der Sanitäter-Haken (🚑) gilt
+  jetzt für Wachgänger **und** Bootsführer. Ein BF-Sanitäter deckt einen San-Turm ab, wenn er
+  überzählig ist (im Guard-Pool `poolSBF` steht); aktive BF fahren ein Boot.
+- **Änderung:** UI-Checkbox für `W`+`B` (`render-sidebar.js`); `sanActive`-Gating prüft den
+  Sanitäter im gesamten `getGuardPool()` statt nur unter den Wachgängern (`generate.js`). Bonus/
+  Reserve wirkten schon zuvor auf alle Guard-Pool-Personen → keine weitere Algorithmus-Änderung.
+- **Layout-Fix:** BF-Zeile trägt nun 3 Toggles (Erf./🏠/🚑) – Toggle-Spalte der Personen-Zeile
+  fest auf 140px, Sidebar verbreitert auf `clamp(440px,36vw,600px)` (einklappbar, daher unkritisch).
+  Per CSS-Maß geprüft (BF-Toggle-Inhalt ≈124px passt in die 140px-Spalte); Playwright-Browser nicht
+  installierbar (Netzwerk blockiert) → nicht visuell verifiziert.
+- **Tests:** `test/san-tower.test.js` um 1 Test erweitert. Volle Suite grün. Auf `main` (mit
+  Feature 33/34) rebased; Doku-Konflikte (HANDOFF/FEATURES) zugunsten beider Features aufgelöst.
 
-**Vorletzter Lauf (2026-06-10, Maintainer-Review):**
+**Letzter Lauf (2026-06-16, Feature 34: Führungstürme statt leaderCount-Spinner – Branch `claude/leader-tower-checkbox`):**
+- **Neues Feature (s. docs/FEATURES.md Feature 34):** Der Pro-Turm-Spinner „Führungsslots"
+  (`leaderCount`, 0–3 Zusatz-Slots) wird durch einen einfachen Haken „Führungsturm" (👔) ersetzt
+  – gleiche Logik wie der San-Turm: wenn möglich ≥1 Führungskraft auf einem **regulären** Slot
+  (kein Zusatz-Slot). Keine Pro-Turm-Anzahl mehr nötig.
+- **Modell:** Turm `leaderTower:bool` ersetzt `leaderCount`. Algorithmus platziert vorab 1 F aus
+  separatem `poolF` auf Führungstürme (fair rotierend); `slotCount+leaderCount`-Rechnungen → nur
+  `slotCount`; toter Algo-Param `leaderBonus` entfernt. Migration alter Pläne: `leaderCount>0` →
+  `leaderTower:true`, Zusatz-Slots in `slotCount` integriert (max 10); `STATE_VERSION` 9→10.
+- **Tests:** `test/leaders.test.js` neu gefasst (4 Tests). Gemergt als PR #311 (v1.0.0, breaking).
+
+**Letzter Lauf (2026-06-16, Feature 33: Sanitäter & San-Türme – Branch `claude/sanitaeter-hook-tower-2o54dy`):**
+- **Neues Feature (s. docs/FEATURES.md Feature 33):** Personen-Flag „Sanitäter" (🚑, nur Wachgänger)
+  + Turm-Haken „San-Turm" (🚑, neben Hauptstrand). Ein San-Turm bekommt – wenn möglich – immer
+  ≥1 Sanitäter; sonst sind Sanitäter normale Wachgänger. Analog zur BF-Reservierung (Bonus zieht
+  Sanitäter auf San-Türme, Reserve-Strafe hält sie von Nicht-San-Türmen/HW fern). Faire Rotation
+  aus bestehenden towerVisit-/Konsekutiv-Strafen; wichtigster San-Turm (prio asc) zuerst.
+- **State:** Person `sanitaeter:bool`, Turm `sanTower:bool` (beide Default false). Serialisiert in
+  `state-io.js` (Build + Import, Default für Altpläne), `STATE_VERSION` 8→9; Roster-Override
+  `sanitaeter` (`roster.js`). UI + Handler in `render-sidebar.js`, CSS `.san-toggle` in der HTML,
+  Defaults beim Anlegen in `init.js`. Algorithmus in `generate.js` (`sanActive`, `sanTowerBonus`/
+  `sanReservePenalty` in `state.js` `defaultAlgoParams`, neuer `bestPair`-Param `towerNeedsSan`).
+- **Tests:** neuer `test/san-tower.test.js` (5 Tests, alle grün). Volle Suite grün (58 Tests; nach
+  `npm install` im frischen Container, sonst `sqlite3`-Fehler; `session-user-deletion.test.js` einmal
+  flaky → Rerun grün, dokumentiert). `node -c` für alle geänderten Frontend-Dateien OK.
+- **Nicht im Browser verifiziert** (kein Browser im Container) – UI/Checkboxen/Handler per
+  Code-Review geprüft, Algorithmus per Test abgesichert.
+
+**Letzter Lauf (2026-06-15, Feature 32: BF-an-HW-Pflicht bei BF-Überschuss – Branch `claude/bf-surplus-staffing-fld551`):**
+- **Neues Feature (s. docs/FEATURES.md Feature 32):** Globaler Schalter „Bei BF-Überschuss immer
+  1 BF auf der Hauptwache" (Checkbox `#require-bf-hw` im HW-Konfig-Block). Bei echter BF-Überzahl
+  (mehr BF als Boote) sitzt täglich mind. 1 überzähliger BF aktiv auf der HW (z.B. 3 HW-Slots →
+  2 WG + 1 BF). Neues State-Feld `requireBfAtHw` (Default false), an 3 Stellen gepflegt + UI-Sync.
+  Algorithmus: Vorab-Platzierung eines surplus-BF im HW-Abschnitt (`generate.js`), fair rotierend
+  (`hwGuardDays` asc). Komplementär zu Feature 26 (per-Person-Wunsch).
+- **Tests:** neuer `test/require-bf-hw.test.js` (4 Tests, alle grün). Volle Suite **55 Tests grün**.
+  `node -c` für alle geänderten Frontend-Dateien OK. **Nicht im Browser verifiziert** (kein Browser
+  im Container) – Checkbox/Handler per Code-Review geprüft, Algorithmus per Test abgesichert.
+
+**Letzter Lauf (2026-06-14, Feature 31: Wachliste hochladen → dynamische Namensliste – Branch `claude/dynamic-name-list-dates-sfyz4u`):**
+- **Neues Feature (s. docs/FEATURES.md Feature 31):** Upload der DLRG-Wachliste (CSV **und** PDF);
+  die Namensliste wird dynamisch aus **Startdatum + Anzahl Wachtage** abgeleitet (nur „zugesagt",
+  Verfügbarkeits-Überlappung; Tage außerhalb der persönlichen `von/bis` werden tageweise `absent`).
+  Neues Modul `public/js/roster.js`, State-Feld `roster[]`, `STATE_VERSION` 7→8.
+- **CSV** zuverlässig (Header-Mapping); **PDF** via pdf.js (lazy von cdnjs, Spalten-Rekonstruktion
+  über x-Positionen) best-effort. Job→Rolle WF/BF/RS→F/B/W, Importe starten **unerfahren**.
+- **CSP:** public-Server um `worker-src 'self' blob: https://cdnjs.cloudflare.com` ergänzt (pdf.js-Worker).
+- **Tests:** neuer `test/roster.test.js` (8 Tests, alle grün). Reale Beispiel-CSV verifiziert
+  (71 Zeilen → 63 zugesagt → 56 Personen im 11-Tage-Fenster). Volle Suite grün
+  (`session-user-deletion.test.js` einmal flaky → Rerun grün, dokumentiert). `node -c` für beide Server OK.
+- **Nicht im Browser verifiziert:** Kein Browser im Container; PDF-Pfad per Code-Review/Struktur
+  geprüft, nicht visuell. CSV-Pfad end-to-end per Node-Skript gegen die echte Datei getestet.
+
+**Letzter Lauf (2026-06-13, Layout: Top-Bar + Sidebar – Branch `claude/sidebar-topbar-layout-71mf2i`):**
+- **Feature 30 (s. docs/FEATURES.md):** Top-Bar zeigt nur den Titel, Beschreibung/Badges in
+  einem einklappbaren Info-Kästchen (ℹ-Button); Sidebar einklappbar.
+  Neues Frontend-Modul `public/js/layout-chrome.js` (in Ladereihenfolge nach `sidebar-layout`).
+  Reine UI-Schicht, kein Eingriff in State/Plan/Serialisierung. 34/34 Tests grün
+  (`npm install` im frischen Container nötig, sonst `sqlite3`-Fehler – dokumentierte Falle).
+- **Nicht visuell verifiziert:** Kein Browser/Netzwerk im Container für Playwright-Screenshot;
+  Änderungen sind reines CSS/JS, per Code-Review geprüft. → PR offen.
+
+**Vorheriger Lauf (2026-06-11, Optimierungs-Audit #2 – Branch `claude/confident-shannon-jq07g7`):**
+- **Security-Fix (#279, Medium):** `POST /api/import/plans` umging die Eingabe-Limits aus
+  #218/#270 komplett (kein Name-/Größen-/Typ-Check, rohe `planError.message` an den Client).
+  Fix: `validatePlanInput` aus `plans.js` exportiert + im Import-Loop angewandt, generische
+  Client-Fehlermeldungen, Namen in Fehler-Strings koerziert/gekürzt. 34/34 Tests grün,
+  Export-/Limit-Verhalten via `node -e` verifiziert. → PR offen.
+- **Housekeeping:** Issues #272/#273 geschlossen (Fixes waren via PR #275 bereits auf `main`
+  gemergt, Issues standen noch offen).
+- **Geprüft, bewusst NICHT gemeldet:** `compareVersions` in `server.js` behandelt NaN korrekt
+  (malformed → 0/gleich, gewollt defensiv); getP/getT-Null-Derefs in `render-sidebar.js` sind
+  theoretisch (data-ids stammen aus dem synchron gerenderten DOM); restliche Audit-Befunde
+  (SQLi, AuthZ, Crypto, Sessions) ohne Befund. #276-Crash hat bereits offenen PR #277.
+
+**Vorheriger Lauf (2026-06-11, Feature 29 – Branch `claude/brave-brahmagupta-1awb0w`):**
+- **Version-Badge an GitHub-Releases gekoppelt** (s. docs/FEATURES.md Feature 29): Root-Cause
+  war fehlendes `@semantic-release/git` – `package.json` blieb auf 0.5.1, GitHub war bei 0.9.1.
+  Plugin ergänzt (`.releaserc.json` + `release.yml` `extra_plugins` + devDep), Version einmalig
+  auf 0.9.1 synchronisiert. `/api/version` liefert jetzt zusätzlich `latest`/`updateAvailable`
+  (serverseitiger GitHub-Check, 6 h-Cache); Badge wird gold + Toast bei neuerem Release.
+- **Offen/prüfen nach Merge:** Erster Release-Lauf muss zeigen, dass der `chore(release)`-Commit
+  auf `main` durchkommt (Branch-Protection könnte `GITHUB_TOKEN`-Push blocken → dann Ausnahme
+  für Actions einrichten). 34/34 Tests grün, `/api/version` lokal verifiziert.
+
+**Vorheriger Lauf (2026-06-10, Optimierungs-Audit – Branch `claude/codebase-optimization-audit-5dmrrb`):**
+- **Bug gefunden & gefixt (#272, High):** Plan-Retention-Cleanup lief nie – `server.js` übergab
+  `require('./db/connection').db` (= `undefined`, kein solches Export) an
+  `startPlanRetentionCleanup` → `db.run` warf bei `PLAN_RETENTION_DAYS>0` einen vom catch
+  verschluckten `TypeError`. Fix: `getDb()` übergeben + `cleanupRunning`-Guard. Verifiziert.
+- **Reliability/Wartbarkeit (#273):** (a) Export-Memory-Leak behoben – neuer `downloadBlob()`-
+  Helfer in `utils.js` mit `revokeObjectURL` (export.js ×3 + state-io.js). (b) `realtime.js`:
+  stummer `catch` loggt jetzt, `planId` via `parsePositiveInt` validiert, `ws.send` nur bei
+  `readyState===OPEN`. (c) `admin.js` Audit-Log: `JSON.parse` pro Zeile abgesichert (kein 500
+  mehr bei einer korrupten Zeile). (d) `plans.js`/`realtime.js`: doppelte ID-Parser → zentraler
+  `parsePositiveInt`. (e) totes/kaputtes `test/gdpr-deletion-verification.js` entfernt.
+- **Tracking-Issue (#274, Low–Med, NICHT umgesetzt):** `admin-server.js` Error-Handler exiten
+  nicht & sind erst in `start()` registriert (inkonsistent mit `server.js`) – Verhaltensänderung,
+  daher bewusst nur als Issue (Überschneidung mit #217).
+- Diese Änderungen liegen auf Branch `claude/codebase-optimization-audit-5dmrrb` (PR offen).
+
+**Vorheriger Lauf (2026-06-10, Maintainer-Review):**
 - **PR #231 gemergt** → Feature 28 **Fairness-Visualisierung** (SVG-Balkendiagramme: Einsätze/
   Person, HW-Tage/Person, Turmauslastung; rein CSS/SVG, CSP-konform, im Druck aus,
   `fairnessChartsDisplay`). War gegen veralteten `main` → Konflikte (VERSION/CLAUDE.md) gelöst,
@@ -77,8 +187,8 @@ Multi-User mit **AES-256-GCM at rest**, Sessions, Sharing, Realtime (WebSocket),
 |---|---|---|
 | #223 | Plan duplizieren („Als Vorlage verwenden") | reiner Frontend-Flow über `_buildStateObject()` + `POST /api/plans` |
 | #222 | Persönlicher ICS-Export pro Wachgänger | Zeiten via `serviceStartHour/EndHour`, strikt lokal (kein UTC-Shift); Scope im Blick behalten |
-| #221 | Mehrtägige Abwesenheiten (von–bis) pro Person | **nicht** durch Feature 27 abgedeckt (das ist tageweise `absent`). Hier: Bereichserfassung + Ableitung beim `generate()` |
-| #220 | Wachgänger-Bulk-Import (CSV/Text) | robustes Parsing, `escapeHtml`, `generate()`/Autosave nach Import |
+| #221 | Mehrtägige Abwesenheiten (von–bis) pro Person | **nicht** durch Feature 27 abgedeckt (das ist tageweise `absent`). Hier: Bereichserfassung + Ableitung beim `generate()`. **Teilweise abgedeckt durch Feature 31** (von/bis aus Wachliste → tageweise `absent`), aber noch keine manuelle Bereichserfassung pro Person. |
+| #220 | Wachgänger-Bulk-Import (CSV/Text) | robustes Parsing, `escapeHtml`, `generate()`/Autosave nach Import. **Weitgehend abgedeckt durch Feature 31** (CSV/PDF-Upload der Wachliste). |
 
 **Refactor:**
 | Issue | Thema | Anmerkung |
@@ -89,9 +199,8 @@ Multi-User mit **AES-256-GCM at rest**, Sessions, Sharing, Realtime (WebSocket),
 1. **Feature-PRs #220–#223:** mergebar machbar; pro Issue Branch + PR. #221 sauber vom
    tageweisen `absent` (Feature 27) abgrenzen.
 2. **#217 Backend-DRY:** CSP-Factory-Ansatz (s. o.), sonst bricht XLSX-Export.
-3. **`test/gdpr-deletion-verification.js`** ist veraltet/kaputt (fehlende `sessions`-Tabelle im
-   eingebetteten Schema) → entweder reparieren (sessions anlegen) oder löschen; die Löschung
-   ist bereits über `session-user-deletion.test.js` in CI abgedeckt.
+3. ~~`test/gdpr-deletion-verification.js` veraltet/kaputt~~ → **erledigt** (entfernt, #273).
+   Löschung ist über `session-user-deletion.test.js` in CI abgedeckt.
 4. **Fairness:** Penalty-Gewichte in `bestPair` empirisch getunt → bei Änderungen gegen
    Turm-/Paar-Wiederholung messen (`/tmp/measure.js`-Muster), nicht nur Invarianten.
 5. **Branch-Workflow:** nie direkt auf `main`; PRs nur auf ausdrücklichen Wunsch.

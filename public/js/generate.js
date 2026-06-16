@@ -118,7 +118,6 @@ function generate(startDay = 0){
   // Feature: Hauptstrand-Türme – fairer Ausgleich Hauptstrand ↔ Außentürme.
   // Nur aktiv, wenn es BEIDE Sorten gibt (sonst kein Ausgleich nötig/sinnvoll).
   const beachBalanceActive = towers.some(t => t.mainBeach) && towers.some(t => !t.mainBeach);
-  const BEACH_BALANCE_WEIGHT = 60;  // Strafe pro Überhangs-Tag (empirisch, siehe Tests)
 
   // Wenn startDay > 0: bestehende Tage übernehmen + Stats daraus akkumulieren
   if(startDay > 0 && lastResult?.schedule){
@@ -206,7 +205,7 @@ function generate(startDay = 0){
       if(f.kind === 'tower'){
         if(!forcedByTower[f.slotId]) forcedByTower[f.slotId] = [];
         const tower = towers.find(t => t.id === f.slotId);
-        const maxSlots = tower ? (tower.slotCount || 2) + (tower.leaderCount || 0) : 2;
+        const maxSlots = tower ? (tower.slotCount || 2) : 2;
         if(forcedByTower[f.slotId].length < maxSlots) forcedByTower[f.slotId].push(p);
       } else if(f.kind === 'boat'){
         if(!forcedByBoat[f.slotId]) forcedByBoat[f.slotId] = [];
@@ -231,7 +230,7 @@ function generate(startDay = 0){
     // availB als Obergrenze, da überzählige BF real ebenfalls Turmplätze besetzen.
     const availBodiesPre = availE.length + availU.length + availB.length;
     for(const t of openTowersSorted){
-      const totalSlots = (t.slotCount || 2) + (t.leaderCount || 0);
+      const totalSlots = (t.slotCount || 2);
       if(usedGpre + totalSlots <= availBodiesPre){ tempOpen.push(t); usedGpre += totalSlots; }
     }
     // Boote, für die BF benötigt werden
@@ -274,8 +273,8 @@ function generate(startDay = 0){
     let poolU   = [...availU];
     let poolSBF = [...surplusBF];
     let poolB   = [...activeBF];
-    // Feature 12: Führungskräfte. BEWUSST NICHT im allgemeinen Guard-Pool
-    // (getGuardPool), sondern separat – sie besetzen gezielt nur leaderCount-Slots.
+    // Führungskräfte. BEWUSST NICHT im allgemeinen Guard-Pool (getGuardPool), sondern
+    // separat – sie besetzen gezielt einen Slot auf markierten Führungstürmen (Feature 34).
     // Übrige F bleiben Führung an der HW (siehe HW-finalize: fuehrung:poolF).
     let poolF   = [...availF];
     // O(1)-Lookup für surplusBF (Hot-Loop in bestPair); wird in removeAll synchron gehalten
@@ -298,7 +297,7 @@ function generate(startDay = 0){
     // Vorabbelegte Türme brauchen ggf. weniger Pool-Personen
     for(const t of candidateTowers){
       const preCount = (forcedByTower[t.id] || []).length;
-      const need     = Math.max(0, (t.slotCount || 2) + (t.leaderCount || 0) - preCount);
+      const need     = Math.max(0, (t.slotCount || 2) - preCount);
       // need===0: Turm ist voll vorbelegt → immer öffnen (kein Pool nötig)
       if(need === 0 || usedG + need <= guardPoolSize()){ openTowers.push(t); usedG += need; }
     }
@@ -327,7 +326,7 @@ function generate(startDay = 0){
     function surplusBFPenalty(candidate, tower){
       if(!poolSBFIds.has(candidate.id)) return 0;
       if(!tower || tower.id === MAIN_ID) return 0;
-      return towerHasActiveBoat(tower.id) ? 800 : 0;
+      return towerHasActiveBoat(tower.id) ? algoParams.surplusBfActivePenalty : 0;
     }
 
     /**
@@ -343,7 +342,7 @@ function generate(startDay = 0){
       const s = ensure(candidate.id);
       const imbalance = (s.outerBeachDays || 0) - (s.mainBeachDays || 0);
       const overhang = tower.mainBeach ? Math.max(0, -imbalance) : Math.max(0, imbalance);
-      return overhang * BEACH_BALANCE_WEIGHT;
+      return overhang * algoParams.beachBalanceWeight;
     }
 
     /**
@@ -359,8 +358,8 @@ function generate(startDay = 0){
       if((ensure(candidate.id).hwGuardDays || 0) > 0) return 0;  // Wunsch erfüllt
       const daysLeft = DAYS - d;  // inkl. heute
       if(daysLeft <= 1) return 100000;  // letzter Tag → erzwingen
-      if(daysLeft <= 2) return 6000;
-      return 600;
+      if(daysLeft <= 2) return algoParams.hwWishBonusNear;
+      return algoParams.hwWishBonusEarly;
     }
 
     /**
@@ -381,12 +380,12 @@ function generate(startDay = 0){
         const onSameBoat = prevDay.assign.some(sl =>
           sl.kind === 'boat' && sl.boatId === boat.id &&
           (sl.occupants || []).some(o => o.id === candidate.id));
-        if(onSameBoat) penalty += 1000 * (boatRotationLookback - back + 1);
+        if(onSameBoat) penalty += algoParams.boatRotationBase * (boatRotationLookback - back + 1);
       }
       return penalty;
     }
 
-    function bestPair(t, requireMix, currentDay){
+    function bestPair(t, requireMix, currentDay, towerNeedsSan){
       const cand   = getGuardPool();
       const isMain = t.id === MAIN_ID;
       let best = null, bestScore = Infinity;
@@ -408,47 +407,51 @@ function generate(startDay = 0){
             if(roles === 'UU'){
               // For HW: prefer 3 inexperienced over towers with 2 inexperienced
               // Reduced penalty for HW (isMain=true) to make it more attractive
-              score += isMain ? 300 : 1000;
+              score += isMain ? algoParams.uuPenaltyHW : algoParams.uuPenaltyTower;
             }
             // EE-Paar normalerweise nur leicht gebremst; sind Erfahrene aber knapp
             // (reserveExpAtHW), zwei Erfahrene NICHT zusammenlegen → jeder Turm bekommt
             // genau einen Erfahrenen, statt einen Turm doppelt und einen leer zu lassen.
-            else if(roles === 'EE') score += reserveExpAtHW ? 1500 : 40;
+            else if(roles === 'EE') score += reserveExpAtHW ? algoParams.eePenaltyReserve : algoParams.eePenaltyNormal;
           }
-          score += (pairCount[pairKey(A.id, B.id)] || 0) * 250;  // partner-repeat penalty (raised with tower/fairness weights, Issue #253)
+          score += (pairCount[pairKey(A.id, B.id)] || 0) * algoParams.pairRepeatWeight;
           const vA = sA.towerVisits[t.id] || 0;
           const vB = sB.towerVisits[t.id] || 0;
-          score += vA * 200;  // 200 pts per visit: 1st=200, 2nd=400, 3rd=600 (stronger penalty)
-          score += vB * 200;
-          score += (sA.total + sB.total) * 10;  // Stronger fairness weight (was 5)
+          score += vA * algoParams.towerVisitWeight;
+          score += vB * algoParams.towerVisitWeight;
+          score += (sA.total + sB.total) * algoParams.totalFairnessWeight;
           score += surplusBFPenalty(A, t) + surplusBFPenalty(B, t);
           score += beachBalancePenalty(A, t) + beachBalancePenalty(B, t);  // Hauptstrand-Ausgleich
-          // Feature 12: Bevorzuge Führungskräfte auf Türmen mit leaderCount > 0
-          const needsLeader = t.leaderCount && t.leaderCount > 0;
-          if(!isMain && needsLeader){
-            if(A.role === 'F') score -= 100;
-            if(B.role === 'F') score -= 100;
-          }
           if(!isMain){
-            // Feature 8: Konsekutive Tage auf gleichem Turm bestrafen (+200 pro Person)
+            // Feature 8: Konsekutive Tage auf gleichem Turm bestrafen
             if(prevTowerSet){
-              if(prevTowerSet.has(A.id)) score += 200;
-              if(prevTowerSet.has(B.id)) score += 200;
+              if(prevTowerSet.has(A.id)) score += algoParams.consecutiveTowerPenalty;
+              if(prevTowerSet.has(B.id)) score += algoParams.consecutiveTowerPenalty;
             }
             // Tower+Boat-Balance: zwei "Boot-lastige" Personen meiden
-            if(sA.towerWithBoatDays > 2 && sB.towerWithBoatDays > 2) score += 150;
+            if(sA.towerWithBoatDays > 2 && sB.towerWithBoatDays > 2) score += algoParams.towerBoatHeavyPenalty;
             // HW-Balance: proportionaler Bonus je mehr HW-Tage (inkl. Overflow-Tage)
-            score -= sA.hwVisits * 60;
-            score -= sB.hwVisits * 60;
+            score -= sA.hwVisits * algoParams.hwVisitWeightTower;
+            score -= sB.hwVisits * algoParams.hwVisitWeightTower;
             // Boot außer Dienst: surplusBF bevorzugt zum Turm des außer-Dienst-Boots
             if(closedBoatTowers.has(t.id)){
-              if(poolSBFIds.has(A.id)) score -= 350;
-              if(poolSBFIds.has(B.id)) score -= 350;
+              if(poolSBFIds.has(A.id)) score -= algoParams.surplusBfClosedBonus;
+              if(poolSBFIds.has(B.id)) score -= algoParams.surplusBfClosedBonus;
+            }
+            // Sanitäter: San-Turm zieht einen Sanitäter an (Bonus, sobald noch keiner sitzt),
+            // Nicht-San-Türme halten Sanitäter als Reserve fern.
+            if(sanActive){
+              if(t.sanTower){
+                if(towerNeedsSan && (A.sanitaeter || B.sanitaeter)) score -= algoParams.sanTowerBonus;
+              } else {
+                if(A.sanitaeter) score += algoParams.sanReservePenalty;
+                if(B.sanitaeter) score += algoParams.sanReservePenalty;
+              }
             }
           } else {
             // HW k-Slot-Auswahl: Personen mit vielen HW-Tagen NICHT nochmal auf HW
-            score += sA.hwVisits * 60;
-            score += sB.hwVisits * 60;
+            score += sA.hwVisits * algoParams.hwVisitWeightHW;
+            score += sB.hwVisits * algoParams.hwVisitWeightHW;
             // BF-HW-Wunsch: noch nicht erfüllte Wünsche bevorzugt an die HW holen
             score -= hwWishBonus(A);
             score -= hwWishBonus(B);
@@ -456,8 +459,13 @@ function generate(startDay = 0){
             // sie nicht an der HW „verbraucht" werden – jeder Turm braucht ≥1 Erfahrenen.
             // Großer, aber endlicher Penalty → Unerfahrene zuerst, Erfahrene nur als Notnagel.
             if(reserveExpAtHW){
-              if(getEffectiveRole(A) === 'E') score += 5000;
-              if(getEffectiveRole(B) === 'E') score += 5000;
+              if(getEffectiveRole(A) === 'E') score += algoParams.reserveExpPenalty;
+              if(getEffectiveRole(B) === 'E') score += algoParams.reserveExpPenalty;
+            }
+            // Sanitäter an der HW nur als Reserve – auf San-Türmen besser aufgehoben.
+            if(sanActive){
+              if(A.sanitaeter) score += algoParams.sanReservePenalty;
+              if(B.sanitaeter) score += algoParams.sanReservePenalty;
             }
           }
           score += (d === 0 && randomSeed !== 0)
@@ -485,12 +493,26 @@ function generate(startDay = 0){
 
     // ── 1) HAUPTWACHE ──────────────────────────────────────────────
     // Experience-Abdeckung: Wie viele Erfahrene brauchen die Türme zwingend?
-    // Türme mit Leader-Slot (leaderCount>0) werden durch eine Führungskraft (poolF)
-    // erfahren abgedeckt; alle anderen offenen Türme brauchen je 1 Erfahrenen aus dem
-    // Guard-Pool. Sind nicht mehr Erfahrene als diese Nachfrage verfügbar → reservieren,
-    // d. h. an der HW bevorzugt Unerfahrene einsetzen (bis zu 3 U an der HW sind ok).
-    const expDemand = openTowers.filter(t => !(((t.leaderCount || 0) > 0) && poolF.length > 0)).length;
+    // Führungstürme (leaderTower) werden durch eine Führungskraft (poolF) erfahren
+    // abgedeckt; alle anderen offenen Türme brauchen je 1 Erfahrenen aus dem Guard-Pool.
+    // Sind nicht mehr Erfahrene als diese Nachfrage verfügbar → reservieren, d. h. an der
+    // HW bevorzugt Unerfahrene einsetzen (bis zu 3 U an der HW sind ok).
+    const expDemand = openTowers.filter(t => !(t.leaderTower && poolF.length > 0)).length;
     const reserveExpAtHW = availE.length <= expDemand;
+
+    // Feature: Sanitäter (San-Türme). Türme mit sanTower:true sollen – wenn möglich – immer
+    // mindestens einen Sanitäter besetzen. Sanitäter können Wachgänger ODER (überzählige)
+    // Bootsführer sein – maßgeblich ist, wer für einen Turmplatz verfügbar ist, also im
+    // Guard-Pool steht (poolE/poolU = Wachgänger, poolSBF = überzählige Bootsführer; aktive
+    // BF fahren ein Boot und kommen für den Turm ohnehin nicht in Frage). Analog zur
+    // BF-Reservierung für Boote: Sanitäter werden über einen großen Bonus auf San-Türme
+    // gezogen und über eine Reserve-Strafe von Nicht-San-Türmen/HW ferngehalten, damit sie
+    // nicht „verbraucht" werden, bevor ein San-Turm an der Reihe ist. Faire Rotation unter
+    // den Sanitätern ergibt sich aus den bestehenden towerVisit-/Konsekutiv-Strafen.
+    // Gating: nur aktiv, wenn ein offener San-Turm UND ein Sanitäter im Guard-Pool existiert –
+    // sonst verhalten sich Sanitäter exakt wie normale Pool-Personen.
+    const sanActive = openTowers.some(t => t.sanTower)
+      && getGuardPool().some(p => p.sanitaeter);
 
     const mainPseudo = { id: MAIN_ID };
     const mainGuards = [];
@@ -500,6 +522,26 @@ function generate(startDay = 0){
       commitPerson(p, mainPseudo);
       mainGuards.push(p);
     });
+
+    // Feature: BF-an-HW-Pflicht. Bei aktivierter Option und echter BF-Überzahl wird VOR
+    // der normalen HW-Befüllung ein überzähliger Bootsführer als fester Guard platziert –
+    // so bleibt z.B. bei k=3 Platz für 2 Wachgänger (→ 2 WG + 1 BF). Die übrigen Slots
+    // füllt der Algorithmus regulär (E/U-Mix). Fairste Rotation: BF mit den wenigsten
+    // aktiven HW-Diensten zuerst (dann Gesamteinsätze / HW-Tage). poolSBF enthält nur
+    // überzählige BF → automatisches Gating (leer = keine Überzahl).
+    if(requireBfAtHw && poolSBF.length > 0 && mainGuards.length < k
+       && !mainGuards.some(p => p.role === 'B')){
+      const bf = [...poolSBF].sort((a,b) => {
+        const sa = ensure(a.id), sb = ensure(b.id);
+        return (sa.hwGuardDays - sb.hwGuardDays)
+            || (sa.total - sb.total)
+            || ((sa.hwVisits||0) - (sb.hwVisits||0))
+            || (a.id - b.id);
+      })[0];
+      removeAll(bf);
+      commitPerson(bf, mainPseudo);
+      mainGuards.push(bf);
+    }
 
     while(mainGuards.length < k && guardPoolSize() > 0){
       const remaining = k - mainGuards.length;
@@ -521,6 +563,11 @@ function generate(startDay = 0){
             const ae = effLevel(a) === 'E' ? 1 : 0, be = effLevel(b) === 'E' ? 1 : 0;
             if(ae !== be) return ae - be;
           }
+          // Sanitäter zuletzt an die HW – sie werden auf San-Türmen gebraucht.
+          if(sanActive){
+            const am = a.sanitaeter ? 1 : 0, bm = b.sanitaeter ? 1 : 0;
+            if(am !== bm) return am - bm;
+          }
           return (ensure(a.id).total - ensure(b.id).total) ||
                  ((ensure(a.id).hwVisits||0) - (ensure(b.id).hwVisits||0)); // weniger HW → bevorzugt
         });
@@ -538,17 +585,19 @@ function generate(startDay = 0){
       pre.forEach(p => { commitPerson(p, t); slot.occupants.push(p); });
 
       // Algorithmus füllt verbleibende Plätze (variable Slot-Anzahl)
-      // Feature 12: leaderCount ZUSÄTZLICH zu slotCount
-      const totalSlots = (t.slotCount || 2) + (t.leaderCount || 0);
+      const totalSlots = (t.slotCount || 2);
       let need = totalSlots - slot.occupants.length;
       const wasEmpty = slot.occupants.length === 0;
 
-      // Feature 12: leaderCount-Slots bevorzugt mit Führungskräften besetzen.
-      // Es verlassen nur so viele F die Hauptwache wie es Leader-Slots gibt –
-      // die übrigen F bleiben Führung an der HW (kein Leerziehen wie in PR #99).
+      // Führungsturm (Feature 34): Wenn möglich genau EINE Führungskraft (aus dem separaten
+      // poolF) auf einen regulären Slot setzen – analog zur San-Turm-Logik, aber ohne
+      // Zusatz-Slot. Nur, wenn der Turm markiert ist, noch keine F im Slot sitzt (z.B. via
+      // Zwangszuweisung) und Bedarf/poolF vorhanden sind. Es verlassen nur so viele F die HW
+      // wie es Führungstürme gibt – die übrigen F bleiben Führung an der HW (kein Leerziehen).
       // Faire Rotation: F mit wenig Gesamteinsätzen / wenig Besuchen dieses Turms zuerst.
-      let leadersToPlace = Math.min(t.leaderCount || 0, need, poolF.length);
-      for(let li = 0; li < leadersToPlace; li++){
+      const wantLeader = t.leaderTower && need > 0 && poolF.length > 0
+        && !slot.occupants.some(o => o.role === 'F');
+      if(wantLeader){
         poolF.sort((a,b) => {
           const sa = ensure(a.id), sb = ensure(b.id);
           return (sa.total - sb.total)
@@ -570,7 +619,8 @@ function generate(startDay = 0){
 
         if(need >= 2 && !hasForcedSingle){
           // requireMix=true nur beim ersten Paar, falls Slot ursprünglich leer war
-          const best = bestPair(t, wasEmpty && pairsAdded === 0, d);
+          const towerNeedsSan = sanActive && t.sanTower && !slot.occupants.some(o => o.sanitaeter);
+          const best = bestPair(t, wasEmpty && pairsAdded === 0, d, towerNeedsSan);
           if(!best) break;
           const [A,B] = best;
           slot.occupants.push(A, B);
@@ -581,10 +631,23 @@ function generate(startDay = 0){
           need -= 2;
           pairsAdded++;
         } else {
+          const towerNeedsSan = sanActive && t.sanTower && !slot.occupants.some(o => o.sanitaeter);
           const cand = getGuardPool().sort((a,b) => {
             const getEffectiveRole = effLevel;
             let scoreA = ensure(a.id).total + surplusBFPenalty(a, t) + beachBalancePenalty(a, t);
             let scoreB = ensure(b.id).total + surplusBFPenalty(b, t) + beachBalancePenalty(b, t);
+            // Sanitäter: San-Turm zieht einen an (solange keiner sitzt), sonst Reserve fernhalten.
+            if(sanActive){
+              if(t.sanTower){
+                if(towerNeedsSan){
+                  if(a.sanitaeter) scoreA -= algoParams.sanTowerBonus;
+                  if(b.sanitaeter) scoreB -= algoParams.sanTowerBonus;
+                }
+              } else {
+                if(a.sanitaeter) scoreA += algoParams.sanReservePenalty;
+                if(b.sanitaeter) scoreB += algoParams.sanReservePenalty;
+              }
+            }
             // Feature 13a: Wenn bereits zwei Unerfahrene auf Turm → BF-U Penalty, BF-E Bonus
             const occupantRoles = slot.occupants.map(occ => getEffectiveRole(occ)).join('');
             if(occupantRoles === 'UU'){
@@ -651,7 +714,7 @@ function generate(startDay = 0){
     if(useBoatMatching){
       const boatCost = (bo, bf) => {
         const s = ensure(bf.id);
-        return s.total + (s.boatVisits[bo.id] || 0) * 50 - (s.hwVisits || 0) * 10
+        return s.total + (s.boatVisits[bo.id] || 0) * algoParams.boatVisitWeight - (s.hwVisits || 0) * algoParams.boatHwBonus
              + boatRotationPenalty(bf, bo) + bf.id * 0.001;  // deterministischer Tiebreak
       };
       // Wichtige Boote (prio ASC) zuerst → bei BF-Mangel gehen die unwichtigsten leer aus
@@ -720,10 +783,10 @@ function generate(startDay = 0){
         const sa = ensure(a.id), sb = ensure(b.id);
         let scoreA = sa.total;
         let scoreB = sb.total;
-        scoreA += (sa.boatVisits[bo.id] || 0) * 50;
-        scoreB += (sb.boatVisits[bo.id] || 0) * 50;
-        scoreA -= (sa.hwVisits || 0) * 10;
-        scoreB -= (sb.hwVisits || 0) * 10;
+        scoreA += (sa.boatVisits[bo.id] || 0) * algoParams.boatVisitWeight;
+        scoreB += (sb.boatVisits[bo.id] || 0) * algoParams.boatVisitWeight;
+        scoreA -= (sa.hwVisits || 0) * algoParams.boatHwBonus;
+        scoreB -= (sb.hwVisits || 0) * algoParams.boatHwBonus;
         scoreA += boatRotationPenalty(a, bo);  // Rotation penalty
         scoreB += boatRotationPenalty(b, bo);
         // Feature 13: bfLevel hat KEINE Auswirkung auf Boot-Rotation (nur auf Turm-Zuweisen)
@@ -739,8 +802,8 @@ function generate(startDay = 0){
           const bf = poolB[i];
           const s = ensure(bf.id);
           let score = s.total;
-          score += (s.boatVisits[bo.id] || 0) * 50;
-          score -= (s.hwVisits || 0) * 10;
+          score += (s.boatVisits[bo.id] || 0) * algoParams.boatVisitWeight;
+          score -= (s.hwVisits || 0) * algoParams.boatHwBonus;
           score += boatRotationPenalty(bf, bo);  // Penalty for same boat consecutive days
           if(score < bestBFScore){
             bestBFScore = score;

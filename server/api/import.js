@@ -7,6 +7,7 @@ const express = require('express');
 const router = express.Router();
 const { dbRun } = require('../db/connection');
 const { encryptPlanState } = require('../db/crypto');
+const { validatePlanInput } = require('./plans');
 
 // ───────────────────────────────────────────────────────────
 // Authentication Middleware
@@ -42,26 +43,37 @@ router.post('/plans', express.json(), async (req, res) => {
     const errors = [];
 
     for (const plan of plans) {
+      // Normalize name: type-coerce non-strings to fallback, truncate for error messages
+      const safeName = (typeof plan.name === 'string' ? plan.name.slice(0, 200) : '') || 'Importierter Plan';
       try {
         if (!plan.state) {
-          errors.push(`Plan "${plan.name}" hat keine state data`);
+          errors.push(`Plan "${safeName}" hat keine state data`);
+          continue;
+        }
+
+        const plainJSON = JSON.stringify(plan.state);
+
+        // Validate name length + state size (consistent with POST/PUT /api/plans)
+        const invalid = validatePlanInput(safeName, plainJSON, { nameRequired: true });
+        if (invalid) {
+          errors.push(`Plan "${safeName}": ${invalid.error}`);
           continue;
         }
 
         // Encrypt state
-        const plainJSON = JSON.stringify(plan.state);
         const { encrypted, iv, authTag } = encryptPlanState(plainJSON, req.session.userId);
 
         // Insert into database
         await dbRun(
           `INSERT INTO plans (user_id, name, encrypted_state, iv, auth_tag)
            VALUES (?, ?, ?, ?, ?)`,
-          [req.session.userId, plan.name || 'Importierter Plan', encrypted, iv, authTag]
+          [req.session.userId, safeName, encrypted, iv, authTag]
         );
 
         importedCount++;
       } catch (planError) {
-        errors.push(`Plan "${plan.name}": ${planError.message}`);
+        console.error(`Import error for plan "${safeName}":`, planError);
+        errors.push(`Plan "${safeName}": Import fehlgeschlagen`);
       }
     }
 

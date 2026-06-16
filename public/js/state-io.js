@@ -2,7 +2,7 @@
 // state-io.js – Planstatus-Import / Export (Feature 7) + Server-Sync
 // ============================================================
 
-const STATE_VERSION = 7;
+const STATE_VERSION = 10;
 
 // Migriert eine Person vom alten Rollenmodell (role 'E'/'U' + bfLevel) auf das
 // neue Modell (role 'F'|'B'|'W' + experienced:bool). Idempotent.
@@ -44,19 +44,23 @@ function _buildStateObject(){
     randomSeed,
     startDate,
     mainK,
+    requireBfAtHw,
     serviceStartHour,
     serviceEndHour,
     days:                 DAYS,
     positionDescriptions: { ...positionDescriptions },
     fairnessMetricsDisplay: { ...fairnessMetricsDisplay },
     fairnessChartsDisplay: { ...fairnessChartsDisplay },
+    algoParams:           { ...algoParams },
     exportColumns:        [...exportColumns],
     people:               people.map(p => {
       const obj = { ...p };
       if(obj.experienced === undefined) obj.experienced = (p.role !== 'F');  // Default erfahren (außer F)
       return obj;
     }),
-    towers:               towers.map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0, mainBeach: !!t.mainBeach })),
+    roster:               (typeof roster !== 'undefined' ? roster : []).map(r => ({ ...r })),
+    rosterOverrides:      (typeof rosterOverrides !== 'undefined' && rosterOverrides) ? JSON.parse(JSON.stringify(rosterOverrides)) : {},
+    towers:               towers.map(t => { const { leaderCount, ...rest } = t; return { ...rest, slotCount: t.slotCount || 2, mainBeach: !!t.mainBeach, sanTower: !!t.sanTower, leaderTower: !!t.leaderTower }; }),
     boats:                boats.map(b => ({ ...b, slotCount: b.slotCount || 1 })),
     dayState: dayState.map(d => ({
       sick:        [...d.sick],
@@ -73,10 +77,7 @@ function exportStateJSON(){
 
   const json = JSON.stringify(state, null, 2);
   const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
-  const a    = document.createElement('a');
-  a.href     = URL.createObjectURL(blob);
-  a.download = `wachplan_status_${(startDate||'entwurf').replace(/-/g,'')}.json`;
-  a.click();
+  downloadBlob(blob, `wachplan_status_${(startDate||'entwurf').replace(/-/g,'')}.json`);
   showToast('✅ Status exportiert');
 }
 
@@ -112,6 +113,7 @@ function importStateJSON(json, silent = false){
   randomSeed        = s.randomSeed        ?? 0;
   startDate         = s.startDate         ?? '';
   mainK             = s.mainK             ?? 2;
+  requireBfAtHw     = s.requireBfAtHw     ?? false;
   serviceStartHour  = s.serviceStartHour  ?? 9;
   serviceEndHour    = s.serviceEndHour    ?? 17;
   DAYS              = s.days              ?? 6;
@@ -123,6 +125,7 @@ function importStateJSON(json, silent = false){
   fairnessChartsDisplay = Object.assign(
     { assignmentsPerPerson:true, hwDaysPerPerson:true, towerUtilization:true },
     s.fairnessChartsDisplay || {});
+  algoParams = Object.assign(defaultAlgoParams(), s.algoParams || {});
   // Checkboxen mit wiederhergestelltem Zustand synchronisieren
   syncMetricCheckboxes();
   exportColumns = Array.isArray(s.exportColumns) ? [...s.exportColumns] : [];
@@ -134,9 +137,25 @@ function importStateJSON(json, silent = false){
     ...migratePerson(p),   // altes Rollenmodell (E/U + bfLevel) → role 'W' + experienced
     labels: p.labels || '',
     enableLabels: p.enableLabels !== undefined ? p.enableLabels : ((p.labels||'').trim().length > 0),  // Fallback für alte Exporte
-    wantsHW: !!p.wantsHW    // BF-HW-Wunsch (Default false für Altpläne)
+    wantsHW: !!p.wantsHW,   // BF-HW-Wunsch (Default false für Altpläne)
+    sanitaeter: !!p.sanitaeter   // Sanitäter (Default false für Altpläne)
   }));
-  towers = (s.towers || []).map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0, mainBeach: !!t.mainBeach }));
+  roster = Array.isArray(s.roster) ? s.roster.map(r => ({ ...r })) : [];   // hochgeladene Wachliste (Feature 31; Default [] für Altpläne)
+  rosterOverrides = (s.rosterOverrides && typeof s.rosterOverrides === 'object') ? s.rosterOverrides : {};   // manuelle Korrekturen (Feature 31)
+  towers = (s.towers || []).map(t => {
+    // Migration <v10: leaderCount (Zusatz-Slots + vorab platzierte F) → leaderTower-Haken.
+    // Headcount erhalten: die ehemaligen Leader-Slots werden in slotCount integriert (max 10).
+    const { leaderCount, ...rest } = t;
+    const lc = leaderCount || 0;
+    const migrate = t.leaderTower === undefined && lc > 0;
+    return {
+      ...rest,
+      slotCount: Math.min(10, (t.slotCount || 2) + (migrate ? lc : 0)),
+      mainBeach: !!t.mainBeach,
+      sanTower: !!t.sanTower,
+      leaderTower: t.leaderTower !== undefined ? !!t.leaderTower : lc > 0,
+    };
+  });
   boats  = (s.boats  || []).map(b => ({ ...b, slotCount: b.slotCount || 1 }));
 
   // Migration v5→v6: hwBoatId → Boote mit towerId='HW' einheitlich behandeln
@@ -169,6 +188,8 @@ function importStateJSON(json, silent = false){
   // UI neu aufbauen
   document.getElementById('start-date').value = startDate;
   document.getElementById('main-k').value     = mainK;
+  const reqBfEl = document.getElementById('require-bf-hw');
+  if(reqBfEl) reqBfEl.checked = requireBfAtHw;
   document.getElementById('service-start-hour').value = serviceStartHour;
   document.getElementById('service-end-hour').value   = serviceEndHour;
   updateSeedDisplay();
@@ -178,6 +199,8 @@ function importStateJSON(json, silent = false){
   renderBoatCfg();
   renderPositionDescUI();
   renderExportColumnUI();
+  renderAlgoParams();
+  if(typeof updateRosterIndicator === 'function') updateRosterIndicator();
 
   // Plan neu berechnen falls Ergebnis vorhanden war
   if(lastResult) generate();
@@ -349,6 +372,9 @@ function clearLocalSave(){
 }
 
 function _updateSaveIndicator(){
+  // Beobachter-Modus (nur-Lese-Plan) → body.view-only schaltet die minimalistische,
+  // sidebar-lose Ansicht ein (s. render-output.js + CSS).
+  try { document.body.classList.toggle('view-only', currentPlanCanEdit === false); } catch(e) {}
   const el = document.getElementById('autosave-indicator');
   if(!el) return;
   try {
@@ -377,6 +403,7 @@ async function fetchPlansList(){
 function _rebuildAllUI(){
   const sd = document.getElementById('start-date'); if(sd) sd.value = startDate || '';
   const mk = document.getElementById('main-k');     if(mk) mk.value = mainK;
+  const rbf = document.getElementById('require-bf-hw'); if(rbf) rbf.checked = requireBfAtHw;
   if(typeof updateSeedDisplay === 'function') updateSeedDisplay();
   autoCodes();
   renderPeople(); renderTowerCfg(); renderBoatCfg();

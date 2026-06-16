@@ -30,16 +30,80 @@ function roleLabel(p){
   return p.experienced ? 'Erfahren' : 'Unerfahren';  // W
 }
 
+// Beobachter-Modus (view-only): role-dot OHNE Erfahrungs-Unterscheidung.
+// Wachgänger → neutraler 'w'-Punkt, damit erfahren/unerfahren nicht erkennbar ist.
+function roleDotSafe(p){
+  if(p.role === 'F') return 'f';
+  if(p.role === 'B') return 'b';
+  return 'w';  // W: erfahren/unerfahren nicht unterscheidbar
+}
+
+// Beobachter-Modus (view-only): Rollen-Label ohne Erfahrungs-Angabe.
+function roleLabelSafe(p){
+  if(p.role === 'F') return 'Führung';
+  if(p.role === 'B') return 'Bootsführer';
+  return 'Wachgänger';  // W
+}
+
 let uid = 0;
 let randomSeed = 0;
 
+// ── Algorithmus-Parameter (Scoring-Gewichte) ─────────────────────────────────
+// Alle Gewichte die der Fairness-Algorithmus in generate.js verwendet.
+// Kann vom User angepasst werden; Defaults sind empirisch für typische DLRG-Wachen optimiert.
+function defaultAlgoParams(){
+  return {
+    // Turm-Rotation & Fairness
+    pairRepeatWeight:        250,   // Strafe pro Wiederholung desselben Paares
+    towerVisitWeight:        200,   // Strafe pro Wiederholungsbesuch desselben Turms
+    consecutiveTowerPenalty: 200,   // Strafe wenn jemand heute denselben Turm wie gestern hat
+    totalFairnessWeight:      10,   // Gewicht für Gesamteinsatz-Ausgleich
+    beachBalanceWeight:       60,   // Strand-Ausgleich: Strafe pro Überhang-Tag
+    // E/U-Mischung
+    uuPenaltyTower:         1000,   // Zwei Unerfahrene auf einem Turm
+    uuPenaltyHW:             300,   // Zwei Unerfahrene an der HW (erlaubt, geringere Strafe)
+    eePenaltyNormal:          40,   // Zwei Erfahrene (wenn Erfahrene nicht knapp)
+    eePenaltyReserve:       1500,   // Zwei Erfahrene (wenn Erfahrene knapp)
+    reserveExpPenalty:      5000,   // Erfahrener an HW wenn Türme ihn brauchen
+    // Hauptwache
+    hwVisitWeightTower:       60,   // HW-Tage → Turm-Bonus (pro HW-Tag)
+    hwVisitWeightHW:          60,   // HW-Tage → HW-Strafe (pro HW-Tag)
+    hwWishBonusEarly:        600,   // BF-HW-Wunsch Bonus (früh, >2 Tage vor Ende)
+    hwWishBonusNear:        6000,   // BF-HW-Wunsch Bonus (2 Tage vor Ende)
+    // BF-Schutz
+    surplusBfActivePenalty:  800,   // Überzahl-BF auf Turm mit aktivem Boot
+    surplusBfClosedBonus:    350,   // Überzahl-BF Bonus auf Turm ohne aktives Boot
+    towerBoatHeavyPenalty:   150,   // Beide Personen boot-lastig → Strafe
+    // Boote
+    boatVisitWeight:          50,   // Strafe pro Besuch desselben Bootes
+    boatHwBonus:              10,   // HW-Tage → Bonus bei Boot-Zuweisung
+    boatRotationBase:       1000,   // Boot-Rotations-Basisstrafe pro Lookback-Schritt
+    // Sanitäter (San-Turm)
+    sanTowerBonus:          5000,   // Bonus: Sanitäter auf einen San-Turm (vom Score abgezogen)
+    sanReservePenalty:       350,   // Sanitäter von Nicht-San-Türmen/HW fernhalten (Reserve)
+  };
+}
+let algoParams = defaultAlgoParams();
+
 // Stammdaten
-let people   = [];   // [{ id, name, role:'F'|'B'|'W', experienced:bool, labels:'', enableLabels:true, wantsHW:bool }] (experienced gilt für B und W; F ignoriert. wantsHW nur für B: Wunsch auf ≥1 aktiven HW-Dienst bei BF-Überzahl. labels Komma-getrennt, enableLabels steuert Sichtbarkeit)
-let towers   = [];   // [{ id, name, prio, code, slotCount, leaderCount, mainBeach:bool }] (mainBeach: Hauptstrand-Turm für fairen Ausgleich)
+let people   = [];   // [{ id, name, role:'F'|'B'|'W', experienced:bool, labels:'', enableLabels:true, wantsHW:bool, sanitaeter:bool }] (experienced gilt für B und W; F ignoriert. wantsHW nur für B: Wunsch auf ≥1 aktiven HW-Dienst bei BF-Überzahl. sanitaeter für W und B: wird auf San-Türmen bevorzugt eingesetzt (bei BF nur, wenn überzählig und damit für einen Turmplatz verfügbar). labels Komma-getrennt, enableLabels steuert Sichtbarkeit)
+// Hochgeladene DLRG-Wachliste (Feature 31): Roh-Verfügbarkeiten aller zugesagten Personen.
+// [{ name, role:'F'|'B'|'W', from:'YYYY-MM-DD', to:'YYYY-MM-DD' }]. Aus dieser Liste leitet
+// applyRosterToWindow() die people[] + tageweisen Abwesenheiten dynamisch aus startDate + DAYS ab.
+let roster   = [];
+// Manuelle Korrekturen an roster-abgeleiteten Personen, die ein Neu-Ableiten überleben sollen
+// (z.B. Rolle/Erfahrung von Hand geändert). Key = normalisierter Name → { role?, experienced?,
+// wantsHW?, labels?, enableLabels? } (nur explizit geänderte Felder). Feature 31.
+let rosterOverrides = {};
+let towers   = [];   // [{ id, name, prio, code, slotCount, mainBeach:bool, sanTower:bool, leaderTower:bool }] (mainBeach: Hauptstrand-Turm für fairen Ausgleich; sanTower: wenn möglich immer ≥1 Sanitäter; leaderTower: wenn möglich immer ≥1 Führungskraft (auf einem regulären Slot, kein Zusatz-Slot))
 let boats    = [];   // [{ id, name, code, towerId, prio, slotCount }]
 
 // Hauptwache-Konfiguration
 let mainK    = 2;    // Anzahl Guard-Slots neben der Führung
+// Feature: BF-an-HW-Pflicht. Wenn true UND es echte BF-Überzahl gibt, soll an jedem Tag
+// mindestens EIN überzähliger Bootsführer einen aktiven HW-Dienst bekommen
+// (z.B. 3 HW-Slots → 2 Wachgänger + 1 BF). Default aus.
+let requireBfAtHw = false;
 
 // Dienstzeit-Konfiguration (Feature 15)
 let serviceStartHour = 9;   // Default 09:00
@@ -103,9 +167,12 @@ function resetGlobalState() {
   uid = 0;
   randomSeed = 0;
   people = [];
+  roster = [];
+  rosterOverrides = {};
   towers = [];
   boats = [];
   mainK = 2;
+  requireBfAtHw = false;
   serviceStartHour = 9;
   serviceEndHour = 17;
   dayState = freshDayState();
@@ -122,10 +189,12 @@ function resetGlobalState() {
     towerUtilization: true
   };
   exportColumns = [];
+  algoParams = defaultAlgoParams();
   lastResult = null;
   activeDay = 0;
   startDate = '';
   currentPlanId = null;
   currentPlanName = 'Wachplan';
+  currentPlanCanEdit = true;   // Default: eigener/neuer Plan ist bearbeitbar (Beobachter-Modus aus)
   console.log('✓ Global state reset');
 }

@@ -345,11 +345,20 @@ router.get('/audit-log', async (req, res) => {
 
     const logs = await dbAll(query, params);
 
-    // Parse JSON details field
-    const formattedLogs = logs.map(log => ({
-      ...log,
-      details: log.details ? JSON.parse(log.details) : null
-    }));
+    // Parse JSON details field. Ein einzelner korrupter Datensatz darf nicht
+    // den ganzen Audit-Log-Endpoint (Compliance-Ansicht) mit einem 500 kippen.
+    const formattedLogs = logs.map(log => {
+      let details = null;
+      if (log.details) {
+        try {
+          details = JSON.parse(log.details);
+        } catch (e) {
+          console.error('Audit log: ungültiges JSON in Datensatz', log.id, e.message);
+          details = { _parseError: true, raw: log.details };
+        }
+      }
+      return { ...log, details };
+    });
 
     res.json({ logs: formattedLogs });
   } catch (error) {
