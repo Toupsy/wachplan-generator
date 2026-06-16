@@ -203,8 +203,9 @@ router.put('/:id', express.json(), async (req, res) => {
     // Update in database
     await dbRun(
       `UPDATE plans
-       SET encrypted_state = ?, iv = ?, auth_tag = ?, updated_at = CURRENT_TIMESTAMP
-       ${name ? ', name = ?' : ''}
+       SET encrypted_state = ?, iv = ?, auth_tag = ?, updated_at = CURRENT_TIMESTAMP,
+           marked_for_deletion = 0, marked_for_deletion_at = NULL
+           ${name ? ', name = ?' : ''}
        WHERE id = ?`,
       name
         ? [encrypted, iv, authTag, name, planId]
