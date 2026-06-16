@@ -213,7 +213,7 @@ if(typeof updateRosterIndicator === 'function') updateRosterIndicator();
 const addTowerBtn = document.getElementById('add-tower');
 if(addTowerBtn) addTowerBtn.onclick = () => {
   const minP = towers.length ? Math.min(...towers.map(t=>t.prio)) : 1;
-  towers.push({ id:++uid, name:`Turm ${towers.length+1}`, prio:Math.max(1,minP), code:'', slotCount:2, leaderCount:0, sanTower:false });
+  towers.push({ id:++uid, name:`Turm ${towers.length+1}`, prio:Math.max(1,minP), code:'', slotCount:2, sanTower:false, leaderTower:false });
   renderTowerCfg(); renderBoatCfg(); renderPositionDescUI();
   scheduleAutoSave();
 };

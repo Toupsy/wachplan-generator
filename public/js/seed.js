@@ -13,13 +13,13 @@ function seed(){
   uid = 0;
 
   // 7 Türme: 9/12 bis 9/18
-  const t912 = { id: ++uid, name: 'Turm 9/12', prio: 1, code: '', slotCount: 2, leaderCount: 0 };
-  const t913 = { id: ++uid, name: 'Turm 9/13', prio: 2, code: '', slotCount: 2, leaderCount: 0 };
-  const t914 = { id: ++uid, name: 'Turm 9/14', prio: 3, code: '', slotCount: 2, leaderCount: 0 };
-  const t915 = { id: ++uid, name: 'Turm 9/15', prio: 4, code: '', slotCount: 2, leaderCount: 0 };
-  const t916 = { id: ++uid, name: 'Turm 9/16', prio: 5, code: '', slotCount: 2, leaderCount: 0 };
-  const t917 = { id: ++uid, name: 'Turm 9/17', prio: 6, code: '', slotCount: 2, leaderCount: 0 };
-  const t918 = { id: ++uid, name: 'Turm 9/18', prio: 7, code: '', slotCount: 2, leaderCount: 0 };
+  const t912 = { id: ++uid, name: 'Turm 9/12', prio: 1, code: '', slotCount: 2, leaderTower: false };
+  const t913 = { id: ++uid, name: 'Turm 9/13', prio: 2, code: '', slotCount: 2, leaderTower: false };
+  const t914 = { id: ++uid, name: 'Turm 9/14', prio: 3, code: '', slotCount: 2, leaderTower: false };
+  const t915 = { id: ++uid, name: 'Turm 9/15', prio: 4, code: '', slotCount: 2, leaderTower: false };
+  const t916 = { id: ++uid, name: 'Turm 9/16', prio: 5, code: '', slotCount: 2, leaderTower: false };
+  const t917 = { id: ++uid, name: 'Turm 9/17', prio: 6, code: '', slotCount: 2, leaderTower: false };
+  const t918 = { id: ++uid, name: 'Turm 9/18', prio: 7, code: '', slotCount: 2, leaderTower: false };
   towers.push(t912, t913, t914, t915, t916, t917, t918);
 
   // 3 Boote mit Zuordnungen

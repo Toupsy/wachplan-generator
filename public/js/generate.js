@@ -205,7 +205,7 @@ function generate(startDay = 0){
       if(f.kind === 'tower'){
         if(!forcedByTower[f.slotId]) forcedByTower[f.slotId] = [];
         const tower = towers.find(t => t.id === f.slotId);
-        const maxSlots = tower ? (tower.slotCount || 2) + (tower.leaderCount || 0) : 2;
+        const maxSlots = tower ? (tower.slotCount || 2) : 2;
         if(forcedByTower[f.slotId].length < maxSlots) forcedByTower[f.slotId].push(p);
       } else if(f.kind === 'boat'){
         if(!forcedByBoat[f.slotId]) forcedByBoat[f.slotId] = [];
@@ -230,7 +230,7 @@ function generate(startDay = 0){
     // availB als Obergrenze, da überzählige BF real ebenfalls Turmplätze besetzen.
     const availBodiesPre = availE.length + availU.length + availB.length;
     for(const t of openTowersSorted){
-      const totalSlots = (t.slotCount || 2) + (t.leaderCount || 0);
+      const totalSlots = (t.slotCount || 2);
       if(usedGpre + totalSlots <= availBodiesPre){ tempOpen.push(t); usedGpre += totalSlots; }
     }
     // Boote, für die BF benötigt werden
@@ -273,8 +273,8 @@ function generate(startDay = 0){
     let poolU   = [...availU];
     let poolSBF = [...surplusBF];
     let poolB   = [...activeBF];
-    // Feature 12: Führungskräfte. BEWUSST NICHT im allgemeinen Guard-Pool
-    // (getGuardPool), sondern separat – sie besetzen gezielt nur leaderCount-Slots.
+    // Führungskräfte. BEWUSST NICHT im allgemeinen Guard-Pool (getGuardPool), sondern
+    // separat – sie besetzen gezielt einen Slot auf markierten Führungstürmen (Feature 34).
     // Übrige F bleiben Führung an der HW (siehe HW-finalize: fuehrung:poolF).
     let poolF   = [...availF];
     // O(1)-Lookup für surplusBF (Hot-Loop in bestPair); wird in removeAll synchron gehalten
@@ -297,7 +297,7 @@ function generate(startDay = 0){
     // Vorabbelegte Türme brauchen ggf. weniger Pool-Personen
     for(const t of candidateTowers){
       const preCount = (forcedByTower[t.id] || []).length;
-      const need     = Math.max(0, (t.slotCount || 2) + (t.leaderCount || 0) - preCount);
+      const need     = Math.max(0, (t.slotCount || 2) - preCount);
       // need===0: Turm ist voll vorbelegt → immer öffnen (kein Pool nötig)
       if(need === 0 || usedG + need <= guardPoolSize()){ openTowers.push(t); usedG += need; }
     }
@@ -422,12 +422,6 @@ function generate(startDay = 0){
           score += (sA.total + sB.total) * algoParams.totalFairnessWeight;
           score += surplusBFPenalty(A, t) + surplusBFPenalty(B, t);
           score += beachBalancePenalty(A, t) + beachBalancePenalty(B, t);  // Hauptstrand-Ausgleich
-          // Feature 12: Bevorzuge Führungskräfte auf Türmen mit leaderCount > 0
-          const needsLeader = t.leaderCount && t.leaderCount > 0;
-          if(!isMain && needsLeader){
-            if(A.role === 'F') score -= algoParams.leaderBonus;
-            if(B.role === 'F') score -= algoParams.leaderBonus;
-          }
           if(!isMain){
             // Feature 8: Konsekutive Tage auf gleichem Turm bestrafen
             if(prevTowerSet){
@@ -499,11 +493,11 @@ function generate(startDay = 0){
 
     // ── 1) HAUPTWACHE ──────────────────────────────────────────────
     // Experience-Abdeckung: Wie viele Erfahrene brauchen die Türme zwingend?
-    // Türme mit Leader-Slot (leaderCount>0) werden durch eine Führungskraft (poolF)
-    // erfahren abgedeckt; alle anderen offenen Türme brauchen je 1 Erfahrenen aus dem
-    // Guard-Pool. Sind nicht mehr Erfahrene als diese Nachfrage verfügbar → reservieren,
-    // d. h. an der HW bevorzugt Unerfahrene einsetzen (bis zu 3 U an der HW sind ok).
-    const expDemand = openTowers.filter(t => !(((t.leaderCount || 0) > 0) && poolF.length > 0)).length;
+    // Führungstürme (leaderTower) werden durch eine Führungskraft (poolF) erfahren
+    // abgedeckt; alle anderen offenen Türme brauchen je 1 Erfahrenen aus dem Guard-Pool.
+    // Sind nicht mehr Erfahrene als diese Nachfrage verfügbar → reservieren, d. h. an der
+    // HW bevorzugt Unerfahrene einsetzen (bis zu 3 U an der HW sind ok).
+    const expDemand = openTowers.filter(t => !(t.leaderTower && poolF.length > 0)).length;
     const reserveExpAtHW = availE.length <= expDemand;
 
     // Feature: Sanitäter (San-Türme). Türme mit sanTower:true sollen – wenn möglich – immer
@@ -588,17 +582,19 @@ function generate(startDay = 0){
       pre.forEach(p => { commitPerson(p, t); slot.occupants.push(p); });
 
       // Algorithmus füllt verbleibende Plätze (variable Slot-Anzahl)
-      // Feature 12: leaderCount ZUSÄTZLICH zu slotCount
-      const totalSlots = (t.slotCount || 2) + (t.leaderCount || 0);
+      const totalSlots = (t.slotCount || 2);
       let need = totalSlots - slot.occupants.length;
       const wasEmpty = slot.occupants.length === 0;
 
-      // Feature 12: leaderCount-Slots bevorzugt mit Führungskräften besetzen.
-      // Es verlassen nur so viele F die Hauptwache wie es Leader-Slots gibt –
-      // die übrigen F bleiben Führung an der HW (kein Leerziehen wie in PR #99).
+      // Führungsturm (Feature 34): Wenn möglich genau EINE Führungskraft (aus dem separaten
+      // poolF) auf einen regulären Slot setzen – analog zur San-Turm-Logik, aber ohne
+      // Zusatz-Slot. Nur, wenn der Turm markiert ist, noch keine F im Slot sitzt (z.B. via
+      // Zwangszuweisung) und Bedarf/poolF vorhanden sind. Es verlassen nur so viele F die HW
+      // wie es Führungstürme gibt – die übrigen F bleiben Führung an der HW (kein Leerziehen).
       // Faire Rotation: F mit wenig Gesamteinsätzen / wenig Besuchen dieses Turms zuerst.
-      let leadersToPlace = Math.min(t.leaderCount || 0, need, poolF.length);
-      for(let li = 0; li < leadersToPlace; li++){
+      const wantLeader = t.leaderTower && need > 0 && poolF.length > 0
+        && !slot.occupants.some(o => o.role === 'F');
+      if(wantLeader){
         poolF.sort((a,b) => {
           const sa = ensure(a.id), sb = ensure(b.id);
           return (sa.total - sb.total)

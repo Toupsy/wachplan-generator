@@ -197,13 +197,12 @@ function renderTowerCfg(){
           <span class="slot-display">${t.slotCount||2}</span>
           <button class="slot-btn slot-plus" data-id="${t.id}" data-type="tower">+</button>
           <span style="font-size:.65rem;color:var(--text-dim)">Wachgänger</span>
-          ${(t.leaderCount||0)===0?`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-left:8px"><input type="checkbox" class="leader-checkbox" data-id="${t.id}" style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0"><span style="font-size:.75rem;color:var(--text-dim)">👔</span></label>`:''}
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-left:8px" title="Als Führungsturm markieren – hier wird wenn möglich immer eine Führungskraft eingesetzt"><input type="checkbox" class="leadertower-checkbox" data-id="${t.id}" ${t.leaderTower?'checked':''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0"><span style="font-size:.75rem;color:var(--text-dim)">👔</span></label>
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-left:8px" title="Als Hauptstrand-Turm markieren – fairer Ausgleich Hauptstrand ↔ Außentürme"><input type="checkbox" class="mainbeach-checkbox" data-id="${t.id}" ${t.mainBeach?'checked':''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0"><span style="font-size:.75rem;color:var(--text-dim)">🏖️</span></label>
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-left:8px" title="Als San-Turm markieren – hier wird wenn möglich immer ein Sanitäter eingesetzt"><input type="checkbox" class="santower-checkbox" data-id="${t.id}" ${t.sanTower?'checked':''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--coral);flex-shrink:0"><span style="font-size:.75rem;color:var(--text-dim)">🚑</span></label>
         </div>
         <button class="mini-btn del-t" data-id="${t.id}">×</button>
       </div>
-      ${(t.leaderCount||0)>0?`<div class="tower-row-meta" style="margin-top:8px"><div class="leader-spinner" style="display:flex;align-items:center;gap:8px"><label style="font-size:.75rem;flex-shrink:0;color:var(--text-dim)">👔</label><button class="slot-btn leader-minus" data-id="${t.id}">−</button><span class="leader-display">${t.leaderCount||0}</span><button class="slot-btn leader-plus" data-id="${t.id}">+</button><input type="checkbox" class="leader-checkbox" data-id="${t.id}" checked style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0"><span style="font-size:.65rem;color:var(--text-dim)">Führung</span></div></div>`:''}
       ${assignedBoats.length > 0 ? `<div class="tower-boats">${assignedBoats.map(b => `<div class="tower-boat-item" data-boat-id="${b.id}" draggable="true" data-tower-id="${t.id}" title="Zum Turm bewegen">🚤 ${escapeHtml(b.name)} (${escapeHtml(b.code||'?')})</div>`).join('')}</div>` : ''}
     `;
 
@@ -308,23 +307,11 @@ function renderTowerCfg(){
       getT(+e.target.dataset.id).sanTower = e.target.checked;
       generate(); renderTowerCfg(); scheduleAutoSave();
     });
-  c.querySelectorAll('.leader-checkbox').forEach(cb =>
+  c.querySelectorAll('.leadertower-checkbox').forEach(cb =>
     cb.onchange = e => {
-      const t = getT(+e.target.dataset.id);
-      const spinner = e.target.closest('.tower-row-meta').querySelector('.leader-spinner');
-      if(!e.target.checked) {
-        t.leaderCount = 0;
-        if(spinner) spinner.style.display = 'none';
-      } else {
-        if((t.leaderCount||0) === 0) { t.leaderCount = 1; }
-        if(spinner) spinner.style.display = 'flex';
-      }
+      getT(+e.target.dataset.id).leaderTower = e.target.checked;
       generate(); renderTowerCfg(); scheduleAutoSave();
     });
-  c.querySelectorAll('.leader-minus').forEach(b =>
-    b.onclick = e => { const t = getT(+e.target.dataset.id); if((t.leaderCount||0) > 0) { t.leaderCount--; if(t.leaderCount === 0) { const cb = e.target.closest('.tower-row-meta').querySelector('.leader-checkbox'); if(cb) cb.checked = false; } generate(); renderTowerCfg(); } });
-  c.querySelectorAll('.leader-plus').forEach(b =>
-    b.onclick = e => { const t = getT(+e.target.dataset.id); if((t.leaderCount||0) < 3) { t.leaderCount++; const cb = e.target.closest('.tower-row-meta').querySelector('.leader-checkbox'); if(cb) cb.checked = true; generate(); renderTowerCfg(); } });
   c.querySelectorAll('.del-t').forEach(b =>
     b.onclick = e => {
       const id = +e.target.dataset.id;
@@ -614,7 +601,6 @@ function renderAlgoParams(){
         { key:'surplusBfActivePenalty', label:'Überzahl-BF auf Boot-Turm',     desc:'Überzählige BF meiden Türme mit aktivem Boot (verhindert BF ohne Boot)',     min:0, max:3000 },
         { key:'surplusBfClosedBonus',   label:'Überzahl-BF auf inakt. Boot-T.',desc:'Bonus: Überzählige BF bevorzugt an Türme ohne aktives Boot',                  min:0, max:1000 },
         { key:'towerBoatHeavyPenalty',  label:'Beide boot-lastig auf Turm',    desc:'Strafe wenn beide Turm-Personen schon viele Turm+Boot-Dienste hatten',       min:0, max:500  },
-        { key:'leaderBonus',            label:'Führung auf Leader-Turm',       desc:'Bonus für Führungskräfte auf Türmen mit Führungsslot (leaderCount > 0)',      min:0, max:500  },
       ],
     },
     {

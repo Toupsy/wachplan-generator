@@ -74,7 +74,6 @@ function defaultAlgoParams(){
     surplusBfActivePenalty:  800,   // Überzahl-BF auf Turm mit aktivem Boot
     surplusBfClosedBonus:    350,   // Überzahl-BF Bonus auf Turm ohne aktives Boot
     towerBoatHeavyPenalty:   150,   // Beide Personen boot-lastig → Strafe
-    leaderBonus:             100,   // Führungskraft auf Turm mit leaderCount > 0
     // Boote
     boatVisitWeight:          50,   // Strafe pro Besuch desselben Bootes
     boatHwBonus:              10,   // HW-Tage → Bonus bei Boot-Zuweisung
@@ -96,7 +95,7 @@ let roster   = [];
 // (z.B. Rolle/Erfahrung von Hand geändert). Key = normalisierter Name → { role?, experienced?,
 // wantsHW?, labels?, enableLabels? } (nur explizit geänderte Felder). Feature 31.
 let rosterOverrides = {};
-let towers   = [];   // [{ id, name, prio, code, slotCount, leaderCount, mainBeach:bool, sanTower:bool }] (mainBeach: Hauptstrand-Turm für fairen Ausgleich; sanTower: hier wird wenn möglich immer ein Sanitäter eingesetzt)
+let towers   = [];   // [{ id, name, prio, code, slotCount, mainBeach:bool, sanTower:bool, leaderTower:bool }] (mainBeach: Hauptstrand-Turm für fairen Ausgleich; sanTower: wenn möglich immer ≥1 Sanitäter; leaderTower: wenn möglich immer ≥1 Führungskraft (auf einem regulären Slot, kein Zusatz-Slot))
 let boats    = [];   // [{ id, name, code, towerId, prio, slotCount }]
 
 // Hauptwache-Konfiguration
