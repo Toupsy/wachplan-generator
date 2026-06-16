@@ -434,6 +434,22 @@ Turmplatz verfügbar ist** – das ist bei **überzähligen** BF der Fall (sie s
 
 ## Bugfixes
 
+### Zwangszuweisung auf geschlossenen Turm ließ die Person verschwinden (#308)
+**Problem:** Eine effektive (`transparent:false`) Turm-Zwangszuweisung entfernt die Person
+aus allen Pools (`removeFromPools`) und legt sie in `forcedByTower[slotId]` ab. Dieser
+Eintrag wird aber nur in der `for(const t of openTowers)`-Schleife konsumiert. War der
+Ziel-Turm an dem Tag geschlossen (manuell `ds.closed` oder personell geschlossen → nicht
+in `openTowers`), wurde die Person auf keinen Slot gesetzt und landete auch nicht in den
+HW-Resten → sie verschwand komplett aus Plan und Tagesstatistik. Real auslösbar über eine
+veraltete gespeicherte Zwangszuweisung, deren Turm später geschlossen wird.
+- **Lösung (`public/js/generate.js`, vor dem HW-finalize):** Alle `forcedByTower`-Einträge,
+  deren Turm nicht in `openTowers` ist, werden als aktive HW-Wache (`mainGuards`) aufgefangen
+  (`commitPerson(p, mainPseudo)` → `total++/hwVisits++/hwGuardDays++`). Damit bleibt die Person
+  sichtbar und zählt wie ein echter HW-Dienst – konsistent zur Stat-Rekonstruktion in
+  `_reAccumulateDayStats` (slot.mainGuards) und damit zum Teil-Neuberechnungs-Pfad (#307).
+- **Test:** `test/forced-closed-tower.test.js` (Person bleibt an der HW erhalten + Statistik
+  definiert; keine Doppel-Einplanung).
+
 ### Session-Store lag versehentlich in einer In-Memory-DB (Feature-30-Beifang)
 **Problem:** `db/session.js` übergab `new SqliteStore({ db: dbPath, mode: 0o666 })`.
 connect-sqlite3 reicht `mode` aber als **sqlite3-Open-Flags** durch – `0o666` (438)
