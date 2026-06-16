@@ -96,7 +96,7 @@ Modals `#login-modal`/`#move-modal`/`#share-modal`/`#plans-modal` …) sind eind
 people[]    // { id, name, role:'F'|'B'|'W', experienced:bool, wantsHW:bool, sanitaeter:bool } (experienced gilt für B & W; wantsHW nur für B: ≥1 aktiver HW-Dienst bei BF-Überzahl; sanitaeter nur für W: wird auf San-Türmen bevorzugt eingesetzt, sonst normaler WG – Feature 33)
 roster[]    // hochgeladene Wachliste: { name, role:'F'|'B'|'W', from:'YYYY-MM-DD', to:'YYYY-MM-DD' } (Feature 31). applyRosterToWindow() leitet people[]+absent dynamisch aus startDate+DAYS ab (roster.js)
 rosterOverrides // { normName → { role?, experienced?, wantsHW?, sanitaeter?, labels?, enableLabels? } } – manuelle Korrekturen, die das Neu-Ableiten überleben (mergeRosterOverrides, Feature 31)
-towers[]    // { id, name, prio, code, slotCount(1–10,Def2), leaderCount(0–3,Def0), mainBeach(bool,Def false), sanTower(bool,Def false) } (sanTower: hier wenn möglich immer ≥1 Sanitäter – Feature 33)
+towers[]    // { id, name, prio, code, slotCount(1–10,Def2), mainBeach(bool,Def false), sanTower(bool,Def false), leaderTower(bool,Def false) } (sanTower: wenn möglich ≥1 Sanitäter – Feature 33; leaderTower: wenn möglich ≥1 Führungskraft auf regulärem Slot – Feature 34)
 boats[]     // { id, name, code, towerId:number|'HW'|null, prio, slotCount(1–3,Def1) }
 dayState[]      // Array[DAYS]: { sick:Set, absent:Set, closed:Set, closedBoats:Set }
                 //   sick   = außer Dienst → wird an der HW geführt (zählt im Plan/Export)
@@ -128,7 +128,7 @@ Läuft **sequenziell** über alle Tage; akkumulierte `stats` übertragen sich au
 **Zuweisung pro Tag (Reihenfolge):**
 0. **BF-Fairness-Sort** – `availB` nach `(boatDays*50 - hwVisits*10)` VOR activeBF/surplusBF-Split
 1. **Hauptwache** – forced → Paare via `bestPair` → Einzelpersonen
-2. **Türme** – je `slotCount + leaderCount` via `bestPair(t, true)`, Türme nach prio **ASC** (Prio 1 = wichtigster, öffnet zuerst). `leaderCount`-Slots vorab aus separatem `poolF`.
+2. **Türme** – je `slotCount` via `bestPair(t, true)`, Türme nach prio **ASC** (Prio 1 = wichtigster, öffnet zuerst). Führungstürme (`leaderTower`) bekommen vorab 1 F aus separatem `poolF` auf einen regulären Slot (Feature 34).
 3. **Boote** – je 1 BF pro aktivem Boot (inkl. HW-Boote `towerId==='HW'`); im Standardfall **Min-Cost-Matching** (global optimal) statt gieriger Vergabe + Lookback-Rotation (`boatRotationPenalty` meidet die letzten `Boote−1` Tage → frühestens nach #Boote Tagen wieder)
 4. Boot-Captain-Paarungen-Tracking
 5. **HW finalize** – forced → Rest + Overflow; alle in `main.base`/`poolB` bekommen `hwVisits++`
@@ -140,7 +140,7 @@ Läuft **sequenziell** über alle Tage; akkumulierte `stats` übertragen sich au
 +250×  bisherige gemeinsame Turmdienste (Paar-Wdh.)     +200×v Turmbesuche A/B (linear)
 +10×   (totalA+totalB) Fairness                         +800/-350 surplusBF aktiv/inaktiv-Boot
 +200×  konsekutive Tage gleicher Turm (Feature 8)       +150 beide viele Boot-Tage
--60×   hwVisits (Bonus für Turm)  / +60× an HW-k-Slots  -100 F wenn Tower leaderCount>0
+-60×   hwVisits (Bonus für Turm)  / +60× an HW-k-Slots
 +5000  E an HW wenn reserveExpAtHW (Experience-Reservierung, s. u.)
 +60×   Außen-/Hauptstrand-Überhang (Feature 25, nur wenn beide Turm-Sorten existieren)
 + Tiebreaker (deterministisch bzw. seededRand() für Tag 1)
@@ -177,12 +177,22 @@ unter Sanitätern auf → Fairness bleibt). Eingebaut in `bestPair` (Param `towe
 Turm-Einzelbefüllung und HW-Sortierung. Faire Rotation entsteht aus den bestehenden
 `towerVisit`-/Konsekutiv-Strafen; wichtigere San-Türme (prio asc) zuerst befüllt.
 
+**Führungstürme (Feature 34, Turm-Flag `leaderTower`, ersetzt den früheren `leaderCount`-Spinner):**
+Markierte Türme bekommen – wenn möglich – genau **eine** Führungskraft auf einen **regulären**
+Slot (kein Zusatz-Slot mehr). Mechanik: F sind nicht im Guard-Pool, sondern separat in `poolF`;
+vor der regulären Turm-Befüllung wird auf einem Führungsturm 1 F aus `poolF` platziert (fairste
+Rotation: wenigste Gesamteinsätze/Turmbesuche zuerst), sofern noch keine F im Slot sitzt und
+poolF/Bedarf vorhanden sind. Übrige F bleiben Führung an der HW. `expDemand` zählt Führungstürme
+mit gedeckter F nicht als „braucht Erfahrenen". Migration alter Pläne (`state-io`/`config`):
+`leaderCount>0` → `leaderTower:true`, die ehemaligen Zusatz-Slots werden in `slotCount` integriert
+(max 10), Headcount bleibt erhalten.
+
 **Zwangszuweisungen (forcedPlacements):** `transparent:false` → Person aus Pool, fest
 vorab platziert, zählt in Statistik (Folgetage berücksichtigen Wechsel). `transparent:true`
 → bleibt im Pool, Algorithmus normal, danach **nur visuell** in Zielslot verschoben.
 
 **BF-Schutz:** surplusBF +800 auf Turm mit aktivem Boot, -350 wenn Boot außer Dienst
-(1150 Swing). **Vorab-Schätzung** `tempOpen` über `(slotCount||2)+(leaderCount||0)` Plätze.
+(1150 Swing). **Vorab-Schätzung** `tempOpen` über `(slotCount||2)` Plätze.
 
 Detail-Historie aller Features/Bugfixes → **docs/FEATURES.md**.
 
@@ -253,7 +263,7 @@ CSP/HSTS/Security-Header. **Secrets in `.env`** (Pflicht: `MASTER_SECRET`≥32, 
 `npm test` → Node `--test`, Algorithmus-Invarianten sind die eigentliche Absicherung
 (`test/harness.js` lädt Browser-Globals via vm.Context; `test/invariants.test.js`: Checks über
 9 Szenarien + 100 Fuzz). Invarianten: keine Person doppelt/Tag, keine Kranken in aktiven Slots,
-kein geschlossener Turm/Boot belegt, `slotCount`+`leaderCount` eingehalten. Perf-Baseline
+kein geschlossener Turm/Boot belegt, `slotCount` eingehalten. Perf-Baseline
 ~20ms für 28 Pers. × 14 Tage. **Backend kaum automatisiert** → bei Server-Änderungen mind.
 `node -c` + manuell. `npm install` im frischen Container nötig (sonst `sqlite3`-Fehler in
 `session-user-deletion.test.js`); dieser Test ist gelegentlich flaky (IPC-Serialisierung) →

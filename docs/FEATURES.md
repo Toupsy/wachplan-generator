@@ -350,6 +350,29 @@ immer mindestens ein Sanitäter** sitzen – analog zur BF-Reservierung für Boo
   Rotation bei mehreren Sanitätern; einziger Sanitäter landet auf dem San-Turm statt anderswo/HW;
   mehr San-Türme als Sanitäter → wichtigster Turm gewinnt; kein San-Turm → Plan gültig & neutral.
 
+### Feature 34: Führungstürme (Checkbox statt leaderCount-Spinner)
+Der frühere Pro-Turm-Spinner „Führungsslots" (`leaderCount`, 0–3, **zusätzliche** Slots) wird
+durch einen einfachen Haken **„Führungsturm"** (👔) ersetzt – dieselbe Logik wie der San-Turm
+(Feature 33), nur für Führungskräfte: Ein markierter Turm bekommt **wenn möglich immer ≥1
+Führungskraft**, aber auf einem **regulären** Slot (kein Zusatz-Slot). Der Nutzer muss nicht
+mehr pro Turm einstellen, *wie viele* Führungskräfte dort sein sollen.
+- **Datenmodell:** Turm `leaderTower:bool` (Default `false`) ersetzt `leaderCount`. UI: eine
+  Checkbox neben 🏖️/🚑 (`render-sidebar.js`, `.leadertower-checkbox`); Spinner-UI + Handler
+  (leader-checkbox/-minus/-plus/-spinner) entfernt. Der nun tote Algo-Parameter `leaderBonus`
+  (Bonus wirkte nie, da F nicht im Guard-Pool sind) ist aus `defaultAlgoParams` und dem
+  Algo-Editor entfernt.
+- **Algorithmus (`generate.js`):** Statt `leaderCount`-Zusatz-Slots wird auf einem Führungsturm
+  vor der regulären Befüllung **eine** F aus dem separaten `poolF` auf einen regulären Slot
+  gesetzt (fairste Rotation: wenigste Gesamteinsätze/Turmbesuche zuerst), sofern Bedarf > 0,
+  poolF nicht leer und noch keine F im Slot. Alle `slotCount+leaderCount`-Rechnungen → nur noch
+  `slotCount`; `expDemand` zählt gedeckte Führungstürme nicht. Übrige F bleiben Führung an der HW.
+- **Migration (`state-io.js` Import, `config.js` Template):** alte Pläne mit `leaderCount>0` →
+  `leaderTower:true`; die ehemaligen Zusatz-Slots werden in `slotCount` integriert (auf max 10
+  geklemmt) → Personenzahl pro Turm bleibt erhalten. `STATE_VERSION` 9 → 10.
+- **Tests:** `test/leaders.test.js` neu gefasst (4 Tests): ohne Führungsturm bleibt Führung an
+  der HW; mit `leaderTower` genau 1 F auf dem Turm ohne Zusatz-Slot + Rotation + HW behält Führung;
+  mehr Führungstürme als F → wichtigster (prio asc) gewinnt; keine F → Turm regulär gefüllt.
+
 ---
 
 ## Bugfixes

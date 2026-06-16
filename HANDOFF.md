@@ -13,6 +13,20 @@
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: Tests grün, alle Server parsen (`node -c`).
 
+**Letzter Lauf (2026-06-16, Feature 34: Führungstürme statt leaderCount-Spinner – Branch `claude/leader-tower-checkbox`, gestackt auf Feature 33):**
+- **Neues Feature (s. docs/FEATURES.md Feature 34):** Der Pro-Turm-Spinner „Führungsslots"
+  (`leaderCount`, 0–3 Zusatz-Slots) wird durch einen einfachen Haken „Führungsturm" (👔) ersetzt
+  – gleiche Logik wie der San-Turm: wenn möglich ≥1 Führungskraft auf einem **regulären** Slot
+  (kein Zusatz-Slot). Keine Pro-Turm-Anzahl mehr nötig.
+- **Modell:** Turm `leaderTower:bool` ersetzt `leaderCount`. Algorithmus platziert vorab 1 F aus
+  separatem `poolF` auf Führungstürme (fair rotierend); `slotCount+leaderCount`-Rechnungen → nur
+  `slotCount`; toter Algo-Param `leaderBonus` entfernt. Migration alter Pläne: `leaderCount>0` →
+  `leaderTower:true`, Zusatz-Slots in `slotCount` integriert (max 10); `STATE_VERSION` 9→10.
+- **Tests:** `test/leaders.test.js` neu gefasst (4 Tests). Volle Suite grün (59 Tests; nur das
+  dokumentiert flaky `session-user-deletion.test.js` einmal rot → Rerun grün). `node -c` OK.
+- **Hinweis:** Branch ist auf den (noch offenen) PR #310 gestackt; PR-Base = `claude/sanitaeter-hook-tower-2o54dy`.
+  Nicht im Browser verifiziert (kein Browser im Container) – UI/Handler per Code-Review, Algorithmus per Test.
+
 **Letzter Lauf (2026-06-16, Feature 33: Sanitäter & San-Türme – Branch `claude/sanitaeter-hook-tower-2o54dy`):**
 - **Neues Feature (s. docs/FEATURES.md Feature 33):** Personen-Flag „Sanitäter" (🚑, nur Wachgänger)
   + Turm-Haken „San-Turm" (🚑, neben Hauptstrand). Ein San-Turm bekommt – wenn möglich – immer
