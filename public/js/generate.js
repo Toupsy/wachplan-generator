@@ -19,18 +19,29 @@
  * wiederherzustellen, bevor Folgetage neu generiert werden.
  */
 function _reAccumulateDayStats(daySchedule, dayIdx, stats, pairCount, ensure, pairKey){
-  // Welche Türme hatten an diesem Tag ein aktives Boot?
-  const activeTowerBoats = {};
+  // Welche Türme hatten an diesem Tag ein AKTIVES (zugewiesenes, nicht geschlossenes) Boot?
+  // Wichtig: Der Voll-Lauf zählt towerWithBoatDays bereits dann, wenn dem Turm ein nicht
+  // geschlossenes Boot zugeordnet ist – UNABHÄNGIG davon, ob ein BF zur Besetzung verfügbar
+  // war (activeBoatTowers in generate.js). Wir rekonstruieren das faithful aus dem Schedule:
+  // besetzte Boot-Slots PLUS unbesetzte-aber-aktive Boote (boatsNoBootsf). Sonst weicht
+  // towerWithBoatDays bei BF-Knappheit ab → Fairness-Drift nach Teil-Neuberechnung.
+  const activeBoatTowers = new Set();
+  // Tatsächlich besetzte Boote je Turm (für boatCaptainPairings – braucht den realen Kapitän).
+  const staffedTowerBoats = {};
   daySchedule.assign.forEach(slot => {
-    if(slot.kind === 'boat' && slot.towerId && slot.occupants?.length > 0){
-      activeTowerBoats[slot.towerId] = slot.boatId;
+    if(slot.kind === 'boat' && slot.towerId && slot.towerId !== 'HW' && slot.occupants?.length > 0){
+      staffedTowerBoats[slot.towerId] = slot.boatId;
+      activeBoatTowers.add(slot.towerId);
     }
+  });
+  (daySchedule.boatsNoBootsf || []).forEach(b => {
+    if(b && b.towerId && b.towerId !== 'HW') activeBoatTowers.add(b.towerId);
   });
 
   daySchedule.assign.forEach(slot => {
     if(slot.kind === 'tower'){
       const tId = slot.towerId;
-      const hasBoat = tId in activeTowerBoats;
+      const hasBoat = activeBoatTowers.has(tId);
       const isMainBeach = !!(towers.find(t => t.id === tId)?.mainBeach);
       slot.occupants.forEach(p => {
         const s = ensure(p.id);
@@ -47,7 +58,7 @@ function _reAccumulateDayStats(daySchedule, dayIdx, stats, pairCount, ensure, pa
         }
       }
       // boatCaptainPairings: Turm-Personen × Boot-Kapitän
-      const boatId = activeTowerBoats[tId];
+      const boatId = staffedTowerBoats[tId];
       if(boatId){
         const boatSlot = daySchedule.assign.find(bs => bs.kind === 'boat' && bs.boatId === boatId);
         const captain = boatSlot?.occupants?.[0];
@@ -68,16 +79,33 @@ function _reAccumulateDayStats(daySchedule, dayIdx, stats, pairCount, ensure, pa
         s.lastBoatId = slot.boatId;  // Track for rotation penalty on next day
       });
     } else if(slot.kind === 'main'){
-      // Aktive HW-Personen (Führung + mainGuards): total++ + hwVisits++ + hwGuardDays++
-      [...(slot.fuehrung || []), ...(slot.mainGuards || [])].forEach(p => {
+      // Aktive HW-Wachen (mainGuards): total++ + hwVisits++ + hwGuardDays++.
+      // hwGuardDays zählt nur ECHTE HW-Wachdienste → identisch zum Voll-Lauf (commitPerson
+      // an MAIN_ID, generate.js commitPerson).
+      (slot.mainGuards || []).forEach(p => {
         const s = ensure(p.id);
         s.total++;
         s.hwVisits++;
         s.hwGuardDays++;
       });
+      // HW-Führung (fuehrung): total++ + hwVisits++, aber KEIN hwGuardDays++ – konsistent
+      // mit dem Voll-Lauf (poolF.forEach: nur total/hwVisits), sonst bekämen F fälschlich
+      // HW-Wachdienste gutgeschrieben.
+      (slot.fuehrung || []).forEach(p => {
+        const s = ensure(p.id);
+        s.total++;
+        s.hwVisits++;
+      });
       // Overflow (base + bootsfLeft): nur hwVisits++
       [...(slot.base || []), ...(slot.bootsfLeft || [])].forEach(p => {
         ensure(p.id).hwVisits++;
+      });
+      // HW-Paarungen exakt wie der Voll-Lauf nachziehen (pairCount). Ohne dies fehlen die
+      // an der HW gebildeten Paare nach einer Teil-Neuberechnung → Fairness-Drift im
+      // regenerierten Rest (pairRepeatWeight in bestPair).
+      (slot.mainPairs || []).forEach(([a, b]) => {
+        const key = pairKey(a, b);
+        pairCount[key] = (pairCount[key] || 0) + 1;
       });
     }
   });
@@ -516,6 +544,10 @@ function generate(startDay = 0){
 
     const mainPseudo = { id: MAIN_ID };
     const mainGuards = [];
+    // HW-Paarungen dieses Tages (nur die per bestPair gebildeten Paare). Werden auf dem
+    // main-Slot gespeichert, damit _reAccumulateDayStats (Teil-Neuberechnung, generate(startDay>0))
+    // den pairCount für HW-Paare exakt wie der Voll-Lauf reproduzieren kann (sonst Fairness-Drift).
+    const mainPairs = [];
 
     // Zwangsweise HW-Zuweisungen zuerst
     forcedForMain.forEach(p => {
@@ -551,6 +583,7 @@ function generate(startDay = 0){
         const [A, B] = pair;
         removeAll(A); removeAll(B);
         pairCount[pairKey(A.id, B.id)] = (pairCount[pairKey(A.id, B.id)] || 0) + 1;
+        mainPairs.push([A.id, B.id]);
         commitPerson(A, mainPseudo); commitPerson(B, mainPseudo);
         mainGuards.push(A, B);
       } else {
@@ -852,7 +885,7 @@ function generate(startDay = 0){
       kind:'main', main:true, tower:'Hauptwache',
       fuehrung:poolF, mainGuards, base:leftovers,
       bootsfLeft:poolB,
-      sick:sickToday, k,
+      sick:sickToday, k, mainPairs,
     });
 
     // HW-Besuche für ALLE passiven HW-Personen (Overflow + übrige BF + übrige Führung) tracken.
