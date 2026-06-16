@@ -385,7 +385,7 @@ function generate(startDay = 0){
       return penalty;
     }
 
-    function bestPair(t, requireMix, currentDay){
+    function bestPair(t, requireMix, currentDay, towerNeedsSan){
       const cand   = getGuardPool();
       const isMain = t.id === MAIN_ID;
       let best = null, bestScore = Infinity;
@@ -444,6 +444,16 @@ function generate(startDay = 0){
               if(poolSBFIds.has(A.id)) score -= algoParams.surplusBfClosedBonus;
               if(poolSBFIds.has(B.id)) score -= algoParams.surplusBfClosedBonus;
             }
+            // Sanitäter: San-Turm zieht einen Sanitäter an (Bonus, sobald noch keiner sitzt),
+            // Nicht-San-Türme halten Sanitäter als Reserve fern.
+            if(sanActive){
+              if(t.sanTower){
+                if(towerNeedsSan && (A.sanitaeter || B.sanitaeter)) score -= algoParams.sanTowerBonus;
+              } else {
+                if(A.sanitaeter) score += algoParams.sanReservePenalty;
+                if(B.sanitaeter) score += algoParams.sanReservePenalty;
+              }
+            }
           } else {
             // HW k-Slot-Auswahl: Personen mit vielen HW-Tagen NICHT nochmal auf HW
             score += sA.hwVisits * algoParams.hwVisitWeightHW;
@@ -457,6 +467,11 @@ function generate(startDay = 0){
             if(reserveExpAtHW){
               if(getEffectiveRole(A) === 'E') score += algoParams.reserveExpPenalty;
               if(getEffectiveRole(B) === 'E') score += algoParams.reserveExpPenalty;
+            }
+            // Sanitäter an der HW nur als Reserve – auf San-Türmen besser aufgehoben.
+            if(sanActive){
+              if(A.sanitaeter) score += algoParams.sanReservePenalty;
+              if(B.sanitaeter) score += algoParams.sanReservePenalty;
             }
           }
           score += (d === 0 && randomSeed !== 0)
@@ -490,6 +505,17 @@ function generate(startDay = 0){
     // d. h. an der HW bevorzugt Unerfahrene einsetzen (bis zu 3 U an der HW sind ok).
     const expDemand = openTowers.filter(t => !(((t.leaderCount || 0) > 0) && poolF.length > 0)).length;
     const reserveExpAtHW = availE.length <= expDemand;
+
+    // Feature: Sanitäter (San-Türme). Türme mit sanTower:true sollen – wenn möglich – immer
+    // mindestens einen Sanitäter (Wachgänger mit sanitaeter:true) besetzen. Analog zur
+    // BF-Reservierung für Boote: Sanitäter werden über einen großen Bonus auf San-Türme
+    // gezogen und über eine Reserve-Strafe von Nicht-San-Türmen/HW ferngehalten, damit sie
+    // nicht „verbraucht" werden, bevor ein San-Turm an der Reihe ist. Faire Rotation unter
+    // den Sanitätern ergibt sich aus den bestehenden towerVisit-/Konsekutiv-Strafen.
+    // Gating: nur aktiv, wenn ein offener San-Turm UND mindestens ein Sanitäter existiert –
+    // sonst verhalten sich Sanitäter exakt wie normale Wachgänger.
+    const sanActive = openTowers.some(t => t.sanTower)
+      && [...availE, ...availU].some(p => p.sanitaeter);
 
     const mainPseudo = { id: MAIN_ID };
     const mainGuards = [];
@@ -540,6 +566,11 @@ function generate(startDay = 0){
             const ae = effLevel(a) === 'E' ? 1 : 0, be = effLevel(b) === 'E' ? 1 : 0;
             if(ae !== be) return ae - be;
           }
+          // Sanitäter zuletzt an die HW – sie werden auf San-Türmen gebraucht.
+          if(sanActive){
+            const am = a.sanitaeter ? 1 : 0, bm = b.sanitaeter ? 1 : 0;
+            if(am !== bm) return am - bm;
+          }
           return (ensure(a.id).total - ensure(b.id).total) ||
                  ((ensure(a.id).hwVisits||0) - (ensure(b.id).hwVisits||0)); // weniger HW → bevorzugt
         });
@@ -589,7 +620,8 @@ function generate(startDay = 0){
 
         if(need >= 2 && !hasForcedSingle){
           // requireMix=true nur beim ersten Paar, falls Slot ursprünglich leer war
-          const best = bestPair(t, wasEmpty && pairsAdded === 0, d);
+          const towerNeedsSan = sanActive && t.sanTower && !slot.occupants.some(o => o.sanitaeter);
+          const best = bestPair(t, wasEmpty && pairsAdded === 0, d, towerNeedsSan);
           if(!best) break;
           const [A,B] = best;
           slot.occupants.push(A, B);
@@ -600,10 +632,23 @@ function generate(startDay = 0){
           need -= 2;
           pairsAdded++;
         } else {
+          const towerNeedsSan = sanActive && t.sanTower && !slot.occupants.some(o => o.sanitaeter);
           const cand = getGuardPool().sort((a,b) => {
             const getEffectiveRole = effLevel;
             let scoreA = ensure(a.id).total + surplusBFPenalty(a, t) + beachBalancePenalty(a, t);
             let scoreB = ensure(b.id).total + surplusBFPenalty(b, t) + beachBalancePenalty(b, t);
+            // Sanitäter: San-Turm zieht einen an (solange keiner sitzt), sonst Reserve fernhalten.
+            if(sanActive){
+              if(t.sanTower){
+                if(towerNeedsSan){
+                  if(a.sanitaeter) scoreA -= algoParams.sanTowerBonus;
+                  if(b.sanitaeter) scoreB -= algoParams.sanTowerBonus;
+                }
+              } else {
+                if(a.sanitaeter) scoreA += algoParams.sanReservePenalty;
+                if(b.sanitaeter) scoreB += algoParams.sanReservePenalty;
+              }
+            }
             // Feature 13a: Wenn bereits zwei Unerfahrene auf Turm → BF-U Penalty, BF-E Bonus
             const occupantRoles = slot.occupants.map(occ => getEffectiveRole(occ)).join('');
             if(occupantRoles === 'UU'){
