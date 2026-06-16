@@ -58,11 +58,28 @@ CREATE TABLE IF NOT EXISTS auth_tokens (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Öffentliche Nur-Lese-Links (Beobachter-Ansicht für Wachgänger ohne Login).
+-- Ein Wachführer erstellt pro Plan einen Link, dessen Token (256 Bit) NICHT in der DB
+-- liegt – gespeichert wird nur dessen SHA-256-Hash (DB-Leak ≠ funktionierende Links).
+-- expires_at = Unix-Epoch in Millisekunden (timezone-sicher); abgelaufene/zurückgezogene
+-- Links liefern 404. Standard-Lebensdauer: 7 Tage (siehe api/plans.js).
+CREATE TABLE IF NOT EXISTS plan_public_links (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  plan_id INTEGER NOT NULL,
+  token_hash TEXT UNIQUE NOT NULL,
+  created_by INTEGER NOT NULL,              -- Wachführer, der den Link erstellt hat
+  expires_at INTEGER NOT NULL,              -- Epoch ms
+  revoked_at DATETIME,                      -- NULL = aktiv; gesetzt = manuell zurückgezogen
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (plan_id) REFERENCES plans(id) ON DELETE CASCADE,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- Audit Log (DSGVO Art. 5 Abs. 1 f – Accountability, Art. 32 – Sicherheit)
 CREATE TABLE IF NOT EXISTS audit_log (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER,                          -- NULL für System-Events (z.B. Cleanup)
-  action TEXT NOT NULL,                     -- 'login', 'logout', 'plan_create', 'plan_update', 'plan_delete', 'plan_share', 'plan_share_revoke', 'plan_import', 'admin_user_create', 'admin_user_delete', 'admin_password_reset', 'plan_cleanup'
+  action TEXT NOT NULL,                     -- 'login', 'logout', 'plan_create', 'plan_update', 'plan_delete', 'plan_share', 'plan_share_revoke', 'plan_public_link_create', 'plan_public_link_revoke', 'plan_import', 'admin_user_create', 'admin_user_delete', 'admin_password_reset', 'plan_cleanup'
   entity_type TEXT,                         -- 'user', 'plan', 'plan_share', null für Login/Logout
   entity_id INTEGER,                        -- user_id oder plan_id, null wenn nicht relevant
   details TEXT,                             -- JSON-String mit zusätzlichen Infos (z.B. old_name, new_name, share_role, etc.)
@@ -74,6 +91,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
 -- Indices für Performance
 CREATE INDEX IF NOT EXISTS idx_plans_user_id ON plans(user_id);
 CREATE INDEX IF NOT EXISTS idx_auth_tokens_user ON auth_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_public_links_plan ON plan_public_links(plan_id);
 CREATE INDEX IF NOT EXISTS idx_plan_shares_user ON plan_shares(user_id);
 CREATE INDEX IF NOT EXISTS idx_plan_shares_plan ON plan_shares(plan_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log(user_id);

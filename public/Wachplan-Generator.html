@@ -806,6 +806,22 @@
     <div id="share-msg" style="font-size:.78rem;min-height:1.1em;margin-bottom:14px"></div>
     <div style="font-size:.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Zugriff</div>
     <div id="share-list" style="display:flex;flex-direction:column;gap:6px;max-height:240px;overflow:auto"></div>
+
+    <!-- ── Beobachter-Link (Nur-Ansicht ohne Login, 7 Tage gültig) ── -->
+    <div id="public-link-section" style="display:none;margin-top:20px;border-top:1px solid var(--line);padding-top:16px">
+      <div style="font-size:.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">👁 Beobachter-Link</div>
+      <div class="modal-sub" style="margin-bottom:10px">Erstelle einen Link, mit dem deine Wachgänger den Plan ohne Login nur ansehen können. Der Link ist <strong>7 Tage</strong> gültig.</div>
+      <button id="public-link-create-btn" class="modal-confirm" style="width:100%;padding:10px 16px;white-space:nowrap">🔗 Beobachter-Link erstellen</button>
+      <div id="public-link-reveal" style="display:none;margin-top:10px;background:var(--deep);border:1px solid var(--green);border-radius:6px;padding:10px">
+        <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:6px">Neuer Link – jetzt kopieren (wird nur einmal angezeigt):</div>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="public-link-url" readonly onclick="this.select()"
+            style="flex:1;min-width:0;box-sizing:border-box;padding:8px;background:var(--navy);border:1px solid var(--line);border-radius:6px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.74rem">
+          <button id="public-link-copy-btn" class="ghost-btn" style="border-color:var(--green);color:var(--green);font-size:.72rem;padding:6px 10px;white-space:nowrap">📋 Kopieren</button>
+        </div>
+      </div>
+      <div id="public-link-list" style="display:flex;flex-direction:column;gap:6px;margin-top:10px"></div>
+    </div>
   </div>
 </div>
 

@@ -81,7 +81,8 @@ db/crypto.js       AES-256-GCM + deriveKey (PBKDF2 100k, Key-Cache pro userId)
 db/session.js      createSessionMiddleware (SQLite-Store in Haupt-DB, DRY für beide Server)
 db/access.js       getPlanAccess() zentral (Owner/Share-Prüfung, kein IDOR)
 api/auth.js        login/logout/init/me/register/password + E-Mail-Verifizierung/Passwort-Reset + Rate-Limiting
-api/plans.js       Plan-CRUD mit Verschlüsselung + Sharing
+api/plans.js       Plan-CRUD mit Verschlüsselung + Sharing + Beobachter-Links (plan_public_links, Feature 38)
+api/public.js      Auth-freier Nur-Lese-Endpoint GET /api/public/plan/:token (Beobachter-Link, Feature 38)
 api/admin.js       Admin-Endpoints (Admin-only) inkl. audit-log, DSGVO-Export
 api/import.js      Bulk-Import alter .json-Pläne
 ```
@@ -273,6 +274,10 @@ Google-Hosts erweitert). Plan-Key hängt NICHT am Passwort → Reset zerstört k
   schalten `body.view-only` (via `_updateSaveIndicator()`) → Sidebar + alle Editier-Bedienelemente
   weg, schlanke Turmbesetzungs-Ansicht. Neue Editier-UI in `render-output.js` daher IMMER hinter
   `if(!viewOnly)` (sonst sehen/triggern Beobachter sie); Schreiben ist serverseitig ohnehin 403.
+  **Öffentliche Beobachter-Links (Feature 38):** `?view=TOKEN` triggert in `login-modal.js`
+  `initPublicView()` denselben `body.view-only`-Modus, aber **ohne Login** (lädt via `/api/public/plan/:token`).
+  Token (256 Bit, 7 Tage gültig) liegt in `plan_public_links` nur als SHA-256-Hash. `initPublicView`
+  setzt `currentPlanCanEdit=false` VOR `importStateJSON` → kein Autosave-Echo, kein Realtime-Join.
 
 ---
 

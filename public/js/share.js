@@ -15,6 +15,11 @@ async function openShareModal() {
   _setShareMsg('');
   const input = document.getElementById('share-username');
   if (input) input.value = '';
+  // Zuvor angezeigtes Token nicht über das Schließen hinaus stehen lassen
+  const reveal = document.getElementById('public-link-reveal');
+  if (reveal) reveal.style.display = 'none';
+  const urlInput = document.getElementById('public-link-url');
+  if (urlInput) urlInput.value = '';
 
   // Plan muss serverseitig existieren, damit er eine ID zum Teilen hat
   if (typeof currentPlanId === 'undefined' || currentPlanId === null) {
@@ -70,9 +75,110 @@ async function loadShares() {
     listEl.querySelectorAll('[data-remove-user]').forEach(btn => {
       btn.onclick = () => removeCollaborator(+btn.dataset.removeUser, btn.dataset.username);
     });
+
+    // Beobachter-Link-Bereich nur dem Eigentümer zeigen
+    const pubSection = document.getElementById('public-link-section');
+    if (pubSection) {
+      pubSection.style.display = data.isOwner ? 'block' : 'none';
+      if (data.isOwner) loadPublicLinks();
+    }
   } catch (e) {
     listEl.innerHTML = '';
     _setShareMsg('Netzwerkfehler beim Laden.');
+  }
+}
+
+// ── Beobachter-Links (Nur-Ansicht ohne Login, 7 Tage gültig) ──────────
+
+/** Baut die volle Beobachter-URL aus einem Token. */
+function _publicLinkUrl(token) {
+  return `${window.location.origin}/?view=${token}`;
+}
+
+async function loadPublicLinks() {
+  const listEl = document.getElementById('public-link-list');
+  if (!listEl) return;
+  try {
+    const res = await fetch(`/api/plans/${currentPlanId}/public-links`, { credentials: 'include' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { listEl.innerHTML = ''; return; }
+    const links = data.links || [];
+    if (!links.length) {
+      listEl.innerHTML = '<div style="color:var(--text-dim);font-size:.78rem">Kein aktiver Link.</div>';
+      return;
+    }
+    listEl.innerHTML = links.map(l => {
+      const exp = new Date(l.expires_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--deep);border:1px solid var(--line);border-radius:6px;padding:8px 10px">
+        <div style="font-size:.8rem;color:var(--text)">🔗 Aktiver Link</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:.68rem;color:var(--text-dim)">gültig bis ${exp}</span>
+          <button class="ghost-btn" data-revoke-link="${l.id}" title="Link zurückziehen"
+            style="border-color:var(--coral);color:var(--coral);font-size:.72rem;padding:4px 8px">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+    listEl.querySelectorAll('[data-revoke-link]').forEach(btn => {
+      btn.onclick = () => revokePublicLink(+btn.dataset.revokeLink);
+    });
+  } catch (e) {
+    listEl.innerHTML = '';
+  }
+}
+
+async function createPublicLink() {
+  const btn = document.getElementById('public-link-create-btn');
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch(`/api/plans/${currentPlanId}/public-link`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include'
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { _setShareMsg(data.error || 'Link konnte nicht erstellt werden.'); return; }
+
+    const url = _publicLinkUrl(data.token);
+    const reveal = document.getElementById('public-link-reveal');
+    const urlInput = document.getElementById('public-link-url');
+    if (urlInput) urlInput.value = url;
+    if (reveal) reveal.style.display = 'block';
+    if (urlInput) { urlInput.focus(); urlInput.select(); }
+    if (typeof showToast === 'function') showToast('✓ Beobachter-Link erstellt (7 Tage gültig)');
+    await loadPublicLinks();
+  } catch (e) {
+    _setShareMsg('Netzwerkfehler.');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function copyPublicLink() {
+  const urlInput = document.getElementById('public-link-url');
+  if (!urlInput || !urlInput.value) return;
+  try {
+    await navigator.clipboard.writeText(urlInput.value);
+    if (typeof showToast === 'function') showToast('📋 Link kopiert');
+  } catch (e) {
+    // Fallback für Browser ohne Clipboard-API / unsicheren Kontext
+    urlInput.select();
+    try { document.execCommand('copy'); if (typeof showToast === 'function') showToast('📋 Link kopiert'); }
+    catch (_) { _setShareMsg('Konnte nicht automatisch kopieren – bitte manuell markieren.'); }
+  }
+}
+
+async function revokePublicLink(linkId) {
+  if (!confirm('Diesen Beobachter-Link zurückziehen? Er funktioniert danach nicht mehr.')) return;
+  try {
+    const res = await fetch(`/api/plans/${currentPlanId}/public-link/${linkId}`, {
+      method: 'DELETE', credentials: 'include'
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { _setShareMsg(data.error || 'Zurückziehen fehlgeschlagen.'); return; }
+    if (typeof showToast === 'function') showToast('Link zurückgezogen');
+    const reveal = document.getElementById('public-link-reveal');
+    if (reveal) reveal.style.display = 'none';
+    await loadPublicLinks();
+  } catch (e) {
+    _setShareMsg('Netzwerkfehler.');
   }
 }
 
@@ -141,6 +247,10 @@ document.addEventListener('DOMContentLoaded', () => {
   if (closeBtn) closeBtn.onclick = closeShareModal;
   const addBtn = document.getElementById('share-add-btn');
   if (addBtn) addBtn.onclick = addCollaborator;
+  const pubCreateBtn = document.getElementById('public-link-create-btn');
+  if (pubCreateBtn) pubCreateBtn.onclick = createPublicLink;
+  const pubCopyBtn = document.getElementById('public-link-copy-btn');
+  if (pubCopyBtn) pubCopyBtn.onclick = copyPublicLink;
   const modal = document.getElementById('share-modal');
   if (modal) modal.addEventListener('click', e => { if (e.target === modal) closeShareModal(); });
   const input = document.getElementById('share-username');
