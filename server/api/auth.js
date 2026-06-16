@@ -11,7 +11,8 @@
 const express = require('express');
 const router = express.Router();
 const bcryptjs = require('bcryptjs');
-const { dbRun, dbGet } = require('../db/connection');
+const { getDb, dbRun, dbGet } = require('../db/connection');
+const { auditLog } = require('../db/init');
 
 // ───────────────────────────────────────────────────────────
 // Security Constants
@@ -162,6 +163,9 @@ router.post('/login', express.json(), async (req, res) => {
         dbRun('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [user.id])
           .catch(err => console.error('last_login update failed:', err));
 
+        auditLog(getDb(), user.id, 'login', 'user', user.id, null, ip)
+          .catch(err => console.error('Audit log error (login):', err));
+
         res.json({
           success: true,
           userId: user.id,
@@ -181,9 +185,15 @@ router.post('/login', express.json(), async (req, res) => {
 // POST /api/auth/logout – Clear session
 // ───────────────────────────────────────────────────────────
 router.post('/logout', (req, res) => {
+  const userId = req.session.userId || null;
+  const ip = req.ip || 'unknown';
   req.session.destroy((err) => {
     if (err) {
       return res.status(500).json({ error: 'Logout failed' });
+    }
+    if (userId) {
+      auditLog(getDb(), userId, 'logout', 'user', userId, null, ip)
+        .catch(err => console.error('Audit log error (logout):', err));
     }
     res.json({ success: true, message: 'Logged out' });
   });

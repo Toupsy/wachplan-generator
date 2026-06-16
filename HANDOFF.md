@@ -13,6 +13,13 @@
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: Tests grün, alle Server parsen (`node -c`).
 
+**Letzter Lauf (2026-06-16, Audit-Log Benutzer-Aktionen #293 – Branch `claude/issue-293-20260613-0112`):**
+- **Feature 36 (#293):** `login`, `logout`, `plan_create/_update/_delete/_share/_share_revoke/_import`
+  erzeugen jetzt Audit-Einträge. Pattern: fire-and-forget (`.catch()`), nur Metadaten (kein Plan-Inhalt).
+  `login`/`logout` werden geloggt (Datenschutz-Abwägung: DSGVO Art. 5 Abs. 2 überwiegt Datenminimierung
+  bei personenbezogenen Plan-Daten). Infrastruktur (Tabelle, `auditLog()`-Helfer, Admin-Filter) war bereits vorhanden.
+  Betroffene Dateien: `server/api/auth.js`, `server/api/plans.js`, `server/api/import.js`.
+
 **Letzter Lauf (2026-06-16, Feature 35: Auch Bootsführer können Sanitäter sein – Branch `claude/bf-can-be-sanitaeter`, basiert auf `main` mit Feature 33/34):**
 - **Erweiterung von Feature 33 (s. docs/FEATURES.md Feature 35):** Der Sanitäter-Haken (🚑) gilt
   jetzt für Wachgänger **und** Bootsführer. Ein BF-Sanitäter deckt einen San-Turm ab, wenn er
