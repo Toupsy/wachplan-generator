@@ -29,20 +29,26 @@ function syncMetricCheckboxes(){
   });
 }
 
-/** Mobile-Tab-Umschalter (<901px): zeigt Panel idx (0=Einstellungen, 1=Wachplan). */
-function mobileShowPanel(idx) {
-  document.querySelectorAll('.main-panel').forEach((p, i) => p.classList.toggle('mobile-active', i === idx));
-  document.querySelectorAll('.ms-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
-}
-
-/** Mobile Switch Setup (Tab-Umschalter für <901px)
+/** Mobile Switch Setup (Tab-Umschalter für <768px)
  * Zeigt nur ein Panel gleichzeitig an und erlaubt Umschaltung via Segment-Buttons.
  */
 function setupMobileSwitch() {
-  document.querySelectorAll('.ms-btn').forEach((btn) => {
-    btn.addEventListener('click', () => mobileShowPanel(+btn.dataset.target));
+  const btns = document.querySelectorAll('.ms-btn');
+  const panels = document.querySelectorAll('.main-panel');
+
+  const showPanel = (idx) => {
+    panels.forEach((p, i) => p.classList.toggle('mobile-active', i === idx));
+    btns.forEach((b, i) => b.classList.toggle('active', i === idx));
+  };
+
+  btns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const idx = +btn.dataset.target;
+      showPanel(idx);
+    });
   });
-  mobileShowPanel(0);  // Start: Einstellungen
+
+  showPanel(0);  // Start: Einstellungen
 }
 
 // ── Version Update Check ─────────────────────────────────────────
@@ -172,7 +178,7 @@ async function initAfterAuth() {
 
 document.addEventListener('DOMContentLoaded', () => {
 
-// ── Mobile Switch Setup (Tab-Umschalter für <901px) ──────────────
+// ── Mobile Switch Setup (Tab-Umschalter für <768px) ──────────────
 setupMobileSwitch();
 
 // ── Sidebar – Wachgänger ─────────────────────────────────────────
@@ -271,8 +277,11 @@ if(generateBtn) generateBtn.onclick = async () => {
   generate();
   await autoSave();
   // Auto-switch to schedule view on mobile after generate
-  if (window.matchMedia('(max-width: 900px)').matches) {
-    mobileShowPanel(1);
+  const btns = document.querySelectorAll('.ms-btn');
+  const panels = document.querySelectorAll('.main-panel');
+  if (btns.length > 0 && window.matchMedia('(max-width: 900px)').matches) {
+    panels.forEach((p, i) => p.classList.toggle('mobile-active', i === 1));
+    btns.forEach((b, i) => b.classList.toggle('active', i === 1));
   }
 };
 
