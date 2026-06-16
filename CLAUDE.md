@@ -49,7 +49,7 @@ seed.js           Beispieldatensatz (Fallback ohne Autosave)
 render-sidebar.js Sidebar-UI: Personen, Türme, Boote, Export-Spalten, Positionen
 generate.js       *** KERN-ALGORITHMUS *** Scoring, Rotation, Fairness
 render-output.js  Ausgabe: Tageskarten, Stats-Bar, Pro-Person-/Matrix-Statistiken
-export.js         XLSX (XML-Patch via JSZip) + CSV-Export + persönlicher iCal/.ics-Export (buildPersonICS, Feature 38)
+export.js         XLSX (XML-Patch via JSZip) + CSV-Export
 move.js           Modal „Person verschieben" (↕) + D&D-Logik
 state-io.js       Server-Sync (autoSave/autoLoad), Plan-Manager, State-Serialisierung
 roster.js         Wachlisten-Upload (CSV/PDF) → dynamische Namensliste aus startDate+DAYS (Feature 31)
