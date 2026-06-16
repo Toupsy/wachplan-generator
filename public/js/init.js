@@ -184,14 +184,14 @@ setupMobileSwitch();
 // ── Sidebar – Wachgänger ─────────────────────────────────────────
 const addPersonBtn = document.getElementById('add-person');
 if(addPersonBtn) addPersonBtn.onclick = () => {
-  people.push({ id:++uid, name:'', role:'W', experienced:true, enableLabels: true, sanitaeter:false, absentDays:[] });
+  people.push({ id:++uid, name:'', role:'W', experienced:true, enableLabels: true, sanitaeter:false });
   renderPeople();
   scheduleAutoSave();
 };
 document.querySelectorAll('.quick-add button').forEach(b =>
   b.onclick = () => {
     const role = b.dataset.role;
-    people.push({ id:++uid, name:'', role, experienced: b.dataset.exp !== 'false', enableLabels: true, absentDays:[] });
+    people.push({ id:++uid, name:'', role, experienced: b.dataset.exp !== 'false', enableLabels: true });
     renderPeople();
     scheduleAutoSave();
   });
