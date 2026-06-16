@@ -16,6 +16,14 @@ async function initLoginModal() {
     console.warn('⚠️ Failed to load config, will use defaults');
   }
 
+  // Beobachter-Link (?view=TOKEN): Nur-Ansicht ohne Login (für Wachgänger).
+  // Muss VOR allen Auth-/Preview-Checks laufen – der Link soll überall funktionieren.
+  const viewToken = new URLSearchParams(window.location.search).get('view');
+  if (viewToken) {
+    await initPublicView(viewToken);
+    return;
+  }
+
   // Check if running in preview environment (skip login)
   const environment = window.WORKER_ENVIRONMENT || 'production';
   if (environment === 'preview') {
@@ -82,6 +90,64 @@ async function initLoginModal() {
   } else if (verifiedParam === '0') {
     setLoginError('Bestätigungslink ungültig oder abgelaufen. Beim Login kann eine neue Mail angefordert werden.');
   }
+}
+
+// ───────────────────────────────────────────────────────────
+// Beobachter-Ansicht (öffentlicher Nur-Lese-Link, ?view=TOKEN)
+// Lädt den Plan über den auth-freien Endpoint /api/public/plan/:token,
+// schaltet den Beobachter-Modus (currentPlanCanEdit=false → body.view-only)
+// und überspringt Login/Autoload/Realtime komplett.
+// ───────────────────────────────────────────────────────────
+async function initPublicView(token) {
+  const loginModal = document.getElementById('login-modal');
+  try {
+    const res = await fetch('/api/public/plan/' + encodeURIComponent(token));
+    if (!res.ok) {
+      showPublicViewError();
+      return;
+    }
+    const data = await res.json();
+    if (!data || !data.state) { showPublicViewError(); return; }
+
+    if (loginModal) loginModal.style.display = 'none';
+
+    // Nur-Lese erzwingen, BEVOR State importiert wird → kein Autosave-Echo,
+    // kein Realtime-Join (currentPlanId bleibt null).
+    if (typeof resetGlobalState === 'function') resetGlobalState();
+    currentPlanCanEdit = false;
+    currentPlanName = data.name || 'Wachplan';
+    _suppressAutoSave = true;
+    try {
+      importStateJSON(data.state, true);   // silent
+      generate();
+    } finally {
+      _suppressAutoSave = false;
+    }
+    _updateSaveIndicator();   // setzt body.view-only
+
+    // Auf Mobil direkt die Wachplan-Ansicht zeigen
+    const btns = document.querySelectorAll('.ms-btn');
+    const panels = document.querySelectorAll('.main-panel');
+    if (btns.length && window.matchMedia('(max-width: 900px)').matches) {
+      panels.forEach((p, i) => p.classList.toggle('mobile-active', i === 1));
+      btns.forEach((b, i) => b.classList.toggle('active', i === 1));
+    }
+  } catch (error) {
+    console.error('Public view load failed:', error);
+    showPublicViewError();
+  }
+}
+
+function showPublicViewError() {
+  const loginModal = document.getElementById('login-modal');
+  if (loginModal) loginModal.style.display = 'flex';
+  showAuthView('auth-info-view');
+  const titleEl = document.getElementById('auth-info-title');
+  const textEl = document.getElementById('auth-info-text');
+  if (titleEl) titleEl.textContent = '🔗 Link nicht verfügbar';
+  if (textEl) textEl.textContent = 'Dieser Beobachter-Link ist ungültig oder abgelaufen. Bitte fordere bei deinem Wachführer einen neuen Link an.';
+  const backBtn = document.getElementById('auth-info-back-btn');
+  if (backBtn) backBtn.style.display = 'none';   // kein „Zurück zum Login" für Beobachter
 }
 
 // ───────────────────────────────────────────────────────────

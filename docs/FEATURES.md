@@ -12,6 +12,33 @@
 
 ## Features
 
+### Feature 38: Öffentliche Beobachter-Links (Nur-Ansicht ohne Login)
+Wachführer (eingeloggte Nutzer) können pro Plan einen **Beobachter-Link** erstellen, mit dem
+ihre Wachgänger den Plan **ohne Account nur ansehen** können (kein Bearbeiten). Der Link ist
+**7 Tage gültig** und läuft danach automatisch ab.
+
+**Backend:**
+- Neue Tabelle `plan_public_links` (`schema.sql`): speichert nur den **SHA-256-Hash** des
+  256-Bit-Tokens (DB-Leak ≠ funktionierende Links), `expires_at` (Epoch ms), `revoked_at`,
+  `created_by`. `ON DELETE CASCADE` auf `plans`/`users`.
+- `server/api/plans.js` (nur Owner): `POST /api/plans/:id/public-link` (Token einmalig im Klartext
+  zurück, TTL `PUBLIC_LINK_TTL_MS` = 7 Tage), `GET /api/plans/:id/public-links` (nur Metadaten,
+  Owner+Mitbearbeiter), `DELETE /api/plans/:id/public-link/:linkId` (zurückziehen). Audit:
+  `plan_public_link_create` / `plan_public_link_revoke`.
+- `server/api/public.js` (**kein Auth**, registriert als `/api/public` in `server.js`):
+  `GET /api/public/plan/:token` → validiert Token (Format-Guard 64-Hex, nicht abgelaufen/zurückgezogen),
+  entschlüsselt mit **Owner-Key** und liefert nur `{ name, state }` (keine IDs/User-Daten),
+  `Cache-Control: no-store`. Ungültig/abgelaufen/zurückgezogen → 404 (keine Token-Enumeration).
+
+**Frontend:**
+- Plan-teilen-Modal (`share.js` + HTML): neuer Bereich „👁 Beobachter-Link" (nur Owner) – Link
+  erstellen, einmalige Klartext-URL zum Kopieren, Liste aktiver Links mit Ablaufdatum + Zurückziehen.
+  URL-Form: `…/?view=TOKEN`.
+- `login-modal.js` `initPublicView(token)`: erkennt `?view=TOKEN` **vor** allen Auth-/Preview-Checks,
+  lädt über den auth-freien Endpoint, erzwingt `currentPlanCanEdit=false` (→ `body.view-only`,
+  Beobachter-Modus aus Feature 30) und überspringt Login/Autoload/Realtime. Ungültiger/abgelaufener
+  Link → freundliche Hinweisseite.
+
 ### Feature 36: Vollständiges Audit-Log für Benutzer-Aktionen (Issue #293)
 Bisher wurden nur System-Events (`plan_cleanup`) und Admin-Aktionen ins `audit_log` geschrieben.
 Ab v0.11.x werden alle schreibenden Benutzer-Aktionen geloggt:

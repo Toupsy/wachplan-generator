@@ -16,6 +16,7 @@ const authApi = require('./api/auth');
 const plansApi = require('./api/plans');
 const adminApi = require('./api/admin');
 const importApi = require('./api/import');
+const publicApi = require('./api/public');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -143,6 +144,7 @@ async function start() {
     app.use('/api/plans', plansApi);
     app.use('/api/admin', adminApi);
     app.use('/api/import', importApi);
+    app.use('/api/public', publicApi);   // Beobachter-Links (kein Auth)
 
     // Version endpoint (public, no auth needed)
     app.get('/api/version', async (req, res) => {

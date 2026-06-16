@@ -8,6 +8,7 @@
 // ============================================================
 
 const express = require('express');
+const crypto = require('crypto');
 const router = express.Router();
 const { getDb, dbRun, dbGet, dbAll } = require('../db/connection');
 const { encryptPlanState, decryptPlanState } = require('../db/crypto');
@@ -15,6 +16,14 @@ const { getPlanAccess } = require('../db/access');
 const { broadcastPlanUpdate } = require('../realtime');
 const { parsePositiveInt } = require('../db/ids');
 const { auditLog } = require('../db/init');
+
+// ───────────────────────────────────────────────────────────
+// Öffentliche Beobachter-Links (plan_public_links): unguessbares 256-Bit-Token,
+// in der DB nur als SHA-256-Hash. Standard-Lebensdauer 7 Tage. Siehe api/public.js
+// für den (auth-freien) Lese-Endpoint.
+// ───────────────────────────────────────────────────────────
+const PUBLIC_LINK_TTL_MS = 7 * 24 * 60 * 60 * 1000;   // 7 Tage
+const hashLinkToken = t => crypto.createHash('sha256').update(t).digest('hex');
 
 // ───────────────────────────────────────────────────────────
 // ID Parsing Helpers – zentral über db/ids.js (strikte Validierung:
@@ -368,5 +377,97 @@ router.delete('/:id/share/:userId', async (req, res) => {
   }
 });
 
+// ───────────────────────────────────────────────────────────
+// GET /api/plans/:id/public-links – aktive Beobachter-Links auflisten
+// (Owner oder Mitbearbeiter). Liefert NUR Metadaten – das Token selbst wird
+// einmalig bei der Erstellung zurückgegeben und ist danach nicht mehr abrufbar.
+// ───────────────────────────────────────────────────────────
+router.get('/:id/public-links', async (req, res) => {
+  try {
+    const planId = parsePlanId(req.params.id);
+    if (!planId) return res.status(400).json({ error: 'Ungültige Plan-ID' });
+
+    const access = await getPlanAccess(planId, req.session.userId);
+    if (access === null) return res.status(404).json({ error: 'Plan not found' });
+    if (access === false) return res.status(403).json({ error: 'No access to this plan' });
+
+    const links = await dbAll(
+      `SELECT id, expires_at, created_at FROM plan_public_links
+        WHERE plan_id = ? AND revoked_at IS NULL AND expires_at > ?
+        ORDER BY created_at DESC`,
+      [planId, Date.now()]
+    );
+
+    res.json({ isOwner: access.role === 'owner', links });
+  } catch (error) {
+    console.error('List public links error:', error);
+    res.status(500).json({ error: 'Failed to list public links' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// POST /api/plans/:id/public-link – neuen Beobachter-Link erstellen (nur Owner).
+// Gibt das Klartext-Token EINMALIG zurück (in der DB liegt nur der Hash).
+// ───────────────────────────────────────────────────────────
+router.post('/:id/public-link', express.json(), async (req, res) => {
+  try {
+    const planId = parsePlanId(req.params.id);
+    if (!planId) return res.status(400).json({ error: 'Ungültige Plan-ID' });
+
+    const access = await getPlanAccess(planId, req.session.userId);
+    if (access === null) return res.status(404).json({ error: 'Plan not found' });
+    if (access.role !== 'owner') return res.status(403).json({ error: 'Only the owner can create public links' });
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = Date.now() + PUBLIC_LINK_TTL_MS;
+
+    const result = await dbRun(
+      `INSERT INTO plan_public_links (plan_id, token_hash, created_by, expires_at)
+       VALUES (?, ?, ?, ?)`,
+      [planId, hashLinkToken(token), req.session.userId, expiresAt]
+    );
+
+    auditLog(getDb(), req.session.userId, 'plan_public_link_create', 'plan', planId, { linkId: result.lastID, expiresAt }, req.ip)
+      .catch(err => console.error('Audit log error (plan_public_link_create):', err));
+
+    res.status(201).json({ id: result.lastID, token, expiresAt });
+  } catch (error) {
+    console.error('Create public link error:', error);
+    res.status(500).json({ error: 'Failed to create public link' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// DELETE /api/plans/:id/public-link/:linkId – Beobachter-Link zurückziehen (nur Owner)
+// ───────────────────────────────────────────────────────────
+router.delete('/:id/public-link/:linkId', async (req, res) => {
+  try {
+    const planId = parsePlanId(req.params.id);
+    if (!planId) return res.status(400).json({ error: 'Ungültige Plan-ID' });
+
+    const linkId = parsePositiveInt(req.params.linkId);
+    if (!linkId) return res.status(400).json({ error: 'Ungültige Link-ID' });
+
+    const access = await getPlanAccess(planId, req.session.userId);
+    if (access === null) return res.status(404).json({ error: 'Plan not found' });
+    if (access.role !== 'owner') return res.status(403).json({ error: 'Only the owner can manage public links' });
+
+    await dbRun(
+      `UPDATE plan_public_links SET revoked_at = CURRENT_TIMESTAMP
+        WHERE id = ? AND plan_id = ? AND revoked_at IS NULL`,
+      [linkId, planId]
+    );
+
+    auditLog(getDb(), req.session.userId, 'plan_public_link_revoke', 'plan', planId, { linkId }, req.ip)
+      .catch(err => console.error('Audit log error (plan_public_link_revoke):', err));
+
+    res.json({ success: true, message: 'Link zurückgezogen' });
+  } catch (error) {
+    console.error('Revoke public link error:', error);
+    res.status(500).json({ error: 'Failed to revoke public link' });
+  }
+});
+
 module.exports = router;
 module.exports.validatePlanInput = validatePlanInput;
+module.exports.hashLinkToken = hashLinkToken;
