@@ -40,6 +40,10 @@ function renderPeople(){
           <input type="checkbox" data-id="${p.id}" class="hwwish-checkbox" ${p.wantsHW?'checked':''}>
           <span>🏠</span>
         </label>` : ''}
+        ${p.role==='W' ? `<label class="san-toggle" title="Sanitäter – wird auf San-Türmen wenn möglich immer eingesetzt">
+          <input type="checkbox" data-id="${p.id}" class="san-checkbox" ${p.sanitaeter?'checked':''}>
+          <span>🚑</span>
+        </label>` : ''}
       </div>`}
       <label class="label-toggle" title="Labels bearbeiten">
         <input type="checkbox" data-id="${p.id}" class="labels-checkbox" ${hasLabels ? 'checked' : ''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0">
@@ -146,6 +150,8 @@ function renderPeople(){
     cb.onchange = e => { const p = getP(+e.target.dataset.id); p.experienced = e.target.checked; if(typeof recordRosterOverride === 'function') recordRosterOverride(p, 'experienced', p.experienced); scheduleAutoSave(); renderOutput(); });
   c.querySelectorAll('.hwwish-checkbox').forEach(cb =>
     cb.onchange = e => { const p = getP(+e.target.dataset.id); p.wantsHW = e.target.checked; if(typeof recordRosterOverride === 'function') recordRosterOverride(p, 'wantsHW', p.wantsHW); generate(); scheduleAutoSave(); });
+  c.querySelectorAll('.san-checkbox').forEach(cb =>
+    cb.onchange = e => { const p = getP(+e.target.dataset.id); p.sanitaeter = e.target.checked; if(typeof recordRosterOverride === 'function') recordRosterOverride(p, 'sanitaeter', p.sanitaeter); generate(); scheduleAutoSave(); });
   c.querySelectorAll('.del-p').forEach(b =>
     b.onclick = e => {
       const id = +e.target.dataset.id;
@@ -193,6 +199,7 @@ function renderTowerCfg(){
           <span style="font-size:.65rem;color:var(--text-dim)">Wachgänger</span>
           ${(t.leaderCount||0)===0?`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-left:8px"><input type="checkbox" class="leader-checkbox" data-id="${t.id}" style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0"><span style="font-size:.75rem;color:var(--text-dim)">👔</span></label>`:''}
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-left:8px" title="Als Hauptstrand-Turm markieren – fairer Ausgleich Hauptstrand ↔ Außentürme"><input type="checkbox" class="mainbeach-checkbox" data-id="${t.id}" ${t.mainBeach?'checked':''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0"><span style="font-size:.75rem;color:var(--text-dim)">🏖️</span></label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-left:8px" title="Als San-Turm markieren – hier wird wenn möglich immer ein Sanitäter eingesetzt"><input type="checkbox" class="santower-checkbox" data-id="${t.id}" ${t.sanTower?'checked':''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--coral);flex-shrink:0"><span style="font-size:.75rem;color:var(--text-dim)">🚑</span></label>
         </div>
         <button class="mini-btn del-t" data-id="${t.id}">×</button>
       </div>
@@ -294,6 +301,11 @@ function renderTowerCfg(){
   c.querySelectorAll('.mainbeach-checkbox').forEach(cb =>
     cb.onchange = e => {
       getT(+e.target.dataset.id).mainBeach = e.target.checked;
+      generate(); renderTowerCfg(); scheduleAutoSave();
+    });
+  c.querySelectorAll('.santower-checkbox').forEach(cb =>
+    cb.onchange = e => {
+      getT(+e.target.dataset.id).sanTower = e.target.checked;
       generate(); renderTowerCfg(); scheduleAutoSave();
     });
   c.querySelectorAll('.leader-checkbox').forEach(cb =>

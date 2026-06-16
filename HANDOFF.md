@@ -13,6 +13,23 @@
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: Tests grün, alle Server parsen (`node -c`).
 
+**Letzter Lauf (2026-06-16, Feature 33: Sanitäter & San-Türme – Branch `claude/sanitaeter-hook-tower-2o54dy`):**
+- **Neues Feature (s. docs/FEATURES.md Feature 33):** Personen-Flag „Sanitäter" (🚑, nur Wachgänger)
+  + Turm-Haken „San-Turm" (🚑, neben Hauptstrand). Ein San-Turm bekommt – wenn möglich – immer
+  ≥1 Sanitäter; sonst sind Sanitäter normale Wachgänger. Analog zur BF-Reservierung (Bonus zieht
+  Sanitäter auf San-Türme, Reserve-Strafe hält sie von Nicht-San-Türmen/HW fern). Faire Rotation
+  aus bestehenden towerVisit-/Konsekutiv-Strafen; wichtigster San-Turm (prio asc) zuerst.
+- **State:** Person `sanitaeter:bool`, Turm `sanTower:bool` (beide Default false). Serialisiert in
+  `state-io.js` (Build + Import, Default für Altpläne), `STATE_VERSION` 8→9; Roster-Override
+  `sanitaeter` (`roster.js`). UI + Handler in `render-sidebar.js`, CSS `.san-toggle` in der HTML,
+  Defaults beim Anlegen in `init.js`. Algorithmus in `generate.js` (`sanActive`, `sanTowerBonus`/
+  `sanReservePenalty` in `state.js` `defaultAlgoParams`, neuer `bestPair`-Param `towerNeedsSan`).
+- **Tests:** neuer `test/san-tower.test.js` (5 Tests, alle grün). Volle Suite grün (58 Tests; nach
+  `npm install` im frischen Container, sonst `sqlite3`-Fehler; `session-user-deletion.test.js` einmal
+  flaky → Rerun grün, dokumentiert). `node -c` für alle geänderten Frontend-Dateien OK.
+- **Nicht im Browser verifiziert** (kein Browser im Container) – UI/Checkboxen/Handler per
+  Code-Review geprüft, Algorithmus per Test abgesichert.
+
 **Letzter Lauf (2026-06-15, Feature 32: BF-an-HW-Pflicht bei BF-Überschuss – Branch `claude/bf-surplus-staffing-fld551`):**
 - **Neues Feature (s. docs/FEATURES.md Feature 32):** Globaler Schalter „Bei BF-Überschuss immer
   1 BF auf der Hauptwache" (Checkbox `#require-bf-hw` im HW-Konfig-Block). Bei echter BF-Überzahl

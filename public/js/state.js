@@ -79,12 +79,15 @@ function defaultAlgoParams(){
     boatVisitWeight:          50,   // Strafe pro Besuch desselben Bootes
     boatHwBonus:              10,   // HW-Tage → Bonus bei Boot-Zuweisung
     boatRotationBase:       1000,   // Boot-Rotations-Basisstrafe pro Lookback-Schritt
+    // Sanitäter (San-Turm)
+    sanTowerBonus:          5000,   // Bonus: Sanitäter auf einen San-Turm (vom Score abgezogen)
+    sanReservePenalty:       350,   // Sanitäter von Nicht-San-Türmen/HW fernhalten (Reserve)
   };
 }
 let algoParams = defaultAlgoParams();
 
 // Stammdaten
-let people   = [];   // [{ id, name, role:'F'|'B'|'W', experienced:bool, labels:'', enableLabels:true, wantsHW:bool }] (experienced gilt für B und W; F ignoriert. wantsHW nur für B: Wunsch auf ≥1 aktiven HW-Dienst bei BF-Überzahl. labels Komma-getrennt, enableLabels steuert Sichtbarkeit)
+let people   = [];   // [{ id, name, role:'F'|'B'|'W', experienced:bool, labels:'', enableLabels:true, wantsHW:bool, sanitaeter:bool }] (experienced gilt für B und W; F ignoriert. wantsHW nur für B: Wunsch auf ≥1 aktiven HW-Dienst bei BF-Überzahl. sanitaeter nur für W: wird auf San-Türmen bevorzugt eingesetzt. labels Komma-getrennt, enableLabels steuert Sichtbarkeit)
 // Hochgeladene DLRG-Wachliste (Feature 31): Roh-Verfügbarkeiten aller zugesagten Personen.
 // [{ name, role:'F'|'B'|'W', from:'YYYY-MM-DD', to:'YYYY-MM-DD' }]. Aus dieser Liste leitet
 // applyRosterToWindow() die people[] + tageweisen Abwesenheiten dynamisch aus startDate + DAYS ab.
@@ -93,7 +96,7 @@ let roster   = [];
 // (z.B. Rolle/Erfahrung von Hand geändert). Key = normalisierter Name → { role?, experienced?,
 // wantsHW?, labels?, enableLabels? } (nur explizit geänderte Felder). Feature 31.
 let rosterOverrides = {};
-let towers   = [];   // [{ id, name, prio, code, slotCount, leaderCount, mainBeach:bool }] (mainBeach: Hauptstrand-Turm für fairen Ausgleich)
+let towers   = [];   // [{ id, name, prio, code, slotCount, leaderCount, mainBeach:bool, sanTower:bool }] (mainBeach: Hauptstrand-Turm für fairen Ausgleich; sanTower: hier wird wenn möglich immer ein Sanitäter eingesetzt)
 let boats    = [];   // [{ id, name, code, towerId, prio, slotCount }]
 
 // Hauptwache-Konfiguration

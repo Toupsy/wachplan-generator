@@ -93,10 +93,10 @@ Modals `#login-modal`/`#move-modal`/`#share-modal`/`#plans-modal` …) sind eind
 
 ## Globaler Zustand (state.js)
 ```js
-people[]    // { id, name, role:'F'|'B'|'W', experienced:bool, wantsHW:bool } (experienced gilt für B & W; wantsHW nur für B: ≥1 aktiver HW-Dienst bei BF-Überzahl)
+people[]    // { id, name, role:'F'|'B'|'W', experienced:bool, wantsHW:bool, sanitaeter:bool } (experienced gilt für B & W; wantsHW nur für B: ≥1 aktiver HW-Dienst bei BF-Überzahl; sanitaeter nur für W: wird auf San-Türmen bevorzugt eingesetzt, sonst normaler WG – Feature 33)
 roster[]    // hochgeladene Wachliste: { name, role:'F'|'B'|'W', from:'YYYY-MM-DD', to:'YYYY-MM-DD' } (Feature 31). applyRosterToWindow() leitet people[]+absent dynamisch aus startDate+DAYS ab (roster.js)
-rosterOverrides // { normName → { role?, experienced?, wantsHW?, labels?, enableLabels? } } – manuelle Korrekturen, die das Neu-Ableiten überleben (mergeRosterOverrides, Feature 31)
-towers[]    // { id, name, prio, code, slotCount(1–10,Def2), leaderCount(0–3,Def0), mainBeach(bool,Def false) }
+rosterOverrides // { normName → { role?, experienced?, wantsHW?, sanitaeter?, labels?, enableLabels? } } – manuelle Korrekturen, die das Neu-Ableiten überleben (mergeRosterOverrides, Feature 31)
+towers[]    // { id, name, prio, code, slotCount(1–10,Def2), leaderCount(0–3,Def0), mainBeach(bool,Def false), sanTower(bool,Def false) } (sanTower: hier wenn möglich immer ≥1 Sanitäter – Feature 33)
 boats[]     // { id, name, code, towerId:number|'HW'|null, prio, slotCount(1–3,Def1) }
 dayState[]      // Array[DAYS]: { sick:Set, absent:Set, closed:Set, closedBoats:Set }
                 //   sick   = außer Dienst → wird an der HW geführt (zählt im Plan/Export)
@@ -167,6 +167,15 @@ BF-Überzahl (`poolSBF` nicht leer), wird im HW-Abschnitt VOR der regulären Bef
 zuerst) – aber nur, wenn noch HW-Plätze frei sind und nicht schon ein BF unter den `mainGuards`
 ist. Restliche HW-Slots füllt der Algorithmus regulär (z.B. k=3 → 2 WG + 1 BF). Anders als
 Feature 26 (per-Person-Wunsch, ≥1×/Woche) ist das ein globaler, **täglicher** Zwang.
+
+**Sanitäter & San-Türme (Feature 33):** Person-Flag `sanitaeter` (nur W) + Turm-Flag `sanTower`.
+Pro Tag `sanActive` = es gibt einen offenen San-Turm UND ≥1 Sanitäter im Pool – nur dann greift
+die Logik (sonst Sanitäter = normaler WG). `sanTowerBonus` (5000) zieht – solange der San-Turm
+noch keinen Sanitäter hat – einen Sanitäter an (Bonus pro Paar nur **einmal** → keine Häufung);
+`sanReservePenalty` (350) hält Sanitäter von Nicht-San-Türmen/HW als Reserve fern (hebt sich
+unter Sanitätern auf → Fairness bleibt). Eingebaut in `bestPair` (Param `towerNeedsSan`),
+Turm-Einzelbefüllung und HW-Sortierung. Faire Rotation entsteht aus den bestehenden
+`towerVisit`-/Konsekutiv-Strafen; wichtigere San-Türme (prio asc) zuerst befüllt.
 
 **Zwangszuweisungen (forcedPlacements):** `transparent:false` → Person aus Pool, fest
 vorab platziert, zählt in Statistik (Folgetage berücksichtigen Wechsel). `transparent:true`

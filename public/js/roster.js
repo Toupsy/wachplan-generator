@@ -193,6 +193,7 @@ function mergeRosterOverrides(derived, overrides){
       role:         o.role         !== undefined ? o.role         : d.role,
       experienced:  o.experienced  !== undefined ? o.experienced  : !!d.experienced,
       wantsHW:      o.wantsHW       !== undefined ? o.wantsHW      : false,
+      sanitaeter:   o.sanitaeter    !== undefined ? o.sanitaeter   : false,
       labels:       o.labels        !== undefined ? o.labels       : '',
       enableLabels: o.enableLabels  !== undefined ? o.enableLabels : true,
     };

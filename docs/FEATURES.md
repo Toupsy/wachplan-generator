@@ -317,6 +317,39 @@ Boote** gibt (echte BF-Überzahl), soll an **jedem Tag** mindestens ein überzä
   (und ≥1 WG bleibt); keine Überzahl → kein BF erzwungen; HW wird nicht mit BF überflutet;
   Flag aus → Default-Verhalten unverändert.
 
+### Feature 33: Sanitäter & San-Türme
+Neues Personen-Flag **„Sanitäter"** (Checkbox 🚑, nur für Wachgänger) und neuer Turm-Haken
+**„San-Turm"** (Checkbox 🚑, neben dem Hauptstrand-Haken). Wunsch: Sanitäter sind im Normalfall
+ganz normale Wachgänger; ist ein Turm aber als **San-Turm** markiert, soll dort **wenn möglich
+immer mindestens ein Sanitäter** sitzen – analog zur BF-Reservierung für Boote.
+- **Datenmodell:** Person `sanitaeter:bool` (Default `false`, nur sinnvoll für Rolle `W`),
+  Turm `sanTower:bool` (Default `false`). UI-Checkboxen + Handler in `render-sidebar.js`
+  (`.san-checkbox` / `.santower-checkbox`, beide regenerieren via `generate()`), CSS `.san-toggle`
+  in `Wachplan-Generator.html`. Defaults beim Anlegen in `init.js`.
+- **Serialisierung (`state-io.js`):** beide Felder mit-serialisiert (`_buildStateObject` +
+  `importStateJSON`, Default `false` für Altpläne); `STATE_VERSION` 8 → 9. Roster-Overrides
+  (`roster.js` `mergeRosterOverrides`) kennen `sanitaeter`, damit manuelle Korrekturen ein
+  Neu-Ableiten überleben (importierte Personen starten ohne San-Flag).
+- **Algorithmus (`generate.js`):** Pro Tag `sanActive` = es gibt einen offenen San-Turm UND
+  mindestens einen Sanitäter im Pool. Nur dann greifen zwei Effekte (sonst verhalten sich
+  Sanitäter exakt wie normale Wachgänger):
+  - **San-Turm-Bonus** (`sanTowerBonus`, 5000): Solange ein San-Turm noch keinen Sanitäter hat,
+    bekommt ein Paar/Kandidat mit Sanitäter einen großen Bonus → der Turm zieht zuverlässig
+    einen Sanitäter. Der Bonus belohnt „≥1 Sanitäter im Paar" nur **einmal** → keine Häufung
+    von zwei Sanitätern auf einem Turm, solange andere San-Türme noch offen sind.
+  - **Reserve-Strafe** (`sanReservePenalty`, 350): Sanitäter auf Nicht-San-Türmen und an der HW
+    werden leicht bestraft → sie werden nicht „verbraucht", bevor ein San-Turm an der Reihe ist.
+    Die Strafe hebt sich unter Sanitätern auf (betrifft nur Sanitäter-vs-Nicht-Sanitäter), die
+    Fairness unter den Sanitätern bleibt also erhalten.
+  Eingebaut in `bestPair` (Turm- + HW-Zweig, neuer Param `towerNeedsSan`), in die Turm-Einzel-
+  befüllung und in die HW-Einzelbefüllungs-Sortierung. **Faire Rotation** unter mehreren
+  Sanitätern ergibt sich automatisch aus den bestehenden `towerVisit`-/Konsekutiv-Strafen (der
+  Sanitäter von gestern ist heute teurer als ein frischer). Wichtigere San-Türme (prio asc)
+  werden zuerst befüllt → bei Knappheit bekommt der wichtigste San-Turm den Sanitäter.
+- **Tests:** `test/san-tower.test.js` (5 Tests): San-Turm bekommt täglich ≥1 Sanitäter;
+  Rotation bei mehreren Sanitätern; einziger Sanitäter landet auf dem San-Turm statt anderswo/HW;
+  mehr San-Türme als Sanitäter → wichtigster Turm gewinnt; kein San-Turm → Plan gültig & neutral.
+
 ---
 
 ## Bugfixes
