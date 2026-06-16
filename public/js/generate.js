@@ -880,6 +880,22 @@ function generate(startDay = 0){
     }
 
     // ── 4) HAUPTWACHE finalize ──────────────────────────────────────
+    // Bug #308: Effektive (transparent:false) Turm-Zwangszuweisungen auf einen an diesem Tag
+    // GESCHLOSSENEN Turm (nicht in openTowers) werden im Turm-Loop nie konsumiert. Die Person
+    // wurde aber bereits aus allen Pools entfernt (removeFromPools) → ohne Auffangen säße sie
+    // auf keinem Slot und fehlte komplett in Plan + Tagesstatistik. Wir führen sie daher als
+    // aktive HW-Wache (mainGuards): commitPerson an MAIN_ID zählt total++/hwVisits++/hwGuardDays++
+    // (identisch zur Stat-Rekonstruktion in _reAccumulateDayStats über slot.mainGuards).
+    const openTowerIds = new Set(openTowers.map(t => String(t.id)));
+    Object.keys(forcedByTower).forEach(slotId => {
+      if(openTowerIds.has(String(slotId))) return; // offener Turm → bereits im Turm-Loop platziert
+      forcedByTower[slotId].forEach(p => {
+        if(mainGuards.some(g => g.id === p.id)) return;
+        commitPerson(p, mainPseudo);
+        mainGuards.push(p);
+      });
+    });
+
     const leftovers = [...poolE, ...poolU, ...poolSBF];
     dayAssign.push({
       kind:'main', main:true, tower:'Hauptwache',
