@@ -2,7 +2,7 @@
 // state-io.js – Planstatus-Import / Export (Feature 7) + Server-Sync
 // ============================================================
 
-const STATE_VERSION = 10;
+const STATE_VERSION = 11;
 
 // Migriert eine Person vom alten Rollenmodell (role 'E'/'U' + bfLevel) auf das
 // neue Modell (role 'F'|'B'|'W' + experienced:bool). Idempotent.
@@ -138,7 +138,8 @@ function importStateJSON(json, silent = false){
     labels: p.labels || '',
     enableLabels: p.enableLabels !== undefined ? p.enableLabels : ((p.labels||'').trim().length > 0),  // Fallback für alte Exporte
     wantsHW: !!p.wantsHW,   // BF-HW-Wunsch (Default false für Altpläne)
-    sanitaeter: !!p.sanitaeter   // Sanitäter (Default false für Altpläne)
+    sanitaeter: !!p.sanitaeter,   // Sanitäter (Default false für Altpläne)
+    absentDays: Array.isArray(p.absentDays) ? p.absentDays.slice() : []  // mehrtägige Abwesenheit (#221; Default [] für Altpläne)
   }));
   roster = Array.isArray(s.roster) ? s.roster.map(r => ({ ...r })) : [];   // hochgeladene Wachliste (Feature 31; Default [] für Altpläne)
   rosterOverrides = (s.rosterOverrides && typeof s.rosterOverrides === 'object') ? s.rosterOverrides : {};   // manuelle Korrekturen (Feature 31)
