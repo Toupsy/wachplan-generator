@@ -317,6 +317,79 @@ Boote** gibt (echte BF-Überzahl), soll an **jedem Tag** mindestens ein überzä
   (und ≥1 WG bleibt); keine Überzahl → kein BF erzwungen; HW wird nicht mit BF überflutet;
   Flag aus → Default-Verhalten unverändert.
 
+### Feature 33: Sanitäter & San-Türme
+Neues Personen-Flag **„Sanitäter"** (Checkbox 🚑, nur für Wachgänger) und neuer Turm-Haken
+**„San-Turm"** (Checkbox 🚑, neben dem Hauptstrand-Haken). Wunsch: Sanitäter sind im Normalfall
+ganz normale Wachgänger; ist ein Turm aber als **San-Turm** markiert, soll dort **wenn möglich
+immer mindestens ein Sanitäter** sitzen – analog zur BF-Reservierung für Boote.
+- **Datenmodell:** Person `sanitaeter:bool` (Default `false`, nur sinnvoll für Rolle `W`),
+  Turm `sanTower:bool` (Default `false`). UI-Checkboxen + Handler in `render-sidebar.js`
+  (`.san-checkbox` / `.santower-checkbox`, beide regenerieren via `generate()`), CSS `.san-toggle`
+  in `Wachplan-Generator.html`. Defaults beim Anlegen in `init.js`.
+- **Serialisierung (`state-io.js`):** beide Felder mit-serialisiert (`_buildStateObject` +
+  `importStateJSON`, Default `false` für Altpläne); `STATE_VERSION` 8 → 9. Roster-Overrides
+  (`roster.js` `mergeRosterOverrides`) kennen `sanitaeter`, damit manuelle Korrekturen ein
+  Neu-Ableiten überleben (importierte Personen starten ohne San-Flag).
+- **Algorithmus (`generate.js`):** Pro Tag `sanActive` = es gibt einen offenen San-Turm UND
+  mindestens einen Sanitäter im Pool. Nur dann greifen zwei Effekte (sonst verhalten sich
+  Sanitäter exakt wie normale Wachgänger):
+  - **San-Turm-Bonus** (`sanTowerBonus`, 5000): Solange ein San-Turm noch keinen Sanitäter hat,
+    bekommt ein Paar/Kandidat mit Sanitäter einen großen Bonus → der Turm zieht zuverlässig
+    einen Sanitäter. Der Bonus belohnt „≥1 Sanitäter im Paar" nur **einmal** → keine Häufung
+    von zwei Sanitätern auf einem Turm, solange andere San-Türme noch offen sind.
+  - **Reserve-Strafe** (`sanReservePenalty`, 350): Sanitäter auf Nicht-San-Türmen und an der HW
+    werden leicht bestraft → sie werden nicht „verbraucht", bevor ein San-Turm an der Reihe ist.
+    Die Strafe hebt sich unter Sanitätern auf (betrifft nur Sanitäter-vs-Nicht-Sanitäter), die
+    Fairness unter den Sanitätern bleibt also erhalten.
+  Eingebaut in `bestPair` (Turm- + HW-Zweig, neuer Param `towerNeedsSan`), in die Turm-Einzel-
+  befüllung und in die HW-Einzelbefüllungs-Sortierung. **Faire Rotation** unter mehreren
+  Sanitätern ergibt sich automatisch aus den bestehenden `towerVisit`-/Konsekutiv-Strafen (der
+  Sanitäter von gestern ist heute teurer als ein frischer). Wichtigere San-Türme (prio asc)
+  werden zuerst befüllt → bei Knappheit bekommt der wichtigste San-Turm den Sanitäter.
+- **Tests:** `test/san-tower.test.js` (5 Tests): San-Turm bekommt täglich ≥1 Sanitäter;
+  Rotation bei mehreren Sanitätern; einziger Sanitäter landet auf dem San-Turm statt anderswo/HW;
+  mehr San-Türme als Sanitäter → wichtigster Turm gewinnt; kein San-Turm → Plan gültig & neutral.
+
+### Feature 34: Führungstürme (Checkbox statt leaderCount-Spinner)
+Der frühere Pro-Turm-Spinner „Führungsslots" (`leaderCount`, 0–3, **zusätzliche** Slots) wird
+durch einen einfachen Haken **„Führungsturm"** (👔) ersetzt – dieselbe Logik wie der San-Turm
+(Feature 33), nur für Führungskräfte: Ein markierter Turm bekommt **wenn möglich immer ≥1
+Führungskraft**, aber auf einem **regulären** Slot (kein Zusatz-Slot). Der Nutzer muss nicht
+mehr pro Turm einstellen, *wie viele* Führungskräfte dort sein sollen.
+- **Datenmodell:** Turm `leaderTower:bool` (Default `false`) ersetzt `leaderCount`. UI: eine
+  Checkbox neben 🏖️/🚑 (`render-sidebar.js`, `.leadertower-checkbox`); Spinner-UI + Handler
+  (leader-checkbox/-minus/-plus/-spinner) entfernt. Der nun tote Algo-Parameter `leaderBonus`
+  (Bonus wirkte nie, da F nicht im Guard-Pool sind) ist aus `defaultAlgoParams` und dem
+  Algo-Editor entfernt.
+- **Algorithmus (`generate.js`):** Statt `leaderCount`-Zusatz-Slots wird auf einem Führungsturm
+  vor der regulären Befüllung **eine** F aus dem separaten `poolF` auf einen regulären Slot
+  gesetzt (fairste Rotation: wenigste Gesamteinsätze/Turmbesuche zuerst), sofern Bedarf > 0,
+  poolF nicht leer und noch keine F im Slot. Alle `slotCount+leaderCount`-Rechnungen → nur noch
+  `slotCount`; `expDemand` zählt gedeckte Führungstürme nicht. Übrige F bleiben Führung an der HW.
+- **Migration (`state-io.js` Import, `config.js` Template):** alte Pläne mit `leaderCount>0` →
+  `leaderTower:true`; die ehemaligen Zusatz-Slots werden in `slotCount` integriert (auf max 10
+  geklemmt) → Personenzahl pro Turm bleibt erhalten. `STATE_VERSION` 9 → 10.
+- **Tests:** `test/leaders.test.js` neu gefasst (4 Tests): ohne Führungsturm bleibt Führung an
+  der HW; mit `leaderTower` genau 1 F auf dem Turm ohne Zusatz-Slot + Rotation + HW behält Führung;
+  mehr Führungstürme als F → wichtigster (prio asc) gewinnt; keine F → Turm regulär gefüllt.
+
+### Feature 35: Auch Bootsführer können Sanitäter sein
+Erweitert Feature 33: Der Sanitäter-Haken (🚑) ist jetzt nicht mehr nur für Wachgänger, sondern
+auch für **Bootsführer** verfügbar. Ein BF-Sanitäter deckt einen San-Turm ab, **wenn er für einen
+Turmplatz verfügbar ist** – das ist bei **überzähligen** BF der Fall (sie stehen im Guard-Pool
+`poolSBF`); aktive BF fahren ein Boot und kommen für einen Turm ohnehin nicht in Frage.
+- **UI (`render-sidebar.js`):** San-Checkbox jetzt für Rolle `W` **und** `B` (neben dem
+  HW-Wunsch-Haken). Serialisierung war bereits rollenunabhängig. Da eine BF-Zeile damit drei
+  Toggles trägt (Erf. + 🏠 HW-Wunsch + 🚑 Sani), wurde die Toggle-Spalte der Personen-Zeile auf
+  feste 140px gesetzt und die Sidebar etwas verbreitert (`clamp(440px,36vw,600px)`) – sie ist
+  einklappbar, daher unkritisch (`Wachplan-Generator.html`).
+- **Algorithmus (`generate.js`):** Das `sanActive`-Gating prüft den Sanitäter jetzt im gesamten
+  Guard-Pool (`getGuardPool()` = Wachgänger + überzählige BF) statt nur unter den Wachgängern.
+  Bonus/Reserve in `bestPair` etc. wirkten schon zuvor auf alle Guard-Pool-Personen (inkl. poolSBF)
+  → keine weitere Änderung nötig.
+- **Tests:** `test/san-tower.test.js` um einen 6. Test erweitert (überzähliger BF-Sanitäter deckt
+  den San-Turm; ohne Boote sind alle BF überzählig).
+
 ---
 
 ## Bugfixes
@@ -474,6 +547,15 @@ State-Größe (max. 1 MB → 413) gegen Storage-Exhaustion (`validatePlanInput`)
 Helfer `server/db/ids.js` (`parsePositiveInt`) ersetzt `parseInt(req.params.id)` in `admin.js`
 (DELETE/PUT-password/GET-export) → `'5abc'`/`NaN`/`≤0` fließen nicht mehr in Queries.
 
+### renderOutput() crasht bei lastResult===null (Issue #276, v0.5.2)
+**Problem:** `lastResult` ist bis zum ersten `generate()`-Aufruf `null`. Die Sidebar ist
+jedoch sofort bedienbar; zwei Event-Handler in `render-sidebar.js` (Labels-Checkbox Z.67,
+Erfahren-Checkbox Z.83) riefen `renderOutput()` ohne Guard auf. Ergebnis: `TypeError:
+Cannot destructure property 'schedule' of 'lastResult' as it is null` (Z.42 in
+`render-output.js`) – sichtbarer Crash für neue Nutzer vor dem ersten Generieren.
+**Lösung:** Defensiver Early-Return in `renderOutput()` selbst (nach `getElementById`,
+vor dem Destructuring): `if(!lastResult) return;` – robuster gegen alle aktuellen und
+künftigen Aufrufer (statt nur die zwei Call-Sites zu patchen).
 ### Security: Bulk-Import umging die Eingabe-Limits aus #218 + leakte Fehlerdetails (Issue #279)
 `POST /api/import/plans` fügte Pläne ohne jede Validierung ein – beliebig lange Namen,
 States bis zum 10-MB-Body-Limit, `plan.name` ohne Typprüfung; rohe `planError.message`

@@ -10,27 +10,50 @@
 > **Pflege:** Diese Datei nach jeder Aufgabe auf den aktuellen Stand bringen (Abschnitt 4/5);
 > Doku-Wartungsvertrag s. CLAUDE.md.
 
-**Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth, aktuell **0.17.0**).
+**Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: Tests grün, alle Server parsen (`node -c`).
 
-**Letzter Lauf (2026-06-16, Optimierungs-Audit – Branch `claude/kind-allen-kv6062`):**
-- **Bug #305 (High, Datenverlust, gefixt):** `PUT /api/plans/:id` setzte beim Speichern die
-  Retention-Lösch-Markierung (`marked_for_deletion`) nicht zurück → ein bereits markierter,
-  dann wieder bearbeiteter Plan wurde nach Ablauf der 7-Tage-Schonfrist trotzdem gelöscht
-  (stiller Datenverlust; durch #272 praktisch auslösbar). Fix: `UPDATE` setzt
-  `marked_for_deletion=0, marked_for_deletion_at=NULL`. Keine Migration nötig.
-- **Bug #307 (High, Fairness, gefixt):** `_reAccumulateDayStats` (Teil-Neuberechnung bei
-  „Person verschieben + Folgetage neu berechnen") wich an 3 Stellen vom Voll-Lauf ab
-  (HW-`pairCount`, `towerWithBoatDays` bei BF-Knappheit, `hwGuardDays` der Führung) → der
-  regenerierte Rest driftete in ~25–35 % der Pläne. Fix: HW-Paare via `mainPairs` nachziehen,
-  `towerWithBoatDays` faithful aus dem Schedule (`boatsNoBootsf`) rekonstruieren, `fuehrung`
-  von `mainGuards` trennen. Neue `test/partial-regen-equivalence.test.js` (Voll- vs. Teil-Lauf
-  jetzt 0 Abweichungen). **Volle Suite 57/57 grün**, `node -c` ok.
-- **Bug #308 (Medium, NICHT gefixt – Issue):** Effektive Zwangszuweisung auf einen geschlossenen
-  Turm lässt die Person ganz aus Plan+Statistik verschwinden (über veraltete `forcedPlacements`
-  erreichbar). Bewusst nur als Issue (eigene Fallback-Logik + Stat-Konsistenz nötig).
-- **Nicht im Browser verifiziert** (kein Browser im Container) – Backend-Fix per Code-Review,
-  Algorithmus-Fix per Äquivalenz-Fuzz + Suite abgesichert.
+**Letzter Lauf (2026-06-16, Feature 35: Auch Bootsführer können Sanitäter sein – Branch `claude/bf-can-be-sanitaeter`, basiert auf `main` mit Feature 33/34):**
+- **Erweiterung von Feature 33 (s. docs/FEATURES.md Feature 35):** Der Sanitäter-Haken (🚑) gilt
+  jetzt für Wachgänger **und** Bootsführer. Ein BF-Sanitäter deckt einen San-Turm ab, wenn er
+  überzählig ist (im Guard-Pool `poolSBF` steht); aktive BF fahren ein Boot.
+- **Änderung:** UI-Checkbox für `W`+`B` (`render-sidebar.js`); `sanActive`-Gating prüft den
+  Sanitäter im gesamten `getGuardPool()` statt nur unter den Wachgängern (`generate.js`). Bonus/
+  Reserve wirkten schon zuvor auf alle Guard-Pool-Personen → keine weitere Algorithmus-Änderung.
+- **Layout-Fix:** BF-Zeile trägt nun 3 Toggles (Erf./🏠/🚑) – Toggle-Spalte der Personen-Zeile
+  fest auf 140px, Sidebar verbreitert auf `clamp(440px,36vw,600px)` (einklappbar, daher unkritisch).
+  Per CSS-Maß geprüft (BF-Toggle-Inhalt ≈124px passt in die 140px-Spalte); Playwright-Browser nicht
+  installierbar (Netzwerk blockiert) → nicht visuell verifiziert.
+- **Tests:** `test/san-tower.test.js` um 1 Test erweitert. Volle Suite grün. Auf `main` (mit
+  Feature 33/34) rebased; Doku-Konflikte (HANDOFF/FEATURES) zugunsten beider Features aufgelöst.
+
+**Letzter Lauf (2026-06-16, Feature 34: Führungstürme statt leaderCount-Spinner – Branch `claude/leader-tower-checkbox`):**
+- **Neues Feature (s. docs/FEATURES.md Feature 34):** Der Pro-Turm-Spinner „Führungsslots"
+  (`leaderCount`, 0–3 Zusatz-Slots) wird durch einen einfachen Haken „Führungsturm" (👔) ersetzt
+  – gleiche Logik wie der San-Turm: wenn möglich ≥1 Führungskraft auf einem **regulären** Slot
+  (kein Zusatz-Slot). Keine Pro-Turm-Anzahl mehr nötig.
+- **Modell:** Turm `leaderTower:bool` ersetzt `leaderCount`. Algorithmus platziert vorab 1 F aus
+  separatem `poolF` auf Führungstürme (fair rotierend); `slotCount+leaderCount`-Rechnungen → nur
+  `slotCount`; toter Algo-Param `leaderBonus` entfernt. Migration alter Pläne: `leaderCount>0` →
+  `leaderTower:true`, Zusatz-Slots in `slotCount` integriert (max 10); `STATE_VERSION` 9→10.
+- **Tests:** `test/leaders.test.js` neu gefasst (4 Tests). Gemergt als PR #311 (v1.0.0, breaking).
+
+**Letzter Lauf (2026-06-16, Feature 33: Sanitäter & San-Türme – Branch `claude/sanitaeter-hook-tower-2o54dy`):**
+- **Neues Feature (s. docs/FEATURES.md Feature 33):** Personen-Flag „Sanitäter" (🚑, nur Wachgänger)
+  + Turm-Haken „San-Turm" (🚑, neben Hauptstrand). Ein San-Turm bekommt – wenn möglich – immer
+  ≥1 Sanitäter; sonst sind Sanitäter normale Wachgänger. Analog zur BF-Reservierung (Bonus zieht
+  Sanitäter auf San-Türme, Reserve-Strafe hält sie von Nicht-San-Türmen/HW fern). Faire Rotation
+  aus bestehenden towerVisit-/Konsekutiv-Strafen; wichtigster San-Turm (prio asc) zuerst.
+- **State:** Person `sanitaeter:bool`, Turm `sanTower:bool` (beide Default false). Serialisiert in
+  `state-io.js` (Build + Import, Default für Altpläne), `STATE_VERSION` 8→9; Roster-Override
+  `sanitaeter` (`roster.js`). UI + Handler in `render-sidebar.js`, CSS `.san-toggle` in der HTML,
+  Defaults beim Anlegen in `init.js`. Algorithmus in `generate.js` (`sanActive`, `sanTowerBonus`/
+  `sanReservePenalty` in `state.js` `defaultAlgoParams`, neuer `bestPair`-Param `towerNeedsSan`).
+- **Tests:** neuer `test/san-tower.test.js` (5 Tests, alle grün). Volle Suite grün (58 Tests; nach
+  `npm install` im frischen Container, sonst `sqlite3`-Fehler; `session-user-deletion.test.js` einmal
+  flaky → Rerun grün, dokumentiert). `node -c` für alle geänderten Frontend-Dateien OK.
+- **Nicht im Browser verifiziert** (kein Browser im Container) – UI/Checkboxen/Handler per
+  Code-Review geprüft, Algorithmus per Test abgesichert.
 
 **Letzter Lauf (2026-06-15, Feature 32: BF-an-HW-Pflicht bei BF-Überschuss – Branch `claude/bf-surplus-staffing-fld551`):**
 - **Neues Feature (s. docs/FEATURES.md Feature 32):** Globaler Schalter „Bei BF-Überschuss immer

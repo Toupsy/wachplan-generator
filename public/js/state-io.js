@@ -2,7 +2,7 @@
 // state-io.js – Planstatus-Import / Export (Feature 7) + Server-Sync
 // ============================================================
 
-const STATE_VERSION = 8;
+const STATE_VERSION = 10;
 
 // Migriert eine Person vom alten Rollenmodell (role 'E'/'U' + bfLevel) auf das
 // neue Modell (role 'F'|'B'|'W' + experienced:bool). Idempotent.
@@ -60,7 +60,7 @@ function _buildStateObject(){
     }),
     roster:               (typeof roster !== 'undefined' ? roster : []).map(r => ({ ...r })),
     rosterOverrides:      (typeof rosterOverrides !== 'undefined' && rosterOverrides) ? JSON.parse(JSON.stringify(rosterOverrides)) : {},
-    towers:               towers.map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0, mainBeach: !!t.mainBeach })),
+    towers:               towers.map(t => { const { leaderCount, ...rest } = t; return { ...rest, slotCount: t.slotCount || 2, mainBeach: !!t.mainBeach, sanTower: !!t.sanTower, leaderTower: !!t.leaderTower }; }),
     boats:                boats.map(b => ({ ...b, slotCount: b.slotCount || 1 })),
     dayState: dayState.map(d => ({
       sick:        [...d.sick],
@@ -137,11 +137,25 @@ function importStateJSON(json, silent = false){
     ...migratePerson(p),   // altes Rollenmodell (E/U + bfLevel) → role 'W' + experienced
     labels: p.labels || '',
     enableLabels: p.enableLabels !== undefined ? p.enableLabels : ((p.labels||'').trim().length > 0),  // Fallback für alte Exporte
-    wantsHW: !!p.wantsHW    // BF-HW-Wunsch (Default false für Altpläne)
+    wantsHW: !!p.wantsHW,   // BF-HW-Wunsch (Default false für Altpläne)
+    sanitaeter: !!p.sanitaeter   // Sanitäter (Default false für Altpläne)
   }));
   roster = Array.isArray(s.roster) ? s.roster.map(r => ({ ...r })) : [];   // hochgeladene Wachliste (Feature 31; Default [] für Altpläne)
   rosterOverrides = (s.rosterOverrides && typeof s.rosterOverrides === 'object') ? s.rosterOverrides : {};   // manuelle Korrekturen (Feature 31)
-  towers = (s.towers || []).map(t => ({ ...t, slotCount: t.slotCount || 2, leaderCount: t.leaderCount || 0, mainBeach: !!t.mainBeach }));
+  towers = (s.towers || []).map(t => {
+    // Migration <v10: leaderCount (Zusatz-Slots + vorab platzierte F) → leaderTower-Haken.
+    // Headcount erhalten: die ehemaligen Leader-Slots werden in slotCount integriert (max 10).
+    const { leaderCount, ...rest } = t;
+    const lc = leaderCount || 0;
+    const migrate = t.leaderTower === undefined && lc > 0;
+    return {
+      ...rest,
+      slotCount: Math.min(10, (t.slotCount || 2) + (migrate ? lc : 0)),
+      mainBeach: !!t.mainBeach,
+      sanTower: !!t.sanTower,
+      leaderTower: t.leaderTower !== undefined ? !!t.leaderTower : lc > 0,
+    };
+  });
   boats  = (s.boats  || []).map(b => ({ ...b, slotCount: b.slotCount || 1 }));
 
   // Migration v5→v6: hwBoatId → Boote mit towerId='HW' einheitlich behandeln
