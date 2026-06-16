@@ -70,6 +70,19 @@ function validateEnv() {
     process.exit(1);
   }
 
+  // reCAPTCHA: beide Keys oder keiner (halber Zustand = Fehlkonfiguration)
+  const hasSiteKey = !!process.env.RECAPTCHA_SITE_KEY;
+  const hasSecretKey = !!process.env.RECAPTCHA_SECRET_KEY;
+  if (hasSiteKey !== hasSecretKey) {
+    console.error('❌ RECAPTCHA_SITE_KEY und RECAPTCHA_SECRET_KEY müssen beide gesetzt sein (oder beide leer)');
+    process.exit(1);
+  }
+
+  // SMTP konfiguriert, aber keine öffentliche URL → Mail-Links zeigen auf localhost
+  if (process.env.SMTP_HOST && !process.env.APP_BASE_URL) {
+    console.warn('⚠ SMTP_HOST gesetzt, aber APP_BASE_URL fehlt – Links in E-Mails zeigen auf localhost');
+  }
+
   console.log('✓ Environment variables validated');
 }
 
@@ -87,9 +100,14 @@ function initDatabase() {
 
       // Migration: Drop old incorrectly-structured sessions table from pre-#211 versions.
       // connect-sqlite3 expects (sid, expired, sess) but old schema had (sid, session, expiryDate).
-      // Sessions are ephemeral → dropping is safe. connect-sqlite3 will create correct table.
-      db.run('DROP TABLE IF EXISTS sessions', () => {
-        // Ignore errors; table may not exist in fresh installs
+      // Nur bei altem Schema droppen – sonst würden persistente Sessions
+      // (Merke-mich, seit Session-Store-Fix) bei jedem Neustart gelöscht.
+      db.all('PRAGMA table_info(sessions)', (err, cols) => {
+        if (err || !cols || cols.length === 0) return;
+        const names = cols.map(c => c.name);
+        if (names.includes('expiryDate') || names.includes('session')) {
+          db.run('DROP TABLE IF EXISTS sessions', () => {});
+        }
       });
 
       // Read and execute schema
@@ -116,6 +134,10 @@ function initDatabase() {
         // Idempotente Migration: last_login-Spalte für users (alte DBs ohne last_login).
         // Fehler ("duplicate column name") wird bewusst ignoriert.
         db.run("ALTER TABLE users ADD COLUMN last_login DATETIME", () => {});
+
+        // Idempotente Migration: pending_verification für users (E-Mail-Verifizierung).
+        // Default 0 → Bestandsnutzer gelten als verifiziert und können sich weiter einloggen.
+        db.run("ALTER TABLE users ADD COLUMN pending_verification BOOLEAN DEFAULT 0", () => {});
 
         // Idempotente Migration: Plan-Retention-Spalten für plans (alte DBs ohne diese Spalten).
         // Fehler ("duplicate column name") wird bewusst ignoriert.

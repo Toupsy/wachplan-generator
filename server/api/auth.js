@@ -6,19 +6,98 @@
 // POST /api/auth/init (Initialize first admin user)
 // POST /api/auth/register (Self-service user registration)
 // GET /api/auth/registration-status (Check if registration enabled)
+// GET /api/auth/verify-email (E-Mail-Bestätigungslink aus der Mail)
+// POST /api/auth/resend-verification (Bestätigungsmail erneut senden)
+// POST /api/auth/request-password-reset (Reset-Link per Mail anfordern)
+// POST /api/auth/reset-password (Neues Passwort via Reset-Token setzen)
 // ============================================================
 
 const express = require('express');
 const router = express.Router();
 const bcryptjs = require('bcryptjs');
-const { getDb, dbRun, dbGet } = require('../db/connection');
+const crypto = require('crypto');
+const { dbRun, dbGet, dbAll, getDb } = require('../db/connection');
 const { auditLog } = require('../db/init');
+const { isMailEnabled, sendMail, baseUrl } = require('../mailer');
+const { isCaptchaEnabled, verifyCaptcha } = require('../captcha');
 
 // ───────────────────────────────────────────────────────────
 // Security Constants
 // ───────────────────────────────────────────────────────────
 const MIN_PASSWORD_LENGTH = 10;
 const REGISTRATION_MODE = process.env.REGISTRATION_MODE || 'disabled'; // disabled | open | code
+
+// E-Mail-Format: bewusst simpel (kein RFC-Parser), Länge nach RFC 5321
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const isValidEmail = e => typeof e === 'string' && e.length <= 254 && EMAIL_RE.test(e);
+
+// Audit-Log fire-and-forget (Login-Pfad darf an Logging nicht scheitern)
+function _audit(userId, action, details, ip) {
+  auditLog(getDb(), userId, action, 'user', userId, details, ip)
+    .catch(err => console.error('Audit log error:', err.message));
+}
+
+// ───────────────────────────────────────────────────────────
+// Einmal-Tokens (auth_tokens): nur SHA-256-Hash in der DB,
+// Ablauf als Epoch-ms (timezone-sicher), Einlösung markiert used_at.
+// ───────────────────────────────────────────────────────────
+const TOKEN_TTL_MS = {
+  verify_email: 24 * 60 * 60 * 1000,   // 24 h
+  password_reset: 60 * 60 * 1000       // 60 min
+};
+
+const _hashToken = t => crypto.createHash('sha256').update(t).digest('hex');
+
+async function createAuthToken(userId, type) {
+  const token = crypto.randomBytes(32).toString('hex');
+  // Pro User & Typ nur ein gültiges Token (Resend/erneuter Reset entwertet alte Links)
+  await dbRun('DELETE FROM auth_tokens WHERE user_id = ? AND type = ?', [userId, type]);
+  await dbRun(
+    'INSERT INTO auth_tokens (user_id, token_hash, type, expires_at) VALUES (?, ?, ?, ?)',
+    [userId, _hashToken(token), type, Date.now() + TOKEN_TTL_MS[type]]
+  );
+  return token;
+}
+
+async function consumeAuthToken(token, type) {
+  if (!token || typeof token !== 'string' || token.length !== 64) return null;
+  const row = await dbGet(
+    'SELECT id, user_id FROM auth_tokens WHERE token_hash = ? AND type = ? AND used_at IS NULL AND expires_at > ?',
+    [_hashToken(token), type, Date.now()]
+  );
+  if (!row) return null;
+  await dbRun('UPDATE auth_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ?', [row.id]);
+  return row;
+}
+
+// ───────────────────────────────────────────────────────────
+// Mail-Templates (Text, deutsch)
+// ───────────────────────────────────────────────────────────
+function sendVerificationMail(email, username, token) {
+  return sendMail({
+    to: email,
+    subject: 'Wachplan-Generator: E-Mail-Adresse bestätigen',
+    text:
+      `Hallo ${username},\n\n` +
+      `bitte bestätige deine E-Mail-Adresse, um deinen Account zu aktivieren:\n\n` +
+      `${baseUrl()}/api/auth/verify-email?token=${token}\n\n` +
+      `Der Link ist 24 Stunden gültig.\n` +
+      `Falls du dich nicht registriert hast, ignoriere diese E-Mail.\n`
+  });
+}
+
+function sendPasswordResetMail(email, username, token) {
+  return sendMail({
+    to: email,
+    subject: 'Wachplan-Generator: Passwort zurücksetzen',
+    text:
+      `Hallo ${username},\n\n` +
+      `für deinen Account wurde ein Passwort-Reset angefordert. Hier kannst du ein neues Passwort setzen:\n\n` +
+      `${baseUrl()}/?reset=${token}\n\n` +
+      `Der Link ist 60 Minuten gültig.\n` +
+      `Falls du das nicht warst, ignoriere diese E-Mail – dein Passwort bleibt unverändert.\n`
+  });
+}
 
 // ───────────────────────────────────────────────────────────
 // GET /api/auth/me – Check current session
@@ -121,7 +200,7 @@ router.post('/login', express.json(), async (req, res) => {
 
     // Find user
     const user = await dbGet(
-      'SELECT id, password_hash, is_admin FROM users WHERE username = ?',
+      'SELECT id, password_hash, is_admin, pending_verification FROM users WHERE username = ?',
       [username]
     );
 
@@ -138,6 +217,15 @@ router.post('/login', express.json(), async (req, res) => {
     }
 
     _resetAttempts(ip, username);
+
+    // E-Mail-Verifizierung ausstehend → Login blockieren (Passwort war korrekt,
+    // zählt daher nicht als Fehlversuch). code für gezielte Frontend-Behandlung.
+    if (user.pending_verification === 1) {
+      return res.status(403).json({
+        error: 'E-Mail-Adresse noch nicht bestätigt. Bitte Postfach prüfen.',
+        code: 'email_unverified'
+      });
+    }
 
     // Session-Fixation verhindern: neue Session-ID NACH erfolgreichem Login
     req.session.regenerate((regenErr) => {
@@ -217,7 +305,13 @@ router.get('/needs-setup', async (req, res) => {
 router.get('/registration-status', (req, res) => {
   const enabled = REGISTRATION_MODE !== 'disabled';
   const requiresCode = REGISTRATION_MODE === 'code';
-  res.json({ enabled, requiresCode });
+  res.json({
+    enabled,
+    requiresCode,
+    emailVerification: enabled && isMailEnabled(),  // E-Mail Pflicht + Account erst nach Bestätigung
+    passwordReset: isMailEnabled(),                  // „Passwort vergessen?" anzeigen
+    captchaSiteKey: isCaptchaEnabled() ? process.env.RECAPTCHA_SITE_KEY : null
+  });
 });
 
 // ───────────────────────────────────────────────────────────
@@ -268,7 +362,7 @@ router.post('/init', express.json(), async (req, res) => {
 // ───────────────────────────────────────────────────────────
 router.post('/register', express.json(), async (req, res) => {
   const ip = req.ip || 'unknown';
-  const { username, password, email, code, acceptedPrivacy } = req.body;
+  const { username, password, password2, email, code, acceptedPrivacy, captchaToken } = req.body;
 
   // Periodically clean up expired entries
   _cleanupExpiredEntries();
@@ -293,8 +387,38 @@ router.post('/register', express.json(), async (req, res) => {
       return res.status(400).json({ error: `Passwort muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen haben` });
     }
 
+    // Passwort-Bestätigung serverseitig prüfen (Frontend prüft zusätzlich)
+    if (password2 !== undefined && password2 !== password) {
+      return res.status(400).json({ error: 'Passwörter stimmen nicht überein' });
+    }
+
     if (acceptedPrivacy !== true) {
       return res.status(400).json({ error: 'Datenschutzhinweis muss akzeptiert werden' });
+    }
+
+    // Bot-Schutz: reCAPTCHA v3 (no-op wenn keine Keys konfiguriert)
+    const captcha = await verifyCaptcha(captchaToken, ip, 'register');
+    if (!captcha.ok) {
+      _recordFail(ip, username);
+      console.warn(`Registration captcha rejected (${captcha.reason}) from ${ip}`);
+      return res.status(400).json({ error: 'Bot-Schutz fehlgeschlagen. Bitte Seite neu laden und erneut versuchen.' });
+    }
+
+    // E-Mail: Pflicht sobald Verifizierung aktiv ist (Mail-Versand konfiguriert)
+    const requireVerification = isMailEnabled();
+    if (requireVerification && !email) {
+      return res.status(400).json({ error: 'E-Mail-Adresse erforderlich' });
+    }
+    if (email && !isValidEmail(email)) {
+      return res.status(400).json({ error: 'Ungültige E-Mail-Adresse' });
+    }
+    if (email) {
+      // Eindeutigkeit für Passwort-Reset; generische Antwort (keine Enumeration)
+      const existing = await dbGet('SELECT id FROM users WHERE email = ?', [email]);
+      if (existing) {
+        _recordFail(ip, username);
+        return res.status(400).json({ error: 'Registrierung nicht möglich' });
+      }
     }
 
     // Check code-based registration requirement
@@ -310,19 +434,39 @@ router.post('/register', express.json(), async (req, res) => {
 
     // Create user (always is_admin=0 for self-registration)
     await dbRun(
-      'INSERT INTO users (username, password_hash, email, is_admin) VALUES (?, ?, ?, 0)',
-      [username, passwordHash, email || null]
+      'INSERT INTO users (username, password_hash, email, is_admin, pending_verification) VALUES (?, ?, ?, 0, ?)',
+      [username, passwordHash, email || null, requireVerification ? 1 : 0]
     );
 
     _resetAttempts(ip, username);
 
-    // Auto-login after successful registration
     const newUser = await dbGet(
       'SELECT id, is_admin FROM users WHERE username = ?',
       [username]
     );
 
+    if (newUser && requireVerification) {
+      // Kein Auto-Login: Account erst nach E-Mail-Bestätigung aktiv
+      try {
+        const token = await createAuthToken(newUser.id, 'verify_email');
+        await sendVerificationMail(email, username, token);
+      } catch (mailErr) {
+        // Mail nicht zustellbar → User wieder entfernen, sonst hängt der Account
+        // unverifizierbar fest (und blockiert Username + E-Mail für Retries)
+        console.error('Verification mail failed:', mailErr.message);
+        await dbRun('DELETE FROM users WHERE id = ?', [newUser.id]).catch(() => {});
+        return res.status(500).json({ error: 'Bestätigungs-E-Mail konnte nicht gesendet werden. Bitte später erneut versuchen.' });
+      }
+      _audit(newUser.id, 'register', { username, verificationRequired: true }, ip);
+      return res.json({
+        success: true,
+        verificationRequired: true,
+        message: 'Bestätigungs-E-Mail gesendet. Bitte Postfach prüfen und Link anklicken.'
+      });
+    }
+
     if (newUser) {
+      _audit(newUser.id, 'register', { username, verificationRequired: false }, ip);
       req.session.regenerate((regenErr) => {
         if (regenErr) {
           console.error('Session regenerate error:', regenErr);
@@ -359,6 +503,159 @@ router.post('/register', express.json(), async (req, res) => {
     console.error('Registration error:', error);
     _recordFail(ip, username);
     res.status(500).json({ error: 'Registrierung fehlgeschlagen' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// GET /api/auth/verify-email?token=… – Link aus der Bestätigungsmail.
+// Redirect zur SPA: /?verified=1 (Erfolg) bzw. /?verified=0 (ungültig/abgelaufen).
+// ───────────────────────────────────────────────────────────
+router.get('/verify-email', async (req, res) => {
+  try {
+    const row = await consumeAuthToken(String(req.query.token || ''), 'verify_email');
+    if (!row) return res.redirect('/?verified=0');
+
+    await dbRun(
+      'UPDATE users SET pending_verification = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [row.user_id]
+    );
+    _audit(row.user_id, 'email_verify', null, req.ip);
+    res.redirect('/?verified=1');
+  } catch (error) {
+    console.error('Verify email error:', error);
+    res.redirect('/?verified=0');
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// POST /api/auth/resend-verification – Bestätigungsmail erneut senden.
+// Antwort immer generisch (keine Account-Enumeration).
+// ───────────────────────────────────────────────────────────
+router.post('/resend-verification', express.json(), async (req, res) => {
+  const ip = req.ip || 'unknown';
+  _cleanupExpiredEntries();
+  if (_isRateLimited(ip)) {
+    return res.status(429).json({ error: 'Zu viele Anfragen. Bitte später erneut versuchen.' });
+  }
+  _attemptEntry(ip).count++; // jede Anfrage drosseln (Mail-Versand ist teuer/missbrauchbar)
+
+  const generic = { success: true, message: 'Falls ein unbestätigter Account existiert, wurde eine neue Bestätigungs-E-Mail gesendet.' };
+  if (!isMailEnabled()) return res.json(generic);
+
+  try {
+    const { username, email } = req.body;
+    const user = username
+      ? await dbGet('SELECT id, username, email FROM users WHERE username = ? AND pending_verification = 1', [username])
+      : (isValidEmail(email)
+          ? await dbGet('SELECT id, username, email FROM users WHERE email = ? AND pending_verification = 1', [email])
+          : null);
+
+    if (user && user.email) {
+      const token = await createAuthToken(user.id, 'verify_email');
+      await sendVerificationMail(user.email, user.username, token);
+    }
+    res.json(generic);
+  } catch (error) {
+    console.error('Resend verification error:', error);
+    res.json(generic);
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// POST /api/auth/request-password-reset – Reset-Link per Mail anfordern.
+// Antwort immer generisch (keine Account-Enumeration), Link 60 min gültig.
+// ───────────────────────────────────────────────────────────
+router.post('/request-password-reset', express.json(), async (req, res) => {
+  const ip = req.ip || 'unknown';
+  _cleanupExpiredEntries();
+
+  if (!isMailEnabled()) {
+    return res.status(503).json({ error: 'Passwort-Reset ist nicht verfügbar (kein E-Mail-Versand konfiguriert).' });
+  }
+  if (_isRateLimited(ip)) {
+    return res.status(429).json({ error: 'Zu viele Anfragen. Bitte später erneut versuchen.' });
+  }
+  _attemptEntry(ip).count++; // jede Anfrage drosseln
+
+  try {
+    const { email, captchaToken } = req.body;
+
+    const captcha = await verifyCaptcha(captchaToken, ip, 'password_reset');
+    if (!captcha.ok) {
+      console.warn(`Password reset captcha rejected (${captcha.reason}) from ${ip}`);
+      return res.status(400).json({ error: 'Bot-Schutz fehlgeschlagen. Bitte Seite neu laden und erneut versuchen.' });
+    }
+
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: 'Gültige E-Mail-Adresse erforderlich' });
+    }
+
+    // E-Mail war historisch nicht unique → ggf. mehrere Accounts bedienen
+    const users = await dbAll('SELECT id, username FROM users WHERE email = ?', [email]);
+    for (const user of users) {
+      try {
+        const token = await createAuthToken(user.id, 'password_reset');
+        await sendPasswordResetMail(email, user.username, token);
+        _audit(user.id, 'password_reset_request', null, ip);
+      } catch (mailErr) {
+        console.error('Password reset mail failed:', mailErr.message);
+      }
+    }
+
+    res.json({ success: true, message: 'Falls ein Account mit dieser E-Mail existiert, wurde ein Reset-Link gesendet.' });
+  } catch (error) {
+    console.error('Request password reset error:', error);
+    res.status(500).json({ error: 'Anfrage fehlgeschlagen' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// POST /api/auth/reset-password – Neues Passwort via Reset-Token setzen.
+// Invalidiert alle bestehenden Sessions des Users.
+// ───────────────────────────────────────────────────────────
+router.post('/reset-password', express.json(), async (req, res) => {
+  const ip = req.ip || 'unknown';
+  _cleanupExpiredEntries();
+  if (_isRateLimited(ip)) {
+    return res.status(429).json({ error: 'Zu viele Anfragen. Bitte später erneut versuchen.' });
+  }
+
+  try {
+    const { token, password, password2 } = req.body;
+
+    if (!password || password.length < MIN_PASSWORD_LENGTH) {
+      return res.status(400).json({ error: `Passwort muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen haben` });
+    }
+    if (password2 !== undefined && password2 !== password) {
+      return res.status(400).json({ error: 'Passwörter stimmen nicht überein' });
+    }
+
+    const row = await consumeAuthToken(token, 'password_reset');
+    if (!row) {
+      _attemptEntry(ip).count++; // ungültige Tokens drosseln
+      return res.status(400).json({ error: 'Link ungültig oder abgelaufen. Bitte neuen Reset-Link anfordern.' });
+    }
+
+    const newHash = await bcryptjs.hash(password, 10);
+    // pending_verification=0: erfolgreicher Reset beweist E-Mail-Besitz
+    await dbRun(
+      'UPDATE users SET password_hash = ?, pending_verification = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [newHash, row.user_id]
+    );
+
+    // Alle bestehenden Sessions des Users invalidieren (gestohlene Session
+    // überlebt den Reset nicht). Tabelle legt connect-sqlite3 an → kann fehlen.
+    try {
+      await dbRun("DELETE FROM sessions WHERE json_extract(sess, '$.userId') = ?", [row.user_id]);
+    } catch (sessErr) {
+      if (!/no such table/i.test(sessErr.message)) console.error('Session invalidation error:', sessErr.message);
+    }
+
+    _audit(row.user_id, 'password_reset', null, ip);
+    res.json({ success: true, message: 'Passwort geändert. Bitte mit dem neuen Passwort anmelden.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Passwort-Reset fehlgeschlagen' });
   }
 });
 

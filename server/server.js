@@ -81,15 +81,21 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ── Basis-Security-Header ──────────────────────────────────────
+// reCAPTCHA v3 (Bot-Schutz Registrierung/Passwort-Reset) braucht Script- und
+// Frame-Freigaben für Google – nur wenn Keys konfiguriert sind (server/captcha.js).
+const _captchaEnabled = !!(process.env.RECAPTCHA_SITE_KEY && process.env.RECAPTCHA_SECRET_KEY);
+const _cspScriptExtra = _captchaEnabled ? ' https://www.google.com https://www.gstatic.com' : '';
+const _cspFrameSrc = _captchaEnabled ? 'frame-src https://www.google.com; ' : '';
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');           // Clickjacking-Schutz
   res.setHeader('Referrer-Policy', 'same-origin');
   res.setHeader('Content-Security-Policy',
     "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-    "font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; " +
+    "font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com" +
+    _cspScriptExtra + "; " +
     "worker-src 'self' blob: https://cdnjs.cloudflare.com; " +   // pdf.js-Worker für Wachlisten-PDF-Import (Feature 31)
-    "connect-src 'self' ws: wss:; frame-ancestors 'self'");
+    "connect-src 'self' ws: wss:; " + _cspFrameSrc + "frame-ancestors 'self'");
   if (process.env.NODE_ENV === 'production')
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   next();
@@ -117,8 +123,13 @@ async function start() {
     // übergeben → das 24h-Intervall warf TypeError (vom catch verschluckt) und die
     // DSGVO-Plan-Retention lief nie. getDb() liefert die gültige Laufzeit-Verbindung.
     const retentionDays = parseInt(process.env.PLAN_RETENTION_DAYS) || 0;
-    const { getDb } = require('./db/connection');
+    const { getDb, dbRun } = require('./db/connection');
     startPlanRetentionCleanup(getDb(), retentionDays);
+
+    // Pragma-Queue der Haupt-Connection (u.a. journal_mode=WAL) abwarten,
+    // BEVOR der Session-Store seine eigene Connection auf dieselbe Datei
+    // öffnet – sonst racen WAL-Switch und CREATE TABLE sessions (IOERR).
+    await dbRun('SELECT 1');
 
     // Session middleware (SQLite-Store, zentral in db/session.js).
     // resave/saveUninitialized=true für SQLite-Reliability.
@@ -174,6 +185,7 @@ async function start() {
     // Error Handler
     app.use((err, req, res, next) => {
       console.error('Error:', err);
+      if (res.headersSent) return next(err); // z.B. Session-Save-Fehler nach Response
       res.status(500).json({ error: 'Internal server error' });
     });
 

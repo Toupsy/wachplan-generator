@@ -13,6 +13,27 @@
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: Tests grün, alle Server parsen (`node -c`).
 
+**Letzter Lauf (2026-06-16, Feature 37: Registrierung mit E-Mail-Verifizierung – Branch `claude/inspiring-faraday-4ngftk`, gemergt als PR #292):**
+- **Feature 37 implementiert** (s. docs/FEATURES.md + **docs/REGISTRATION.md** Setup-Guide):
+  Registrierung mit E-Mail-Verifizierung (Pflicht-E-Mail + Bestätigungslink, Login-Sperre
+  via `users.pending_verification`), Passwort-Reset per Einmal-Token-Mail (60 min,
+  Session-Invalidierung), reCAPTCHA v3 (fail-closed, env-gesteuert, CSP nur bei Keys
+  erweitert). Neue Module `server/mailer.js` (nodemailer, neue Dependency) +
+  `server/captcha.js`; neue Tabelle `auth_tokens`; `.env.example` erweitert.
+- **Bugfix (Beifang, wichtig):** Session-Store lag wegen `mode: 0o666` (= sqlite3-Flags
+  inkl. `OPEN_MEMORY`) in einer **In-Memory-DB** → Merke-mich überlebte keinen Neustart,
+  GDPR-Session-Löschung in admin.js war No-op. Fix in `db/session.js` (+ konditionaler
+  `DROP sessions` in init.js, WAL-Race-Guard + headersSent-Guard in server.js).
+  Details: FEATURES.md „Bugfixes". **Folge fürs Deployment:** Sessions sind jetzt
+  persistent; nach Update einmalig prüfen, dass `wachplan.db` die `sessions`-Tabelle füllt.
+- `db/connection.js` respektiert jetzt `DATABASE_PATH` (war inkonsistent zu init.js;
+  Tests nutzen darüber Wegwerf-DBs).
+- **Tests: 52/52 grün** (`test/auth-flow.test.js` neu, 17 Subtests; voller Flow inkl.
+  CAPTCHA-Mock). Smoke-Test des echten Servers (Register/Login/Resend/Reset) fehlerfrei.
+- **Offen/prüfen:** reCAPTCHA-Hinweis ggf. in datenschutz.html/DATENSCHUTZ.md ergänzen,
+  wenn CAPTCHA produktiv aktiviert wird; E-Mail-Eindeutigkeit gilt nur für Neuregistrierungen
+  (Bestands-Duplikate erhalten beim Reset je eine Mail pro Account).
+
 **Letzter Lauf (2026-06-16, Audit-Log Benutzer-Aktionen #293 – Branch `claude/issue-293-20260613-0112`):**
 - **Feature 36 (#293):** `login`, `logout`, `plan_create/_update/_delete/_share/_share_revoke/_import`
   erzeugen jetzt Audit-Einträge. Pattern: fire-and-forget (`.catch()`), nur Metadaten (kein Plan-Inhalt).
@@ -173,7 +194,9 @@ Multi-User mit **AES-256-GCM at rest**, Sessions, Sharing, Realtime (WebSocket),
 ## 2. Test- & Umgebungs-Hinweise
 - `npm install` im frischen Container nötig, sonst `Cannot find module 'sqlite3'` in
   `test/session-user-deletion.test.js` (kein echter Test-Fehler).
-- Dieser Test ist **gelegentlich flaky** (`Unable to deserialize cloned data …`, IPC) →
+- `session-user-deletion` und `auth-flow` sind **gelegentlich flaky** (Sandbox-FS:
+  `Unable to deserialize cloned data …` (IPC) bzw. sporadisch `SQLITE_CORRUPT` bei
+  zwei Connections auf einer Datei; auf echten Dateisystemen/CI nicht reproduzierbar) →
   Suite erneut laufen lassen; grün = alle.
 - **CI:** `.github/workflows/test.yml` läuft bei push/PR (Node 20). Roter Test blockt Merge.
 - Algorithmus-Invarianten (9 Szenarien + 100 Fuzz) sind die eigentliche Absicherung.
