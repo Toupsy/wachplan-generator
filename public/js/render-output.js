@@ -39,6 +39,7 @@ function renderOutput(){
   }
 
   const panel = document.getElementById('output-panel');
+  if(!lastResult) return;
   // Beobachter-Modus: aktueller Plan ist nur mit Leserechten geteilt (share-role 'view').
   // → minimalistische Ansicht ohne Sidebar/Editier-UI (s. body.view-only CSS).
   const viewOnly = (typeof currentPlanCanEdit !== 'undefined' && currentPlanCanEdit === false);

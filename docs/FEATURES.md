@@ -511,6 +511,15 @@ State-Größe (max. 1 MB → 413) gegen Storage-Exhaustion (`validatePlanInput`)
 Helfer `server/db/ids.js` (`parsePositiveInt`) ersetzt `parseInt(req.params.id)` in `admin.js`
 (DELETE/PUT-password/GET-export) → `'5abc'`/`NaN`/`≤0` fließen nicht mehr in Queries.
 
+### renderOutput() crasht bei lastResult===null (Issue #276, v0.5.2)
+**Problem:** `lastResult` ist bis zum ersten `generate()`-Aufruf `null`. Die Sidebar ist
+jedoch sofort bedienbar; zwei Event-Handler in `render-sidebar.js` (Labels-Checkbox Z.67,
+Erfahren-Checkbox Z.83) riefen `renderOutput()` ohne Guard auf. Ergebnis: `TypeError:
+Cannot destructure property 'schedule' of 'lastResult' as it is null` (Z.42 in
+`render-output.js`) – sichtbarer Crash für neue Nutzer vor dem ersten Generieren.
+**Lösung:** Defensiver Early-Return in `renderOutput()` selbst (nach `getElementById`,
+vor dem Destructuring): `if(!lastResult) return;` – robuster gegen alle aktuellen und
+künftigen Aufrufer (statt nur die zwei Call-Sites zu patchen).
 ### Security: Bulk-Import umging die Eingabe-Limits aus #218 + leakte Fehlerdetails (Issue #279)
 `POST /api/import/plans` fügte Pläne ohne jede Validierung ein – beliebig lange Namen,
 States bis zum 10-MB-Body-Limit, `plan.name` ohne Typprüfung; rohe `planError.message`
