@@ -12,7 +12,7 @@
 
 ## Features
 
-### Feature 30: Vollständiges Audit-Log für Benutzer-Aktionen (Issue #293)
+### Feature 36: Vollständiges Audit-Log für Benutzer-Aktionen (Issue #293)
 Bisher wurden nur System-Events (`plan_cleanup`) und Admin-Aktionen ins `audit_log` geschrieben.
 Ab v0.11.x werden alle schreibenden Benutzer-Aktionen geloggt:
 - `login` / `logout` in `server/api/auth.js`
@@ -208,6 +208,34 @@ Planungszeitraum – ergänzend zu den vorhandenen Zahlen-Metriken und der Pro-P
   `init.js` (`CHARTS_MAP`), Sync nach State-Import via `syncMetricCheckboxes()`.
 - **Druck:** `@media print { .charts-container { display:none } }` – Charts im Ausdruck aus.
 
+### Feature 30: Beobachter-Modus (Nur-Ansicht) – minimalistische Plan-Ansicht
+Pläne, die mit Leserechten (Share-Rolle `view`) geteilt werden, öffneten sich bisher in der
+vollen Editier-UI (Sidebar, ↕-Verschieben, Drag&Drop, Steuerungen). Schreiben war zwar
+serverseitig blockiert (PUT 403 für `view`, autoSave durch `currentPlanCanEdit=false`
+unterdrückt), aber der Beobachter konnte den Plan lokal „bearbeiten" und sah die ganze
+Konfigurations-Sidebar. Gedacht ist die Rolle aber für Wachgänger, die nur sehen wollen,
+mit wem sie am nächsten Tag auf dem Turm sind.
+- **Auslöser:** `currentPlanCanEdit === false` (aus `GET /api/plans/:id` → `canEdit`).
+  `_updateSaveIndicator()` schaltet `document.body.classList.toggle('view-only', …)` – greift
+  zentral bei autoLoad, loadPlanById, createNewPlan, renameCurrentPlan, autoSave und
+  `applyRemotePlanState` (Live-Update). `resetGlobalState()` setzt `currentPlanCanEdit=true`.
+- **CSS (`Wachplan-Generator.html`):** `body.view-only` blendet `#sidebar-panel`,
+  `.mobile-switch`, Header-Subtitle, `.export-row`, `.stats-bar`, `.out-extras`,
+  `.day-controls` und `.move-btn` aus; `.main-panels` wird einspaltig; auf <900px wird das
+  Output-Panel sichtbar erzwungen. Neue `.vo-bar`/`.vo-day-head`-Styles.
+- **Render (`render-output.js`):** lokales `viewOnly`. Schlanke Kopfzeile (`.vo-bar`:
+  Plan-Name, „Nur Ansicht"-Badge, Buttons 📋 Pläne / 🚪 Abmelden) + Tag-Navigation; pro Tag
+  ein kompakter `.vo-day-head` (Datum) statt der Editier-Steuerung; Occupants ohne ↕-Button
+  und `draggable=false`; `out-extras`/Statistiken weggelassen. `early return` nach den
+  Tag-Tab-Listenern verhindert das Anhängen aller Editier-/Drag&Drop-/Export-Listener; nur
+  `#vo-plans`→`openPlansModal()` und `#vo-logout`→`logout()` werden verdrahtet.
+- **Plan-Wechsel/Abmelden** bleiben möglich (Top-Level-`#plans-modal` ist sidebar-unabhängig).
+- **Erfahrung verborgen:** im Beobachter-Modus ist die Einstufung erfahren/unerfahren nicht
+  erkennbar – weder über die Punkt-Farbe (Wachgänger → neutraler `rd-w` statt grün/grau)
+  noch über das Label (`roleLabelSafe`/`roleDotSafe` in `state.js`: W→„Wachgänger",
+  B→„Bootsführer", HW-Guards→„Hauptwache"). Zudem werden UU-Warnungen unterdrückt
+  (`slot.warn`/„zwei Unerfahrene"-Notiz), damit keine Rückschlüsse möglich sind.
+
 ### Feature 29: Version-Badge an GitHub-Releases gekoppelt + Update-Hinweis
 Das Header-Badge zeigte dauerhaft „v 0.5.1", weil Semantic Release den Versions-Bump nie
 zurück ins Repo committete (`package.json` blieb stehen, GitHub war schon bei v0.9.1).
@@ -227,6 +255,154 @@ zurück ins Repo committete (`package.json` blieb stehen, GitHub war schon bei v
 - **Caveat:** Falls Branch-Protection auf `main` Pushes des `GITHUB_TOKEN` blockt, schlägt
   der Release-Commit fehl → Actions-Ausnahme in der Branch-Protection nötig.
 
+### Feature 30: Kompaktere Top-Bar + einklappbare Sidebar
+Top-Bar (header) und Sidebar nahmen auf Desktop viel Platz weg. Neues Modul `layout-chrome.js`.
+- **Top-Bar kompakter:** `header`-Padding/`margin` reduziert, `h1` kleiner
+  (`clamp(1.5rem,3.4vw,2.3rem)`). Standardmäßig steht nur noch der Titel „Wachplan·Generator"
+  in der Leiste.
+- **Info-Kästchen statt Subtitle:** Ein kleiner „ℹ Info"-Button (rechts neben dem Titel)
+  klappt ein Kästchen (`#header-info`) mit DLRG-/Versions-Badge und der Beschreibung auf
+  (`max-height`/`opacity`-Transition). Zustand in `localStorage['dlrg_header_info_open']`.
+- **Sidebar einklappbar (nur Desktop ≥901px):** „« Einklappen"-Button (sticky oben im
+  Sidebar-Panel) blendet die Sidebar aus, das Output-Panel nutzt die volle Breite; ein
+  vertikaler „» Konfiguration"-Tab am linken Rand klappt sie wieder auf. Zustand in
+  `localStorage['dlrg_sidebar_collapsed']`. Auf Mobile (<900px) übernimmt weiterhin der
+  bestehende Tab-Switch – die Buttons sind dort per CSS ausgeblendet.
+
+### Feature 31: DLRG-Wachliste hochladen → dynamische Namensliste (CSV/PDF)
+Statt jede Person von Hand einzutragen, lädt der User die offizielle DLRG-Wachliste hoch;
+die Namensliste wird **dynamisch aus Startdatum + Anzahl Wachtage** abgeleitet. Neues Modul
+`public/js/roster.js` (in Ladereihenfolge nach `state-io.js`).
+- **Upload-UI** in der Wachgänger-Detailansicht (`#section-roster`, `#btn-roster-upload`,
+  `#roster-file-input`, `#roster-status`, `#btn-roster-clear`). Akzeptiert `.csv` und `.pdf`.
+- **CSV-Parsing** (`parseRosterCSV`): Semikolon-getrennt, Kopfzeile via Überschriften gemappt
+  (robust gegen Metazeilen/Fußnoten). **PDF-Parsing** (`parseRosterPDF`): pdf.js (lazy von
+  cdnjs, `loadPdfJsLib`). Der Worker wird als normales `<script>` vorgeladen → pdf.js läuft im
+  **Main-Thread** (Fake-Worker via `window.pdfjsWorker`), das umgeht die Cross-Origin-Worker-
+  Beschränkung (`new Worker('https://cdnjs…')` ist verboten). Zeilen werden y-weise gruppiert
+  (`_pdfGroupLines`) und **inhaltsbasiert** geparst (`_pdfParseLine`: Status + 2 Datumsangaben +
+  Job-Kürzel per Regex, Name = Text davor) – unabhängig von der Kopfzeilen-Geometrie.
+- **Normalisierung** (`normalizeRoster`): filtert auf Status „zugesagt", mappt Job→Rolle
+  (WF→F, BF→B, RS→W), Datum `DD.MM.YYYY`→ISO. Ergebnis im neuen State-Feld `roster`
+  (`[{name, role, from, to}]`), mit-serialisiert (`STATE_VERSION` 7→8).
+- **Dynamische Ableitung** (`deriveRosterPeople` + `applyRosterToWindow`): für das Fenster
+  `[startDate … startDate+DAYS-1]` werden alle Personen aufgenommen, deren Verfügbarkeit
+  überlappt; gleiche Namen über mehrere Wochenblöcke werden zusammengeführt (Rolle = größte
+  Überlappung, Gleichstand F vor B vor W). **Tage außerhalb der persönlichen Verfügbarkeit
+  werden tageweise als `absent` markiert** (nutzt Feature 27). Importierte Personen starten
+  als **unerfahren**. Ändert der User Startdatum oder Tageanzahl, wird die Liste neu
+  abgeleitet (`init.js`-Handler) → „dynamisch".
+- **Manuelle Korrekturen überleben das Neu-Ableiten:** Ändert der User Rolle/Erfahrung/HW-Wunsch/
+  Labels einer abgeleiteten Person, wird das in `rosterOverrides` (Key = normalisierter Name, nur
+  explizit geänderte Felder) gemerkt und nach jedem `applyRosterToWindow()` per
+  `mergeRosterOverrides()` wieder aufgelegt. So gehen Hand-Korrekturen beim Ändern von Datum/Tagen
+  nicht verloren – unangetastete Personen behalten aber ihre fensterabhängige Ableitung
+  (z.B. wochenabhängige Rolle). Mit-serialisiert.
+- **An-/Abreisetag:** In der Wachliste ist `bis` einer Woche identisch mit `von` der Folgewoche
+  (gemeinsamer Wechseltag). Das Verfügbarkeitsintervall wird daher **halb-offen** `[von, bis)`
+  behandelt – der Abreisetag ist kein aktiver Dienst-Tag. So gehört der Wechseltag nur der
+  anreisenden Woche und die abreisende Vorwochen-Crew wird nicht fälschlich in die aktive Woche
+  gezogen. Eintägige Einträge (`von == bis`) bekommen `to = von+1` (1 Tag aktiv).
+- **CSP:** `worker-src 'self' blob: https://cdnjs.cloudflare.com` im public-Server (für den
+  pdf.js-Worker); Admin-Server unverändert (kein Wachlisten-Upload dort).
+
+---
+
+### Feature 32: Bei BF-Überschuss immer 1 BF auf der Hauptwache
+Globaler Schalter „Bei BF-Überschuss immer 1 BF auf der Hauptwache" (Checkbox `#require-bf-hw`
+im HW-Konfig-Block, neben den Guard-Slots). Wunsch: Wenn es **mehr Bootsführer als besetzbare
+Boote** gibt (echte BF-Überzahl), soll an **jedem Tag** mindestens ein überzähliger BF einen
+**aktiven** HW-Dienst leisten – z.B. bei 3 HW-Slots → **2 Wachgänger + 1 BF**.
+- **State:** neues globales Flag `requireBfAtHw` (Default `false`) in `state.js`
+  (+ `resetGlobalState`), mit-serialisiert in `state-io.js` (`_buildStateObject` +
+  `importStateJSON`, Default für Altpläne), UI-Sync in `importStateJSON`/`_rebuildAllUI`.
+  Event-Handler in `init.js` (regeneriert bei Änderung, falls bereits ein Plan existiert).
+- **Algorithmus (`generate.js`, HW-Abschnitt):** Vor der regulären HW-Befüllung wird – wenn das
+  Flag aktiv ist, `poolSBF` (überzählige BF) nicht leer ist, noch HW-Plätze frei sind und noch
+  kein BF unter den `mainGuards` ist – ein überzähliger BF als **fester Guard** vorab platziert.
+  Auswahl fair rotierend: wenigste aktive HW-Dienste (`hwGuardDays`) zuerst, dann
+  Gesamteinsätze/HW-Tage. Die übrigen HW-Slots füllt der Algorithmus regulär (E/U-Mix), also
+  bleibt Platz für Wachgänger. `poolSBF` enthält nur überzählige BF → automatisches Gating:
+  ohne echte Überzahl wird nichts erzwungen.
+- **Komplementär zum BF-HW-Wunsch (Feature 26):** Feature 26 ist ein *per-Person*-Wunsch auf
+  ≥1 HW-Dienst pro Woche; dieses Feature ist ein *globaler, täglicher* Zwang bei BF-Überzahl.
+- **Tests:** `test/require-bf-hw.test.js` (4 Tests): Flag an + Überzahl → täglich ≥1 BF auf HW
+  (und ≥1 WG bleibt); keine Überzahl → kein BF erzwungen; HW wird nicht mit BF überflutet;
+  Flag aus → Default-Verhalten unverändert.
+
+### Feature 33: Sanitäter & San-Türme
+Neues Personen-Flag **„Sanitäter"** (Checkbox 🚑, nur für Wachgänger) und neuer Turm-Haken
+**„San-Turm"** (Checkbox 🚑, neben dem Hauptstrand-Haken). Wunsch: Sanitäter sind im Normalfall
+ganz normale Wachgänger; ist ein Turm aber als **San-Turm** markiert, soll dort **wenn möglich
+immer mindestens ein Sanitäter** sitzen – analog zur BF-Reservierung für Boote.
+- **Datenmodell:** Person `sanitaeter:bool` (Default `false`, nur sinnvoll für Rolle `W`),
+  Turm `sanTower:bool` (Default `false`). UI-Checkboxen + Handler in `render-sidebar.js`
+  (`.san-checkbox` / `.santower-checkbox`, beide regenerieren via `generate()`), CSS `.san-toggle`
+  in `Wachplan-Generator.html`. Defaults beim Anlegen in `init.js`.
+- **Serialisierung (`state-io.js`):** beide Felder mit-serialisiert (`_buildStateObject` +
+  `importStateJSON`, Default `false` für Altpläne); `STATE_VERSION` 8 → 9. Roster-Overrides
+  (`roster.js` `mergeRosterOverrides`) kennen `sanitaeter`, damit manuelle Korrekturen ein
+  Neu-Ableiten überleben (importierte Personen starten ohne San-Flag).
+- **Algorithmus (`generate.js`):** Pro Tag `sanActive` = es gibt einen offenen San-Turm UND
+  mindestens einen Sanitäter im Pool. Nur dann greifen zwei Effekte (sonst verhalten sich
+  Sanitäter exakt wie normale Wachgänger):
+  - **San-Turm-Bonus** (`sanTowerBonus`, 5000): Solange ein San-Turm noch keinen Sanitäter hat,
+    bekommt ein Paar/Kandidat mit Sanitäter einen großen Bonus → der Turm zieht zuverlässig
+    einen Sanitäter. Der Bonus belohnt „≥1 Sanitäter im Paar" nur **einmal** → keine Häufung
+    von zwei Sanitätern auf einem Turm, solange andere San-Türme noch offen sind.
+  - **Reserve-Strafe** (`sanReservePenalty`, 350): Sanitäter auf Nicht-San-Türmen und an der HW
+    werden leicht bestraft → sie werden nicht „verbraucht", bevor ein San-Turm an der Reihe ist.
+    Die Strafe hebt sich unter Sanitätern auf (betrifft nur Sanitäter-vs-Nicht-Sanitäter), die
+    Fairness unter den Sanitätern bleibt also erhalten.
+  Eingebaut in `bestPair` (Turm- + HW-Zweig, neuer Param `towerNeedsSan`), in die Turm-Einzel-
+  befüllung und in die HW-Einzelbefüllungs-Sortierung. **Faire Rotation** unter mehreren
+  Sanitätern ergibt sich automatisch aus den bestehenden `towerVisit`-/Konsekutiv-Strafen (der
+  Sanitäter von gestern ist heute teurer als ein frischer). Wichtigere San-Türme (prio asc)
+  werden zuerst befüllt → bei Knappheit bekommt der wichtigste San-Turm den Sanitäter.
+- **Tests:** `test/san-tower.test.js` (5 Tests): San-Turm bekommt täglich ≥1 Sanitäter;
+  Rotation bei mehreren Sanitätern; einziger Sanitäter landet auf dem San-Turm statt anderswo/HW;
+  mehr San-Türme als Sanitäter → wichtigster Turm gewinnt; kein San-Turm → Plan gültig & neutral.
+
+### Feature 34: Führungstürme (Checkbox statt leaderCount-Spinner)
+Der frühere Pro-Turm-Spinner „Führungsslots" (`leaderCount`, 0–3, **zusätzliche** Slots) wird
+durch einen einfachen Haken **„Führungsturm"** (👔) ersetzt – dieselbe Logik wie der San-Turm
+(Feature 33), nur für Führungskräfte: Ein markierter Turm bekommt **wenn möglich immer ≥1
+Führungskraft**, aber auf einem **regulären** Slot (kein Zusatz-Slot). Der Nutzer muss nicht
+mehr pro Turm einstellen, *wie viele* Führungskräfte dort sein sollen.
+- **Datenmodell:** Turm `leaderTower:bool` (Default `false`) ersetzt `leaderCount`. UI: eine
+  Checkbox neben 🏖️/🚑 (`render-sidebar.js`, `.leadertower-checkbox`); Spinner-UI + Handler
+  (leader-checkbox/-minus/-plus/-spinner) entfernt. Der nun tote Algo-Parameter `leaderBonus`
+  (Bonus wirkte nie, da F nicht im Guard-Pool sind) ist aus `defaultAlgoParams` und dem
+  Algo-Editor entfernt.
+- **Algorithmus (`generate.js`):** Statt `leaderCount`-Zusatz-Slots wird auf einem Führungsturm
+  vor der regulären Befüllung **eine** F aus dem separaten `poolF` auf einen regulären Slot
+  gesetzt (fairste Rotation: wenigste Gesamteinsätze/Turmbesuche zuerst), sofern Bedarf > 0,
+  poolF nicht leer und noch keine F im Slot. Alle `slotCount+leaderCount`-Rechnungen → nur noch
+  `slotCount`; `expDemand` zählt gedeckte Führungstürme nicht. Übrige F bleiben Führung an der HW.
+- **Migration (`state-io.js` Import, `config.js` Template):** alte Pläne mit `leaderCount>0` →
+  `leaderTower:true`; die ehemaligen Zusatz-Slots werden in `slotCount` integriert (auf max 10
+  geklemmt) → Personenzahl pro Turm bleibt erhalten. `STATE_VERSION` 9 → 10.
+- **Tests:** `test/leaders.test.js` neu gefasst (4 Tests): ohne Führungsturm bleibt Führung an
+  der HW; mit `leaderTower` genau 1 F auf dem Turm ohne Zusatz-Slot + Rotation + HW behält Führung;
+  mehr Führungstürme als F → wichtigster (prio asc) gewinnt; keine F → Turm regulär gefüllt.
+
+### Feature 35: Auch Bootsführer können Sanitäter sein
+Erweitert Feature 33: Der Sanitäter-Haken (🚑) ist jetzt nicht mehr nur für Wachgänger, sondern
+auch für **Bootsführer** verfügbar. Ein BF-Sanitäter deckt einen San-Turm ab, **wenn er für einen
+Turmplatz verfügbar ist** – das ist bei **überzähligen** BF der Fall (sie stehen im Guard-Pool
+`poolSBF`); aktive BF fahren ein Boot und kommen für einen Turm ohnehin nicht in Frage.
+- **UI (`render-sidebar.js`):** San-Checkbox jetzt für Rolle `W` **und** `B` (neben dem
+  HW-Wunsch-Haken). Serialisierung war bereits rollenunabhängig. Da eine BF-Zeile damit drei
+  Toggles trägt (Erf. + 🏠 HW-Wunsch + 🚑 Sani), wurde die Toggle-Spalte der Personen-Zeile auf
+  feste 140px gesetzt und die Sidebar etwas verbreitert (`clamp(440px,36vw,600px)`) – sie ist
+  einklappbar, daher unkritisch (`Wachplan-Generator.html`).
+- **Algorithmus (`generate.js`):** Das `sanActive`-Gating prüft den Sanitäter jetzt im gesamten
+  Guard-Pool (`getGuardPool()` = Wachgänger + überzählige BF) statt nur unter den Wachgängern.
+  Bonus/Reserve in `bestPair` etc. wirkten schon zuvor auf alle Guard-Pool-Personen (inkl. poolSBF)
+  → keine weitere Änderung nötig.
+- **Tests:** `test/san-tower.test.js` um einen 6. Test erweitert (überzähliger BF-Sanitäter deckt
+  den San-Turm; ohne Boote sind alle BF überzählig).
+
 ---
 
 ## Bugfixes
@@ -242,6 +418,42 @@ vom `catch` verschluckt wurde. Die Retention (Feature 22/23, DSGVO Art. 5) tat n
   Zusätzlich `cleanupRunning`-Guard gegen überlappende Cleanup-Läufe.
 - **Verifikation:** Reproduziert (`require(...).db === undefined`); mit `getDb()` läuft die
   exakte Retention-`UPDATE`-Query fehlerfrei.
+
+### Plan-Retention: Speichern hob die Lösch-Markierung nicht auf → stiller Datenverlust (#305)
+**Problem:** Der Retention-Cleanup (`db/init.js`) markiert lange unbearbeitete Pläne
+(`marked_for_deletion = 1`, `marked_for_deletion_at = now`) und löscht sie nach 7 Tagen
+Schonfrist endgültig. `PUT /api/plans/:id` aktualisierte beim Speichern zwar `updated_at`,
+ließ das Flag aber **nie zurücksetzen**. Die Markierungs-Query greift nur auf
+`marked_for_deletion = 0`-Zeilen → ein bereits markierter, dann wieder bearbeiteter Plan
+blieb markiert und wurde nach Ablauf der Schonfrist gelöscht, obwohl er gerade benutzt wurde.
+Erst durch den #272-Fix (Cleanup läuft überhaupt) wird das praktisch ausgelöst.
+- **Ort:** `server/api/plans.js` (PUT-Handler) ↔ `server/db/init.js` (`startPlanRetentionCleanup`).
+- **Lösung:** Die `UPDATE`-Query setzt beim Speichern zusätzlich
+  `marked_for_deletion = 0, marked_for_deletion_at = NULL` → ein aktiv gespeicherter Plan
+  ist nie löschmarkiert.
+- **Verifikation:** Code-Review + volle Test-Suite grün (55/55), `node -c` ok. Schema-Spalten
+  existieren bereits (idempotenter `ALTER TABLE` in `init.js`), keine Migration nötig.
+
+### Teil-Neuberechnung driftete die Fairness – `_reAccumulateDayStats` ≠ Voll-Lauf (#307)
+**Problem:** `generate(startDay>0)` (Person verschieben + „Folgetage neu berechnen") akkumuliert
+die behaltenen Tage über `_reAccumulateDayStats()` und generiert nur den Rest neu. Diese
+Re-Akkumulation muss EXAKT dieselben Stats wie der Voll-Lauf `generate(0)` liefern, sonst
+basiert der neue Rest auf falschem Fairness-Zustand. Drei Abweichungen:
+1. **`pairCount`** zählte HW-`bestPair`-Paare nicht (nur Türme) → HW-Paarungen der behaltenen
+   Tage verloren (fließt über `pairRepeatWeight` ins Scoring).
+2. **`towerWithBoatDays`** zählte nur BESETZTE Boote (aus dem Schedule), der Voll-Lauf aber
+   jedes zugewiesene, nicht geschlossene Boot (`activeBoatTowers`) – bei BF-Knappheit
+   systematische Abweichung (fließt über `towerBoatHeavyPenalty` ins Scoring).
+3. **`hwGuardDays`** wurde fälschlich auch der HW-Führung (`fuehrung`) gutgeschrieben; der
+   Voll-Lauf gibt `poolF` nur `total++`/`hwVisits++` (latent, da `hwGuardDays` nur für Rolle B gelesen).
+- **Ort:** `public/js/generate.js` (`_reAccumulateDayStats` vs. Voll-Lauf-Pfad).
+- **Lösung:** (1) HW-Paare im Voll-Lauf auf dem `main`-Slot mitführen (`mainPairs`) und exakt
+  nachziehen. (2) `towerWithBoatDays` faithful rekonstruieren: besetzte Boot-Slots + unbesetzte-
+  aber-aktive Boote (`day.boatsNoBootsf`). (3) `fuehrung` von `mainGuards` trennen (kein
+  `hwGuardDays++`).
+- **Verifikation:** Neue `test/partial-regen-equivalence.test.js` (No-op-Re-Accumulate-Stats +
+  Tail-Schedule identisch zum Voll-Lauf über 25 Szenarien × 3 Schnittpunkte). Vorher 77 Stat-
+  Diffs / 10 Tail-Abweichungen → jetzt 0/0. Volle Suite 57/57 grün.
 
 ### Robustheit/Wartbarkeit – Export-Leak, WebSocket-Fehler, Audit-JSON, ID-Parser (#273)
 - **Export-Memory-Leak:** `URL.createObjectURL()` wurde in `export.js` (XLSX/CSV/Stats) und
@@ -348,6 +560,15 @@ State-Größe (max. 1 MB → 413) gegen Storage-Exhaustion (`validatePlanInput`)
 Helfer `server/db/ids.js` (`parsePositiveInt`) ersetzt `parseInt(req.params.id)` in `admin.js`
 (DELETE/PUT-password/GET-export) → `'5abc'`/`NaN`/`≤0` fließen nicht mehr in Queries.
 
+### renderOutput() crasht bei lastResult===null (Issue #276, v0.5.2)
+**Problem:** `lastResult` ist bis zum ersten `generate()`-Aufruf `null`. Die Sidebar ist
+jedoch sofort bedienbar; zwei Event-Handler in `render-sidebar.js` (Labels-Checkbox Z.67,
+Erfahren-Checkbox Z.83) riefen `renderOutput()` ohne Guard auf. Ergebnis: `TypeError:
+Cannot destructure property 'schedule' of 'lastResult' as it is null` (Z.42 in
+`render-output.js`) – sichtbarer Crash für neue Nutzer vor dem ersten Generieren.
+**Lösung:** Defensiver Early-Return in `renderOutput()` selbst (nach `getElementById`,
+vor dem Destructuring): `if(!lastResult) return;` – robuster gegen alle aktuellen und
+künftigen Aufrufer (statt nur die zwei Call-Sites zu patchen).
 ### Security: Bulk-Import umging die Eingabe-Limits aus #218 + leakte Fehlerdetails (Issue #279)
 `POST /api/import/plans` fügte Pläne ohne jede Validierung ein – beliebig lange Namen,
 States bis zum 10-MB-Body-Limit, `plan.name` ohne Typprüfung; rohe `planError.message`

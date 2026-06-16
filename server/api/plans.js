@@ -204,10 +204,16 @@ router.put('/:id', express.json(), async (req, res) => {
 
     const { encrypted, iv, authTag } = encryptPlanState(plainJSON, access.ownerId);
 
-    // Update in database
+    // Update in database.
+    // marked_for_deletion zurücksetzen: Ein aktiv gespeicherter Plan darf NICHT durch den
+    // Retention-Cleanup gelöscht werden. Die Markierung (init.js) setzt das Flag nur auf stale
+    // Plänen (marked_for_deletion = 0 AND updated_at < cutoff); ohne explizites Zurücksetzen
+    // beim Speichern bliebe ein bereits markierter Plan markiert und würde nach Ablauf der
+    // Schonfrist gelöscht – obwohl er gerade bearbeitet wurde (stiller Datenverlust).
     await dbRun(
       `UPDATE plans
-       SET encrypted_state = ?, iv = ?, auth_tag = ?, updated_at = CURRENT_TIMESTAMP
+       SET encrypted_state = ?, iv = ?, auth_tag = ?, updated_at = CURRENT_TIMESTAMP,
+           marked_for_deletion = 0, marked_for_deletion_at = NULL
        ${name ? ', name = ?' : ''}
        WHERE id = ?`,
       name
@@ -363,5 +369,4 @@ router.delete('/:id/share/:userId', async (req, res) => {
 });
 
 module.exports = router;
-// Für weitere Schreibpfade (z. B. Bulk-Import, #279), damit Limits überall identisch gelten
 module.exports.validatePlanInput = validatePlanInput;
