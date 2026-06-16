@@ -501,15 +501,18 @@ function generate(startDay = 0){
     const reserveExpAtHW = availE.length <= expDemand;
 
     // Feature: Sanitäter (San-Türme). Türme mit sanTower:true sollen – wenn möglich – immer
-    // mindestens einen Sanitäter (Wachgänger mit sanitaeter:true) besetzen. Analog zur
+    // mindestens einen Sanitäter besetzen. Sanitäter können Wachgänger ODER (überzählige)
+    // Bootsführer sein – maßgeblich ist, wer für einen Turmplatz verfügbar ist, also im
+    // Guard-Pool steht (poolE/poolU = Wachgänger, poolSBF = überzählige Bootsführer; aktive
+    // BF fahren ein Boot und kommen für den Turm ohnehin nicht in Frage). Analog zur
     // BF-Reservierung für Boote: Sanitäter werden über einen großen Bonus auf San-Türme
     // gezogen und über eine Reserve-Strafe von Nicht-San-Türmen/HW ferngehalten, damit sie
     // nicht „verbraucht" werden, bevor ein San-Turm an der Reihe ist. Faire Rotation unter
     // den Sanitätern ergibt sich aus den bestehenden towerVisit-/Konsekutiv-Strafen.
-    // Gating: nur aktiv, wenn ein offener San-Turm UND mindestens ein Sanitäter existiert –
-    // sonst verhalten sich Sanitäter exakt wie normale Wachgänger.
+    // Gating: nur aktiv, wenn ein offener San-Turm UND ein Sanitäter im Guard-Pool existiert –
+    // sonst verhalten sich Sanitäter exakt wie normale Pool-Personen.
     const sanActive = openTowers.some(t => t.sanTower)
-      && [...availE, ...availU].some(p => p.sanitaeter);
+      && getGuardPool().some(p => p.sanitaeter);
 
     const mainPseudo = { id: MAIN_ID };
     const mainGuards = [];

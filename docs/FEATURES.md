@@ -373,6 +373,20 @@ mehr pro Turm einstellen, *wie viele* Führungskräfte dort sein sollen.
   der HW; mit `leaderTower` genau 1 F auf dem Turm ohne Zusatz-Slot + Rotation + HW behält Führung;
   mehr Führungstürme als F → wichtigster (prio asc) gewinnt; keine F → Turm regulär gefüllt.
 
+### Feature 35: Auch Bootsführer können Sanitäter sein
+Erweitert Feature 33: Der Sanitäter-Haken (🚑) ist jetzt nicht mehr nur für Wachgänger, sondern
+auch für **Bootsführer** verfügbar. Ein BF-Sanitäter deckt einen San-Turm ab, **wenn er für einen
+Turmplatz verfügbar ist** – das ist bei **überzähligen** BF der Fall (sie stehen im Guard-Pool
+`poolSBF`); aktive BF fahren ein Boot und kommen für einen Turm ohnehin nicht in Frage.
+- **UI (`render-sidebar.js`):** San-Checkbox jetzt für Rolle `W` **und** `B` (neben dem
+  HW-Wunsch-Haken). Serialisierung war bereits rollenunabhängig.
+- **Algorithmus (`generate.js`):** Das `sanActive`-Gating prüft den Sanitäter jetzt im gesamten
+  Guard-Pool (`getGuardPool()` = Wachgänger + überzählige BF) statt nur unter den Wachgängern.
+  Bonus/Reserve in `bestPair` etc. wirkten schon zuvor auf alle Guard-Pool-Personen (inkl. poolSBF)
+  → keine weitere Änderung nötig.
+- **Tests:** `test/san-tower.test.js` um einen 6. Test erweitert (überzähliger BF-Sanitäter deckt
+  den San-Turm; ohne Boote sind alle BF überzählig).
+
 ---
 
 ## Bugfixes

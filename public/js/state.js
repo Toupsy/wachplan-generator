@@ -86,7 +86,7 @@ function defaultAlgoParams(){
 let algoParams = defaultAlgoParams();
 
 // Stammdaten
-let people   = [];   // [{ id, name, role:'F'|'B'|'W', experienced:bool, labels:'', enableLabels:true, wantsHW:bool, sanitaeter:bool }] (experienced gilt für B und W; F ignoriert. wantsHW nur für B: Wunsch auf ≥1 aktiven HW-Dienst bei BF-Überzahl. sanitaeter nur für W: wird auf San-Türmen bevorzugt eingesetzt. labels Komma-getrennt, enableLabels steuert Sichtbarkeit)
+let people   = [];   // [{ id, name, role:'F'|'B'|'W', experienced:bool, labels:'', enableLabels:true, wantsHW:bool, sanitaeter:bool }] (experienced gilt für B und W; F ignoriert. wantsHW nur für B: Wunsch auf ≥1 aktiven HW-Dienst bei BF-Überzahl. sanitaeter für W und B: wird auf San-Türmen bevorzugt eingesetzt (bei BF nur, wenn überzählig und damit für einen Turmplatz verfügbar). labels Komma-getrennt, enableLabels steuert Sichtbarkeit)
 // Hochgeladene DLRG-Wachliste (Feature 31): Roh-Verfügbarkeiten aller zugesagten Personen.
 // [{ name, role:'F'|'B'|'W', from:'YYYY-MM-DD', to:'YYYY-MM-DD' }]. Aus dieser Liste leitet
 // applyRosterToWindow() die people[] + tageweisen Abwesenheiten dynamisch aus startDate + DAYS ab.

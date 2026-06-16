@@ -13,7 +13,18 @@
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: Tests grün, alle Server parsen (`node -c`).
 
-**Letzter Lauf (2026-06-16, Feature 34: Führungstürme statt leaderCount-Spinner – Branch `claude/leader-tower-checkbox`, gestackt auf Feature 33):**
+**Letzter Lauf (2026-06-16, Feature 35: Auch Bootsführer können Sanitäter sein – Branch `claude/bf-can-be-sanitaeter`, basiert auf `main` mit Feature 33/34):**
+- **Erweiterung von Feature 33 (s. docs/FEATURES.md Feature 35):** Der Sanitäter-Haken (🚑) gilt
+  jetzt für Wachgänger **und** Bootsführer. Ein BF-Sanitäter deckt einen San-Turm ab, wenn er
+  überzählig ist (im Guard-Pool `poolSBF` steht); aktive BF fahren ein Boot.
+- **Änderung:** UI-Checkbox für `W`+`B` (`render-sidebar.js`); `sanActive`-Gating prüft den
+  Sanitäter im gesamten `getGuardPool()` statt nur unter den Wachgängern (`generate.js`). Bonus/
+  Reserve wirkten schon zuvor auf alle Guard-Pool-Personen → keine weitere Algorithmus-Änderung.
+- **Tests:** `test/san-tower.test.js` um 1 Test erweitert. Volle Suite grün. Auf `main` (mit
+  Feature 33/34) rebased; Doku-Konflikte (HANDOFF/FEATURES) zugunsten beider Features aufgelöst.
+  Nicht im Browser verifiziert.
+
+**Letzter Lauf (2026-06-16, Feature 34: Führungstürme statt leaderCount-Spinner – Branch `claude/leader-tower-checkbox`):**
 - **Neues Feature (s. docs/FEATURES.md Feature 34):** Der Pro-Turm-Spinner „Führungsslots"
   (`leaderCount`, 0–3 Zusatz-Slots) wird durch einen einfachen Haken „Führungsturm" (👔) ersetzt
   – gleiche Logik wie der San-Turm: wenn möglich ≥1 Führungskraft auf einem **regulären** Slot
@@ -22,10 +33,7 @@
   separatem `poolF` auf Führungstürme (fair rotierend); `slotCount+leaderCount`-Rechnungen → nur
   `slotCount`; toter Algo-Param `leaderBonus` entfernt. Migration alter Pläne: `leaderCount>0` →
   `leaderTower:true`, Zusatz-Slots in `slotCount` integriert (max 10); `STATE_VERSION` 9→10.
-- **Tests:** `test/leaders.test.js` neu gefasst (4 Tests). Volle Suite grün (59 Tests; nur das
-  dokumentiert flaky `session-user-deletion.test.js` einmal rot → Rerun grün). `node -c` OK.
-- **Hinweis:** Branch ist auf den (noch offenen) PR #310 gestackt; PR-Base = `claude/sanitaeter-hook-tower-2o54dy`.
-  Nicht im Browser verifiziert (kein Browser im Container) – UI/Handler per Code-Review, Algorithmus per Test.
+- **Tests:** `test/leaders.test.js` neu gefasst (4 Tests). Gemergt als PR #311 (v1.0.0, breaking).
 
 **Letzter Lauf (2026-06-16, Feature 33: Sanitäter & San-Türme – Branch `claude/sanitaeter-hook-tower-2o54dy`):**
 - **Neues Feature (s. docs/FEATURES.md Feature 33):** Personen-Flag „Sanitäter" (🚑, nur Wachgänger)

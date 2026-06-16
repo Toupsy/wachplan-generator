@@ -149,3 +149,30 @@ test('Kein San-Turm: Plan bleibt gültig, Sanitäter wie normale Wachgänger', (
     assert.equal(ids.length, new Set(ids).size, `Tag ${i + 1}: keine Person doppelt`);
   });
 });
+
+test('Auch Bootsführer können Sanitäter sein: überzähliger BF-Sanitäter deckt den San-Turm', () => {
+  // Keine Boote → alle BF sind überzählig (im Guard-Pool). Einziger Sanitäter ist ein BF.
+  const people = [
+    { id: 1, name: 'F1', role: 'F' },
+    { id: 30, name: 'BF-San', role: 'B', experienced: true, sanitaeter: true },
+    { id: 31, name: 'BF2', role: 'B', experienced: true },
+    { id: 32, name: 'BF3', role: 'B', experienced: false },
+    { id: 10, name: 'E1', role: 'W', experienced: true },
+    { id: 11, name: 'E2', role: 'W', experienced: true },
+    { id: 12, name: 'E3', role: 'W', experienced: true },
+    { id: 13, name: 'E4', role: 'W', experienced: true },
+    { id: 16, name: 'U1', role: 'W', experienced: false },
+    { id: 17, name: 'U2', role: 'W', experienced: false },
+  ];
+  const towers = [
+    { id: 21, name: 'T1', prio: 1, code: 'T1', slotCount: 2, sanTower: true },
+    { id: 22, name: 'T2', prio: 2, code: 'T2', slotCount: 2 },
+    { id: 23, name: 'T3', prio: 3, code: 'T3', slotCount: 2 },
+  ];
+  const res = run({ people, towers, boats: [], days: 5 });
+  res.schedule.forEach((day, i) => {
+    const medics = medicsOn(day, 21);
+    assert.equal(medics.length, 1, `Tag ${i + 1}: der BF-Sanitäter deckt den San-Turm`);
+    assert.equal(medics[0].role, 'B', `Tag ${i + 1}: es ist der Bootsführer-Sanitäter`);
+  });
+});
