@@ -146,6 +146,12 @@ let lastResult = null;
 let activeDay  = 0;
 let startDate  = '';
 
+// Öffentlicher Beobachter-Modus (Token-Link ?view=…): anonyme Nur-Ansicht ohne
+// Account. Unterscheidet sich vom eingeloggten view-Mitbearbeiter dadurch, dass
+// es KEINE Konto-/Plan-Bedienelemente (Pläne wechseln, Abmelden) gibt. Kein
+// Plan-State → wird NICHT serialisiert (Feature 38).
+let isPublicView = false;
+
 // ── Konstruktoren ────────────────────────────────────────────────
 
 function freshDayState(){

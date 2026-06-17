@@ -114,8 +114,12 @@ async function initPublicView(token) {
     // Nur-Lese erzwingen, BEVOR State importiert wird → kein Autosave-Echo,
     // kein Realtime-Join (currentPlanId bleibt null).
     if (typeof resetGlobalState === 'function') resetGlobalState();
+    isPublicView = true;           // anonymer Beobachter: keine Konto-/Plan-Bedienelemente
     currentPlanCanEdit = false;
     currentPlanName = data.name || 'Wachplan';
+    // body.view-only sofort setzen, damit der erste Render (generate) bereits die
+    // Beobachter-Ansicht erzeugt (kein kurzzeitiges Aufblitzen der Editier-UI).
+    try { document.body.classList.add('view-only'); } catch (e) {}
     _suppressAutoSave = true;
     try {
       importStateJSON(data.state, true);   // silent
