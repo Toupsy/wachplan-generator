@@ -64,6 +64,7 @@ function createSessionMiddleware({ resave = true, saveUninitialized = true } = {
     store.db.run(`PRAGMA busy_timeout = ${DB_BUSY_TIMEOUT_MS}`, () => {});
     store.db.run('PRAGMA journal_mode = DELETE', () => {});
   }
+  wrapStoreMethodWithRetry(store, 'get');
   wrapStoreMethodWithRetry(store, 'set');
   wrapStoreMethodWithRetry(store, 'destroy');
   // express-session calls store.touch() at the end of most authenticated requests
