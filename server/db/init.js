@@ -98,6 +98,35 @@ function initDatabase() {
 
       console.log('✓ Database connection established:', dbPath);
 
+      // Integritäts-Check beim Start: erkennt eine beschädigte Datei (SQLITE_CORRUPT,
+      // "database disk image is malformed") sofort und laut, statt sie als verstreute
+      // Query-Fehler im Betrieb auftauchen zu lassen. Häufige Ursache hier: zwei
+      // Container (wachplan + wachplan-admin) schreiben dieselbe WAL-DB auf einem
+      // geteilten Volume. Mit DB_FAIL_ON_CORRUPT=1 bricht der Start hart ab.
+      checkIntegrity(db)
+        .then(() => proceedAfterIntegrity())
+        .catch((integErr) => {
+          console.error('');
+          console.error('============================================================');
+          console.error('❌ DATENBANK-INTEGRITÄTSPRÜFUNG FEHLGESCHLAGEN');
+          console.error('   ' + integErr.message);
+          console.error('   Datei: ' + dbPath);
+          console.error('   Vermutlich beschädigt (SQLITE_CORRUPT). Wiederherstellung:');
+          console.error('     1) beide Container stoppen (wachplan + wachplan-admin)');
+          console.error('     2) sqlite3 wachplan.db ".recover" | sqlite3 wachplan.db.recovered');
+          console.error('     3) recovered-DB nach Prüfung einspielen, -wal/-shm löschen');
+          console.error('============================================================');
+          console.error('');
+          if (process.env.DB_FAIL_ON_CORRUPT === '1') {
+            db.close(() => reject(integErr));
+            return;
+          }
+          // Standard: weiterlaufen (kein Single-Point-of-Failure durch einen
+          // evtl. transienten Check), aber der Fehler ist jetzt unübersehbar geloggt.
+          proceedAfterIntegrity();
+        });
+
+      function proceedAfterIntegrity() {
       // Migration: Drop old incorrectly-structured sessions table from pre-#211 versions.
       // connect-sqlite3 expects (sid, expired, sess) but old schema had (sid, session, expiryDate).
       // Nur bei altem Schema droppen – sonst würden persistente Sessions
@@ -188,6 +217,24 @@ function initDatabase() {
           }
         });
       });
+      } // end proceedAfterIntegrity
+    });
+  });
+}
+
+// Führt PRAGMA integrity_check aus und lehnt ab, wenn die DB beschädigt ist.
+// Gibt bei "ok" zurück; sonst Error mit den gemeldeten Problemzeilen.
+function checkIntegrity(db) {
+  return new Promise((resolve, reject) => {
+    db.all('PRAGMA integrity_check', (err, rows) => {
+      if (err) { reject(err); return; }
+      const lines = (rows || []).map(r => r && r.integrity_check).filter(Boolean);
+      if (lines.length === 1 && lines[0] === 'ok') {
+        console.log('✓ Database integrity check: ok');
+        resolve();
+      } else {
+        reject(new Error('integrity_check: ' + (lines.join('; ') || 'unbekannter Fehler')));
+      }
     });
   });
 }
@@ -288,7 +335,7 @@ function startPlanRetentionCleanup(db, retentionDays = 90) {
   }, 24 * 60 * 60 * 1000);
 }
 
-module.exports = { initDatabase, validateEnv, auditLog, startPlanRetentionCleanup };
+module.exports = { initDatabase, validateEnv, auditLog, startPlanRetentionCleanup, checkIntegrity };
 
 // Run if called directly
 if (require.main === module) {
