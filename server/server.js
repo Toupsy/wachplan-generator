@@ -127,9 +127,10 @@ async function start() {
     const { getDb, dbRun } = require('./db/connection');
     startPlanRetentionCleanup(getDb(), retentionDays);
 
-    // Pragma-Queue der Haupt-Connection (u.a. journal_mode=WAL) abwarten,
-    // BEVOR der Session-Store seine eigene Connection auf dieselbe Datei
-    // öffnet – sonst racen WAL-Switch und CREATE TABLE sessions (IOERR).
+    // Pragma-Queue der Haupt-Connection (foreign_keys, journal_mode=DELETE,
+    // busy_timeout) abwarten, BEVOR der Session-Store seine eigene Connection auf
+    // dieselbe Datei öffnet – sonst racen der journal_mode-Switch und
+    // CREATE TABLE sessions (IOERR).
     await dbRun('SELECT 1');
 
     // Session middleware (SQLite-Store, zentral in db/session.js).

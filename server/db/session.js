@@ -24,8 +24,12 @@ function createSessionMiddleware({ resave = true, saveUninitialized = true } = {
   });
   // Eigene Connection des Stores: ohne busy_timeout schlagen Session-Writes
   // mit SQLITE_BUSY fehl, sobald die Haupt-Connection gerade schreibt.
+  // journal_mode=DELETE statt WAL erzwingen (wie connection.js/init.js): diese
+  // dritte Writer-Connection darf die geteilte DB nicht auf WAL umschalten, sonst
+  // korrumpiert die prozessübergreifende WAL-Koordination die Datei (SQLITE_CORRUPT).
   if (store.db && typeof store.db.run === 'function') {
     store.db.run('PRAGMA busy_timeout = 5000', () => {});
+    store.db.run('PRAGMA journal_mode = DELETE', () => {});
   }
   return session({
     store,

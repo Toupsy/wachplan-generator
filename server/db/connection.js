@@ -24,15 +24,18 @@ function getDb() {
       db.run('PRAGMA foreign_keys = ON', (err) => {
         if (err) console.warn('⚠ Foreign keys error:', err.message);
       });
-      // Enable WAL mode for better concurrency. Übersprungen im Test (NODE_ENV=test):
-      // WAL legt -wal/-shm-Sidecar-Dateien an, deren Shared-Memory-Mapping auf manchen
-      // (Container-/CI-)Dateisystemen unter dem schnellen Wegwerf-DB-Zyklus der Tests
-      // sporadisch `SQLITE_IOERR` auslöst. Tests brauchen die WAL-Nebenläufigkeit nicht.
-      if (process.env.NODE_ENV !== 'test') {
-        db.run('PRAGMA journal_mode = WAL', (err) => {
-          if (err) console.warn('⚠ WAL mode error:', err.message);
-        });
-      }
+      // Rollback-Journal (DELETE) statt WAL.
+      // GRUND (SQLITE_CORRUPT-Dauerfix): In docker-compose teilen sich ZWEI Prozesse
+      // (wachplan + wachplan-admin, gleiches Image) dieselbe DB auf dem Volume
+      // `wachplan-data`. WALs Shared-Memory-Koordination (`-shm`, mmap) ist
+      // prozessübergreifend NICHT kohärent → „database disk image is malformed"
+      // schon beim ersten gleichzeitigen Schreiben (z. B. audit_log beim plan_create).
+      // DELETE-Modus nutzt POSIX-fcntl-Locks, die zwischen Prozessen zuverlässig
+      // serialisieren; `busy_timeout` lässt contendende Writer warten statt mit
+      // SQLITE_BUSY zu scheitern. Für die geringe Schreiblast völlig ausreichend.
+      db.run('PRAGMA journal_mode = DELETE', (err) => {
+        if (err) console.warn('⚠ journal_mode error:', err.message);
+      });
       db.run('PRAGMA busy_timeout = 5000', (err) => {
         if (err) console.warn('⚠ Busy timeout error:', err.message);
       });
