@@ -12,7 +12,7 @@ const sqlite3 = require('sqlite3');
 
 // init.js liest beim Laden keine Pflicht-Env (validateEnv läuft separat),
 // die Helfer arbeiten nur auf der übergebenen Verbindung.
-const { isSessionsOnlyCorruption, healSessionCorruption } = require('../server/db/init');
+const { isSessionsOnlyCorruption, isTransientIntegrityError, healSessionCorruption } = require('../server/db/init');
 
 // Reale Produktions-Meldung (gekürzt) als Referenz.
 const REAL_MSG =
@@ -43,6 +43,21 @@ test('isSessionsOnlyCorruption: ohne sessions-Bezug → false', () => {
   assert.strictEqual(isSessionsOnlyCorruption('Tree 4 page 4 cell 0: Rowid 1 out of order'), false);
   assert.strictEqual(isSessionsOnlyCorruption(''), false);
   assert.strictEqual(isSessionsOnlyCorruption(undefined), false);
+});
+
+test('isTransientIntegrityError: erkennt gesperrte DB als Lock, nicht Korruption', () => {
+  assert.strictEqual(
+    isTransientIntegrityError(Object.assign(new Error('SQLITE_BUSY: database is locked'), { code: 'SQLITE_BUSY' })),
+    true
+  );
+  assert.strictEqual(
+    isTransientIntegrityError(new Error('database table is locked')),
+    true
+  );
+  assert.strictEqual(
+    isTransientIntegrityError(Object.assign(new Error('database disk image is malformed'), { code: 'SQLITE_CORRUPT' })),
+    false
+  );
 });
 
 function makeDb() {

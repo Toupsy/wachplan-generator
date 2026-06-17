@@ -134,9 +134,9 @@ async function start() {
     await dbRun('SELECT 1');
 
     // Session middleware (SQLite-Store, zentral in db/session.js).
-    // resave/saveUninitialized=true für SQLite-Reliability.
+    // Avoid rewriting sessions on every request; NAS-backed SQLite needs low write pressure.
     // Referenz behalten → wird vom WebSocket-Upgrade (Realtime) zur Auth genutzt.
-    const sessionMiddleware = createSessionMiddleware({ resave: true, saveUninitialized: true });
+    const sessionMiddleware = createSessionMiddleware({ resave: false, saveUninitialized: false });
     app.use(sessionMiddleware);
 
     // Register API routes AFTER session middleware

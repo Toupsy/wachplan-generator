@@ -10,16 +10,21 @@ const path = require('path');
 // connection.js stur die andere Datei (Inkonsistenz); außerdem nutzen Tests
 // darüber eine Wegwerf-DB.
 const dbPath = process.env.DATABASE_PATH || path.join(__dirname, '..', '..', 'data', 'wachplan.db');
+const DB_BUSY_TIMEOUT_MS = Number.parseInt(process.env.DB_BUSY_TIMEOUT_MS || '30000', 10);
 let db = null;
 
 function getDb() {
   if (!db) {
-    db = new sqlite3.Database(dbPath, (err) => {
+    db = new sqlite3.Database(
+      dbPath,
+      sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE | sqlite3.OPEN_FULLMUTEX,
+      (err) => {
       if (err) {
         console.error('❌ Database connection error:', err);
         db = null;
         return;
       }
+      if (typeof db.configure === 'function') db.configure('busyTimeout', DB_BUSY_TIMEOUT_MS);
       // Enable foreign key constraint enforcement (GDPR Art. 17 cascading deletes)
       db.run('PRAGMA foreign_keys = ON', (err) => {
         if (err) console.warn('⚠ Foreign keys error:', err.message);
@@ -33,11 +38,11 @@ function getDb() {
       // DELETE-Modus nutzt POSIX-fcntl-Locks, die zwischen Prozessen zuverlässig
       // serialisieren; `busy_timeout` lässt contendende Writer warten statt mit
       // SQLITE_BUSY zu scheitern. Für die geringe Schreiblast völlig ausreichend.
+      db.run(`PRAGMA busy_timeout = ${DB_BUSY_TIMEOUT_MS}`, (err) => {
+        if (err) console.warn('⚠ Busy timeout error:', err.message);
+      });
       db.run('PRAGMA journal_mode = DELETE', (err) => {
         if (err) console.warn('⚠ journal_mode error:', err.message);
-      });
-      db.run('PRAGMA busy_timeout = 5000', (err) => {
-        if (err) console.warn('⚠ Busy timeout error:', err.message);
       });
     });
 

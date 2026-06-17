@@ -32,6 +32,10 @@ try {
 const dbPath = process.env.DATABASE_PATH || path.join(dataDir, 'wachplan.db');
 console.log('📂 dbPath:', dbPath);
 
+const DB_BUSY_TIMEOUT_MS = Number.parseInt(process.env.DB_BUSY_TIMEOUT_MS || '30000', 10);
+const INTEGRITY_RETRIES = Number.parseInt(process.env.DB_INTEGRITY_RETRIES || '6', 10);
+const TRANSIENT_INTEGRITY_CODES = new Set(['SQLITE_BUSY', 'SQLITE_LOCKED', 'SQLITE_PROTOCOL']);
+
 // Validate environment variables
 function validateEnv() {
   const required = ['MASTER_SECRET', 'SALT', 'SESSION_SECRET'];
@@ -89,7 +93,10 @@ function validateEnv() {
 // Initialize database
 function initDatabase() {
   return new Promise((resolve, reject) => {
-    const db = new sqlite3.Database(dbPath, (err) => {
+    const db = new sqlite3.Database(
+      dbPath,
+      sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE | sqlite3.OPEN_FULLMUTEX,
+      (err) => {
       if (err) {
         console.error('❌ Failed to open database:', err);
         reject(err);
@@ -97,6 +104,7 @@ function initDatabase() {
       }
 
       console.log('✓ Database connection established:', dbPath);
+      if (typeof db.configure === 'function') db.configure('busyTimeout', DB_BUSY_TIMEOUT_MS);
 
       // Rollback-Journal (DELETE) statt WAL – früh und auf DERSELBEN Verbindung, die
       // gleich das Schema schreibt. WAL ist zwischen den zwei Containern (wachplan +
@@ -104,17 +112,16 @@ function initDatabase() {
       // die DB (s. connection.js). Setzt zudem eine bestehende WAL-DB beim Start auf
       // DELETE zurück, bevor irgendetwas geschrieben wird. busy_timeout: cross-process
       // Lock-Contention abwarten statt SQLITE_BUSY.
-      db.run('PRAGMA busy_timeout = 5000', () => {});
-      db.run('PRAGMA journal_mode = DELETE', () => {});
-
-      // Integritäts-Check beim Start: erkennt eine beschädigte Datei (SQLITE_CORRUPT,
-      // "database disk image is malformed") sofort und laut, statt sie als verstreute
-      // Query-Fehler im Betrieb auftauchen zu lassen. Häufige Ursache hier: zwei
-      // Container (wachplan + wachplan-admin) schreiben dieselbe WAL-DB auf einem
-      // geteilten Volume. Mit DB_FAIL_ON_CORRUPT=1 bricht der Start hart ab.
-      checkIntegrity(db)
+      configureStartupConnection(db)
+        .then(() => checkIntegrity(db))
         .then(() => proceedAfterIntegrity())
         .catch((integErr) => {
+          if (isTransientIntegrityError(integErr)) {
+            console.warn('⚠ Database integrity check skipped: database is busy/locked.');
+            console.warn('   This is not corruption. Another container is currently using ' + dbPath);
+            proceedAfterIntegrity();
+            return;
+          }
           // Auto-Heilung: Ist die Beschädigung auf die (wegwerfbare) sessions-Tabelle
           // beschränkt, kann sie gefahrlos entfernt werden – connect-sqlite3 legt sie
           // beim nächsten Session-Schreiben neu an. Nutzer/Pläne bleiben unberührt;
@@ -240,20 +247,50 @@ function initDatabase() {
   });
 }
 
+function runDb(db, sql) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, (err) => (err ? reject(err) : resolve()));
+  });
+}
+
+async function configureStartupConnection(db) {
+  // Queue these explicitly before any schema writes or integrity reads.
+  await runDb(db, `PRAGMA busy_timeout = ${DB_BUSY_TIMEOUT_MS}`);
+  await runDb(db, 'PRAGMA journal_mode = DELETE');
+}
+
+function isTransientIntegrityError(err) {
+  if (!err) return false;
+  if (TRANSIENT_INTEGRITY_CODES.has(err.code)) return true;
+  return /SQLITE_BUSY|SQLITE_LOCKED|database is locked|database table is locked/i.test(String(err.message || ''));
+}
+
 // Führt PRAGMA integrity_check aus und lehnt ab, wenn die DB beschädigt ist.
 // Gibt bei "ok" zurück; sonst Error mit den gemeldeten Problemzeilen.
 function checkIntegrity(db) {
   return new Promise((resolve, reject) => {
-    db.all('PRAGMA integrity_check', (err, rows) => {
-      if (err) { reject(err); return; }
-      const lines = (rows || []).map(r => r && r.integrity_check).filter(Boolean);
-      if (lines.length === 1 && lines[0] === 'ok') {
-        console.log('✓ Database integrity check: ok');
-        resolve();
-      } else {
-        reject(new Error('integrity_check: ' + (lines.join('; ') || 'unbekannter Fehler')));
-      }
-    });
+    let attempt = 0;
+    const runCheck = () => {
+      db.all('PRAGMA integrity_check', (err, rows) => {
+        if (err) {
+          if (isTransientIntegrityError(err) && attempt < INTEGRITY_RETRIES) {
+            attempt += 1;
+            setTimeout(runCheck, 250 * attempt);
+            return;
+          }
+          reject(err);
+          return;
+        }
+        const lines = (rows || []).map(r => r && r.integrity_check).filter(Boolean);
+        if (lines.length === 1 && lines[0] === 'ok') {
+          console.log('✓ Database integrity check: ok');
+          resolve();
+        } else {
+          reject(new Error('integrity_check: ' + (lines.join('; ') || 'unbekannter Fehler')));
+        }
+      });
+    };
+    runCheck();
   });
 }
 
@@ -399,7 +436,7 @@ function startPlanRetentionCleanup(db, retentionDays = 90) {
   }, 24 * 60 * 60 * 1000);
 }
 
-module.exports = { initDatabase, validateEnv, auditLog, startPlanRetentionCleanup, checkIntegrity, isSessionsOnlyCorruption, healSessionCorruption };
+module.exports = { initDatabase, validateEnv, auditLog, startPlanRetentionCleanup, checkIntegrity, isTransientIntegrityError, isSessionsOnlyCorruption, healSessionCorruption };
 
 // Run if called directly
 if (require.main === module) {
