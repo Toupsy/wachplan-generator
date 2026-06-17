@@ -226,6 +226,17 @@ neu auf (auch bei jeder Datum-/Tage-Änderung in init.js). CSV-Parsing zuverläs
 (lazy von cdnjs, Spalten-Rekonstruktion über x-Positionen) best-effort. Job→Rolle WF/BF/RS→F/B/W,
 importierte Personen starten unerfahren. Kernfunktionen DOM-frei + testbar (`test/roster.test.js`).
 
+**DB-Integrität & Korruption:** `initDatabase()` (db/init.js) führt beim Start ein
+`PRAGMA integrity_check` aus (`checkIntegrity()`) und loggt bei Beschädigung laut einen
+Recovery-Hinweis (`✓ Database integrity check: ok` im Normalfall). Mit `DB_FAIL_ON_CORRUPT=1`
+bricht der Start hart ab statt weiterzulaufen. **Falle:** In `docker-compose.yml` schreiben
+**zwei Container** (`wachplan` + `wachplan-admin`, gleiches Image) dieselbe WAL-DB auf dem
+geteilten Volume `wachplan-data` → fragile WAL-Shared-Memory-Koordination zwischen Prozessen
+ist die wahrscheinliche Ursache von `SQLITE_CORRUPT: database disk image is malformed` in Prod.
+Recovery: beide Container stoppen, `sqlite3 wachplan.db ".recover" | sqlite3 neu.db`, prüfen,
+einspielen, `-wal`/`-shm` löschen. Dauerfix (offen): Admin in den Hauptprozess ziehen ODER
+WAL abschalten (`journal_mode=DELETE`, POSIX-Locks sind prozessübergreifend robuster).
+
 **Auth/Encryption:** Session-Cookies (HTTPOnly, sameSite:lax, 7d / 30d „Merke mich"), bcryptjs
 (10 Rounds), Passwort ≥10 Zeichen, AES-256-GCM mit **Owner-Key** (kein Re-Encrypt beim Teilen),
 PBKDF2 100k (gecacht pro userId), Rate-Limit IP+Account (10/15min), Session-Fixation-Schutz,
