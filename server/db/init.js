@@ -106,24 +106,33 @@ function initDatabase() {
       checkIntegrity(db)
         .then(() => proceedAfterIntegrity())
         .catch((integErr) => {
-          console.error('');
-          console.error('============================================================');
-          console.error('❌ DATENBANK-INTEGRITÄTSPRÜFUNG FEHLGESCHLAGEN');
-          console.error('   ' + integErr.message);
-          console.error('   Datei: ' + dbPath);
-          console.error('   Vermutlich beschädigt (SQLITE_CORRUPT). Wiederherstellung:');
-          console.error('     1) beide Container stoppen (wachplan + wachplan-admin)');
-          console.error('     2) sqlite3 wachplan.db ".recover" | sqlite3 wachplan.db.recovered');
-          console.error('     3) recovered-DB nach Prüfung einspielen, -wal/-shm löschen');
-          console.error('============================================================');
-          console.error('');
-          if (process.env.DB_FAIL_ON_CORRUPT === '1') {
-            db.close(() => reject(integErr));
-            return;
-          }
-          // Standard: weiterlaufen (kein Single-Point-of-Failure durch einen
-          // evtl. transienten Check), aber der Fehler ist jetzt unübersehbar geloggt.
-          proceedAfterIntegrity();
+          // Auto-Heilung: Ist die Beschädigung auf die (wegwerfbare) sessions-Tabelle
+          // beschränkt, kann sie gefahrlos entfernt werden – connect-sqlite3 legt sie
+          // beim nächsten Session-Schreiben neu an. Nutzer/Pläne bleiben unberührt;
+          // die Nutzer müssen sich nur neu anmelden. (CLAUDE.md: sessions-Store ist
+          // bekanntermaßen fragil bei zwei Containern auf demselben WAL-Volume.)
+          healSessionCorruption(db, integErr).then((healed) => {
+            if (healed) { proceedAfterIntegrity(); return; }
+
+            console.error('');
+            console.error('============================================================');
+            console.error('❌ DATENBANK-INTEGRITÄTSPRÜFUNG FEHLGESCHLAGEN');
+            console.error('   ' + integErr.message);
+            console.error('   Datei: ' + dbPath);
+            console.error('   Vermutlich beschädigt (SQLITE_CORRUPT). Wiederherstellung:');
+            console.error('     1) beide Container stoppen (wachplan + wachplan-admin)');
+            console.error('     2) sqlite3 wachplan.db ".recover" | sqlite3 wachplan.db.recovered');
+            console.error('     3) recovered-DB nach Prüfung einspielen, -wal/-shm löschen');
+            console.error('============================================================');
+            console.error('');
+            if (process.env.DB_FAIL_ON_CORRUPT === '1') {
+              db.close(() => reject(integErr));
+              return;
+            }
+            // Standard: weiterlaufen (kein Single-Point-of-Failure durch einen
+            // evtl. transienten Check), aber der Fehler ist jetzt unübersehbar geloggt.
+            proceedAfterIntegrity();
+          });
         });
 
       function proceedAfterIntegrity() {
@@ -239,6 +248,52 @@ function checkIntegrity(db) {
   });
 }
 
+// Prüft, ob eine integrity_check-Meldung AUSSCHLIESSLICH die (wegwerfbare)
+// sessions-Tabelle/ihren Autoindex betrifft. Konservativ: Sobald ein Schema-Index
+// (idx_*) oder der Autoindex einer anderen Tabelle (users/plans/…) auftaucht,
+// gilt die Korruption als NICHT sessions-isoliert → keine Auto-Heilung.
+// Die abschließende Re-Prüfung nach dem DROP ist die eigentliche Sicherheitsnetz-Instanz.
+function isSessionsOnlyCorruption(message) {
+  const m = String(message || '').toLowerCase();
+  if (!m.includes('sessions')) return false;
+  // Ein benannter Schema-Index (idx_plans_user_id, idx_audit_log_*, …) → echte Tabelle betroffen.
+  if (/\bidx_[a-z0-9_]+/.test(m)) return false;
+  // Autoindizes anderer Tabellen als sessions?
+  const autoIdxTables = [...m.matchAll(/sqlite_autoindex_([a-z0-9_]+?)_\d+/g)].map(x => x[1]);
+  if (autoIdxTables.some(t => t !== 'sessions')) return false;
+  return true;
+}
+
+// Versucht, eine auf die sessions-Tabelle beschränkte Beschädigung automatisch zu
+// beheben: Tabelle droppen, DB kompaktieren (verwaiste Seiten freigeben) und erneut
+// per integrity_check verifizieren. Gibt Promise<boolean> (true = geheilt) zurück.
+// Per DB_NO_SESSION_AUTOHEAL=1 abschaltbar.
+function healSessionCorruption(db, integErr) {
+  return new Promise((resolve) => {
+    if (process.env.DB_NO_SESSION_AUTOHEAL === '1') return resolve(false);
+    if (!isSessionsOnlyCorruption(integErr && integErr.message)) return resolve(false);
+
+    console.warn('⚠ DB-Beschädigung betrifft nur die (wegwerfbare) sessions-Tabelle – versuche Auto-Heilung…');
+    db.run('DROP TABLE IF EXISTS sessions', (dropErr) => {
+      if (dropErr) {
+        console.error('   Auto-Heilung fehlgeschlagen (DROP sessions): ' + dropErr.message);
+        return resolve(false);
+      }
+      // VACUUM gibt die durch den DROP freigewordenen (ggf. beschädigten) Seiten frei,
+      // sonst kann integrity_check sie weiter über die Freelist melden. Best-effort.
+      db.run('VACUUM', () => {
+        checkIntegrity(db)
+          .then(() => {
+            console.log('✓ Auto-Heilung erfolgreich: beschädigte sessions-Tabelle entfernt.');
+            console.log('  Sessions sind wegwerfbar – Nutzer/Pläne unberührt. Bitte erneut anmelden.');
+            resolve(true);
+          })
+          .catch(() => resolve(false));
+      });
+    });
+  });
+}
+
 // Main initialization
 async function main() {
   try {
@@ -335,7 +390,7 @@ function startPlanRetentionCleanup(db, retentionDays = 90) {
   }, 24 * 60 * 60 * 1000);
 }
 
-module.exports = { initDatabase, validateEnv, auditLog, startPlanRetentionCleanup, checkIntegrity };
+module.exports = { initDatabase, validateEnv, auditLog, startPlanRetentionCleanup, checkIntegrity, isSessionsOnlyCorruption, healSessionCorruption };
 
 // Run if called directly
 if (require.main === module) {
