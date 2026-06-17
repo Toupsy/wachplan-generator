@@ -12,7 +12,7 @@ const sqlite3 = require('sqlite3');
 
 // init.js liest beim Laden keine Pflicht-Env (validateEnv läuft separat),
 // die Helfer arbeiten nur auf der übergebenen Verbindung.
-const { isSessionsOnlyCorruption, isTransientIntegrityError, healSessionCorruption } = require('../server/db/init');
+const { isSessionsOnlyCorruption, isTransientIntegrityError, healSessionCorruption, auditLog } = require('../server/db/init');
 
 // Reale Produktions-Meldung (gekürzt) als Referenz.
 const REAL_MSG =
@@ -121,4 +121,22 @@ test('healSessionCorruption: per DB_NO_SESSION_AUTOHEAL=1 abschaltbar', async ()
     delete process.env.DB_NO_SESSION_AUTOHEAL;
   }
   await new Promise(r => db.close(r));
+});
+
+test('auditLog: retry bei transientem SQLite-Schreibfehler', async () => {
+  let calls = 0;
+  const fakeDb = {
+    run(sql, params, cb) {
+      calls += 1;
+      if (calls === 1) {
+        cb(Object.assign(new Error('temporary I/O error'), { code: 'SQLITE_IOERR' }));
+        return;
+      }
+      cb.call({ lastID: 42 }, null);
+    }
+  };
+
+  const result = await auditLog(fakeDb, 1, 'login', 'user', 1, null, '127.0.0.1');
+  assert.deepStrictEqual(result, { id: 42 });
+  assert.strictEqual(calls, 2);
 });

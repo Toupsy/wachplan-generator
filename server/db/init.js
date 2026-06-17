@@ -35,6 +35,10 @@ console.log('📂 dbPath:', dbPath);
 const DB_BUSY_TIMEOUT_MS = Number.parseInt(process.env.DB_BUSY_TIMEOUT_MS || '30000', 10);
 const INTEGRITY_RETRIES = Number.parseInt(process.env.DB_INTEGRITY_RETRIES || '6', 10);
 const TRANSIENT_INTEGRITY_CODES = new Set(['SQLITE_BUSY', 'SQLITE_LOCKED', 'SQLITE_PROTOCOL']);
+const INIT_LOCK_TIMEOUT_MS = Number.parseInt(process.env.DB_INIT_LOCK_TIMEOUT_MS || '60000', 10);
+const INIT_LOCK_STALE_MS = Number.parseInt(process.env.DB_INIT_LOCK_STALE_MS || '120000', 10);
+const AUDIT_LOG_RETRIES = Number.parseInt(process.env.DB_AUDIT_RETRIES || '5', 10);
+const TRANSIENT_WRITE_CODES = new Set(['SQLITE_BUSY', 'SQLITE_LOCKED', 'SQLITE_IOERR', 'SQLITE_PROTOCOL']);
 
 // Validate environment variables
 function validateEnv() {
@@ -97,6 +101,7 @@ function initDatabase() {
       dbPath,
       sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE | sqlite3.OPEN_FULLMUTEX,
       (err) => {
+      let releaseInitLock = null;
       if (err) {
         console.error('❌ Failed to open database:', err);
         reject(err);
@@ -112,10 +117,18 @@ function initDatabase() {
       // die DB (s. connection.js). Setzt zudem eine bestehende WAL-DB beim Start auf
       // DELETE zurück, bevor irgendetwas geschrieben wird. busy_timeout: cross-process
       // Lock-Contention abwarten statt SQLITE_BUSY.
-      configureStartupConnection(db)
+      acquireInitLock()
+        .then((release) => {
+          releaseInitLock = release;
+          return configureStartupConnection(db);
+        })
         .then(() => checkIntegrity(db))
         .then(() => proceedAfterIntegrity())
         .catch((integErr) => {
+          if (integErr && integErr.isInitLockError) {
+            db.close(() => reject(integErr));
+            return;
+          }
           if (isTransientIntegrityError(integErr)) {
             console.warn('⚠ Database integrity check skipped: database is busy/locked.');
             console.warn('   This is not corruption. Another container is currently using ' + dbPath);
@@ -141,8 +154,12 @@ function initDatabase() {
             console.error('     3) recovered-DB nach Prüfung einspielen, -wal/-shm löschen');
             console.error('============================================================');
             console.error('');
-            if (process.env.DB_FAIL_ON_CORRUPT === '1') {
-              db.close(() => reject(integErr));
+            if (process.env.DB_ALLOW_CORRUPT_START !== '1') {
+              console.error('   Start wird abgebrochen. Setze DB_ALLOW_CORRUPT_START=1 nur zur Notfall-Datenrettung.');
+              db.close((closeErr) => {
+                if (releaseInitLock) releaseInitLock();
+                reject(closeErr || integErr);
+              });
               return;
             }
             // Standard: weiterlaufen (kein Single-Point-of-Failure durch einen
@@ -173,6 +190,7 @@ function initDatabase() {
         if (err) {
           console.error('❌ Failed to execute schema:', err);
           db.close((closeErr) => {
+            if (releaseInitLock) releaseInitLock();
             reject(err);  // Reject with original error, not close error
           });
           return;
@@ -202,6 +220,7 @@ function initDatabase() {
         db.get("SELECT COUNT(*) as count FROM users WHERE is_admin = 1", async (err, row) => {
           if (err) {
             db.close((closeErr) => {
+              if (releaseInitLock) releaseInitLock();
               reject(err);  // Reject with original error
             });
             return;
@@ -236,6 +255,7 @@ function initDatabase() {
 
           function closeDb() {
             db.close((closeErr) => {
+              if (releaseInitLock) releaseInitLock();
               if (closeErr) reject(closeErr);
               else resolve();
             });
@@ -244,6 +264,49 @@ function initDatabase() {
       });
       } // end proceedAfterIntegrity
     });
+  });
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function acquireInitLock() {
+  const lockDir = `${dbPath}.init.lock`;
+  const started = Date.now();
+
+  return new Promise(async (resolve, reject) => {
+    while (true) {
+      try {
+        fs.mkdirSync(lockDir);
+        fs.writeFileSync(path.join(lockDir, 'owner'), `${process.pid}\n${new Date().toISOString()}\n`);
+        return resolve(() => {
+          try { fs.rmSync(lockDir, { recursive: true, force: true }); } catch {}
+        });
+      } catch (err) {
+        if (!err || err.code !== 'EEXIST') {
+          if (err) err.isInitLockError = true;
+          return reject(err);
+        }
+
+        try {
+          const stat = fs.statSync(lockDir);
+          if (Date.now() - stat.mtimeMs > INIT_LOCK_STALE_MS) {
+            console.warn('Stale database init lock removed: ' + lockDir);
+            fs.rmSync(lockDir, { recursive: true, force: true });
+            continue;
+          }
+        } catch {}
+
+        if (Date.now() - started > INIT_LOCK_TIMEOUT_MS) {
+          const timeout = new Error(`Timed out waiting for database init lock: ${lockDir}`);
+          timeout.isInitLockError = true;
+          return reject(timeout);
+        }
+
+        await sleep(250);
+      }
+    }
   });
 }
 
@@ -354,17 +417,31 @@ async function main() {
 
 // Audit logging helper
 function auditLog(db, userId, action, entityType = null, entityId = null, details = null, ipAddress = null) {
+  const detailsStr = details ? JSON.stringify(details) : null;
+  let attempt = 0;
+
   return new Promise((resolve, reject) => {
-    const detailsStr = details ? JSON.stringify(details) : null;
-    db.run(
-      `INSERT INTO audit_log (user_id, action, entity_type, entity_id, details, ip_address)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [userId, action, entityType, entityId, detailsStr, ipAddress],
-      function(err) {
-        if (err) reject(err);
-        else resolve({ id: this.lastID });
-      }
-    );
+    const runInsert = () => {
+      db.run(
+        `INSERT INTO audit_log (user_id, action, entity_type, entity_id, details, ip_address)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [userId, action, entityType, entityId, detailsStr, ipAddress],
+        function(err) {
+          if (err) {
+            if (TRANSIENT_WRITE_CODES.has(err.code) && attempt < AUDIT_LOG_RETRIES) {
+              attempt += 1;
+              setTimeout(runInsert, 100 * attempt);
+              return;
+            }
+            reject(err);
+            return;
+          }
+          resolve({ id: this.lastID });
+        }
+      );
+    };
+
+    runInsert();
   });
 }
 
