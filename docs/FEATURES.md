@@ -483,6 +483,22 @@ Turmplatz verfügbar ist** – das ist bei **überzähligen** BF der Fall (sie s
 
 ## Bugfixes
 
+### Auto-Heilung beschädigter `sessions`-Tabelle beim Start
+**Problem:** Auf Produktiv-DBs (zwei Container – wachplan + wachplan-admin – auf demselben
+WAL-Volume, s. CLAUDE.md) beschädigt sich gelegentlich die vom `connect-sqlite3`-Session-Store
+verwaltete `sessions`-Tabelle (`SQLITE_CORRUPT`: „wrong # of entries in index
+sqlite_autoindex_sessions_1", „row N missing from index"). Die Integritätsprüfung beim Start
+(#323) meldete das zwar laut, der Server lief aber mit kaputter `sessions`-Tabelle weiter →
+Login/Session defekt, manuelle `.recover`-Prozedur mit Downtime nötig.
+- **Lösung (`server/db/init.js`):** Ist die Beschädigung **ausschließlich** auf die `sessions`-
+  Tabelle/ihren Autoindex beschränkt (`isSessionsOnlyCorruption()` – Schema-Index `idx_*` oder
+  Autoindex einer anderen Tabelle disqualifiziert), wird sie automatisch entfernt
+  (`DROP TABLE sessions` → `VACUUM` → erneuter `integrity_check`). `sessions` ist **wegwerfbar**
+  (connect-sqlite3 legt sie beim nächsten Login neu an); Nutzer/Pläne bleiben unberührt – die
+  Nutzer müssen sich nur neu anmelden. Schlägt das DROP fehl oder ist die DB darüber hinaus
+  beschädigt, bleibt es bei der bisherigen manuellen Recovery-Meldung (kein falsch-positives
+  „geheilt"). Per `DB_NO_SESSION_AUTOHEAL=1` abschaltbar. Test: `test/db-session-autoheal.test.js`.
+
 ### admin-server.js: globale Error-Handler auf Modulebene + Exit bei DB-Fehlern (#274)
 **Problem:** `server/admin-server.js` registrierte `uncaughtException`/`unhandledRejection`
 **innerhalb** von `start()` (nach DB-Init) und **ohne `process.exit`** – anders als
