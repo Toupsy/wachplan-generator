@@ -7,6 +7,37 @@ const session = require('express-session');
 const SqliteStore = require('connect-sqlite3')(session);
 const { dbPath } = require('./connection');
 const DB_BUSY_TIMEOUT_MS = Number.parseInt(process.env.DB_BUSY_TIMEOUT_MS || '30000', 10);
+const SESSION_STORE_RETRIES = Number.parseInt(process.env.SESSION_STORE_RETRIES || '5', 10);
+const TRANSIENT_SESSION_CODES = new Set(['SQLITE_BUSY', 'SQLITE_LOCKED', 'SQLITE_IOERR', 'SQLITE_PROTOCOL']);
+
+function isTransientSessionError(err) {
+  return !!(err && TRANSIENT_SESSION_CODES.has(err.code));
+}
+
+function wrapStoreMethodWithRetry(store, methodName) {
+  const original = store[methodName];
+  if (typeof original !== 'function') return;
+
+  store[methodName] = function(...args) {
+    const cb = args[args.length - 1];
+    if (typeof cb !== 'function') return original.apply(this, args);
+
+    let attempt = 0;
+    const run = () => {
+      const retryArgs = args.slice(0, -1).concat((err, result) => {
+        if (isTransientSessionError(err) && attempt < SESSION_STORE_RETRIES) {
+          attempt += 1;
+          setTimeout(run, 100 * attempt);
+          return;
+        }
+        cb(err, result);
+      });
+      original.apply(this, retryArgs);
+    };
+
+    run();
+  };
+}
 
 // Erstellt die Session-Middleware mit SQLite-Store.
 // server.js nutzt resave/saveUninitialized=true (SQLite-Reliability),
@@ -33,6 +64,8 @@ function createSessionMiddleware({ resave = true, saveUninitialized = true } = {
     store.db.run(`PRAGMA busy_timeout = ${DB_BUSY_TIMEOUT_MS}`, () => {});
     store.db.run('PRAGMA journal_mode = DELETE', () => {});
   }
+  wrapStoreMethodWithRetry(store, 'set');
+  wrapStoreMethodWithRetry(store, 'destroy');
   // express-session calls store.touch() at the end of most authenticated requests
   // even when the session data did not change. On NAS-backed SQLite this turns
   // every plan save into an extra writer on the same DB file and can surface as
@@ -65,4 +98,4 @@ function createSessionMiddleware({ resave = true, saveUninitialized = true } = {
   return middleware;
 }
 
-module.exports = { createSessionMiddleware };
+module.exports = { createSessionMiddleware, _wrapStoreMethodWithRetry: wrapStoreMethodWithRetry };

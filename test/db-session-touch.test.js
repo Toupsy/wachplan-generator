@@ -37,3 +37,32 @@ test('session middleware disables per-request SQLite touch writes by default', a
 
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
+
+test('session store retries transient save errors', async () => {
+  delete require.cache[require.resolve('../server/db/connection')];
+  delete require.cache[require.resolve('../server/db/session')];
+  const { _wrapStoreMethodWithRetry } = require('../server/db/session');
+
+  let calls = 0;
+  const store = {
+    set(sid, sess, cb) {
+      calls += 1;
+      if (calls === 1) {
+        cb(Object.assign(new Error('temporary I/O error'), { code: 'SQLITE_IOERR' }));
+        return;
+      }
+      cb(null, true);
+    }
+  };
+
+  _wrapStoreMethodWithRetry(store, 'set');
+  await new Promise((resolve, reject) => {
+    store.set(
+      'retry-sid',
+      { cookie: { expires: new Date(Date.now() + 1000) }, userId: 1 },
+      (err) => err ? reject(err) : resolve()
+    );
+  });
+
+  assert.equal(calls, 2);
+});
