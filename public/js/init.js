@@ -367,7 +367,7 @@ if(numDaysInput) numDaysInput.oninput = e => {
     return;
   }
   // dayState und forcedPlacements anpassen
-  while(dayState.length < DAYS)        dayState.push({ sick:new Set(), absent:new Set(), closed:new Set(), closedBoats:new Set() });
+  while(dayState.length < DAYS)        dayState.push(freshDay());
   while(forcedPlacements.length < DAYS) forcedPlacements.push([]);
   dayState.length        = DAYS;
   forcedPlacements.length = DAYS;

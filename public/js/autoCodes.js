@@ -28,17 +28,3 @@ function autoCodes(){
     }
   });
 }
-
-/**
- * Erzeugt einen leeren dayState-Array für alle DAYS Tage.
- * Jeder Tag hat eigene Sets für kranke Personen, manuell
- * geschlossene Türme und Boote außer Dienst.
- */
-function freshDayState(){
-  return Array.from({ length: DAYS }, () => ({
-    sick:        new Set(),
-    absent:      new Set(),
-    closed:      new Set(),
-    closedBoats: new Set(),
-  }));
-}

@@ -172,14 +172,14 @@ function importStateJSON(json, silent = false){
   uid = maxId;
 
   // dayState mit Sets rekonstruieren
-  dayState = (s.dayState || []).map(d => ({
+  dayState = (s.dayState || []).map(d => freshDay({
     sick:        new Set(d.sick        || []),
     absent:      new Set(d.absent      || []),
     closed:      new Set(d.closed      || []),
     closedBoats: new Set(d.closedBoats || []),
   }));
   // Fehlende Tage auffüllen
-  while(dayState.length < DAYS) dayState.push({ sick:new Set(), absent:new Set(), closed:new Set(), closedBoats:new Set() });
+  while(dayState.length < DAYS) dayState.push(freshDay());
 
   // forcedPlacements
   forcedPlacements = (s.forcedPlacements || []).map(fp => (fp || []).map(f => ({ ...f })));
