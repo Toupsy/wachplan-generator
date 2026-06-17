@@ -17,6 +17,13 @@ const plansApi = require('./api/plans');
 const adminApi = require('./api/admin');
 const importApi = require('./api/import');
 const publicApi = require('./api/public');
+const {
+  securityHeaders,
+  notFoundHandler,
+  jsonErrorHandler,
+  installSigtermHandler,
+  installFatalHandlers,
+} = require('./http-common');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -84,23 +91,8 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // ── Basis-Security-Header ──────────────────────────────────────
 // reCAPTCHA v3 (Bot-Schutz Registrierung/Passwort-Reset) braucht Script- und
 // Frame-Freigaben für Google – nur wenn Keys konfiguriert sind (server/captcha.js).
-const _captchaEnabled = !!(process.env.RECAPTCHA_SITE_KEY && process.env.RECAPTCHA_SECRET_KEY);
-const _cspScriptExtra = _captchaEnabled ? ' https://www.google.com https://www.gstatic.com' : '';
-const _cspFrameSrc = _captchaEnabled ? 'frame-src https://www.google.com; ' : '';
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');           // Clickjacking-Schutz
-  res.setHeader('Referrer-Policy', 'same-origin');
-  res.setHeader('Content-Security-Policy',
-    "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-    "font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com" +
-    _cspScriptExtra + "; " +
-    "worker-src 'self' blob: https://cdnjs.cloudflare.com; " +   // pdf.js-Worker für Wachlisten-PDF-Import (Feature 31)
-    "connect-src 'self' ws: wss:; " + _cspFrameSrc + "frame-ancestors 'self'");
-  if (process.env.NODE_ENV === 'production')
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  next();
-});
+const captchaEnabled = !!(process.env.RECAPTCHA_SITE_KEY && process.env.RECAPTCHA_SECRET_KEY);
+app.use(securityHeaders({ captcha: captchaEnabled, worker: true }));
 
 // ── Health-Check (für Docker/K8s) ──────────────────────────────
 app.get('/health', (req, res) => {
@@ -181,16 +173,10 @@ async function start() {
     });
 
     // 404 Handler (NACH all anderen routes)
-    app.use((req, res) => {
-      res.status(404).json({ error: 'Not found', path: req.url });
-    });
+    app.use(notFoundHandler());
 
     // Error Handler
-    app.use((err, req, res, next) => {
-      console.error('Error:', err);
-      if (res.headersSent) return next(err); // z.B. Session-Save-Fehler nach Response
-      res.status(500).json({ error: 'Internal server error' });
-    });
+    app.use(jsonErrorHandler());
 
     // Start server
     const server = app.listen(PORT, HOST, () => {
@@ -204,39 +190,13 @@ async function start() {
     const { setupRealtime } = require('./realtime');
     setupRealtime(server, sessionMiddleware);
 
-    // Graceful shutdown
-    process.on('SIGTERM', () => {
-      console.log('SIGTERM empfangen, fahre herunter...');
-      server.close(() => {
-        console.log('Server wurde beendet');
-        process.exit(0);
-      });
-    });
+    installSigtermHandler(server, 'Server');
   } catch (error) {
     console.error('❌ Fehler beim Starten des Servers:', error.message);
     process.exit(1);
   }
 }
 
-// Handle uncaught errors
-process.on('uncaughtException', (err) => {
-  console.error('❌ Uncaught Exception:', err);
-  // For database errors, this is likely fatal - exit
-  if (err.message && err.message.includes('database')) {
-    console.error('⚠️  Database error - exiting');
-    process.exit(1);
-  }
-  // Don't exit for other errors, let the server continue
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection:', reason);
-  // For database errors, this is likely fatal - exit
-  if (reason && reason.message && reason.message.includes('database')) {
-    console.error('⚠️  Database error - exiting');
-    process.exit(1);
-  }
-  // Don't exit for other errors, let the server continue
-});
+installFatalHandlers();
 
 start();

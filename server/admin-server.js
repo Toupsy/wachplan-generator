@@ -12,6 +12,13 @@ const { initDatabase, validateEnv } = require('./db/init');
 const { dbRun, dbPath } = require('./db/connection');
 const authApi = require('./api/auth');
 const adminApi = require('./api/admin');
+const {
+  securityHeaders,
+  notFoundHandler,
+  jsonErrorHandler,
+  installSigtermHandler,
+  installFatalHandlers,
+} = require('./http-common');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -26,18 +33,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ── Basis-Security-Header ──────────────────────────────────────
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-  res.setHeader('Referrer-Policy', 'same-origin');
-  res.setHeader('Content-Security-Policy',
-    "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-    "font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; " +
-    "connect-src 'self' ws: wss:; frame-ancestors 'self'");
-  if (process.env.NODE_ENV === 'production')
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  next();
-});
+app.use(securityHeaders());
 
 // ── Health-Check (für Docker/K8s) ──────────────────────────────
 app.get('/health', (req, res) => {
@@ -78,16 +74,10 @@ async function start() {
     });
 
     // 404 Handler
-    app.use((req, res) => {
-      res.status(404).json({ error: 'Not found', path: req.url, service: 'admin-panel' });
-    });
+    app.use(notFoundHandler('admin-panel'));
 
     // Error Handler
-    app.use((err, req, res, next) => {
-      console.error('Error:', err);
-      if (res.headersSent) return next(err);
-      res.status(500).json({ error: 'Internal server error' });
-    });
+    app.use(jsonErrorHandler());
 
     // Start admin server
     const server = app.listen(ADMIN_PORT, HOST, () => {
@@ -97,41 +87,13 @@ async function start() {
       console.log(`   Datenbank: ${dbPath}`);
     });
 
-    // Graceful shutdown
-    process.on('SIGTERM', () => {
-      console.log('SIGTERM empfangen, fahre herunter...');
-      server.close(() => {
-        console.log('Admin Server wurde beendet');
-        process.exit(0);
-      });
-    });
+    installSigtermHandler(server, 'Admin Server');
   } catch (error) {
     console.error('❌ Fehler beim Starten des Admin Servers:', error.message);
     process.exit(1);
   }
 }
 
-// Handle uncaught errors – auf Modulebene registriert (vor start()), konsistent mit
-// server/server.js (#274): bei DB-Fehlern beenden, damit der Orchestrator neu startet,
-// statt den Admin-Server in einem kaputten Zustand „am Leben" zu lassen.
-process.on('uncaughtException', (err) => {
-  console.error('❌ Uncaught Exception:', err);
-  // For database errors, this is likely fatal - exit
-  if (err.message && err.message.includes('database')) {
-    console.error('⚠️  Database error - exiting');
-    process.exit(1);
-  }
-  // Don't exit for other errors, let the server continue
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection:', reason);
-  // For database errors, this is likely fatal - exit
-  if (reason && reason.message && reason.message.includes('database')) {
-    console.error('⚠️  Database error - exiting');
-    process.exit(1);
-  }
-  // Don't exit for other errors, let the server continue
-});
+installFatalHandlers();
 
 start();

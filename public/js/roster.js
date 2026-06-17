@@ -383,9 +383,7 @@ function applyRosterToWindow(){
 
   // dayState neu aufbauen: sick/absent leeren, Turm-/Boot-Schließungen je Tag erhalten
   const old = dayState || [];
-  dayState = Array.from({ length: DAYS }, (_, i) => ({
-    sick:        new Set(),
-    absent:      new Set(),
+  dayState = Array.from({ length: DAYS }, (_, i) => freshDay({
     closed:      new Set(old[i] ? old[i].closed : []),
     closedBoats: new Set(old[i] ? old[i].closedBoats : []),
   }));

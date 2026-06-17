@@ -154,13 +154,18 @@ let isPublicView = false;
 
 // ── Konstruktoren ────────────────────────────────────────────────
 
-function freshDayState(){
-  return Array.from({ length: DAYS }, () => ({
+function freshDay(overrides = {}){
+  return {
     sick:        new Set(),
     absent:      new Set(),
     closed:      new Set(),
     closedBoats: new Set(),
-  }));
+    ...overrides,
+  };
+}
+
+function freshDayState(){
+  return Array.from({ length: DAYS }, () => freshDay());
 }
 
 function freshForcedPlacements(){

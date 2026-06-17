@@ -156,7 +156,7 @@ function generate(startDay = 0){
   }
 
   for(let d = startDay; d < DAYS; d++){
-    const ds       = dayState[d] || { sick: new Set(), absent: new Set(), closed: new Set(), closedBoats: new Set() };
+    const ds       = dayState[d] || freshDay();
     const isAbsent = id => (ds.absent || new Set()).has(id);
     // "außer Dienst" (HW-Anzeige) gilt nur für nicht komplett abwesende Personen.
     const isSick   = id => ds.sick.has(id) && !isAbsent(id);

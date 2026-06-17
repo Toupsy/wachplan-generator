@@ -27,15 +27,10 @@ function dcSection(key, label, body, count){
 function renderOutput(){
   // Sicherstelle dass dayState korrekt initialisiert ist
   if(!dayState || dayState.length === 0){
-    dayState = Array.from({ length: DAYS }, () => ({
-      sick: new Set(),
-      absent: new Set(),
-      closed: new Set(),
-      closedBoats: new Set()
-    }));
+    dayState = freshDayState();
   }
   while(dayState.length < DAYS){
-    dayState.push({ sick: new Set(), absent: new Set(), closed: new Set(), closedBoats: new Set() });
+    dayState.push(freshDay());
   }
 
   const panel = document.getElementById('output-panel');
