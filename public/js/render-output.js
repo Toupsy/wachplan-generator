@@ -159,14 +159,19 @@ function renderOutput(){
 
   let html;
   if(viewOnly){
-    // Beobachter: schlanke Kopfzeile (Plan-Name, Tag-Navigation, Pläne wechseln, Abmelden).
-    html = `
-    <div class="vo-bar">
-      <div class="vo-title">👁 ${escapeHtml(typeof currentPlanName !== 'undefined' ? currentPlanName : 'Wachplan')} <span class="vo-badge">Nur Ansicht</span></div>
+    // Beobachter: schlanke Kopfzeile (Plan-Name, Tag-Navigation). Im öffentlichen
+    // Beobachter-Modus (Token-Link, anonym) gibt es keine Konto-/Plan-Bedienelemente –
+    // nur eingeloggte view-Mitbearbeiter sehen „Pläne"/„Abmelden".
+    const publicView = (typeof isPublicView !== 'undefined' && isPublicView);
+    const voActions = publicView ? '' : `
       <div class="vo-actions">
         <button class="ghost-btn" id="vo-plans" style="border-color:var(--sea-bright);color:var(--sea-bright)">📋 Pläne</button>
         <button class="ghost-btn" id="vo-logout" style="border-color:var(--coral);color:var(--coral)">🚪 Abmelden</button>
-      </div>
+      </div>`;
+    html = `
+    <div class="vo-bar">
+      <div class="vo-title">👁 ${escapeHtml(typeof currentPlanName !== 'undefined' ? currentPlanName : 'Wachplan')} <span class="vo-badge">Nur Ansicht</span></div>
+      ${voActions}
     </div>
     <div class="out-header">
       <div>

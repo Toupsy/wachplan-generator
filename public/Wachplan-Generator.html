@@ -562,6 +562,10 @@
   body.view-only .day-controls,
   body.view-only .move-btn{display:none !important}
   body.view-only .main-panels{grid-template-columns:1fr}
+  /* Output sitzt normalerweise in Grid-Spalte 2 (neben der Sidebar). Ohne Sidebar
+     muss es zurück in Spalte 1 – sonst landet es in einer Phantom-Spalte und wirkt
+     gestaucht (analog zur eingeklappten Sidebar). */
+  body.view-only .panel-output{grid-column:1}
   body.view-only .occupant,body.view-only .tc-head,body.view-only .boat-inline{cursor:default !important}
   .vo-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;padding:12px 14px;background:var(--deep);border:1px solid var(--line);border-radius:10px}
   .vo-title{font-weight:600;font-size:1rem;color:var(--text);display:flex;align-items:center;gap:8px;min-width:0}

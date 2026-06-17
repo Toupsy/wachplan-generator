@@ -38,6 +38,16 @@ ihre Wachgänger den Plan **ohne Account nur ansehen** können (kein Bearbeiten)
   lädt über den auth-freien Endpoint, erzwingt `currentPlanCanEdit=false` (→ `body.view-only`,
   Beobachter-Modus aus Feature 30) und überspringt Login/Autoload/Realtime. Ungültiger/abgelaufener
   Link → freundliche Hinweisseite.
+- **Anonymer vs. eingeloggter Beobachter:** Globales Flag `isPublicView` (state.js, nicht serialisiert).
+  Im öffentlichen Beobachter-Modus blendet die `vo-bar` (render-output.js) die Konto-/Plan-Knöpfe
+  („📋 Pläne", „🚪 Abmelden") aus – ein anonymer Wachgänger hat weder Account noch Plan-Wechsel.
+  Eingeloggte view-Mitbearbeiter behalten sie. `initPublicView` setzt `body.view-only` sofort
+  (vor dem ersten `generate()`) → kein Aufblitzen der Editier-UI.
+- **Layout-Fix:** `.panel-output` liegt regulär in Grid-Spalte 2 (neben der Sidebar). Im
+  `body.view-only` (Sidebar ausgeblendet) fehlte das Zurücksetzen auf Spalte 1 → der Plan landete
+  in einer Phantom-Spalte und wirkte gestaucht. Neue Regel `body.view-only .panel-output{grid-column:1}`
+  (analog zur eingeklappten Sidebar) zeigt den Plan voll-breit. Betrifft auch den eingeloggten
+  view-Mitbearbeiter.
 
 ### Feature 36: Vollständiges Audit-Log für Benutzer-Aktionen (Issue #293)
 Bisher wurden nur System-Events (`plan_cleanup`) und Admin-Aktionen ins `audit_log` geschrieben.
