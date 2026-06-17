@@ -98,6 +98,15 @@ function initDatabase() {
 
       console.log('✓ Database connection established:', dbPath);
 
+      // Rollback-Journal (DELETE) statt WAL – früh und auf DERSELBEN Verbindung, die
+      // gleich das Schema schreibt. WAL ist zwischen den zwei Containern (wachplan +
+      // wachplan-admin) auf dem geteilten Volume nicht prozess-kohärent und korrumpiert
+      // die DB (s. connection.js). Setzt zudem eine bestehende WAL-DB beim Start auf
+      // DELETE zurück, bevor irgendetwas geschrieben wird. busy_timeout: cross-process
+      // Lock-Contention abwarten statt SQLITE_BUSY.
+      db.run('PRAGMA busy_timeout = 5000', () => {});
+      db.run('PRAGMA journal_mode = DELETE', () => {});
+
       // Integritäts-Check beim Start: erkennt eine beschädigte Datei (SQLITE_CORRUPT,
       // "database disk image is malformed") sofort und laut, statt sie als verstreute
       // Query-Fehler im Betrieb auftauchen zu lassen. Häufige Ursache hier: zwei

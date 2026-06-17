@@ -483,6 +483,25 @@ Turmplatz verfügbar ist** – das ist bei **überzähligen** BF der Fall (sie s
 
 ## Bugfixes
 
+### SQLITE_CORRUPT-Dauerfix: Rollback-Journal (DELETE) statt WAL
+**Problem (reproduzierbar, frische DB):** Nach komplettem DB-Löschen + Neustart trat beim ersten
+Schreiben sofort `SQLITE_CORRUPT: database disk image is malformed` auf (zuerst sichtbar an den
+fire-and-forget `audit_log`-Inserts bei `plan_create`/`plan_update`). Ursache: `db/connection.js`
+setzte `PRAGMA journal_mode = WAL`. In `docker-compose.yml` greifen aber **zwei Container**
+(`wachplan` + `wachplan-admin`, gleiches Image) über das geteilte Volume `wachplan-data` auf
+**dieselbe** `wachplan.db` zu. WALs Shared-Memory-Koordination (`-shm`, mmap) ist zwischen
+getrennten Prozessen NICHT kohärent → gleichzeitige Writes zerstören die Datei. WAL war per
+Commit eingeführt worden (für „bessere Nebenläufigkeit"); davor lief die DB im rollback-Journal
+und war prozessübergreifend stabil.
+- **Lösung:** Überall **`PRAGMA journal_mode = DELETE`** statt WAL – an allen drei Writer-
+  Verbindungen: `db/connection.js` (App-Queries), `db/init.js` (Init/Schema; konvertiert eine
+  bestehende WAL-DB beim Start zurück auf DELETE) und `db/session.js` (connect-sqlite3-Store).
+  DELETE nutzt POSIX-fcntl-Locks, die zwischen Prozessen zuverlässig serialisieren;
+  `busy_timeout=5000` lässt contendende Writer warten statt mit `SQLITE_BUSY` zu scheitern. Für
+  die geringe Schreiblast der App völlig ausreichend. Regressionstest `test/db-journal-mode.test.js`
+  (journal_mode=delete + gleichzeitige Writes ohne Korruption). Nebeneffekt: die zuvor sporadisch
+  flakigen DB-Tests (`session-user-deletion`, `auth-flow`) laufen stabil.
+
 ### Auto-Heilung beschädigter `sessions`-Tabelle beim Start
 **Problem:** Auf Produktiv-DBs (zwei Container – wachplan + wachplan-admin – auf demselben
 WAL-Volume, s. CLAUDE.md) beschädigt sich gelegentlich die vom `connect-sqlite3`-Session-Store

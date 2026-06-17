@@ -226,16 +226,23 @@ neu auf (auch bei jeder Datum-/Tage-Änderung in init.js). CSV-Parsing zuverläs
 (lazy von cdnjs, Spalten-Rekonstruktion über x-Positionen) best-effort. Job→Rolle WF/BF/RS→F/B/W,
 importierte Personen starten unerfahren. Kernfunktionen DOM-frei + testbar (`test/roster.test.js`).
 
+**DB-Journal-Modus = DELETE (nicht WAL!) – prozessübergreifend sicher:** In `docker-compose.yml`
+schreiben **zwei Container** (`wachplan` + `wachplan-admin`, gleiches Image) dieselbe DB auf dem
+geteilten Volume `wachplan-data`. WALs Shared-Memory (`-shm`, mmap) ist zwischen Prozessen NICHT
+kohärent → `SQLITE_CORRUPT: database disk image is malformed` schon beim ersten gleichzeitigen
+Schreiben (z. B. `audit_log` beim `plan_create`). Daher läuft die DB im **Rollback-Journal-Modus
+`DELETE`** (POSIX-fcntl-Locks serialisieren zwischen Prozessen, `busy_timeout=5000` lässt warten).
+Gesetzt an **allen drei** Writer-Connections: `db/connection.js` (getDb), `db/init.js`
+(Init/Schema, konvertiert auch eine bestehende WAL-DB zurück) und `db/session.js` (connect-sqlite3-
+Store). **NIEMALS** wieder `journal_mode=WAL` setzen (Regressionstest `test/db-journal-mode.test.js`).
+
 **DB-Integrität & Korruption:** `initDatabase()` (db/init.js) führt beim Start ein
-`PRAGMA integrity_check` aus (`checkIntegrity()`) und loggt bei Beschädigung laut einen
-Recovery-Hinweis (`✓ Database integrity check: ok` im Normalfall). Mit `DB_FAIL_ON_CORRUPT=1`
-bricht der Start hart ab statt weiterzulaufen. **Falle:** In `docker-compose.yml` schreiben
-**zwei Container** (`wachplan` + `wachplan-admin`, gleiches Image) dieselbe WAL-DB auf dem
-geteilten Volume `wachplan-data` → fragile WAL-Shared-Memory-Koordination zwischen Prozessen
-ist die wahrscheinliche Ursache von `SQLITE_CORRUPT: database disk image is malformed` in Prod.
-Recovery: beide Container stoppen, `sqlite3 wachplan.db ".recover" | sqlite3 neu.db`, prüfen,
-einspielen, `-wal`/`-shm` löschen. Dauerfix (offen): Admin in den Hauptprozess ziehen ODER
-WAL abschalten (`journal_mode=DELETE`, POSIX-Locks sind prozessübergreifend robuster).
+`PRAGMA integrity_check` aus (`checkIntegrity()`). Bei Beschädigung, die NUR die (wegwerfbare)
+`sessions`-Tabelle betrifft, heilt der Start automatisch (`healSessionCorruption()`: DROP +
+VACUUM + Re-Check; Nutzer/Pläne unberührt, Opt-out `DB_NO_SESSION_AUTOHEAL=1`). Sonst lauter
+Recovery-Hinweis; mit `DB_FAIL_ON_CORRUPT=1` harter Abbruch. Manuelle Recovery (echte Daten-
+Korruption): beide Container stoppen, `sqlite3 wachplan.db ".recover" | sqlite3 neu.db`, prüfen,
+einspielen, `-wal`/`-shm` löschen.
 
 **Auth/Encryption:** Session-Cookies (HTTPOnly, sameSite:lax, 7d / 30d „Merke mich"), bcryptjs
 (10 Rounds), Passwort ≥10 Zeichen, AES-256-GCM mit **Owner-Key** (kein Re-Encrypt beim Teilen),
