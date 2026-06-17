@@ -33,6 +33,17 @@ function createSessionMiddleware({ resave = true, saveUninitialized = true } = {
     store.db.run(`PRAGMA busy_timeout = ${DB_BUSY_TIMEOUT_MS}`, () => {});
     store.db.run('PRAGMA journal_mode = DELETE', () => {});
   }
+  // express-session calls store.touch() at the end of most authenticated requests
+  // even when the session data did not change. On NAS-backed SQLite this turns
+  // every plan save into an extra writer on the same DB file and can surface as
+  // SQLITE_IOERR after the route already sent its JSON response. Session creation,
+  // login, logout and explicit saves still write via set()/destroy(); this only
+  // avoids the per-request expiry UPDATE. Set SESSION_TOUCH_WRITES=1 to restore it.
+  if (process.env.SESSION_TOUCH_WRITES !== '1') {
+    store.touch = (sid, session, fn) => {
+      if (typeof fn === 'function') fn(null, true);
+    };
+  }
   const middleware = session({
     store,
     secret: process.env.SESSION_SECRET,
@@ -45,6 +56,7 @@ function createSessionMiddleware({ resave = true, saveUninitialized = true } = {
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     }
   });
+  middleware.store = store;
   middleware.closeStore = () => new Promise((resolve) => {
     if (typeof store.close === 'function') return store.close(resolve);
     if (store.db && typeof store.db.close === 'function') return store.db.close(resolve);
