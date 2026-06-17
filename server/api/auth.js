@@ -150,6 +150,9 @@ function _cleanupExpiredEntries() {
   }
 }
 
+const _loginCleanupTimer = setInterval(_cleanupExpiredEntries, LOGIN_WINDOW_MS);
+if (typeof _loginCleanupTimer.unref === 'function') _loginCleanupTimer.unref();
+
 function _attemptEntry(ip) {
   const now = Date.now();
   let e = _loginAttempts.get(ip);
