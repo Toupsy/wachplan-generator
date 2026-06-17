@@ -6,6 +6,7 @@ const path = require('path');
 const session = require('express-session');
 const SqliteStore = require('connect-sqlite3')(session);
 const { dbPath } = require('./connection');
+const DB_BUSY_TIMEOUT_MS = Number.parseInt(process.env.DB_BUSY_TIMEOUT_MS || '30000', 10);
 
 // Erstellt die Session-Middleware mit SQLite-Store.
 // server.js nutzt resave/saveUninitialized=true (SQLite-Reliability),
@@ -28,10 +29,11 @@ function createSessionMiddleware({ resave = true, saveUninitialized = true } = {
   // dritte Writer-Connection darf die geteilte DB nicht auf WAL umschalten, sonst
   // korrumpiert die prozessübergreifende WAL-Koordination die Datei (SQLITE_CORRUPT).
   if (store.db && typeof store.db.run === 'function') {
-    store.db.run('PRAGMA busy_timeout = 5000', () => {});
+    if (typeof store.db.configure === 'function') store.db.configure('busyTimeout', DB_BUSY_TIMEOUT_MS);
+    store.db.run(`PRAGMA busy_timeout = ${DB_BUSY_TIMEOUT_MS}`, () => {});
     store.db.run('PRAGMA journal_mode = DELETE', () => {});
   }
-  return session({
+  const middleware = session({
     store,
     secret: process.env.SESSION_SECRET,
     resave,
@@ -43,6 +45,12 @@ function createSessionMiddleware({ resave = true, saveUninitialized = true } = {
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     }
   });
+  middleware.closeStore = () => new Promise((resolve) => {
+    if (typeof store.close === 'function') return store.close(resolve);
+    if (store.db && typeof store.db.close === 'function') return store.db.close(resolve);
+    resolve();
+  });
+  return middleware;
 }
 
 module.exports = { createSessionMiddleware };

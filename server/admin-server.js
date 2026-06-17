@@ -9,6 +9,7 @@ const express = require('express');
 const path = require('path');
 const { createSessionMiddleware } = require('./db/session');
 const { initDatabase, validateEnv } = require('./db/init');
+const { dbRun, dbPath } = require('./db/connection');
 const authApi = require('./api/auth');
 const adminApi = require('./api/admin');
 
@@ -50,8 +51,11 @@ async function start() {
     await initDatabase();
     console.log('✓ Database ready');
 
+    // Wait until the runtime connection has applied busy_timeout/journal_mode
+    // before connect-sqlite3 opens its own writer connection.
+    await dbRun('SELECT 1');
+
     // Session middleware (SQLite-Store, zentral in db/session.js)
-    const dbPath = path.join(__dirname, '..', 'data', 'wachplan.db');  // für Log unten
     app.use(createSessionMiddleware({ resave: false, saveUninitialized: false }));
 
     // Register API routes AFTER session middleware
@@ -81,6 +85,7 @@ async function start() {
     // Error Handler
     app.use((err, req, res, next) => {
       console.error('Error:', err);
+      if (res.headersSent) return next(err);
       res.status(500).json({ error: 'Internal server error' });
     });
 

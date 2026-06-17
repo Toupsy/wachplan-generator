@@ -72,7 +72,8 @@ test('Auth-Flow: Registrierung, Verifizierung, Login, Passwort-Reset', async (t)
   // der Session-Store seine Connection öffnet (wie server.js).
   await dbRun('PRAGMA journal_mode = DELETE');
   const app = express();
-  app.use(createSessionMiddleware({}));
+  const sessionMiddleware = createSessionMiddleware({});
+  app.use(sessionMiddleware);
   app.use('/api/auth', authApi);
   await new Promise(resolve => { server = app.listen(0, '127.0.0.1', resolve); });
   base = `http://127.0.0.1:${server.address().port}`;
@@ -315,6 +316,7 @@ test('Auth-Flow: Registrierung, Verifizierung, Login, Passwort-Reset', async (t)
 
   // ── Teardown ──
   await new Promise(resolve => server.close(resolve));
+  await sessionMiddleware.closeStore();
   await new Promise(resolve => getDb().close(resolve));
   for (const suffix of ['', '-wal', '-shm']) {
     const f = testDbPath + suffix;
