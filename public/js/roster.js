@@ -212,10 +212,20 @@ if(typeof module !== 'undefined' && module.exports){
 let _pdfjsPromise = null;
 function _loadScript(src){
   return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[src="${src}"]`);
+    if(existing) {
+      if(existing.dataset.loaded === '1') { resolve(); return; }
+      existing.addEventListener('load', resolve, { once: true });
+      existing.addEventListener('error', () => reject(new Error('Konnte nicht geladen werden: ' + src)), { once: true });
+      return;
+    }
     const s = document.createElement('script');
     s.src = src;
-    s.onload = resolve;
-    s.onerror = () => reject(new Error('Konnte nicht geladen werden: ' + src));
+    s.onload = () => { s.dataset.loaded = '1'; resolve(); };
+    s.onerror = () => {
+      s.remove();
+      reject(new Error('Konnte nicht geladen werden: ' + src));
+    };
     document.head.appendChild(s);
   });
 }
@@ -294,19 +304,27 @@ function _pdfParseLine(text){
 async function parseRosterPDF(arrayBuffer){
   const pdfjs = await loadPdfJsLib();
   const doc = await pdfjs.getDocument({ data: arrayBuffer }).promise;
-  const rows = [];
-  for(let p = 1; p <= doc.numPages; p++){
-    const page = await doc.getPage(p);
-    const tc = await page.getTextContent();
-    const lines = _pdfGroupLines(tc.items);
-    for(const line of lines){
-      const text = line.map(t => t.str).join(' ').replace(/\s+/g, ' ').trim();
-      const row = _pdfParseLine(text);
-      if(row) rows.push(row);
+  try {
+    const rows = [];
+    for(let p = 1; p <= doc.numPages; p++){
+      const page = await doc.getPage(p);
+      try {
+        const tc = await page.getTextContent();
+        const lines = _pdfGroupLines(tc.items);
+        for(const line of lines){
+          const text = line.map(t => t.str).join(' ').replace(/\s+/g, ' ').trim();
+          const row = _pdfParseLine(text);
+          if(row) rows.push(row);
+        }
+      } finally {
+        if(typeof page.cleanup === 'function') page.cleanup();
+      }
     }
+    console.log('[roster] PDF: ' + doc.numPages + ' Seite(n), ' + rows.length + ' Datenzeilen erkannt');
+    return rows;
+  } finally {
+    if(typeof doc.destroy === 'function') await doc.destroy();
   }
-  console.log('[roster] PDF: ' + doc.numPages + ' Seite(n), ' + rows.length + ' Datenzeilen erkannt');
-  return rows;
 }
 
 // ── Integration (UI / State) ─────────────────────────────────────────────────

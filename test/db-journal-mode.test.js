@@ -10,7 +10,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const os = require('os');
 const path = require('path');
-const { execFileSync } = require('child_process');
+const { execFileSync, spawn } = require('child_process');
 
 const REPO = path.join(__dirname, '..');
 
@@ -48,10 +48,50 @@ function journalModeAfterInit(dbPath) {
   return out;
 }
 
+function runConcurrentInit(dbPath) {
+  const script = `
+    process.env.MASTER_SECRET='${'x'.repeat(40)}';
+    process.env.SALT='${'y'.repeat(20)}';
+    process.env.SESSION_SECRET='${'z'.repeat(20)}';
+    process.env.ADMIN_USERNAME='admin';
+    process.env.ADMIN_PASSWORD='${'p'.repeat(20)}';
+    process.env.DB_INIT_LOCK_TIMEOUT_MS='10000';
+    const { initDatabase } = require('./server/db/init');
+    (async () => {
+      await initDatabase();
+      console.log('INIT_OK');
+    })().catch(e => { console.error('ERR:' + e.code + ':' + e.message); process.exit(1); });
+  `;
+
+  const env = { ...process.env, DATABASE_PATH: dbPath, NODE_ENV: 'production' };
+  const children = [
+    spawn('node', ['-e', script], { cwd: REPO, env }),
+    spawn('node', ['-e', script], { cwd: REPO, env })
+  ];
+
+  return Promise.all(children.map(child => new Promise((resolve) => {
+    let out = '';
+    let err = '';
+    child.stdout.on('data', chunk => { out += chunk; });
+    child.stderr.on('data', chunk => { err += chunk; });
+    child.on('close', code => resolve({ code, out, err }));
+  })));
+}
+
 test('App-Verbindung nutzt journal_mode=delete (kein WAL)', () => {
   const dbPath = path.join(os.tmpdir(), `journaltest_${process.pid}_${Date.now()}.db`);
   const out = journalModeAfterInit(dbPath);
   assert.match(out, /JOURNAL=delete/, 'journal_mode muss "delete" sein, war:\n' + out);
+});
+
+test('Parallele initDatabase-Prozesse serialisieren Schema-Initialisierung', async () => {
+  const dbPath = path.join(os.tmpdir(), `inittest_${process.pid}_${Date.now()}.db`);
+  const results = await runConcurrentInit(dbPath);
+  const combined = results.map(r => r.out + r.err).join('\n--- child ---\n');
+
+  assert.deepStrictEqual(results.map(r => r.code), [0, 0], combined);
+  assert.match(combined, /INIT_OK/, combined);
+  assert.doesNotMatch(combined, /SQLITE_CORRUPT|database disk image is malformed|Timed out waiting/, combined);
 });
 
 test('Gleichzeitige Writes zweier Verbindungen ohne SQLITE_CORRUPT', () => {
