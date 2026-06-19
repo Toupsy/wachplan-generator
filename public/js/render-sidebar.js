@@ -590,8 +590,7 @@ function renderAlgoParams(){
       label: 'Hauptwache (HW)',
       params: [
         { key:'hwVisitWeightTower', label:'HW-Tage → Turm-Bonus',          desc:'Pro akkumuliertem HW-Tag bekommt die Person einen Bonus für Turm-Zuweisung',          min:0, max:300   },
-        { key:'hwVisitWeightHW',    label:'HW-Tage → HW-Strafe',           desc:'Pro akkumuliertem HW-Tag wird die Person für erneuten HW-Dienst gebremst',           min:0, max:300   },
-        { key:'consecutiveHwPenalty', label:'Aufeinanderfolgend. HW',      desc:'Strafe wenn jemand heute wieder aktiver HW-Dienst wie gestern ist – sorgt für Rotation',  min:0, max:1000  },
+        { key:'hwVisitWeightHW',    label:'HW-Wiederholungsbesuch',        desc:'Strafe pro bisherigem HW-Dienst – sorgt für Rotation (analog zum Turm-Wiederholungsbesuch)', min:0, max:1000  },
         { key:'hwWishBonusEarly',   label:'BF-HW-Wunsch (früh)',           desc:'Bonus für BF mit HW-Wunsch der noch unerfüllt ist (>2 Tage vor Ende der Woche)',      min:0, max:5000  },
         { key:'hwWishBonusNear',    label:'BF-HW-Wunsch (2 Tage vor Ende)',desc:'Eskalierter Bonus wenn noch 2 Tage bleiben um den Wunsch zu erfüllen',               min:0, max:20000 },
       ],
