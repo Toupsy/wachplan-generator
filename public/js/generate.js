@@ -417,6 +417,7 @@ function generate(startDay = 0){
       const cand   = getGuardPool();
       const isMain = t.id === MAIN_ID;
       let best = null, bestScore = Infinity;
+      const preferSingleMedicPair = towerNeedsSan && cand.some(p => p.sanitaeter) && cand.some(p => !p.sanitaeter);
       const sanPairBonus = (A, B) => {
         const medics = (A.sanitaeter ? 1 : 0) + (B.sanitaeter ? 1 : 0);
         return medics ? algoParams.sanTowerBonus / medics : 0;
@@ -437,6 +438,7 @@ function generate(startDay = 0){
       for(let i = 0; i < cand.length; i++){
         for(let j = i + 1; j < cand.length; j++){
           const A = cand[i], B = cand[j], roles = getEffectiveRole(A) + getEffectiveRole(B);
+          if(preferSingleMedicPair && ((A.sanitaeter ? 1 : 0) + (B.sanitaeter ? 1 : 0)) !== 1) continue;
           const sA = ensure(A.id), sB = ensure(B.id);
           let score = 0;
           if(requireMix){
@@ -485,6 +487,10 @@ function generate(startDay = 0){
             if(sanActive){
               if(t.sanTower){
                 if(towerNeedsSan) score -= sanPairBonus(A, B);
+                else {
+                  if(A.sanitaeter) score += algoParams.sanReservePenalty;
+                  if(B.sanitaeter) score += algoParams.sanReservePenalty;
+                }
               } else {
                 if(A.sanitaeter) score += algoParams.sanReservePenalty;
                 if(B.sanitaeter) score += algoParams.sanReservePenalty;
@@ -747,6 +753,9 @@ function generate(startDay = 0){
                 if(towerNeedsSan){
                   if(a.sanitaeter) scoreA -= algoParams.sanTowerBonus;
                   if(b.sanitaeter) scoreB -= algoParams.sanTowerBonus;
+                } else {
+                  if(a.sanitaeter) scoreA += algoParams.sanReservePenalty;
+                  if(b.sanitaeter) scoreB += algoParams.sanReservePenalty;
                 }
               } else {
                 if(a.sanitaeter) scoreA += algoParams.sanReservePenalty;
