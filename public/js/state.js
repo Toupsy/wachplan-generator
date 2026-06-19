@@ -67,8 +67,7 @@ function defaultAlgoParams(){
     reserveExpPenalty:      5000,   // Erfahrener an HW wenn Türme ihn brauchen
     // Hauptwache
     hwVisitWeightTower:       60,   // HW-Tage → Turm-Bonus (pro HW-Tag)
-    hwVisitWeightHW:          60,   // HW-Tage → HW-Strafe (pro HW-Tag)
-    consecutiveHwPenalty:    200,   // Strafe wenn jemand heute wieder aktiver HW-Dienst wie gestern hat (Rotation)
+    hwVisitWeightHW:         200,   // HW-Strafe pro bisherigem HW-Dienst (Rotation, analog towerVisitWeight beim Turm)
     hwWishBonusEarly:        600,   // BF-HW-Wunsch Bonus (früh, >2 Tage vor Ende)
     hwWishBonusNear:        6000,   // BF-HW-Wunsch Bonus (2 Tage vor Ende)
     // BF-Schutz

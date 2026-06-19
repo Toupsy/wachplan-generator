@@ -143,8 +143,7 @@ Läuft **sequenziell** über alle Tage; akkumulierte `stats` übertragen sich au
 +250×  bisherige gemeinsame Turmdienste (Paar-Wdh.)     +200×v Turmbesuche A/B (linear)
 +10×   (totalA+totalB) Fairness                         +800/-350 surplusBF aktiv/inaktiv-Boot
 +200×  konsekutive Tage gleicher Turm (Feature 8)       +150 beide viele Boot-Tage
-+200×  konsekutive Tage HW-Dienst (Feature 42, isMain)  // gleiche Rotation für die HW
--60×   hwVisits (Bonus für Turm)  / +60× an HW-k-Slots
+-60×   hwVisits (Bonus für Turm)  / +200×v hwVisits an HW-k-Slots (HW-Wiederholungsbesuch, Feature 42)
 +5000  E an HW wenn reserveExpAtHW (Experience-Reservierung, s. u.)
 +60×   Außen-/Hauptstrand-Überhang (Feature 25, nur wenn beide Turm-Sorten existieren)
 + Tiebreaker (deterministisch bzw. seededRand() für Tag 1)
