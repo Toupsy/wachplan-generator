@@ -584,6 +584,7 @@
     .wrap>header,.sidebar,.export-row,.day-tabs,.stats-bar,.out-header,.out-extras,
     #autosave-indicator,#user-info-header,.modal-overlay,.modal,#login-modal,
     #move-modal,#confirm-modal,#pw-modal,#share-modal,#plans-modal,
+    #update-banner,.toast,
     .day-controls .dc-section,.move-btn,.mobile-switch{display:none !important}
     .notice:not(.bad):not(.warn-n){display:none !important}
     .wrap,.panel,#output-panel,.main-panels{display:block !important;max-width:none !important;width:auto !important;margin:0 !important;padding:0 !important;background:#fff !important;border:none !important;box-shadow:none !important;grid-template-columns:none !important;height:auto !important}
@@ -607,15 +608,18 @@
     /* Notices: kompakt, nicht über Seiten umbrechen */
     .notice.bad,.notice.warn-n{break-inside:avoid !important;margin:2mm 0 !important;padding:6px 8px !important;font-size:9pt !important}
     /* Karten hell, kompakt; dichteres Raster, damit ein Tag auf eine Seite passt */
-    .towers-grid{gap:3mm !important;grid-template-columns:repeat(auto-fill,minmax(185px,1fr)) !important}
+    .towers-grid{gap:3mm !important;grid-template-columns:repeat(auto-fill,minmax(170px,1fr)) !important;align-content:start}
     .tower-card{break-inside:avoid;background:#fff !important;border:1px solid #888 !important;color:#000 !important;box-shadow:none !important;padding:7px 9px !important}
-    .tower-card.main{background:#f7f7f7 !important}
+    /* Hauptwache IMMER als volle, letzte Reihe unten – damit alle (auch geschlossene)
+       Türme in den Reihen DARÜBER liegen und kein Turm in einer Waisen-Reihe unter der
+       breiten HW-Karte auf eine 2. Seite rutscht (order rückt die HW ans Raster-Ende). */
+    .tower-card.main{order:100;grid-column:1 / -1 !important;background:#f7f7f7 !important}
     .tower-card::before{display:none !important}
     .tower-card *{color:#000 !important}
     .tc-name{font-weight:700}
     .tc-type{background:#eee !important;color:#333 !important;border:1px solid #ccc}
     .tc-type.closed{background:#fdecea !important;color:#a11 !important}
-    .occupant{border-color:#ddd !important;padding:4px 0 !important;font-size:10.5pt}
+    .occupant{border-color:#ddd !important;padding:3px 0 !important;font-size:10pt}
     .o-role{display:none !important}
     .hq-divider,.boat-inline{color:#333 !important;border-color:#aaa !important}
     .role-dot{border:1px solid #888}
