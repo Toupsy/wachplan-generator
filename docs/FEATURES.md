@@ -1,756 +1,307 @@
 # Feature- & Bugfix-Historie – DLRG Wachplan-Generator
 
-> **On-demand-Doku.** Wird NICHT automatisch in jede Session geladen. Hier steht die
-> ausführliche Historie aller Features und Bugfixes. Überblick/Architektur → `CLAUDE.md`,
-> aktueller Arbeitsstand → `HANDOFF.md`.
+> **On-demand-Doku.** Wird NICHT automatisch in jede Session geladen. Hier steht die Historie
+> aller Features/Bugfixes; Überblick/Architektur → `CLAUDE.md`, aktueller Stand → `HANDOFF.md`.
 >
-> **Pflege:** Bei jeder funktionalen Änderung hier einen Eintrag ergänzen (neues Feature
-> oder Bugfix), mit Issue-Nr. + VERSION. CLAUDE.md nur anfassen, wenn sich Architektur,
-> Datenmodell, Algorithmus-Verhalten oder eine Konvention/Falle ändert.
+> **Pflege:** Bei jeder funktionalen Änderung hier **einen knappen Eintrag** ergänzen
+> (Issue-Nr. + VERSION). Was/Wo/warum genügt – tiefe Mechanik gehört in `CLAUDE.md`/Code, nicht
+> als Essay hierher. CLAUDE.md nur bei Architektur/Datenmodell/Algorithmus/Konvention/Falle.
 
 ---
 
 ## Features
 
+### Feature 41: Druck „1 Tag = 1 Seite" + Admin-Audit-Log-Pagination
+- **Druck (`Wachplan-Generator.html` @media print):** `break-inside:avoid` auf `.day-panel`/
+  `.towers-grid` entfernt – es schob ganze Blöcke (bei Warn-Notices durch geschlossenen Turm/
+  Abwesende) auf die nächste Seite und hinterließ leere bzw. Nur-Warnmeldung-Seiten. Jetzt
+  erzwingt nur `page-break-after` je Tag die Regel; einzelne Karten bleiben via
+  `break-inside:avoid` auf `.tower-card` intakt, dichteres Raster (`minmax(185px)`, `gap:3mm`)
+  hält den Inhalt kompakt.
+- **Audit-Log (`admin.html` + `api/admin.js`):** Seitengröße 10/25/50/100/Alle + klassische
+  Seiten-Navigation (1, 2, 3, … mit Ellipsen, ‹/›). Endpoint liefert zusätzlich `total`
+  (gefiltert), `limit=all` = ohne Limit; sonst server-seitiges `LIMIT/OFFSET`.
+
 ### Feature 38: Öffentliche Beobachter-Links (Nur-Ansicht ohne Login)
-Wachführer (eingeloggte Nutzer) können pro Plan einen **Beobachter-Link** erstellen, mit dem
-ihre Wachgänger den Plan **ohne Account nur ansehen** können (kein Bearbeiten). Der Link ist
-**7 Tage gültig** und läuft danach automatisch ab.
-
-**Backend:**
-- Neue Tabelle `plan_public_links` (`schema.sql`): speichert nur den **SHA-256-Hash** des
-  256-Bit-Tokens (DB-Leak ≠ funktionierende Links), `expires_at` (Epoch ms), `revoked_at`,
-  `created_by`. `ON DELETE CASCADE` auf `plans`/`users`.
-- `server/api/plans.js` (nur Owner): `POST /api/plans/:id/public-link` (Token einmalig im Klartext
-  zurück, TTL `PUBLIC_LINK_TTL_MS` = 7 Tage), `GET /api/plans/:id/public-links` (nur Metadaten,
-  Owner+Mitbearbeiter), `DELETE /api/plans/:id/public-link/:linkId` (zurückziehen). Audit:
-  `plan_public_link_create` / `plan_public_link_revoke`.
-- `server/api/public.js` (**kein Auth**, registriert als `/api/public` in `server.js`):
-  `GET /api/public/plan/:token` → validiert Token (Format-Guard 64-Hex, nicht abgelaufen/zurückgezogen),
-  entschlüsselt mit **Owner-Key** und liefert nur `{ name, state }` (keine IDs/User-Daten),
-  `Cache-Control: no-store`. Ungültig/abgelaufen/zurückgezogen → 404 (keine Token-Enumeration).
-
-**Frontend:**
-- Plan-teilen-Modal (`share.js` + HTML): neuer Bereich „👁 Beobachter-Link" (nur Owner) – Link
-  erstellen, einmalige Klartext-URL zum Kopieren, Liste aktiver Links mit Ablaufdatum + Zurückziehen.
-  URL-Form: `…/?view=TOKEN`.
-- `login-modal.js` `initPublicView(token)`: erkennt `?view=TOKEN` **vor** allen Auth-/Preview-Checks,
-  lädt über den auth-freien Endpoint, erzwingt `currentPlanCanEdit=false` (→ `body.view-only`,
-  Beobachter-Modus aus Feature 30) und überspringt Login/Autoload/Realtime. Ungültiger/abgelaufener
-  Link → freundliche Hinweisseite.
-- **Anonymer vs. eingeloggter Beobachter:** Globales Flag `isPublicView` (state.js, nicht serialisiert).
-  Im öffentlichen Beobachter-Modus blendet die `vo-bar` (render-output.js) die Konto-/Plan-Knöpfe
-  („📋 Pläne", „🚪 Abmelden") aus – ein anonymer Wachgänger hat weder Account noch Plan-Wechsel.
-  Eingeloggte view-Mitbearbeiter behalten sie. `initPublicView` setzt `body.view-only` sofort
-  (vor dem ersten `generate()`) → kein Aufblitzen der Editier-UI.
-- **Layout-Fix:** `.panel-output` liegt regulär in Grid-Spalte 2 (neben der Sidebar). Im
-  `body.view-only` (Sidebar ausgeblendet) fehlte das Zurücksetzen auf Spalte 1 → der Plan landete
-  in einer Phantom-Spalte und wirkte gestaucht. Neue Regel `body.view-only .panel-output{grid-column:1}`
-  (analog zur eingeklappten Sidebar) zeigt den Plan voll-breit. Betrifft auch den eingeloggten
-  view-Mitbearbeiter.
+Eingeloggte Nutzer erstellen pro Plan einen **Beobachter-Link** (7 Tage gültig), mit dem
+Wachgänger den Plan **ohne Account nur ansehen**.
+- **Backend:** Tabelle `plan_public_links` (nur SHA-256-Hash des 256-Bit-Tokens, `expires_at`,
+  `revoked_at`, CASCADE). `plans.js` (Owner): `POST/GET/DELETE …/public-link[s]` (Token einmalig
+  im Klartext). `api/public.js` (**kein Auth**): `GET /api/public/plan/:token` → entschlüsselt mit
+  Owner-Key, liefert nur `{name,state}`, `no-store`; ungültig → 404 (keine Enumeration). Audit
+  `plan_public_link_create/_revoke`.
+- **Frontend:** Bereich „👁 Beobachter-Link" im Teilen-Modal (`share.js`, URL `…/?view=TOKEN`).
+  `login-modal.js` `initPublicView(token)` erkennt `?view=TOKEN` vor allen Auth-Checks, erzwingt
+  `currentPlanCanEdit=false` (→ `body.view-only`, Feature 30), überspringt Login/Autoload/Realtime.
+  Flag `isPublicView` blendet Konto-/Plan-Knöpfe der `vo-bar` aus. Fix
+  `body.view-only .panel-output{grid-column:1}` (sonst gestaucht).
 
 ### Feature 36: Vollständiges Audit-Log für Benutzer-Aktionen (Issue #293)
-Bisher wurden nur System-Events (`plan_cleanup`) und Admin-Aktionen ins `audit_log` geschrieben.
-Ab v0.11.x werden alle schreibenden Benutzer-Aktionen geloggt:
-- `login` / `logout` in `server/api/auth.js`
-- `plan_create` / `plan_update` / `plan_delete` / `plan_share` / `plan_share_revoke` in `server/api/plans.js`
-- `plan_import` in `server/api/import.js`
+Alle schreibenden Aktionen geloggt: `login`/`logout` (`auth.js`), `plan_create/_update/_delete/
+_share/_share_revoke` (`plans.js`), `plan_import` (`import.js`). Nur Metadaten, nie Plan-Inhalt;
+fire-and-forget (`.catch()`). `login`/`logout` bewusst geloggt (DSGVO Art. 5 Abs. 2).
 
-Alle Einträge enthalten nur Metadaten (Name, Share-Rolle, User-IDs) – niemals Plan-Inhalt/State.
-Pattern: **fire-and-forget** (`.catch()`), damit ein Logging-Fehler die eigentliche Aktion nicht scheitern lässt.
-Admin-UI (`/admin.html`) filtert diese Aktionen bereits via `AUDIT_ACTION_LABELS`.
-
-**Datenschutz-Abwägung `login`/`logout`:** Erzeugt Aktivitätsdatensatz pro Nutzer. Entscheidung zugunsten der DSGVO-Rechenschaftspflicht (Art. 5 Abs. 2) bei personenbezogenen Plan-Daten.
-
-### Feature 40: Plan duplizieren („Als Vorlage verwenden") im Plan-Manager (Issue #223)
-Je Plan-Eintrag im Plan-Manager (`📋 Meine Pläne`) ein „⧉"-Button, der den Plan als **neuen,
-unabhängigen** Plan unter dem aktuellen Nutzer dupliziert (Personen/Türme/Boote/Config). Ablauf:
-Quelle via `GET /api/plans/:id` laden → State tief klonen → `POST /api/plans` mit neuem Namen
-(Default „… (Kopie)") → Duplikat öffnen. Das Original bleibt unverändert; das Duplikat wird mit
-dem Owner-Key des aktuellen Nutzers verschlüsselt (auch das Duplizieren geteilter Pläne möglich).
-- **Checkbox „manuelle Zuweisungen übernehmen"** (Default an): aus → `forcedPlacements` werden im
-  Duplikat geleert; `dayState` (sick/absent/closed) wird stets mitkopiert.
-- Implementiert in `state-io.js` (`duplicatePlanById`) + `plans-ui.js` (Button/Handler).
-- **Nicht im Browser verifiziert** (kein Browser im Container) – reiner Frontend-/Netzwerk-Flow,
-  per Code-Review geprüft (nutzt den bestehenden, getesteten `POST /api/plans`-Pfad).
+### Feature 40: Plan duplizieren („Als Vorlage verwenden") (Issue #223)
+„⧉"-Button je Plan im Manager dupliziert ihn als neuen, unabhängigen Plan des aktuellen Nutzers
+(dessen Owner-Key): `GET /api/plans/:id` → State klonen → `POST /api/plans`. Checkbox „manuelle
+Zuweisungen übernehmen" (Default an); `dayState` stets kopiert. `duplicatePlanById` (`state-io.js`)
++ `plans-ui.js`. Nicht im Browser verifiziert (reiner Netzwerk-Flow über getesteten POST-Pfad).
 
 ### Feature 5: BF-Schutz (surplusBF-Penalty)
-Übrige Bootsführer (nicht auf Booten) sollen nicht an Türmen mit aktivem Boot stehen.
-- +800 Penalty auf aktive-Boot-Türmen; -350 auf deaktivierten-Boot-Türmen → 1150 Swing.
+Übrige BF nicht an Türmen mit aktivem Boot: +800 auf aktiv-Boot-Turm, -350 auf deaktiviert (1150 Swing).
 
 ### Feature 6 (deprecated): HW-Boot
-Ehemals dediziertes Feature mit separater `hwBoatId`. Seit v0.4.13 obsolet: Boote werden
-der HW uniform über `towerId='HW'` zugeordnet (wie jedem Turm). Mehrere HW-Boote möglich,
-jedes bekommt einen eigenen BF.
+Ehem. dediziert (`hwBoatId`); seit v0.4.13 obsolet – Boote der HW uniform via `towerId='HW'`.
 
 ### Feature 7: Erweiterte Fairness-Metriken
-Stats-Bar zeigt `avgHwVisits | avgTowerWithBoatDays` + Boot-Paarungen-Diversität %.
-Grün = ausgeglichen, Orange = Schieflage.
+Stats-Bar: `avgHwVisits | avgTowerWithBoatDays` + Boot-Paarungs-Diversität %. Grün=ok, Orange=Schieflage.
 
 ### Feature 8: Konsekutive-Tage-Regel
-`checkConsecutiveTowerPenalty(personA, personB, towerId, currentDay)` in `generate.js`:
-+200 Punkte pro Person wenn Vortag auf selbem Turm → Personen verteilen sich über Türme.
-Soft-Constraint (weicht bei knapper Besetzung).
+`checkConsecutiveTowerPenalty` (+200/Person, wenn Vortag selber Turm) → Verteilung über Türme. Soft.
 
 ### Feature 9: Metriken-Toggle
-`fairnessMetricsDisplay`-Flags in `state.js` (`hwBoatBalance` / `towerDistribution` /
-`boatPairingDiversity`) steuern, welche Metriken sichtbar sind. Checkboxes
-`#metric-hw-balance`, `#metric-tower-dist`, `#metric-boat-pairing`; `syncMetricCheckboxes()`
-synchronisiert nach State-Import.
+`fairnessMetricsDisplay`-Flags (hwBoatBalance/towerDistribution/boatPairingDiversity) + Checkboxen;
+`syncMetricCheckboxes()` nach Import.
 
 ### Feature 10: Pro-Person Tower-Statistik
-`renderTowerStatsPerPerson()` in `render-output.js`: Tabelle Person | Gesamt-Tage |
-Unique Türme | Details. Farb-Coding: Grün wenn ≥50% der Türme besucht.
+`renderTowerStatsPerPerson()`: Person | Gesamt | Unique Türme | Details; grün ≥50% Türme.
 
 ### Feature 11: Seed-basierte Start-Konstellationen
-`applySeedConstraints(seed)` in `init.js` (0–999): `0`=Standard, `1–999`=deterministische
-Fisher-Yates-Permutation der E/U + BF auf Tag 1. Alle Seeds → identische Gesamtfairness
-(Balancierung über Scoring ab Tag 2). LCG: `rng = (rng*1664525 + 1013904223) & 0x7fffffff`.
+`applySeedConstraints(seed)` (0–999): 0=Standard, sonst deterministische Permutation der E/U+BF auf
+Tag 1; gleiche Gesamtfairness (Balancierung ab Tag 2).
 
-### Feature 12: Pro-Turm Führungskräfte-Einstellung
-`leaderCount` pro Tower (0–3, Default 0), additiv zu `slotCount`. Führungskräfte liegen in
-separatem `poolF` (nicht im `getGuardPool`); pro offenem Turm werden `leaderCount`-Slots
-gezielt mit F vorbesetzt (faire Auswahl: wenig `total`, dann wenig `towerVisits[t]`). Übrige
-F bleiben `fuehrung:poolF` an HW (zählt als aktiver Dienst: `total++ + hwVisits++`). UI:
-Spinner mit Label 👔.
+### Feature 12: Pro-Turm Führungskräfte (`leaderCount`) — ersetzt durch Feature 34
+`leaderCount` (0–3, additiv zu slotCount), F aus separatem `poolF`. **Seit Feature 34 durch
+`leaderTower`-Haken ersetzt.**
 
 ### Feature 13: Vereinheitlichtes Erfahrungs-Flag (`experienced`)
-`role:'F'|'B'|'W'` + `experienced:boolean` ersetzt das frühere E/U-Modell + `bfLevel`; gilt
-für B und W (bei F irrelevant). Helfer in `state.js`: `effLevel(p)` (F→'E', s. Issue #251),
-`roleDot(p)`, `roleLabel(p)`. Migration via `migratePerson()` in `state-io.js`,
-`STATE_VERSION` 4→5.
+`role:'F'|'B'|'W'` + `experienced` ersetzt E/U-Modell + `bfLevel`. Helfer `effLevel/roleDot/
+roleLabel`; Migration `migratePerson()`, STATE_VERSION 4→5.
 
-### Feature 14: Single-Page Layout mit mobiler Tab-Umschaltung
-Sidebar + Output side-by-side (Desktop ≥768px) bzw. ein Panel via sticky Segment-Leiste
-(Mobile). `setupMobileSwitch()` in `init.js`, `.mobile-switch`/`.ms-btn`. `@media print`
-blendet Sidebar/Switch aus.
+### Feature 14: Single-Page Layout + mobile Tab-Umschaltung
+Sidebar+Output side-by-side (Desktop), 1 Panel via Segment-Leiste (Mobile). `setupMobileSwitch()`.
 
 ### Feature 15: Konfigurierbare Dienstzeiten
-`serviceStartHour`/`serviceEndHour` (Default 9/17) ersetzen hardcoded 09:00–17:00. Zwei
-Number-Inputs (min 8, max 19) in `#section-schedule`; `fillHours()` in `export.js` clampt +
-erzwingt `end >= start`. `STATE_VERSION` 3→4.
+`serviceStartHour/EndHour` (Def 9/17, clamp 8–19); `fillHours()` erzwingt end≥start. STATE_VERSION 3→4.
 
-### Feature 16: CSV-Export Pro-Person Fairness-Statistik
-`exportStatsCSV()` in `export.js`: Nr | Person | Rolle | Einsätze | HW-Tage | Türme (unique)
-| Turmbesuche | Boot-Tage | Tage Turm+Boot. Button `#btn-export-stats-csv`. UTF-8 mit BOM.
+### Feature 16: CSV-Export Pro-Person Fairness
+`exportStatsCSV()`: Nr|Person|Rolle|Einsätze|HW-Tage|Türme|Turmbesuche|Boot-Tage|Turm+Boot. UTF-8+BOM.
 
 ### Feature 17: Reset aller manuellen Zuweisungen
-Button „↺ Manuelle Zuweisungen zurücksetzen (n)" in der Export-Row. `countForced()` /
-`clearAllForced()` (leert `forcedPlacements`, generiert neu). Disabled wenn leer.
+Button „↺ … (n)"; `countForced()`/`clearAllForced()`.
 
 ### Feature 18: Letzter Login im Admin-Panel
-`users.last_login DATETIME` (NULL = nie). Nur bei erfolgreichem Login aktualisiert (nicht
-Session-Resume). `GET /api/admin/users` → `lastLogin`. Idempotente `ALTER TABLE`-Migration.
+`users.last_login` (NULL=nie), nur bei echtem Login; `GET /api/admin/users` → `lastLogin`.
 
-### Feature 19: DSGVO – Datenminimierungs-Hinweis im Labels-Feld
-Warnhinweis in `#section-people`-Infobox („Nur dienstrelevante Qualifikationen") +
-`maxlength="200"` auf Labels-Input. Keine Logikänderung. v0.4.13.
+### Feature 19: DSGVO-Datenminimierungs-Hinweis im Labels-Feld
+Infobox + `maxlength=200`. v0.4.13.
 
-### Feature 20: Login-Modal „Merke mich" (persistenter Login)
-Checkbox „Merke mich (30 Tage)" → Session-Cookie 30 statt 7 Tage. Backend liest `rememberMe`
-aus Login-Body und setzt `req.session.cookie.maxAge`. HTTPOnly + SameSite:lax bleiben. v0.4.14.
+### Feature 20: Login „Merke mich" (30 Tage)
+Checkbox → Session-Cookie 30 statt 7 Tage (`rememberMe` → `cookie.maxAge`). v0.4.14.
 
 ### Feature 21: Audit-Logging (DSGVO Art. 5 Abs. 1 f)
-`audit_log`-Tabelle (`id, user_id, action, entity_type, entity_id, details, ip_address,
-timestamp`); Indizes auf `user_id`/`action`/`timestamp`. `GET /api/admin/audit-log` mit
-Filter (action, user_id) + Paginierung (limit 1–500, offset). Einträge werden nicht
-automatisch gelöscht. v0.4.15.
-
-**Audit-Log-Ansicht im Admin-Panel (Issue #154):** Ergänzend zum Logging-Backend zeigt
-`public/admin.html` jetzt eine read-only Audit-Log-Tabelle (neueste zuerst) mit Aktions-Filter
-und Aktualisieren-Button (`loadAuditLog()`, `AUDIT_ACTION_LABELS`). Nur Metadaten, alle Werte
-via `textContent` (XSS-sicher). Damit ist Akzeptanzkriterium „Admin kann Log einsehen" erfüllt.
+`audit_log`-Tabelle + Indizes; `GET /api/admin/audit-log` (Filter action/user_id, Paginierung
+1–500). Keine Auto-Löschung. Admin-UI read-only Tabelle (`loadAuditLog`, `AUDIT_ACTION_LABELS`),
+nur Metadaten via textContent (Issue #154). v0.4.15.
 
 ### Feature 22: Selbstregistrierung
-`REGISTRATION_MODE` (disabled|open|code, Default disabled). `POST /api/auth/register` +
-`GET /api/auth/registration-status`. Neuer User immer `is_admin=0`; Rate-Limit 10/15min;
-non-enumerable Fehler; Auto-Login via `session.regenerate()`. Register-View in `#login-modal`
-mit Datenschutz-Checkbox (`acceptedPrivacy`) + optionalem Code-Feld. v0.4.16.
+`REGISTRATION_MODE` (disabled|open|code). `POST /api/auth/register` + `…/registration-status`;
+neuer User `is_admin=0`, Rate-Limit 10/15min, non-enumerable Fehler, Auto-Login. Register-View mit
+Datenschutz-Checkbox + optionalem Code. v0.4.16.
 
-### Feature 23: Plan-Retention & Automatische Löschung (DSGVO Art. 5 Abs. 1 e)
-Pläne > `PLAN_RETENTION_DAYS` (Default 90, off bei ≤0) inaktiv → `marked_for_deletion=1`,
-7 Tage Gnadenfrist bis finaler Löschung. Täglicher Scheduler (24h) ab `server.js` nach
-`initDatabase()`. CASCADE auf plan_shares. Cleanup als System-Event im audit_log
-(action='plan_cleanup', user_id=NULL). Idempotente Migration für `marked_for_deletion(_at)`.
-v0.4.17.
+### Feature 23: Plan-Retention & Auto-Löschung (DSGVO Art. 5 Abs. 1 e)
+Pläne > `PLAN_RETENTION_DAYS` (Def 90, off ≤0) → `marked_for_deletion=1`, 7 Tage Gnadenfrist.
+Täglicher Scheduler; CASCADE auf plan_shares; Cleanup als System-Event (`plan_cleanup`,
+user_id=NULL). v0.4.17.
 
-### Feature 24: Umfassende Datenschutzerklärung (DSGVO Art. 13/14)
-`public/datenschutz.html` – standalone, Dark Theme. Verantwortlicher, Datenverarbeitung,
-Rechtsgrundlagen, Speicherdauer, Betroffenenrechte (Art. 15–21), Sicherheit, Cookies,
-Art. 22, Kontakt/Beschwerde. URL `/datenschutz.html`, verlinkt aus Register-View. v0.4.18.
+### Feature 24: Datenschutzerklärung (DSGVO Art. 13/14)
+`public/datenschutz.html` (standalone, Dark). Verlinkt aus Register-View. v0.4.18.
 
-### Feature 25: Hauptstrand-Türme (fairer Hauptstrand-/Außen-Ausgleich)
-Türme lassen sich per Checkbox „🏖️ Hauptstrand" (`towers[].mainBeach`) markieren. Praxis-
-Feedback: Wachgänger sitzen sonst mehrere Tage in Folge auf Außentürmen. Der Algorithmus
-hält pro Person das Verhältnis Hauptstrand- ↔ Außentürme im Gleichgewicht.
-- Neue Stats `mainBeachDays` / `outerBeachDays` (in `ensure()`, `commitPerson()`,
-  `_reAccumulateDayStats()`).
-- `beachBalancePenalty(candidate, tower)` in `generate.js`: symmetrische Strafe
-  `overhang * 60` (Außenturm → bestraft, wer schon viel außen war; Hauptstrandturm
-  umgekehrt). Eingebaut in `bestPair` (Turm-Zweig) und die Turm-Einzelbefüllung.
-- Nur aktiv, wenn BEIDE Turm-Sorten existieren (`beachBalanceActive`).
-- UI: Toggle in der Turmzeile (`render-sidebar.js`), Badge „🏖️" auf der Turmkarte
-  (`render-output.js`). Persistenz in `state-io.js` + `config.js`.
-- Effekt (Messung, 7 Türme/3 Hauptstrand): avg|Überhang| 6 T. ~4.9→~0.9, 14 T. ~11.5→~1.7,
-  ohne Verschlechterung von Turm-/Partner-Wiederholung oder Experience-Abdeckung.
-- Test: `test/invariants.test.js` „Hauptstrand-Türme: fairer Ausgleich …".
+### Feature 25: Hauptstrand-Türme (Strand-Ausgleich)
+Turm-Flag `mainBeach`. `beachBalancePenalty` (overhang*60) hält pro Person Hauptstrand-↔Außen-
+Verhältnis im Gleichgewicht; nur aktiv, wenn beide Turm-Sorten existieren. Stats `mainBeachDays`/
+`outerBeachDays`. UI-Toggle + Badge 🏖️. Test in `invariants.test.js`.
 
 ### Feature 26: Bootsführer mit HW-Wunsch
-Pro Bootsführer aktivierbarer Haken „🏠 HW-Wunsch" (`people[].wantsHW`). Praxis: Bei
-BF-Überzahl (mehr Bootsführer als Boote) möchten einige BF in der Woche mindestens **einmal
-aktiven Hauptwache-Dienst** leisten. „Erfüllt" = echter `mainGuards`-Slot; reines Sitzen im
-HW-Overflow zählt nicht.
-- Neue Stat `hwGuardDays` = Anzahl aktiver HW-Dienste (`ensure()`, `commitPerson(MAIN)`,
-  `_reAccumulateDayStats()`).
-- `hwWishBonus(candidate)`: eskalierender Bonus für noch offene Wünsche (Restwoche
-  `daysLeft<=1 → 100000`, `<=2 → 6000`, sonst `600`), eingebaut in `bestPair` (HW-Zweig) und
-  die HW-Einzelbefüllung. Nur überzählige BF stehen im HW-Guard-Pool → automatisches Gating.
-- Sicherheitsnetz im `availB`-Sort: bei echter BF-Überzahl UND `daysLeft<=2` werden noch
-  unerfüllte Wunsch-BF in die surplus-Hälfte gedrückt (damit überhaupt HW-fähig). Nur bei
-  Überzahl, sonst bliebe ein Boot unbesetzt.
-- UI: Checkbox in der Personenzeile (nur Rolle B), `render-sidebar.js`. Persistenz in
-  `state-io.js` (Default false für Altpläne).
-- Test: `test/invariants.test.js` „BF-HW-Wunsch: … ≥1 aktiven HW-Dienst" (inkl. Edge:
-  kein Surplus → nicht erzwungen, kein Boot bleibt leer).
+Flag `wantsHW` (nur B): bei BF-Überzahl ≥1 aktiver HW-Dienst/Woche. Stat `hwGuardDays`;
+`hwWishBonus` eskaliert (600→6000→100000); Sicherheitsnetz im `availB`-Sort bei `daysLeft≤2`. Nur
+bei echter Überzahl. Test in `invariants.test.js`.
 
 ### Feature 27: Komplett-Abwesenheit (zusätzlich zu „außer Dienst")
-Bislang wurden Personen mit „außer Dienst" (`dayState[d].sick`) immer an der Hauptwache
-geführt (durchgestrichen, im XLSX/Druck sichtbar). Neu: pro Tag lässt sich eine Person als
-**komplett abwesend** (`dayState[d].absent`) markieren – sie wird **gar nicht** eingeplant,
-zählt nicht in der Statistik (`total`/`hwVisits` bleiben 0) und taucht **weder im XLSX-Export
-noch in der Druckvariante** auf.
-- **Datenmodell:** neues `absent:Set` in `dayState` (state.js/autoCodes.js `freshDayState`,
-  init.js, render-output.js Fallbacks). Serialisierung in state-io.js + `STATE_VERSION 6→7`
-  (Altpläne: `absent` defaultet auf leer).
-- **Algorithmus (generate.js):** `isAbsent(id)` schließt Personen aus allen Pools, aus
-  forced placements und aus `sickToday` aus (`isSick` gilt nur noch für nicht-Abwesende).
-  Neues `absentCount` pro Schedule-Tag.
-- **UI (render-output.js):** eigene Sektion „👋 Komplett abwesend" in der Tages-Steuerung;
-  `sick`/`absent` sind **gegenseitig exklusiv** (Aktivieren der einen löscht die andere).
-  Day-Tab-Flag `👋`. Chip-Style `.toggle-chip.absent`.
-- **Einklappbare Steuerung:** alle Status-Sektionen (außer Dienst / abwesend / Turm zu /
-  Boot zu / manuelle Zuweisungen) sind jetzt `<details>`-Sektionen (`dcSection()`-Helper),
-  **standardmäßig zugeklappt** mit Count-Badge der aktiven Einträge → weniger Überfrachtung,
-  v. a. da „außer Dienst" und „abwesend" beide die volle Personenliste zeigen. Auf-/Zu-Zustand
-  überdauert Re-Renders (`dcSectionOpen` pro Sektionstyp).
-- **Export/Druck:** keine Änderung nötig – Abwesende landen in keinem Slot und nicht in
-  `main.sick`, daher automatisch ausgeschlossen.
-- **Tests:** Harness-Option `absentPersonIds`, Invariante `checkAbsentNotAssigned`
-  (Abwesende nirgends im Plan), Szenario 4b + Fuzz-Abdeckung.
+Pro Tag `dayState[d].absent`: Person wird gar nicht eingeplant, zählt nicht (total/hwVisits=0),
+nicht in XLSX/Druck. `isAbsent()` schließt aus Pools/forced/sick aus; `absentCount`. UI-Sektion
+„👋 Komplett abwesend", exklusiv zu `sick`, Tab-Flag 👋. Status-Sektionen sind jetzt einklappbare
+`<details>` (`dcSection()`, zu by default, Count-Badge). STATE_VERSION 6→7. Tests: `absentPersonIds`,
+`checkAbsentNotAssigned`.
 
-### Feature 28: Fairness-Visualisierung – Balkendiagramme für Einsatzverteilung (Issue #225)
-Visuelle SVG-Balkendiagramme zur schnellen Kontrolle der Schichtverteilung über den
-Planungszeitraum – ergänzend zu den vorhandenen Zahlen-Metriken und der Pro-Person-Tabelle.
-- **3 Diagramme** (jeweils einzeln togglebar):
-  1. **Einsätze gesamt pro Person** – horizontale Balken, absteigend sortiert, mit Ø-Linie.
-  2. **HW-Tage pro Person** – macht „Dauer-HW"-Schieflagen sichtbar.
-  3. **Turmauslastung** – nach Turm-Prio sortiert, Über-/Unterauslastung erkennbar.
-- **Farbcoding:** grün = ausgeglichen (innerhalb Schwelle um den Ø), orange = Schieflage;
-  rote gestrichelte Ø-Linie als Referenz.
-- **Implementierung:** reines SVG/CSS, keine externen Libs (CSP-konform `default-src 'self'`).
-  `renderAssignmentsChart()`, `renderHWDaysChart()`, `renderTowerUtilizationChart()` +
-  `renderFairnessCharts()` in `render-output.js`; alle Namen via `escapeHtml`.
-- **State:** neues `fairnessChartsDisplay` in `state.js` (Default alle `true`), Serialisierung
-  in `state-io.js` (`_buildStateObject`/`importStateJSON` mit Default für Altpläne),
-  Reset in `resetGlobalState`.
-- **UI:** 3 Checkboxen im Bereich „Visualisierungen" der Fairness-Metriken; Event-Listener in
-  `init.js` (`CHARTS_MAP`), Sync nach State-Import via `syncMetricCheckboxes()`.
-- **Druck:** `@media print { .charts-container { display:none } }` – Charts im Ausdruck aus.
+### Feature 28: Fairness-Balkendiagramme (Issue #225)
+3 togglebare SVG-Diagramme (Einsätze/Person, HW-Tage/Person, Turmauslastung) mit Ø-Linie,
+grün/orange. Reines SVG/CSS (CSP-konform). `renderAssignmentsChart/HWDaysChart/TowerUtilizationChart`
++ `renderFairnessCharts`. State `fairnessChartsDisplay`. Im Druck aus.
 
-### Feature 30: Beobachter-Modus (Nur-Ansicht) – minimalistische Plan-Ansicht
-Pläne, die mit Leserechten (Share-Rolle `view`) geteilt werden, öffneten sich bisher in der
-vollen Editier-UI (Sidebar, ↕-Verschieben, Drag&Drop, Steuerungen). Schreiben war zwar
-serverseitig blockiert (PUT 403 für `view`, autoSave durch `currentPlanCanEdit=false`
-unterdrückt), aber der Beobachter konnte den Plan lokal „bearbeiten" und sah die ganze
-Konfigurations-Sidebar. Gedacht ist die Rolle aber für Wachgänger, die nur sehen wollen,
-mit wem sie am nächsten Tag auf dem Turm sind.
-- **Auslöser:** `currentPlanCanEdit === false` (aus `GET /api/plans/:id` → `canEdit`).
-  `_updateSaveIndicator()` schaltet `document.body.classList.toggle('view-only', …)` – greift
-  zentral bei autoLoad, loadPlanById, createNewPlan, renameCurrentPlan, autoSave und
-  `applyRemotePlanState` (Live-Update). `resetGlobalState()` setzt `currentPlanCanEdit=true`.
-- **CSS (`Wachplan-Generator.html`):** `body.view-only` blendet `#sidebar-panel`,
-  `.mobile-switch`, Header-Subtitle, `.export-row`, `.stats-bar`, `.out-extras`,
-  `.day-controls` und `.move-btn` aus; `.main-panels` wird einspaltig; auf <900px wird das
-  Output-Panel sichtbar erzwungen. Neue `.vo-bar`/`.vo-day-head`-Styles.
-- **Render (`render-output.js`):** lokales `viewOnly`. Schlanke Kopfzeile (`.vo-bar`:
-  Plan-Name, „Nur Ansicht"-Badge, Buttons 📋 Pläne / 🚪 Abmelden) + Tag-Navigation; pro Tag
-  ein kompakter `.vo-day-head` (Datum) statt der Editier-Steuerung; Occupants ohne ↕-Button
-  und `draggable=false`; `out-extras`/Statistiken weggelassen. `early return` nach den
-  Tag-Tab-Listenern verhindert das Anhängen aller Editier-/Drag&Drop-/Export-Listener; nur
-  `#vo-plans`→`openPlansModal()` und `#vo-logout`→`logout()` werden verdrahtet.
-- **Plan-Wechsel/Abmelden** bleiben möglich (Top-Level-`#plans-modal` ist sidebar-unabhängig).
-- **Erfahrung verborgen:** im Beobachter-Modus ist die Einstufung erfahren/unerfahren nicht
-  erkennbar – weder über die Punkt-Farbe (Wachgänger → neutraler `rd-w` statt grün/grau)
-  noch über das Label (`roleLabelSafe`/`roleDotSafe` in `state.js`: W→„Wachgänger",
-  B→„Bootsführer", HW-Guards→„Hauptwache"). Zudem werden UU-Warnungen unterdrückt
-  (`slot.warn`/„zwei Unerfahrene"-Notiz), damit keine Rückschlüsse möglich sind.
+### Feature 30: Beobachter-Modus (Nur-Ansicht)
+Pläne mit Share-Rolle `view` (`currentPlanCanEdit===false`) öffnen minimalistisch.
+`_updateSaveIndicator()` schaltet `body.view-only` → blendet Sidebar/Steuerungen/Export/Stats/
+↕-Buttons aus, einspaltig. `render-output.js`: schlanke `.vo-bar` + Tag-Nav, kompakte `.vo-day-head`,
+Occupants nicht draggable, early-return vor Editier-Listenern. Erfahrung verborgen
+(`roleLabelSafe`/`roleDotSafe`, UU-Warnungen unterdrückt).
 
-### Feature 29: Version-Badge an GitHub-Releases gekoppelt + Update-Hinweis
-Das Header-Badge zeigte dauerhaft „v 0.5.1", weil Semantic Release den Versions-Bump nie
-zurück ins Repo committete (`package.json` blieb stehen, GitHub war schon bei v0.9.1).
-- **Root-Cause-Fix:** `@semantic-release/git`-Plugin in `.releaserc.json` (Assets
-  `package.json`/`package-lock.json`, Commit `chore(release): x.y.z [skip ci]`) +
-  `extra_plugins` in `release.yml` + devDependency. `package.json` einmalig manuell auf
-  0.9.1 synchronisiert.
-- **Server (`server.js`):** `GET /api/version` liefert jetzt `{ version, latest, releaseUrl,
-  updateAvailable }`. `latest` kommt serverseitig von
-  `api.github.com/repos/Toupsy/Wachplan-Generator/releases/latest` (In-Memory-Cache 6 h,
-  Fehler-Cache 15 min, Timeout 5 s, Fehler → `latest:null`). Kein CSP-Update nötig
-  (Browser ruft GitHub nie direkt). Semver-Vergleich via `compareVersions()`.
-- **Frontend:** Badge (`#version-badge`) grün = aktuell, gold/orange + Tooltip wenn auf
-  GitHub eine neuere Version existiert (Inline-Script in `Wachplan-Generator.html`).
-  Zusätzlich `showToast()`-Meldung in `checkForUpdate()` (init.js), einmal pro neuer
-  Version (`localStorage['gh-update-notified']`).
-- **Caveat:** Falls Branch-Protection auf `main` Pushes des `GITHUB_TOKEN` blockt, schlägt
-  der Release-Commit fehl → Actions-Ausnahme in der Branch-Protection nötig.
+### Feature 29: Version-Badge an GitHub-Releases + Update-Hinweis
+`@semantic-release/git` committet den Bump zurück nach `main` (package.json war stehengeblieben).
+`GET /api/version` → `{version, latest, releaseUrl, updateAvailable}`; `latest` serverseitig von
+GitHub (Cache 6h). Badge grün/gold + Toast (`checkForUpdate`, einmal/Version). Caveat:
+Branch-Protection braucht Actions-Ausnahme für den Release-Commit.
 
-### Feature 37: Registrierung mit E-Mail-Verifizierung, reCAPTCHA v3 & Passwort-Reset
-Selbstregistrierung um Bot-Schutz, E-Mail-Bestätigung und „Passwort vergessen?" erweitert.
-Alles env-gesteuert und einzeln optional (Setup-Guide: **docs/REGISTRATION.md**).
-- **Mail-Versand (`server/mailer.js`, nodemailer):** via `SMTP_*` + `APP_BASE_URL`;
-  `MAIL_TRANSPORT=outbox` = In-Memory-Outbox für Tests. Ohne SMTP: Verhalten wie bisher.
-- **E-Mail-Verifizierung:** Mit SMTP wird E-Mail bei Registrierung Pflicht (Format-,
-  Eindeutigkeitsprüfung, generische Fehler gegen Enumeration), Account startet mit
-  `users.pending_verification=1`, kein Auto-Login; Login vorher → 403
-  `code:'email_unverified'` (Frontend bietet Resend an). `GET /verify-email?token=…`
-  aktiviert + Redirect `/?verified=1|0`. Mail-Fehler bei Registrierung → User-Rollback.
-- **Passwort-Reset:** `POST /request-password-reset` (generische Antwort) → Mail-Link
-  `/?reset=<token>` (60 min) → SPA-View „Neues Passwort" → `POST /reset-password`:
-  bcrypt-Hash neu, **alle Sessions des Users invalidiert**, gilt zugleich als
-  E-Mail-Bestätigung. Plan-Verschlüsselung unberührt (Key aus userId+MASTER_SECRET).
-- **Tokens (`auth_tokens`-Tabelle):** 32-Byte-Random, nur SHA-256-Hash gespeichert,
-  Einmal-Nutzung (`used_at`), Ablauf als Epoch-ms, pro User+Typ nur das neueste gültig.
-- **Bot-Schutz (`server/captcha.js`, reCAPTCHA v3):** aktiv bei gesetzten
-  `RECAPTCHA_SITE_KEY`+`RECAPTCHA_SECRET_KEY` (validateEnv erzwingt Paar); serverseitige
-  Verifizierung mit Action-Bindung (`register`/`password_reset`) + Score-Schwelle
-  (`RECAPTCHA_MIN_SCORE`, Def. 0.5), **fail-closed**. CSP wird nur bei aktiven Keys um
-  Google-Hosts erweitert. Frontend lädt das Script nur bei geliefertem `captchaSiteKey`.
-- **Frontend (`login-modal.js` + HTML):** neue Views `#forgot-view`, `#reset-view`,
-  `#auth-info-view`; „Passwort vergessen?"-Link; URL-Param-Handling (`?reset=`,
-  `?verified=`); reCAPTCHA-Hinweistext (Google-Attribution).
-- **Tests:** `test/auth-flow.test.js` – 17 Subtests über den kompletten Flow inkl.
-  Token-Expiry/-Reuse, Enumeration-Schutz, Session-Invalidierung, CAPTCHA (gemockt).
+### Feature 37: E-Mail-Verifizierung, reCAPTCHA v3 & Passwort-Reset
+Env-gesteuert, einzeln optional (Setup: docs/REGISTRATION.md).
+- **Mail (`mailer.js`):** `SMTP_*`+`APP_BASE_URL`; `MAIL_TRANSPORT=outbox` für Tests.
+- **Verifizierung:** mit SMTP E-Mail Pflicht, `pending_verification=1`, Login vorher 403
+  `email_unverified`; `GET /verify-email?token`.
+- **Reset:** `POST /request-password-reset` → Link (60min) → `POST /reset-password` (alle Sessions
+  invalidiert, gilt als Bestätigung). Plan-Key unberührt.
+- **Tokens (`auth_tokens`):** nur SHA-256-Hash, Einmal-Nutzung, Epoch-ms-Ablauf.
+- **reCAPTCHA (`captcha.js`):** bei `RECAPTCHA_*`, Action-Bindung + Score, fail-closed; CSP nur
+  dann um Google erweitert.
+- Tests: `auth-flow.test.js` (17 Subtests).
 
-### Feature 30: Kompaktere Top-Bar + einklappbare Sidebar
-Top-Bar (header) und Sidebar nahmen auf Desktop viel Platz weg. Neues Modul `layout-chrome.js`.
-- **Top-Bar kompakter:** `header`-Padding/`margin` reduziert, `h1` kleiner
-  (`clamp(1.5rem,3.4vw,2.3rem)`). Standardmäßig steht nur noch der Titel „Wachplan·Generator"
-  in der Leiste.
-- **Info-Kästchen statt Subtitle:** Ein kleiner „ℹ Info"-Button (rechts neben dem Titel)
-  klappt ein Kästchen (`#header-info`) mit DLRG-/Versions-Badge und der Beschreibung auf
-  (`max-height`/`opacity`-Transition). Zustand in `localStorage['dlrg_header_info_open']`.
-- **Sidebar einklappbar (nur Desktop ≥901px):** „« Einklappen"-Button (sticky oben im
-  Sidebar-Panel) blendet die Sidebar aus, das Output-Panel nutzt die volle Breite; ein
-  vertikaler „» Konfiguration"-Tab am linken Rand klappt sie wieder auf. Zustand in
-  `localStorage['dlrg_sidebar_collapsed']`. Auf Mobile (<900px) übernimmt weiterhin der
-  bestehende Tab-Switch – die Buttons sind dort per CSS ausgeblendet.
+### Feature 30: Kompaktere Top-Bar + einklappbare Sidebar (`layout-chrome.js`)
+Titel kompakt; „ℹ Info"-Button klappt `#header-info` (Badge+Beschreibung,
+`localStorage['dlrg_header_info_open']`). Sidebar (Desktop ≥901px) ein-/ausklappbar
+(`dlrg_sidebar_collapsed`); Mobile via Tab-Switch.
 
-### Feature 31: DLRG-Wachliste hochladen → dynamische Namensliste (CSV/PDF)
-Statt jede Person von Hand einzutragen, lädt der User die offizielle DLRG-Wachliste hoch;
-die Namensliste wird **dynamisch aus Startdatum + Anzahl Wachtage** abgeleitet. Neues Modul
-`public/js/roster.js` (in Ladereihenfolge nach `state-io.js`).
-- **Upload-UI** in der Wachgänger-Detailansicht (`#section-roster`, `#btn-roster-upload`,
-  `#roster-file-input`, `#roster-status`, `#btn-roster-clear`). Akzeptiert `.csv` und `.pdf`.
-- **CSV-Parsing** (`parseRosterCSV`): Semikolon-getrennt, Kopfzeile via Überschriften gemappt
-  (robust gegen Metazeilen/Fußnoten). **PDF-Parsing** (`parseRosterPDF`): pdf.js (lazy von
-  cdnjs, `loadPdfJsLib`). Der Worker wird als normales `<script>` vorgeladen → pdf.js läuft im
-  **Main-Thread** (Fake-Worker via `window.pdfjsWorker`), das umgeht die Cross-Origin-Worker-
-  Beschränkung (`new Worker('https://cdnjs…')` ist verboten). Zeilen werden y-weise gruppiert
-  (`_pdfGroupLines`) und **inhaltsbasiert** geparst (`_pdfParseLine`: Status + 2 Datumsangaben +
-  Job-Kürzel per Regex, Name = Text davor) – unabhängig von der Kopfzeilen-Geometrie.
-- **Normalisierung** (`normalizeRoster`): filtert auf Status „zugesagt", mappt Job→Rolle
-  (WF→F, BF→B, RS→W), Datum `DD.MM.YYYY`→ISO. Ergebnis im neuen State-Feld `roster`
-  (`[{name, role, from, to}]`), mit-serialisiert (`STATE_VERSION` 7→8).
-- **Dynamische Ableitung** (`deriveRosterPeople` + `applyRosterToWindow`): für das Fenster
-  `[startDate … startDate+DAYS-1]` werden alle Personen aufgenommen, deren Verfügbarkeit
-  überlappt; gleiche Namen über mehrere Wochenblöcke werden zusammengeführt (Rolle = größte
-  Überlappung, Gleichstand F vor B vor W). **Tage außerhalb der persönlichen Verfügbarkeit
-  werden tageweise als `absent` markiert** (nutzt Feature 27). Importierte Personen starten
-  als **unerfahren**. Ändert der User Startdatum oder Tageanzahl, wird die Liste neu
-  abgeleitet (`init.js`-Handler) → „dynamisch".
-- **Manuelle Korrekturen überleben das Neu-Ableiten:** Ändert der User Rolle/Erfahrung/HW-Wunsch/
-  Labels einer abgeleiteten Person, wird das in `rosterOverrides` (Key = normalisierter Name, nur
-  explizit geänderte Felder) gemerkt und nach jedem `applyRosterToWindow()` per
-  `mergeRosterOverrides()` wieder aufgelegt. So gehen Hand-Korrekturen beim Ändern von Datum/Tagen
-  nicht verloren – unangetastete Personen behalten aber ihre fensterabhängige Ableitung
-  (z.B. wochenabhängige Rolle). Mit-serialisiert.
-- **An-/Abreisetag:** In der Wachliste ist `bis` einer Woche identisch mit `von` der Folgewoche
-  (gemeinsamer Wechseltag). Das Verfügbarkeitsintervall wird daher **halb-offen** `[von, bis)`
-  behandelt – der Abreisetag ist kein aktiver Dienst-Tag. So gehört der Wechseltag nur der
-  anreisenden Woche und die abreisende Vorwochen-Crew wird nicht fälschlich in die aktive Woche
-  gezogen. Eintägige Einträge (`von == bis`) bekommen `to = von+1` (1 Tag aktiv).
-- **CSP:** `worker-src 'self' blob: https://cdnjs.cloudflare.com` im public-Server (für den
-  pdf.js-Worker); Admin-Server unverändert (kein Wachlisten-Upload dort).
+### Feature 31: Wachliste hochladen → dynamische Namensliste (CSV/PDF) (`roster.js`)
+Upload der DLRG-Wachliste; `people[]`+tageweise `absent` dynamisch aus Startdatum+DAYS abgeleitet.
+- **Parsing:** `parseRosterCSV` (Semikolon, Header-Mapping); `parseRosterPDF` via pdf.js (lazy von
+  cdnjs, Main-Thread-Fake-Worker), inhaltsbasiert (`_pdfParseLine`).
+- **Normalisierung:** Status „zugesagt", Job→Rolle (WF→F/BF→B/RS→W), Datum→ISO → `roster[]`.
+  STATE_VERSION 7→8.
+- **Ableitung:** `deriveRosterPeople`/`applyRosterToWindow` über `[startDate … +DAYS-1]`; Tage
+  außerhalb Verfügbarkeit → `absent`; importierte starten unerfahren; neu bei Datum/Tage-Änderung.
+- **Overrides:** Hand-Korrekturen (Rolle/Erf./HW/Labels/Sani) in `rosterOverrides` (norm. Name),
+  via `mergeRosterOverrides` nach jedem Ableiten wieder aufgelegt.
+- **Wechseltag:** Verfügbarkeit halb-offen `[von, bis)` (Abreisetag kein Dienst); `von==bis` → 1 Tag.
+- **CSP:** `worker-src … cdnjs` (pdf.js).
 
----
-
-### Feature 32: Bei BF-Überschuss immer 1 BF auf der Hauptwache
-Globaler Schalter „Bei BF-Überschuss immer 1 BF auf der Hauptwache" (Checkbox `#require-bf-hw`
-im HW-Konfig-Block, neben den Guard-Slots). Wunsch: Wenn es **mehr Bootsführer als besetzbare
-Boote** gibt (echte BF-Überzahl), soll an **jedem Tag** mindestens ein überzähliger BF einen
-**aktiven** HW-Dienst leisten – z.B. bei 3 HW-Slots → **2 Wachgänger + 1 BF**.
-- **State:** neues globales Flag `requireBfAtHw` (Default `false`) in `state.js`
-  (+ `resetGlobalState`), mit-serialisiert in `state-io.js` (`_buildStateObject` +
-  `importStateJSON`, Default für Altpläne), UI-Sync in `importStateJSON`/`_rebuildAllUI`.
-  Event-Handler in `init.js` (regeneriert bei Änderung, falls bereits ein Plan existiert).
-- **Algorithmus (`generate.js`, HW-Abschnitt):** Vor der regulären HW-Befüllung wird – wenn das
-  Flag aktiv ist, `poolSBF` (überzählige BF) nicht leer ist, noch HW-Plätze frei sind und noch
-  kein BF unter den `mainGuards` ist – ein überzähliger BF als **fester Guard** vorab platziert.
-  Auswahl fair rotierend: wenigste aktive HW-Dienste (`hwGuardDays`) zuerst, dann
-  Gesamteinsätze/HW-Tage. Die übrigen HW-Slots füllt der Algorithmus regulär (E/U-Mix), also
-  bleibt Platz für Wachgänger. `poolSBF` enthält nur überzählige BF → automatisches Gating:
-  ohne echte Überzahl wird nichts erzwungen.
-- **Komplementär zum BF-HW-Wunsch (Feature 26):** Feature 26 ist ein *per-Person*-Wunsch auf
-  ≥1 HW-Dienst pro Woche; dieses Feature ist ein *globaler, täglicher* Zwang bei BF-Überzahl.
-- **Tests:** `test/require-bf-hw.test.js` (4 Tests): Flag an + Überzahl → täglich ≥1 BF auf HW
-  (und ≥1 WG bleibt); keine Überzahl → kein BF erzwungen; HW wird nicht mit BF überflutet;
-  Flag aus → Default-Verhalten unverändert.
+### Feature 32: Bei BF-Überschuss immer 1 BF auf der HW (`requireBfAtHw`)
+Globaler Schalter: bei echter BF-Überzahl (`poolSBF` nicht leer) täglich ≥1 überzähliger BF als
+fester `mainGuard` (fairste Rotation: wenig `hwGuardDays`), Rest regulär. Komplementär zu Feature
+26 (per-Person-Wunsch). State default false. Tests: `require-bf-hw.test.js`.
 
 ### Feature 33: Sanitäter & San-Türme
-Neues Personen-Flag **„Sanitäter"** (Checkbox 🚑, nur für Wachgänger) und neuer Turm-Haken
-**„San-Turm"** (Checkbox 🚑, neben dem Hauptstrand-Haken). Wunsch: Sanitäter sind im Normalfall
-ganz normale Wachgänger; ist ein Turm aber als **San-Turm** markiert, soll dort **wenn möglich
-immer mindestens ein Sanitäter** sitzen – analog zur BF-Reservierung für Boote.
-- **Datenmodell:** Person `sanitaeter:bool` (Default `false`, nur sinnvoll für Rolle `W`),
-  Turm `sanTower:bool` (Default `false`). UI-Checkboxen + Handler in `render-sidebar.js`
-  (`.san-checkbox` / `.santower-checkbox`, beide regenerieren via `generate()`), CSS `.san-toggle`
-  in `Wachplan-Generator.html`. Defaults beim Anlegen in `init.js`.
-- **Serialisierung (`state-io.js`):** beide Felder mit-serialisiert (`_buildStateObject` +
-  `importStateJSON`, Default `false` für Altpläne); `STATE_VERSION` 8 → 9. Roster-Overrides
-  (`roster.js` `mergeRosterOverrides`) kennen `sanitaeter`, damit manuelle Korrekturen ein
-  Neu-Ableiten überleben (importierte Personen starten ohne San-Flag).
-- **Algorithmus (`generate.js`):** Pro Tag `sanActive` = es gibt einen offenen San-Turm UND
-  mindestens einen Sanitäter im Pool. Nur dann greifen zwei Effekte (sonst verhalten sich
-  Sanitäter exakt wie normale Wachgänger):
-  - **San-Turm-Bonus** (`sanTowerBonus`, 5000): Solange ein San-Turm noch keinen Sanitäter hat,
-    bekommt ein Paar/Kandidat mit Sanitäter einen großen Bonus → der Turm zieht zuverlässig
-    einen Sanitäter. Der Bonus belohnt „≥1 Sanitäter im Paar" nur **einmal** → keine Häufung
-    von zwei Sanitätern auf einem Turm, solange andere San-Türme noch offen sind.
-  - **Reserve-Strafe** (`sanReservePenalty`, 350): Sanitäter auf Nicht-San-Türmen und an der HW
-    werden leicht bestraft → sie werden nicht „verbraucht", bevor ein San-Turm an der Reihe ist.
-    Die Strafe hebt sich unter Sanitätern auf (betrifft nur Sanitäter-vs-Nicht-Sanitäter), die
-    Fairness unter den Sanitätern bleibt also erhalten.
-  Eingebaut in `bestPair` (Turm- + HW-Zweig, neuer Param `towerNeedsSan`), in die Turm-Einzel-
-  befüllung und in die HW-Einzelbefüllungs-Sortierung. **Faire Rotation** unter mehreren
-  Sanitätern ergibt sich automatisch aus den bestehenden `towerVisit`-/Konsekutiv-Strafen (der
-  Sanitäter von gestern ist heute teurer als ein frischer). Wichtigere San-Türme (prio asc)
-  werden zuerst befüllt → bei Knappheit bekommt der wichtigste San-Turm den Sanitäter.
-- **Tests:** `test/san-tower.test.js` (5 Tests): San-Turm bekommt täglich ≥1 Sanitäter;
-  Rotation bei mehreren Sanitätern; einziger Sanitäter landet auf dem San-Turm statt anderswo/HW;
-  mehr San-Türme als Sanitäter → wichtigster Turm gewinnt; kein San-Turm → Plan gültig & neutral.
+Person-Flag `sanitaeter` + Turm-Flag `sanTower`. Pro Tag `sanActive` = offener San-Turm UND
+Sanitäter im Pool – nur dann: `sanTowerBonus` (5000, einmal/Paar) zieht einen Sanitäter an,
+solange der San-Turm noch keinen hat; `sanReservePenalty` (350) hält Sanitäter von Nicht-San/HW
+frei (hebt sich unter Sanitätern auf → Fairness bleibt). Rotation aus bestehenden Strafen;
+wichtigster Turm (prio asc) zuerst. STATE_VERSION 8→9. Tests: `san-tower.test.js`.
 
-### Feature 34: Führungstürme (Checkbox statt leaderCount-Spinner)
-Der frühere Pro-Turm-Spinner „Führungsslots" (`leaderCount`, 0–3, **zusätzliche** Slots) wird
-durch einen einfachen Haken **„Führungsturm"** (👔) ersetzt – dieselbe Logik wie der San-Turm
-(Feature 33), nur für Führungskräfte: Ein markierter Turm bekommt **wenn möglich immer ≥1
-Führungskraft**, aber auf einem **regulären** Slot (kein Zusatz-Slot). Der Nutzer muss nicht
-mehr pro Turm einstellen, *wie viele* Führungskräfte dort sein sollen.
-- **Datenmodell:** Turm `leaderTower:bool` (Default `false`) ersetzt `leaderCount`. UI: eine
-  Checkbox neben 🏖️/🚑 (`render-sidebar.js`, `.leadertower-checkbox`); Spinner-UI + Handler
-  (leader-checkbox/-minus/-plus/-spinner) entfernt. Der nun tote Algo-Parameter `leaderBonus`
-  (Bonus wirkte nie, da F nicht im Guard-Pool sind) ist aus `defaultAlgoParams` und dem
-  Algo-Editor entfernt.
-- **Algorithmus (`generate.js`):** Statt `leaderCount`-Zusatz-Slots wird auf einem Führungsturm
-  vor der regulären Befüllung **eine** F aus dem separaten `poolF` auf einen regulären Slot
-  gesetzt (fairste Rotation: wenigste Gesamteinsätze/Turmbesuche zuerst), sofern Bedarf > 0,
-  poolF nicht leer und noch keine F im Slot. Alle `slotCount+leaderCount`-Rechnungen → nur noch
-  `slotCount`; `expDemand` zählt gedeckte Führungstürme nicht. Übrige F bleiben Führung an der HW.
-- **Migration (`state-io.js` Import, `config.js` Template):** alte Pläne mit `leaderCount>0` →
-  `leaderTower:true`; die ehemaligen Zusatz-Slots werden in `slotCount` integriert (auf max 10
-  geklemmt) → Personenzahl pro Turm bleibt erhalten. `STATE_VERSION` 9 → 10.
-- **Tests:** `test/leaders.test.js` neu gefasst (4 Tests): ohne Führungsturm bleibt Führung an
-  der HW; mit `leaderTower` genau 1 F auf dem Turm ohne Zusatz-Slot + Rotation + HW behält Führung;
-  mehr Führungstürme als F → wichtigster (prio asc) gewinnt; keine F → Turm regulär gefüllt.
+### Feature 34: Führungstürme (`leaderTower`-Haken, ersetzt `leaderCount`)
+Markierter Turm bekommt wenn möglich genau 1 F auf einen **regulären** Slot (kein Zusatz-Slot).
+F aus separatem `poolF`, vor regulärer Befüllung gesetzt (fairste Rotation). `expDemand` zählt
+gedeckte Führungstürme nicht. Migration `leaderCount>0`→`leaderTower:true` (Zusatz-Slots in
+`slotCount`, max 10), STATE_VERSION 9→10. Tests: `leaders.test.js`.
 
 ### Feature 35: Auch Bootsführer können Sanitäter sein
-Erweitert Feature 33: Der Sanitäter-Haken (🚑) ist jetzt nicht mehr nur für Wachgänger, sondern
-auch für **Bootsführer** verfügbar. Ein BF-Sanitäter deckt einen San-Turm ab, **wenn er für einen
-Turmplatz verfügbar ist** – das ist bei **überzähligen** BF der Fall (sie stehen im Guard-Pool
-`poolSBF`); aktive BF fahren ein Boot und kommen für einen Turm ohnehin nicht in Frage.
-- **UI (`render-sidebar.js`):** San-Checkbox jetzt für Rolle `W` **und** `B` (neben dem
-  HW-Wunsch-Haken). Serialisierung war bereits rollenunabhängig. Da eine BF-Zeile damit drei
-  Toggles trägt (Erf. + 🏠 HW-Wunsch + 🚑 Sani), wurde die Toggle-Spalte der Personen-Zeile auf
-  feste 140px gesetzt und die Sidebar etwas verbreitert (`clamp(440px,36vw,600px)`) – sie ist
-  einklappbar, daher unkritisch (`Wachplan-Generator.html`).
-- **Algorithmus (`generate.js`):** Das `sanActive`-Gating prüft den Sanitäter jetzt im gesamten
-  Guard-Pool (`getGuardPool()` = Wachgänger + überzählige BF) statt nur unter den Wachgängern.
-  Bonus/Reserve in `bestPair` etc. wirkten schon zuvor auf alle Guard-Pool-Personen (inkl. poolSBF)
-  → keine weitere Änderung nötig.
-- **Tests:** `test/san-tower.test.js` um einen 6. Test erweitert (überzähliger BF-Sanitäter deckt
-  den San-Turm; ohne Boote sind alle BF überzählig).
+San-Haken jetzt auch für B. Überzählige BF (`poolSBF`, im Guard-Pool) decken San-Türme ab; aktive
+BF fahren Boot. `sanActive`-Gating prüft den ganzen `getGuardPool()`. Tests: `san-tower.test.js` (+1).
 
 ---
 
 ## Bugfixes
 
-### SQLITE_CORRUPT-Wurzelfix: Admin-Panel in den Hauptprozess eingebettet (ein DB-Öffner)
-**Problem:** Trotz `journal_mode=DELETE` (s. u.), Integritäts-Check, Auto-Heilung, busy_timeout
-und Retries traten im Betrieb weiterhin **transiente** `SQLITE_CORRUPT: database disk image is
-malformed`-Fehler auf (`Save plan error`, `Create plan error`, `Session save error`) – über Tage
-verteilt, während der Start-`integrity_check` jedes Mal „ok" meldete. Genau dieses Muster (Datei
-auf der Platte intakt, einzelne Operationen sehen kurzzeitig inkonsistente Pages) ist die Signatur
-von **prozessübergreifendem** SQLite-Zugriff auf einem (NAS-/Netzwerk-)Volume: SQLite koordiniert
-gleichzeitige Zugriffe nur **innerhalb eines Prozesses** zuverlässig (per-Inode-Mutex); zwischen
-Prozessen hängt es an advisory-Locks + Page-Cache-Kohärenz des Dateisystems, die auf NAS/NFS nicht
-verlässlich sind. **Auslöser** (daher „seit dem Audit-Log"): vor #294 schrieb der zweite Prozess
-(`wachplan-admin`) praktisch nicht in die geteilten Tabellen; das Audit-Log ließ erstmals **beide**
-Container (`wachplan` + `wachplan-admin`) gleichzeitig in `audit_log` schreiben und legte die
-latente Cross-Process-Unsicherheit offen. Die Journal-Mode-Umstellung (#325–#329) milderte das,
-konnte ein **prozessübergreifendes** Problem aber prinzipiell nicht lösen.
-- **Lösung:** Nur noch **EIN Prozess** öffnet die DB. `server/admin-server.js` exportiert jetzt
-  `createAdminApp({ sessionMiddleware })` (App-Aufbau ohne eigenes `listen`/`initDatabase`,
-  Auto-Start nur via `require.main`-Guard). `server/server.js` startet nach dem Haupt-Listener
-  bei gesetztem `ADMIN_PORT` einen **zweiten Listener im selben Prozess** mit dieser App, die sich
-  **dieselbe Session-Middleware (= dieselbe DB-Verbindung)** teilt. `docker-compose.yml` läuft nur
-  noch als **EIN** Container (Ports 3000 **und** 3001, `ADMIN_PORT=3001`). SQLite koordiniert die
-  verbleibende Intra-Prozess-Nebenläufigkeit zuverlässig auf jedem Dateisystem. `RUN_EMBEDDED_ADMIN=0`
-  stellt den klassischen Zwei-Prozess-Betrieb wieder her (dann zwingend eigene DB pro Prozess).
+### SQLITE_CORRUPT-Wurzelfix: Admin-Panel in den Hauptprozess eingebettet
+Transiente `SQLITE_CORRUPT` im Betrieb = prozessübergreifender SQLite-Zugriff auf NAS/Netzwerk-
+Volume (seit Audit-Log #294 schrieben **beide** Container in `audit_log`). **Lösung:** nur **ein**
+Prozess öffnet die DB – `admin-server.js` exportiert `createAdminApp({sessionMiddleware})`,
+`server.js` startet damit einen zweiten Listener (`ADMIN_PORT`) im selben Prozess (geteilte
+Connection); `docker-compose.yml` nur noch 1 Container. `RUN_EMBEDDED_ADMIN=0` = klassisch (eigene DB).
 
 ### SQLITE_CORRUPT-Dauerfix: Rollback-Journal (DELETE) statt WAL
-**Problem (reproduzierbar, frische DB):** Nach komplettem DB-Löschen + Neustart trat beim ersten
-Schreiben sofort `SQLITE_CORRUPT: database disk image is malformed` auf (zuerst sichtbar an den
-fire-and-forget `audit_log`-Inserts bei `plan_create`/`plan_update`). Ursache: `db/connection.js`
-setzte `PRAGMA journal_mode = WAL`. In `docker-compose.yml` greifen aber **zwei Container**
-(`wachplan` + `wachplan-admin`, gleiches Image) über das geteilte Volume `wachplan-data` auf
-**dieselbe** `wachplan.db` zu. WALs Shared-Memory-Koordination (`-shm`, mmap) ist zwischen
-getrennten Prozessen NICHT kohärent → gleichzeitige Writes zerstören die Datei. WAL war per
-Commit eingeführt worden (für „bessere Nebenläufigkeit"); davor lief die DB im rollback-Journal
-und war prozessübergreifend stabil.
-- **Lösung:** Überall **`PRAGMA journal_mode = DELETE`** statt WAL – an allen drei Writer-
-  Verbindungen: `db/connection.js` (App-Queries), `db/init.js` (Init/Schema; konvertiert eine
-  bestehende WAL-DB beim Start zurück auf DELETE) und `db/session.js` (connect-sqlite3-Store).
-  DELETE nutzt POSIX-fcntl-Locks, die zwischen Prozessen zuverlässig serialisieren;
-  `busy_timeout=5000` lässt contendende Writer warten statt mit `SQLITE_BUSY` zu scheitern. Für
-  die geringe Schreiblast der App völlig ausreichend. Regressionstest `test/db-journal-mode.test.js`
-  (journal_mode=delete + gleichzeitige Writes ohne Korruption). Nebeneffekt: die zuvor sporadisch
-  flakigen DB-Tests (`session-user-deletion`, `auth-flow`) laufen stabil.
+WAL-`-shm` ist prozessübergreifend nicht kohärent → frische DB korrumpierte beim ersten Write.
+**Lösung:** `PRAGMA journal_mode=DELETE` an allen Writer-Connections (`connection.js`/`init.js`/
+`session.js`; init konvertiert WAL zurück) + `busy_timeout=5000`. Test `db-journal-mode.test.js`.
 
 ### Auto-Heilung beschädigter `sessions`-Tabelle beim Start
-**Problem:** Auf Produktiv-DBs (zwei Container – wachplan + wachplan-admin – auf demselben
-WAL-Volume, s. CLAUDE.md) beschädigt sich gelegentlich die vom `connect-sqlite3`-Session-Store
-verwaltete `sessions`-Tabelle (`SQLITE_CORRUPT`: „wrong # of entries in index
-sqlite_autoindex_sessions_1", „row N missing from index"). Die Integritätsprüfung beim Start
-(#323) meldete das zwar laut, der Server lief aber mit kaputter `sessions`-Tabelle weiter →
-Login/Session defekt, manuelle `.recover`-Prozedur mit Downtime nötig.
-- **Lösung (`server/db/init.js`):** Ist die Beschädigung **ausschließlich** auf die `sessions`-
-  Tabelle/ihren Autoindex beschränkt (`isSessionsOnlyCorruption()` – Schema-Index `idx_*` oder
-  Autoindex einer anderen Tabelle disqualifiziert), wird sie automatisch entfernt
-  (`DROP TABLE sessions` → `VACUUM` → erneuter `integrity_check`). `sessions` ist **wegwerfbar**
-  (connect-sqlite3 legt sie beim nächsten Login neu an); Nutzer/Pläne bleiben unberührt – die
-  Nutzer müssen sich nur neu anmelden. Schlägt das DROP fehl oder ist die DB darüber hinaus
-  beschädigt, bleibt es bei der bisherigen manuellen Recovery-Meldung (kein falsch-positives
-  „geheilt"). Per `DB_NO_SESSION_AUTOHEAL=1` abschaltbar. Test: `test/db-session-autoheal.test.js`.
+Ist die Korruption **nur** auf `sessions`/Autoindex beschränkt (`isSessionsOnlyCorruption()`),
+wird sie automatisch entfernt (DROP→VACUUM→Re-Check); Nutzer/Pläne unberührt.
+`DB_NO_SESSION_AUTOHEAL=1` deaktiviert. Test `db-session-autoheal.test.js`.
 
-### admin-server.js: globale Error-Handler auf Modulebene + Exit bei DB-Fehlern (#274)
-**Problem:** `server/admin-server.js` registrierte `uncaughtException`/`unhandledRejection`
-**innerhalb** von `start()` (nach DB-Init) und **ohne `process.exit`** – anders als
-`server/server.js` (Modulebene + Exit bei DB-Fehlern). Folge: inkonsistentes Fehlerverhalten;
-ein fataler DB-Fehler zur Laufzeit ließ den Admin-Server in kaputtem Zustand „am Leben", statt
-sich – wie der Hauptserver – sauber zu beenden (Restart durch den Orchestrator).
-- **Lösung:** Handler aus `start()` entfernt und auf Modulebene (vor `start()`) registriert,
-  exakt analog zu `server.js`: bei DB-bezogenen Fehlern `process.exit(1)`, sonst weiterlaufen.
+### admin-server.js: globale Error-Handler auf Modulebene + Exit (#274)
+Handler aus `start()` auf Modulebene gezogen, `process.exit(1)` bei DB-Fehlern – analog `server.js`.
 
-### Zwangszuweisung auf geschlossenen Turm ließ die Person verschwinden (#308)
-**Problem:** Eine effektive (`transparent:false`) Turm-Zwangszuweisung entfernt die Person
-aus allen Pools (`removeFromPools`) und legt sie in `forcedByTower[slotId]` ab. Dieser
-Eintrag wird aber nur in der `for(const t of openTowers)`-Schleife konsumiert. War der
-Ziel-Turm an dem Tag geschlossen (manuell `ds.closed` oder personell geschlossen → nicht
-in `openTowers`), wurde die Person auf keinen Slot gesetzt und landete auch nicht in den
-HW-Resten → sie verschwand komplett aus Plan und Tagesstatistik. Real auslösbar über eine
-veraltete gespeicherte Zwangszuweisung, deren Turm später geschlossen wird.
-- **Lösung (`public/js/generate.js`, vor dem HW-finalize):** Alle `forcedByTower`-Einträge,
-  deren Turm nicht in `openTowers` ist, werden als aktive HW-Wache (`mainGuards`) aufgefangen
-  (`commitPerson(p, mainPseudo)` → `total++/hwVisits++/hwGuardDays++`). Damit bleibt die Person
-  sichtbar und zählt wie ein echter HW-Dienst – konsistent zur Stat-Rekonstruktion in
-  `_reAccumulateDayStats` (slot.mainGuards) und damit zum Teil-Neuberechnungs-Pfad (#307).
-- **Test:** `test/forced-closed-tower.test.js` (Person bleibt an der HW erhalten + Statistik
-  definiert; keine Doppel-Einplanung).
+### Zwangszuweisung auf geschlossenen Turm ließ Person verschwinden (#308)
+Effektive Turm-Zwangszuweisung auf geschlossenen Turm → Person nirgends platziert. **Lösung
+(`generate.js`):** `forcedByTower`-Einträge ohne offenen Turm vor HW-finalize als `mainGuards`
+auffangen. Test `forced-closed-tower.test.js`.
 
-### Session-Store lag versehentlich in einer In-Memory-DB (Feature-30-Beifang)
-**Problem:** `db/session.js` übergab `new SqliteStore({ db: dbPath, mode: 0o666 })`.
-connect-sqlite3 reicht `mode` aber als **sqlite3-Open-Flags** durch – `0o666` (438)
-enthält Bit `0x80` = `OPEN_MEMORY` → Sessions lebten in einer In-Memory-DB statt in
-`wachplan.db`. Folgen: (a) Sessions überlebten keinen Neustart („Merke mich" 30 Tage
-wirkungslos), (b) die GDPR-Session-Löschung in `admin.js` (`DELETE FROM sessions` auf
-der Haupt-DB) war ein No-op, (c) Session-Invalidierung beim Passwort-Reset wäre ebenso
-ins Leere gelaufen. Zusätzlich baut connect-sqlite3 den Pfad als `dir + '/' + db` –
-ein absoluter `db`-Pfad wäre nach Mode-Fix an einem cwd-relativen Ort gelandet.
-- **Lösung:** `{ dir: path.dirname(dbPath), db: path.basename(dbPath) }` ohne `mode`
-  → Sessions persistent in der Haupt-DB (wie von #211 beabsichtigt). Der
-  `DROP TABLE sessions`-Migrationsschritt in `db/init.js` läuft jetzt nur noch bei
-  altem Schema (Spalten `session`/`expiryDate`), sonst würden persistente Sessions
-  bei jedem Start gelöscht. In `server.js` wird vor Store-Erstellung die
-  Pragma-Queue der Haupt-Connection abgewartet (`await dbRun('SELECT 1')`), sonst
-  racen WAL-Switch und `CREATE TABLE sessions` (IOERR); Error-Handler prüft jetzt
-  `res.headersSent`.
+### Session-Store lag in In-Memory-DB (Feature-30-Beifang)
+`mode:0o666` = sqlite3-Flag `OPEN_MEMORY` → Sessions nicht persistent (Merke-mich/GDPR-Löschung
+no-op). **Lösung:** `{dir, db: basename}` ohne `mode`; `DROP TABLE sessions`-Migration nur bei
+altem Schema; vor Store-Erstellung `await dbRun('SELECT 1')`.
 
 ### Plan-Retention-Cleanup lief nie – `db` undefined (#272)
-**Problem:** `server.js` startete die DSGVO-Plan-Retention mit
-`const db = require('./db/connection').db;` – `connection.js` exportiert aber **kein**
-`db`-Feld (nur `getDb`/`dbRun`/…). `startPlanRetentionCleanup(undefined, …)` rief intern
-`db.run(...)` auf → bei `PLAN_RETENTION_DAYS > 0` warf das 24h-Intervall `TypeError`, der
-vom `catch` verschluckt wurde. Die Retention (Feature 22/23, DSGVO Art. 5) tat nie etwas.
-- **Ort:** `server/server.js`, `server/db/init.js` (`startPlanRetentionCleanup`).
-- **Lösung:** `getDb()` (Singleton, nach `initDatabase()` live) statt `.db` übergeben.
-  Zusätzlich `cleanupRunning`-Guard gegen überlappende Cleanup-Läufe.
-- **Verifikation:** Reproduziert (`require(...).db === undefined`); mit `getDb()` läuft die
-  exakte Retention-`UPDATE`-Query fehlerfrei.
+`require('./db/connection').db` ist undefined → `getDb()` übergeben + `cleanupRunning`-Guard.
 
-### Plan-Retention: Speichern hob die Lösch-Markierung nicht auf → stiller Datenverlust (#305)
-**Problem:** Der Retention-Cleanup (`db/init.js`) markiert lange unbearbeitete Pläne
-(`marked_for_deletion = 1`, `marked_for_deletion_at = now`) und löscht sie nach 7 Tagen
-Schonfrist endgültig. `PUT /api/plans/:id` aktualisierte beim Speichern zwar `updated_at`,
-ließ das Flag aber **nie zurücksetzen**. Die Markierungs-Query greift nur auf
-`marked_for_deletion = 0`-Zeilen → ein bereits markierter, dann wieder bearbeiteter Plan
-blieb markiert und wurde nach Ablauf der Schonfrist gelöscht, obwohl er gerade benutzt wurde.
-Erst durch den #272-Fix (Cleanup läuft überhaupt) wird das praktisch ausgelöst.
-- **Ort:** `server/api/plans.js` (PUT-Handler) ↔ `server/db/init.js` (`startPlanRetentionCleanup`).
-- **Lösung:** Die `UPDATE`-Query setzt beim Speichern zusätzlich
-  `marked_for_deletion = 0, marked_for_deletion_at = NULL` → ein aktiv gespeicherter Plan
-  ist nie löschmarkiert.
-- **Verifikation:** Code-Review + volle Test-Suite grün (55/55), `node -c` ok. Schema-Spalten
-  existieren bereits (idempotenter `ALTER TABLE` in `init.js`), keine Migration nötig.
+### Plan-Retention: Speichern hob Lösch-Markierung nicht auf (#305)
+`PUT /api/plans/:id` setzt jetzt `marked_for_deletion=0, …_at=NULL` → aktiv genutzter Plan nie
+löschmarkiert.
 
-### Teil-Neuberechnung driftete die Fairness – `_reAccumulateDayStats` ≠ Voll-Lauf (#307)
-**Problem:** `generate(startDay>0)` (Person verschieben + „Folgetage neu berechnen") akkumuliert
-die behaltenen Tage über `_reAccumulateDayStats()` und generiert nur den Rest neu. Diese
-Re-Akkumulation muss EXAKT dieselben Stats wie der Voll-Lauf `generate(0)` liefern, sonst
-basiert der neue Rest auf falschem Fairness-Zustand. Drei Abweichungen:
-1. **`pairCount`** zählte HW-`bestPair`-Paare nicht (nur Türme) → HW-Paarungen der behaltenen
-   Tage verloren (fließt über `pairRepeatWeight` ins Scoring).
-2. **`towerWithBoatDays`** zählte nur BESETZTE Boote (aus dem Schedule), der Voll-Lauf aber
-   jedes zugewiesene, nicht geschlossene Boot (`activeBoatTowers`) – bei BF-Knappheit
-   systematische Abweichung (fließt über `towerBoatHeavyPenalty` ins Scoring).
-3. **`hwGuardDays`** wurde fälschlich auch der HW-Führung (`fuehrung`) gutgeschrieben; der
-   Voll-Lauf gibt `poolF` nur `total++`/`hwVisits++` (latent, da `hwGuardDays` nur für Rolle B gelesen).
-- **Ort:** `public/js/generate.js` (`_reAccumulateDayStats` vs. Voll-Lauf-Pfad).
-- **Lösung:** (1) HW-Paare im Voll-Lauf auf dem `main`-Slot mitführen (`mainPairs`) und exakt
-  nachziehen. (2) `towerWithBoatDays` faithful rekonstruieren: besetzte Boot-Slots + unbesetzte-
-  aber-aktive Boote (`day.boatsNoBootsf`). (3) `fuehrung` von `mainGuards` trennen (kein
-  `hwGuardDays++`).
-- **Verifikation:** Neue `test/partial-regen-equivalence.test.js` (No-op-Re-Accumulate-Stats +
-  Tail-Schedule identisch zum Voll-Lauf über 25 Szenarien × 3 Schnittpunkte). Vorher 77 Stat-
-  Diffs / 10 Tail-Abweichungen → jetzt 0/0. Volle Suite 57/57 grün.
+### Teil-Neuberechnung driftete die Fairness (#307)
+`_reAccumulateDayStats` ≠ Voll-Lauf: (1) HW-Paare in `pairCount` fehlten → `mainPairs` nachgezogen;
+(2) `towerWithBoatDays` nur besetzte Boote → besetzte + aktive-unbesetzte rekonstruiert; (3)
+`hwGuardDays` fälschlich an `fuehrung` → getrennt. Test `partial-regen-equivalence.test.js`.
 
-### Robustheit/Wartbarkeit – Export-Leak, WebSocket-Fehler, Audit-JSON, ID-Parser (#273)
-- **Export-Memory-Leak:** `URL.createObjectURL()` wurde in `export.js` (XLSX/CSV/Stats) und
-  `state-io.js` nie freigegeben. Neuer Helfer `downloadBlob(blob, filename)` in `utils.js`
-  (zentral + `revokeObjectURL`).
-- **WebSocket-Join (`realtime.js`):** stummer `catch(e){}` loggt jetzt; `msg.planId` wird via
-  `parsePositiveInt` validiert; `ws.send` nur bei `readyState===OPEN`.
-- **Audit-Log (`admin.js`):** `JSON.parse(details)` pro Datensatz mit `try/catch` – ein
-  korrupter Datensatz kippt nicht mehr den ganzen Compliance-Endpoint (500); Fallback
-  `{ _parseError:true, raw }`.
-- **ID-Parsing (`plans.js`/`realtime.js`):** lokale `parsePlanId`/`parseUserId` durch den
-  zentralen, strikteren `parsePositiveInt` (`db/ids.js`) ersetzt (`'5abc'` → `null` statt `5`).
-- **Dead Code:** veraltetes/kaputtes `test/gdpr-deletion-verification.js` entfernt (nicht in
-  CI, Löschung ist über `session-user-deletion.test.js` abgedeckt).
+### Robustheit/Wartbarkeit (#273)
+Export-Memory-Leak → `downloadBlob()` (revoke) in `utils.js`; WebSocket-Join loggt + validiert
+`planId`/`readyState`; Audit-`JSON.parse` pro Datensatz try/catch; `parsePositiveInt` (`db/ids.js`)
+statt nacktem parseInt; totes `gdpr-deletion-verification.js` entfernt.
 
-### Fairness – Bootsführer-Rotation zu eng (Lookback + Matching, v0.4.24)
-**Problem:** Ein Bootsführer stand teils zwei Tage hintereinander am selben Boot; der
-Rotations-Penalty prüfte nur den Vortag (`lastBoatId`). Gewünscht: bei 3 Booten frühestens
-nach 3 Tagen wieder aufs gleiche Boot (Mo → frühestens Do).
-- **Ort:** `generate.js`, `boatRotationPenalty()` + Boot-Zuweisung.
-- **Ursachen:** (1) Penalty nur 1 Tag Rückblick; (2) gierige Boot-für-Boot-Vergabe – das
-  zuletzt verarbeitete Boot bekam den einzig übrigen BF, auch wenn das die Rotation verletzte.
-- **Lösung:** (1) `boatRotationPenalty` blickt über das **Rotationsfenster** zurück
-  (`boatRotationLookback = offene Boote − 1`, bei 3 Booten also 2 Tage), gestern am stärksten
-  bestraft. (2) **Min-Cost-Matching** (Branch-and-Bound) ordnet alle Boote+BF eines Tages
-  global optimal zu statt gierig – nur im Standardfall (keine Zwangsboote, je 1 BF/Boot, ≤8
-  Boote), sonst Fallback auf die bisherige Vergabe.
-- **Verifikation (5 Seeds):** Boot-Rückkehr in <3 Tagen **10→0**, kleinster Gap **1→3**;
-  jeder BF läuft einen sauberen 3er-Zyklus. Neue Invariante in `test/invariants.test.js`
-  (24/24 grün, schlägt ohne Fix fehl). Messskript `/tmp/measure_boats.js`.
+### Fairness – BF-Rotation zu eng (Lookback + Matching, v0.4.24)
+`boatRotationPenalty` blickt übers Rotationsfenster (`offene Boote−1`) zurück; **Min-Cost-Matching**
+(Branch-and-Bound) statt gieriger Vergabe (Standardfall ≤8 Boote, sonst Fallback). Boot-Rückkehr
+<3 Tage 10→0. Invariante in `invariants.test.js`.
 
 ### Fairness – Türme ohne Erfahrenen (Experience-Reservierung, v0.4.24)
-**Problem:** Auf der Standard-Besetzung (7 erfahrene WG, 7 Türme, 2 Führung an HW) blieb
-regelmäßig ein Turm (meist der Turm mit niedrigster Prio) **ohne Erfahrenen** – obwohl genug
-Erfahrene da waren. Messung: 36 unbesetzte Turm-Tage / 5 Läufe × 6 Tage.
-- **Ort:** `generate.js`, HW-Befüllung + `bestPair()`.
-- **Ursache:** Die Hauptwache wird VOR den Türmen befüllt und zog dabei erfahrene
-  Wachgänger aus dem Guard-Pool → für die 7 Türme blieben nur 6 Erfahrene → ein Turm UU.
-- **Lösung – Experience-Reservierung:** Sind Erfahrene knapp (`availE ≤ offene Türme,
-  abzgl. Leader-gedeckter Türme`), werden sie an der HW **nicht verbraucht**: großer
-  endlicher Penalty (+5000) für E an HW in `bestPair` + U-zuerst-Sortierung in der
-  HW-Einzelbefüllung. Zusätzlich EE-Paar-Penalty bei Knappheit `40→1500`, damit nicht zwei
-  Erfahrene auf einem Turm landen und ein anderer leer bleibt. „Bis zu 3 Unerfahrene an der
-  HW" ist dabei explizit gewollt.
-- **Verifikation (5 Seeds):** Türme ohne Erfahrenen **36→0** (6 T.) und **92→0** (14 T.);
-  Turm-Wiederholungen 38→16 (6 T.). Fuzz 80 Läufe (4 Tageslängen × 20 Seeds) = 0 Verstöße.
-  Neue Invariante `checkExperienceNotWastedAtHW` in `test/invariants.test.js` (23/23 grün,
-  schlägt ohne Fix fehl). Messskript `/tmp/measure.js`.
+HW vor Türmen befüllt → zog Erfahrene weg. **Lösung:** bei Knappheit (`availE ≤ offene Türme`)
+`reserveExpAtHW` → +5000 für E an HW, U-zuerst, EE-Paar-Penalty 40→1500. Türme ohne Erfahrenen
+36→0. Invariante `checkExperienceNotWastedAtHW`.
 
-### Fairness – zu häufige Turm-/Partner-Wiederholungen (Issue #253, v0.4.21)
-**Problem:** Personen besuchten denselben Turm 2–3× in 6 Tagen; Paare wiederholten sich.
-- **Ort:** `generate.js`, `bestPair()` + Boot-Zuweisung.
-- **Ursache:** Schwache „Klippe" beim Turm-Wiederholungs-Penalty (`v≥2?300:v*30`) →
-  Clustering. BF konnten am Folgetag aufs selbe Boot.
-- **Lösung:** Turm-Wiederholung **linear** `v*200`; Fairness-Gewicht `(totalA+totalB)`
-  ×5→×10; HW-UU-Penalty bei `isMain` auf 300 (greift mit #251 ineinander);
-  Partner-Wiederholungs-Penalty ×120→**×250** (sonst stieg `pairRepeat` 21→42);
-  Boot-Rotation via `lastBoatId` + 300-Penalty, Boot-Auswahl per Min-Score statt `shift()`.
-- **Verifikation (5 Szen. × 5 Seeds):** Turm-Wiederholer 267→188, Wiederholungs-Besuche
-  336→216, Paar-Wiederholungen 21→14. 11/11 Invarianten grün. Messskript `/tmp/measure.js`.
+### Fairness – zu häufige Turm-/Partner-Wiederholungen (#253, v0.4.21)
+Turm-Wiederholung linear `v*200`; Fairness `(totalA+totalB)*10`; HW-UU 300; Partner-Wiederholung
+×250; Boot-Rotation `lastBoatId`+300, Auswahl per Min-Score statt `shift()`.
 
-### Führungskräfte zählen als erfahren (Issue #251, v0.4.20)
-- **Ort:** `state.js`, `effLevel(p)`. **Lösung:** `effLevel` gibt für `role:'F'` jetzt `'E'`
-  zurück → an HW sind 3 Unerfahrene mit 2 WF möglich, solange jeder andere Turm ≥1 Erfahrene
-  hat. Betrifft nur Scoring/UU-Bewertung. 11/11 Invarianten grün.
+### Führungskräfte zählen als erfahren (#251, v0.4.20)
+`effLevel('F')='E'` → 3 Unerfahrene + 2 WF an HW möglich, solange jeder Turm ≥1 Erfahrene.
 
-### Passwortlängen-Validierung inkonsistent (Issue #234, v0.4.14)
-Frontend validierte ≥8, Backend ≥10. Frontend (`login-modal.js`, `user-info.js`) +
-HTML-Placeholder auf ≥10 angehoben.
+### Passwortlängen-Validierung inkonsistent (#234, v0.4.14)
+Frontend ≥8 → ≥10 (Backend-konform; `login-modal.js`, `user-info.js`, HTML-Placeholder).
 
-### openTowers-Bedarfsrechnung ignoriert leaderCount (Issue #117, v0.4.1)
-`generate.js`: `need = max(0, (slotCount||2) + (leaderCount||0) - preCount)` (vorher ohne
-`leaderCount`) → keine Turm-Öffnung mehr ohne genug Personal bei `leaderCount>0`.
+### openTowers-Bedarf ignorierte leaderCount (#117, v0.4.1)
+`need = max(0,(slotCount||2)+(leaderCount||0)-preCount)`.
 
-### `renderHWBoatSelector()` undefined ReferenceError (Issue #233, v0.4.14)
-`state-io.js` Z.376: Aufruf einer nicht existierenden Funktion (Überbleibsel Feature 6,
-deprecated). Zeile entfernt → kein ReferenceError mehr in `createNewPlan()`/`loadPlanById()`/
-`applyRemotePlanState()`.
+### `renderHWBoatSelector()` undefined (#233, v0.4.14)
+Toter Aufruf (Überbleibsel Feature 6) in `state-io.js` entfernt.
 
-### Neue Pläne erben Türme/Boote vom aktuellen Plan (Issue #204, v0.4.14)
-`createNewPlan()` rief `seedFromConfig()` ohne vorheriges `resetGlobalState()`; `seed()` /
-`seedFromConfig()` reseteten `towers`/`boats` nicht vor `.push()`. **Lösung:**
-`resetGlobalState()` vor `seedFromConfig()`; zusätzlich `towers=[]`/`boats=[]` defensiv.
-Neue Pläne starten leer mit Default-Parametern (DAYS=6, mainK=2, 9/17).
+### Neue Pläne erbten Türme/Boote (#204, v0.4.14)
+`resetGlobalState()` vor `seedFromConfig()` + defensiv `towers=[]`/`boats=[]`. Start leer
+(DAYS=6, mainK=2, 9/17).
 
-### Mobile/Touch: ↕-Verschieben-Button war hover-only (Issue #181)
-`.move-btn` war nur per `:hover` sichtbar (`opacity:0`) → auf Touch-Geräten unbenutzbar.
-**Lösung:** `@media (hover:none),(pointer:coarse)` zeigt den Button dort dauerhaft und
-vergrößert das Touch-Target; zusätzlich `:focus-visible` für Tastatur-Zugänglichkeit.
+### Mobile/Touch: ↕-Button war hover-only (#181)
+`@media (hover:none),(pointer:coarse)` zeigt den Button dauerhaft + größeres Target; `:focus-visible`.
 
-### Header-Subtitle: Abkürzung „a. D." entfernt (Issue #194)
-Untertitel ausgeschrieben und auf Wachgänger/Turm bezogen statt „jeder Tag"; verunglücktes
-„außer Dienst.- und Schließstatus" korrigiert. Reine Text-Änderung.
+### Header-Subtitle „a. D." entfernt (#194)
+Reine Text-Änderung.
 
-### XLSX-Export: stille Truncation jenseits der 16 Template-Spalten (Issue #215)
-`_patchSheetXml` brach beim Erreichen von `TEMPLATE_STATION_COLS.length` still ab → überzählige
-Stationen/Personen fielen kommentarlos aus dem amtlichen Formular. **Lösung:** `truncated`-Flag
-an allen drei Abbruchpfaden; `_patchSheetXml` gibt `{ xml, truncated }` zurück; `exportOfficial`
-zeigt bei Truncation eine `confirm()`-Warnung (analog zur >28-Personen-Warnung).
+### XLSX-Export: stille Truncation >16 Spalten (#215)
+`truncated`-Flag an allen Abbruchpfaden; `_patchSheetXml`→`{xml,truncated}`; `exportOfficial`
+warnt via `confirm()`.
 
-### Security: Plan-Name/State-Größe unbeschränkt + nacktes parseInt in Admin-Routen (Issue #218)
-`POST/PUT /api/plans` validieren jetzt `name` (String, max. 200 → 400) und serialisierte
-State-Größe (max. 1 MB → 413) gegen Storage-Exhaustion (`validatePlanInput`). Neuer gemeinsamer
-Helfer `server/db/ids.js` (`parsePositiveInt`) ersetzt `parseInt(req.params.id)` in `admin.js`
-(DELETE/PUT-password/GET-export) → `'5abc'`/`NaN`/`≤0` fließen nicht mehr in Queries.
+### Security: Plan-Name/State-Größe + parseInt in Admin (#218)
+`validatePlanInput` (Name ≤200→400, State ≤1MB→413 gegen Storage-Exhaustion); `parsePositiveInt`
+(`db/ids.js`) statt nacktem parseInt in `admin.js`.
 
-### renderOutput() crasht bei lastResult===null (Issue #276, v0.5.2)
-**Problem:** `lastResult` ist bis zum ersten `generate()`-Aufruf `null`. Die Sidebar ist
-jedoch sofort bedienbar; zwei Event-Handler in `render-sidebar.js` (Labels-Checkbox Z.67,
-Erfahren-Checkbox Z.83) riefen `renderOutput()` ohne Guard auf. Ergebnis: `TypeError:
-Cannot destructure property 'schedule' of 'lastResult' as it is null` (Z.42 in
-`render-output.js`) – sichtbarer Crash für neue Nutzer vor dem ersten Generieren.
-**Lösung:** Defensiver Early-Return in `renderOutput()` selbst (nach `getElementById`,
-vor dem Destructuring): `if(!lastResult) return;` – robuster gegen alle aktuellen und
-künftigen Aufrufer (statt nur die zwei Call-Sites zu patchen).
-### Security: Bulk-Import umging die Eingabe-Limits aus #218 + leakte Fehlerdetails (Issue #279)
-`POST /api/import/plans` fügte Pläne ohne jede Validierung ein – beliebig lange Namen,
-States bis zum 10-MB-Body-Limit, `plan.name` ohne Typprüfung; rohe `planError.message`
-(Crypto/DB-Details) ging an den Client. **Lösung:** `validatePlanInput` aus `plans.js`
-exportiert und pro importiertem Plan angewandt (gleiche Limits wie POST/PUT: Name ≤ 200,
-State ≤ 1 MB; ungültige Pläne werden mit klarer Meldung übersprungen, Teilimport bleibt
-möglich). Fehlermeldungen an den Client sind jetzt generisch („Import fehlgeschlagen“),
-Details nur noch via `console.error`; Namen in Fehler-Strings String-koerziert + gekürzt.
+### renderOutput() crasht bei lastResult===null (#276, v0.5.2)
+Defensiver `if(!lastResult) return;` in `renderOutput()` (vor dem Destructuring).
+
+### Security: Bulk-Import umging Limits + leakte Fehler (#279)
+`validatePlanInput` pro importiertem Plan (Name ≤200, State ≤1MB; ungültige übersprungen,
+Teilimport bleibt möglich); Client-Fehler generisch, Details nur `console.error`.
