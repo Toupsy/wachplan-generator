@@ -221,6 +221,23 @@ BF fahren Boot. `sanActive`-Gating prüft den ganzen `getGuardPool()`. Tests: `s
 
 ## Bugfixes
 
+### Spät-Einsteiger klebten an der HW (HW von `total` entkoppelt + San-Vorab-Reservierung)
+Eine Person, die erst mitten in der Woche dazukam (erste Tage abwesend), saß **jeden** ihrer Tage an
+der HW (z. B. 4 Tage in Folge). **Ursache:** Die HW wird **vor** den Türmen befüllt und ihre Auswahl
+nutzte den `total`-Ausgleich (Gesamteinsätze). Ein Spät-Einsteiger hat strukturell den niedrigsten
+`total` – obwohl er an **jedem anwesenden Tag aktiv** (also voll ausgelastet) ist, lässt sich der
+Rückstand im Fenster nie aufholen. Sowohl die HW-**Einzelbefüllung** (sortierte primär nach `total`)
+als auch das HW-**Paar** in `bestPair` (am letzten Tag, wenn alle `hwVisits` gleich sind, entschied
+der `total×10`-Tiebreak) zogen ihn so jeden Tag wieder auf die HW.
+**Fix:** Die HW-Auswahl rotiert jetzt **rein nach `hwVisits`**; der `total`-Ausgleich gilt nur noch
+für **Türme** (`bestPair`-Term `if(!isMain)`, HW-Einzelbefüllung ohne `total`). Sein Rückstand wird
+damit auf echten Wachdiensten (Türmen) aufgeholt, nicht an der HW. **Voraussetzung dafür:**
+Sanitäter werden jetzt **vorab reserviert** (analog Führungsturm, s. Feature 33): ohne den
+`total`-Deterrent hätte die HW sonst den dauer-aktiven Sanitäter (`hwVisits=0`) verbraucht. Pro
+offenem San-Turm wird ein Sanitäter **vor** der HW-Befüllung fest aus dem Guard-Pool gezogen
+(`reservedSanByTower`) → robuste San-Besetzung statt nur penalty-basiert. Ergebnis: Der
+Spät-Einsteiger ist nur noch an seinem **ersten** anwesenden Tag an der HW, danach auf Türmen.
+
 ### SQLITE_CORRUPT-Wurzelfix: Admin-Panel in den Hauptprozess eingebettet
 Transiente `SQLITE_CORRUPT` im Betrieb = prozessübergreifender SQLite-Zugriff auf NAS/Netzwerk-
 Volume (seit Audit-Log #294 schrieben **beide** Container in `audit_log`). **Lösung:** nur **ein**
