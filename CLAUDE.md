@@ -139,7 +139,7 @@ Läuft **sequenziell** über alle Tage; akkumulierte `stats` übertragen sich au
 
 **`bestPair(tower, requireMix, currentDay)` – niedrigster Score gewinnt** (Gewichte empirisch getunt, Issue #253):
 ```
-+1000  UU + requireMix (Notlösung; an HW nur +300)      +40/1500 EE + requireMix (1500 bei E-Knappheit)
++1000  UU + requireMix (Notlösung; an HW nur +300)      +40/1500 EE + requireMix (1500 solange Unerfahrene paarbar/E-Knappheit → kein EE-Turm neben UU-Turm)
 +250×  bisherige gemeinsame Turmdienste (Paar-Wdh.)     +200×v Turmbesuche A/B (linear)
 +10×   (totalA+totalB) Fairness (NUR Türme, nicht HW)   +800/-350 surplusBF aktiv/inaktiv-Boot
 +200×  konsekutive Tage gleicher Turm (Feature 8)       +150 beide viele Boot-Tage
@@ -155,8 +155,12 @@ sitzt mehrere Tage in Folge nur auf Außentürmen.
 **Experience-Reservierung (v0.4.24):** Vor der HW-Befüllung wird `reserveExpAtHW =
 availE.length ≤ expDemand` gesetzt (`expDemand` = offene Türme ohne Leader-Deckung). Ist es
 `true`, dürfen Erfahrene nicht an der HW „verbraucht" werden (+5000 in `bestPair`, U-zuerst in
-der HW-Einzelbefüllung) und zwei Erfahrene werden nicht gepaart (EE-Penalty 1500) → jeder Turm
-bekommt einen Erfahrenen, überzählige Unerfahrene gehen an die HW (bis zu 3 sind gewollt).
+der HW-Einzelbefüllung), überzählige Unerfahrene gehen an die HW (bis zu 3 sind gewollt).
+**EE-Spreizung (unabhängig von der Knappheit):** Zwei Erfahrene werden auf einem Turm stark
+gebremst (EE-Penalty 1500), solange noch **Unerfahrene paarbar** sind (`uAvailable` in `bestPair`)
+ODER `reserveExpAtHW` – sonst entstünde ein EE-Turm neben einem UU-Turm. So bekommt jeder Turm
+genau EINEN Erfahrenen; EE nur, wenn keine Unerfahrenen mehr übrig sind (dann nur `eePenaltyNormal`
+40, weil unvermeidlich). Priorität: **kein Turm rein unerfahren** (UU), solange Erfahrene reichen.
 
 **BF-HW-Wunsch (Feature 26):** BF mit `wantsHW:true` sollen bei BF-Überzahl ≥1 aktiven
 HW-Dienst (`mainGuards`) bekommen. `hwWishBonus` gibt noch unerfüllten Wünschen einen zum
