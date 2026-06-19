@@ -6,6 +6,23 @@ const path = require('path');
 const session = require('express-session');
 const SqliteStore = require('connect-sqlite3')(session);
 const { dbPath } = require('./connection');
+
+// Eigene DB-Datei NUR für Sessions. KERNFIX gegen SQLITE_CORRUPT: Früher öffnete
+// connect-sqlite3 eine zweite, eigenständige sqlite3-Connection auf DIESELBE
+// wachplan.db wie die Haupt-App (getDb()). Zwei unabhängige Writer auf eine Datei –
+// zumal auf NAS-Volumes mit unzuverlässigem fcntl-Locking – korrumpieren die Freelist
+// ("Page N: never used", "freelist leaf count too big", "2nd reference to page").
+// Eine eigene Datei bedeutet genau EINEN Writer pro Datei → SQLites Rollback-Journal
+// (DELETE) ist wieder absturzsicher, auch bei hartem Container-Kill. Über
+// SESSION_DB_PATH überschreibbar.
+const sessionDbPath = process.env.SESSION_DB_PATH
+  || path.join(path.dirname(dbPath), 'sessions.db');
+
+// Singleton-Referenz auf den aktiven Store, damit destroyUserSessions() Sessions
+// über DESSEN eigene Connection löschen kann (statt über die Haupt-Connection einen
+// zweiten Writer auf die sessions-Tabelle zu setzen).
+let activeStore = null;
+
 const DB_BUSY_TIMEOUT_MS = Number.parseInt(process.env.DB_BUSY_TIMEOUT_MS || '30000', 10);
 const SESSION_STORE_RETRIES = Number.parseInt(process.env.SESSION_STORE_RETRIES || '5', 10);
 const TRANSIENT_SESSION_CODES = new Set(['SQLITE_BUSY', 'SQLITE_LOCKED', 'SQLITE_IOERR', 'SQLITE_PROTOCOL']);
@@ -50,15 +67,15 @@ function wrapStoreMethodWithRetry(store, methodName) {
 // lagen in einer In-Memory-DB: kein Überleben von Neustarts (Merke-mich) und
 // die Session-Löschung (GDPR, Passwort-Reset) auf der Haupt-DB griff nie.
 function createSessionMiddleware({ resave = true, saveUninitialized = true } = {}) {
-  const store = new SqliteStore({ dir: path.dirname(dbPath), db: path.basename(dbPath) });
+  const store = new SqliteStore({ dir: path.dirname(sessionDbPath), db: path.basename(sessionDbPath) });
+  activeStore = store;
   store.on('error', (err) => {
     console.warn('⚠ Session store error (continuing):', err.message);
   });
   // Eigene Connection des Stores: ohne busy_timeout schlagen Session-Writes
-  // mit SQLITE_BUSY fehl, sobald die Haupt-Connection gerade schreibt.
-  // journal_mode=DELETE statt WAL erzwingen (wie connection.js/init.js): diese
-  // dritte Writer-Connection darf die geteilte DB nicht auf WAL umschalten, sonst
-  // korrumpiert die prozessübergreifende WAL-Koordination die Datei (SQLITE_CORRUPT).
+  // mit SQLITE_BUSY fehl, sobald gleichzeitig geschrieben wird.
+  // journal_mode=DELETE statt WAL erzwingen (wie connection.js/init.js): kein
+  // prozessübergreifendes WAL-Shared-Memory auf NAS-Volumes.
   if (store.db && typeof store.db.run === 'function') {
     if (typeof store.db.configure === 'function') store.db.configure('busyTimeout', DB_BUSY_TIMEOUT_MS);
     store.db.run(`PRAGMA busy_timeout = ${DB_BUSY_TIMEOUT_MS}`, () => {});
@@ -99,4 +116,27 @@ function createSessionMiddleware({ resave = true, saveUninitialized = true } = {
   return middleware;
 }
 
-module.exports = { createSessionMiddleware, _wrapStoreMethodWithRetry: wrapStoreMethodWithRetry };
+// Invalidiert alle Sessions eines Users über die EIGENE Connection des Stores
+// (sessions.db). Ersetzt das frühere `DELETE FROM sessions` auf der Haupt-Connection
+// (auth.js/admin.js), das die sessions-Tabelle in der Haupt-DB voraussetzte und einen
+// zweiten Writer auf wachplan.db einführte. No-op, solange noch keine Session
+// geschrieben wurde (Tabelle existiert dann noch nicht).
+function destroyUserSessions(userId) {
+  return new Promise((resolve, reject) => {
+    const store = activeStore;
+    if (!store || !store.db || typeof store.db.run !== 'function') return resolve(0);
+    store.db.run(
+      "DELETE FROM sessions WHERE json_extract(sess, '$.userId') = ?",
+      [userId],
+      function(err) {
+        if (err) {
+          if (/no such table/i.test(err.message)) return resolve(0);
+          return reject(err);
+        }
+        resolve(this.changes);
+      }
+    );
+  });
+}
+
+module.exports = { createSessionMiddleware, destroyUserSessions, _wrapStoreMethodWithRetry: wrapStoreMethodWithRetry };

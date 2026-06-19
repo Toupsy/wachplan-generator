@@ -11,6 +11,7 @@ const path = require('path');
 const fs = require('fs');
 const bcryptjs = require('bcryptjs');
 const { dbRun, dbGet, dbAll } = require('../db/connection');
+const { destroyUserSessions } = require('../db/session');
 const { parsePositiveInt } = require('../db/ids');
 
 // ───────────────────────────────────────────────────────────
@@ -147,8 +148,8 @@ router.delete('/users/:id', async (req, res) => {
 
     // Delete in cascading order (GDPR Art. 17 – Recht auf Löschung)
     // Foreign keys are enabled in connection.js for plans/plan_shares cascade
-    // connect-sqlite3 sessions: check sess column (serialized JSON) for userId
-    await dbRun("DELETE FROM sessions WHERE json_extract(sess, '$.userId') = ?", [userId]);
+    // Sessions über die eigene Connection des Session-Stores löschen (sessions.db).
+    await destroyUserSessions(userId);
     // plan_shares cascade via foreign key
     // plans cascade via foreign key (will trigger plan_shares cascade)
     await dbRun('DELETE FROM plans WHERE user_id = ?', [userId]);
