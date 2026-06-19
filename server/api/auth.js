@@ -17,6 +17,7 @@ const router = express.Router();
 const bcryptjs = require('bcryptjs');
 const crypto = require('crypto');
 const { dbRun, dbGet, dbAll, getDb } = require('../db/connection');
+const { destroyUserSessions } = require('../db/session');
 const { auditLog } = require('../db/init');
 const { isMailEnabled, sendMail, baseUrl } = require('../mailer');
 const { isCaptchaEnabled, verifyCaptcha } = require('../captcha');
@@ -647,11 +648,12 @@ router.post('/reset-password', express.json(), async (req, res) => {
     );
 
     // Alle bestehenden Sessions des Users invalidieren (gestohlene Session
-    // überlebt den Reset nicht). Tabelle legt connect-sqlite3 an → kann fehlen.
+    // überlebt den Reset nicht). Läuft über die eigene Connection des Session-Stores
+    // (sessions.db), nicht über die Haupt-Connection.
     try {
-      await dbRun("DELETE FROM sessions WHERE json_extract(sess, '$.userId') = ?", [row.user_id]);
+      await destroyUserSessions(row.user_id);
     } catch (sessErr) {
-      if (!/no such table/i.test(sessErr.message)) console.error('Session invalidation error:', sessErr.message);
+      console.error('Session invalidation error:', sessErr.message);
     }
 
     _audit(row.user_id, 'password_reset', null, ip);
