@@ -417,6 +417,10 @@ function generate(startDay = 0){
       const cand   = getGuardPool();
       const isMain = t.id === MAIN_ID;
       let best = null, bestScore = Infinity;
+      const sanPairBonus = (A, B) => {
+        const medics = (A.sanitaeter ? 1 : 0) + (B.sanitaeter ? 1 : 0);
+        return medics ? algoParams.sanTowerBonus / medics : 0;
+      };
       // Feature 13: B/W werden über experienced als E/U behandelt (nur für Turm-Zuweisung)
       const getEffectiveRole = effLevel;
       // Sind noch Unerfahrene im Pool? Dann ist für JEDEN Turm ein E+U-Paar möglich → zwei
@@ -480,7 +484,7 @@ function generate(startDay = 0){
             // Nicht-San-Türme halten Sanitäter als Reserve fern.
             if(sanActive){
               if(t.sanTower){
-                if(towerNeedsSan && (A.sanitaeter || B.sanitaeter)) score -= algoParams.sanTowerBonus;
+                if(towerNeedsSan) score -= sanPairBonus(A, B);
               } else {
                 if(A.sanitaeter) score += algoParams.sanReservePenalty;
                 if(B.sanitaeter) score += algoParams.sanReservePenalty;
@@ -504,7 +508,7 @@ function generate(startDay = 0){
             }
             if(sanActive){
               if(towerNeedsSan){
-                if(A.sanitaeter || B.sanitaeter) score -= algoParams.sanTowerBonus;
+                score -= sanPairBonus(A, B);
               } else {
                 // Sanitäter an der HW nur als Reserve – auf San-Türmen besser aufgehoben.
                 if(A.sanitaeter) score += algoParams.sanReservePenalty;

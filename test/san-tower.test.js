@@ -57,7 +57,7 @@ const FILLERS = [
   { id: 18, name: 'U3', role: 'W', experienced: false },
 ];
 
-test('San-Turm + Sanitäter verfügbar: jeden Tag ≥1 Sanitäter auf dem San-Turm', () => {
+test('San-Turm + Sanitäter verfügbar: jeden Tag genau 1 Sanitäter auf dem San-Turm', () => {
   const people = [
     ...FILLERS,
     { id: 2, name: 'San1', role: 'W', experienced: true, sanitaeter: true },
@@ -70,7 +70,7 @@ test('San-Turm + Sanitäter verfügbar: jeden Tag ≥1 Sanitäter auf dem San-Tu
   ];
   const res = run({ people, towers, days: 6 });
   res.schedule.forEach((day, i) => {
-    assert.ok(medicsOn(day, 21).length >= 1, `Tag ${i + 1}: mind. 1 Sanitäter auf dem San-Turm`);
+    assert.equal(medicsOn(day, 21).length, 1, `Tag ${i + 1}: genau 1 Sanitäter auf dem San-Turm`);
   });
 });
 
@@ -151,7 +151,7 @@ test('Kein San-Turm: Plan bleibt gültig, Sanitäter wie normale Wachgänger', (
   });
 });
 
-test('San-HW + Sanitäter verfügbar: jeden Tag ≥1 Sanitäter auf der Hauptwache', () => {
+test('San-HW + Sanitäter verfügbar: jeden Tag genau 1 Sanitäter auf der Hauptwache', () => {
   const people = [
     ...FILLERS,
     { id: 2, name: 'San1', role: 'W', experienced: true, sanitaeter: true },
@@ -162,7 +162,7 @@ test('San-HW + Sanitäter verfügbar: jeden Tag ≥1 Sanitäter auf der Hauptwac
   ];
   const res = run({ people, towers, days: 5, mainK: 2, sanAtHw: true });
   res.schedule.forEach((day, i) => {
-    assert.ok(hwMedics(day).length >= 1, `Tag ${i + 1}: mind. 1 Sanitäter auf der HW`);
+    assert.equal(hwMedics(day).length, 1, `Tag ${i + 1}: genau 1 Sanitäter auf der HW`);
   });
 });
 
