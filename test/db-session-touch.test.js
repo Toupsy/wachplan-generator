@@ -32,8 +32,12 @@ test('session middleware disables per-request SQLite touch writes by default', a
   assert.equal(statements.some((sql) => /UPDATE\s+sessions\s+SET\s+expired/i.test(sql)), false);
   await middleware.closeStore();
 
+  // Sessions liegen jetzt in einer EIGENEN Datei (sessions.db), getrennt von der
+  // Haupt-DB wachplan.db – der Kernfix gegen SQLITE_CORRUPT durch zwei Writer auf
+  // dieselbe Datei. Die Haupt-DB wird hier gar nicht geöffnet, daher existiert nur
+  // sessions.db (und kein -wal/-shm/-journal dank journal_mode=DELETE + No-touch).
   const dbFiles = fs.readdirSync(tmpDir).filter((file) => file.endsWith('.db'));
-  assert.deepEqual(dbFiles, ['wachplan.db']);
+  assert.deepEqual(dbFiles, ['sessions.db']);
 
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
