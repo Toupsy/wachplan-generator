@@ -226,15 +226,23 @@ neu auf (auch bei jeder Datum-/Tage-Änderung in init.js). CSV-Parsing zuverläs
 (lazy von cdnjs, Spalten-Rekonstruktion über x-Positionen) best-effort. Job→Rolle WF/BF/RS→F/B/W,
 importierte Personen starten unerfahren. Kernfunktionen DOM-frei + testbar (`test/roster.test.js`).
 
-**DB-Journal-Modus = DELETE (nicht WAL!) – prozessübergreifend sicher:** In `docker-compose.yml`
-schreiben **zwei Container** (`wachplan` + `wachplan-admin`, gleiches Image) dieselbe DB auf dem
-geteilten Volume `wachplan-data`. WALs Shared-Memory (`-shm`, mmap) ist zwischen Prozessen NICHT
-kohärent → `SQLITE_CORRUPT: database disk image is malformed` schon beim ersten gleichzeitigen
-Schreiben (z. B. `audit_log` beim `plan_create`). Daher läuft die DB im **Rollback-Journal-Modus
-`DELETE`** (POSIX-fcntl-Locks serialisieren zwischen Prozessen, `busy_timeout=5000` lässt warten).
-Gesetzt an **allen drei** Writer-Connections: `db/connection.js` (getDb), `db/init.js`
-(Init/Schema, konvertiert auch eine bestehende WAL-DB zurück) und `db/session.js` (connect-sqlite3-
-Store). **NIEMALS** wieder `journal_mode=WAL` setzen (Regressionstest `test/db-journal-mode.test.js`).
+**EIN Prozess öffnet die DB (SQLITE_CORRUPT-Dauerfix):** SQLite koordiniert gleichzeitige
+Zugriffe nur **innerhalb eines Prozesses** zuverlässig (per-Inode-Mutex). Zwischen Prozessen
+hängt es an advisory-Locks + Page-Cache-Kohärenz des Dateisystems – auf einem (NAS-/Netzwerk-)
+Volume unzuverlässig → transientes `SQLITE_CORRUPT: database disk image is malformed` (Start-
+`integrity_check` bleibt „ok", die Datei ist nicht dauerhaft kaputt). Ausgelöst wurde das Symptom
+durch das Audit-Log (#294), das erstmals **beide** Prozesse gleichzeitig schreiben ließ. **Fix:**
+`server.js` bettet das Admin-Panel via `createAdminApp({sessionMiddleware})` (aus `admin-server.js`)
+auf `ADMIN_PORT` in den **Hauptprozess** ein (teilt dieselbe Session-Middleware/DB-Verbindung),
+und `docker-compose.yml` startet nur noch **EINEN** Container für beide Ports. `admin-server.js`
+bleibt als Standalone-Entry-Point (`require.main`-Guard) für getrennten Betrieb erhalten – dann
+aber **nur mit eigener DB**. `RUN_EMBEDDED_ADMIN=0` schaltet das Einbetten ab.
+
+**DB-Journal-Modus = DELETE (nicht WAL!):** Die DB läuft zusätzlich im **Rollback-Journal-Modus
+`DELETE`** statt WAL (WALs `-shm`-mmap ist prozessübergreifend gar nicht kohärent). Gesetzt an
+**allen** Writer-Connections: `db/connection.js` (getDb), `db/init.js` (Init/Schema, konvertiert
+eine bestehende WAL-DB zurück) und `db/session.js` (connect-sqlite3-Store), je mit `busy_timeout`.
+**NIEMALS** wieder `journal_mode=WAL` setzen (Regressionstest `test/db-journal-mode.test.js`).
 
 **DB-Integrität & Korruption:** `initDatabase()` (db/init.js) führt beim Start ein
 `PRAGMA integrity_check` aus (`checkIntegrity()`). Bei Beschädigung, die NUR die (wegwerfbare)

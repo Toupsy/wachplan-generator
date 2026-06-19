@@ -4,45 +4,34 @@
 # Secrets stehen NICHT in dieser Datei, sondern in einer .env neben
 # docker-compose.yml (gitignored). Vorlage: .env.example
 #   cp .env.example .env   →   Werte eintragen   →   docker compose up -d
+#
+# WICHTIG: EIN einziger Container bedient BEIDE Ports (App 3000 + Admin 3001).
+# Früher lief das Admin-Panel als ZWEITER Container (`node server/admin-server.js`)
+# auf demselben `wachplan-data`-Volume → zwei Prozesse öffneten dieselbe SQLite-Datei.
+# SQLite koordiniert gleichzeitige Zugriffe nur INNERHALB eines Prozesses zuverlässig;
+# zwischen Prozessen auf einem (NAS-)Volume entstand transientes SQLITE_CORRUPT
+# ("database disk image is malformed"). server.js bettet das Panel jetzt über
+# ADMIN_PORT in den Hauptprozess ein (ein einziger DB-Öffner) → Problem behoben.
 # ============================================================
 
-# Gemeinsame Service-Konfiguration (YAML-Anchor) – DRY für beide Services.
-x-wachplan-base: &wachplan-base
-  image: ghcr.io/toupsy/wachplan-generator:latest
-  restart: unless-stopped
-  env_file: .env                       # MASTER_SECRET, SALT, SESSION_SECRET, ADMIN_* …
-  volumes:
-    - wachplan-data:/app/data
-  networks:
-    - proxy
-
 services:
-  # Haupt-App (Wachplan-Generator) auf Port 3000
+  # Haupt-App (Port 3000) inkl. eingebettetem Admin-Panel (Port 3001, via ADMIN_PORT)
   wachplan:
-    <<: *wachplan-base
+    image: ghcr.io/toupsy/wachplan-generator:latest
     container_name: dlrg-wachplan
+    restart: unless-stopped
+    env_file: .env                       # MASTER_SECRET, SALT, SESSION_SECRET, ADMIN_* …
+    environment:
+      ADMIN_PORT: "3001"                 # aktiviert das eingebettete Admin-Panel im selben Prozess
+    volumes:
+      - wachplan-data:/app/data
+    networks:
+      - proxy
     ports:
       - "3000:3000"
+      - "3001:3001"                      # Admin-Panel; bei Bedarf per Firewall/Proxy getrennt absichern
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-
-  # Admin-Panel auf Port 3001 (gleiches Image, anderer Entry-Point)
-  wachplan-admin:
-    <<: *wachplan-base
-    container_name: dlrg-wachplan-admin
-    command: node server/admin-server.js
-    environment:
-      ADMIN_PORT: "3001"               # service-spezifisch, kein Secret
-    ports:
-      - "3001:3001"
-    depends_on:
-      - wachplan
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 30s
       timeout: 5s
       retries: 3
