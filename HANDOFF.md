@@ -13,6 +13,24 @@
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: Tests grün, alle Server parsen (`node -c`).
 
+**Letzter Lauf (2026-06-19, SQLITE_CORRUPT-Wurzelfix – Branch `claude/hopeful-keller-y73g6l`):**
+- **Symptom:** Trotz aller vorherigen DB-Fixes (#323–#329: DELETE-Journal, Integritäts-Check,
+  Auto-Heilung, busy_timeout, Retries) weiterhin **transiente** `SQLITE_CORRUPT`-Fehler im Betrieb
+  (`Save/Create plan error`, `Session save error`), während der Start-`integrity_check` stets „ok"
+  meldete. **Wurzelursache:** ZWEI Container (`wachplan` + `wachplan-admin`) öffneten dieselbe
+  SQLite-Datei auf dem geteilten (NAS-)Volume. SQLite ist nur **intra-Prozess** sicher; cross-process
+  auf NAS/NFS sind Locks/Page-Cache nicht kohärent → transiente Korruption. **Auslöser** = Audit-Log
+  (#294), das erstmals beide Prozesse gleichzeitig schreiben ließ → bestätigt die Vermutung „seit dem
+  Audit".
+- **Fix:** `admin-server.js` → `createAdminApp({sessionMiddleware})` (Auto-Start nur via `require.main`);
+  `server.js` bettet das Panel bei gesetztem `ADMIN_PORT` als zweiten Listener im **selben Prozess**
+  ein (geteilte Session-Middleware/DB-Verbindung); `docker-compose.yml` läuft als **EIN** Container
+  (Ports 3000+3001). `RUN_EMBEDDED_ADMIN=0` = alter Zwei-Prozess-Modus (dann eigene DB nötig).
+  Details: docs/FEATURES.md „Bugfixes", CLAUDE.md „EIN Prozess öffnet die DB".
+- **Tests: 98/98 grün**; Smoke-Test: ein Prozess bedient `/health` auf 3000 **und** 3001.
+- **Deployment-Hinweis:** Nach Update den separaten `wachplan-admin`-Container entfernen
+  (`docker compose up -d` mit neuer compose-Datei tut das); Port 3001 ggf. weiterhin per Proxy/Firewall absichern.
+
 **Letzter Lauf (2026-06-16, Feature 37: Registrierung mit E-Mail-Verifizierung – Branch `claude/inspiring-faraday-4ngftk`, gemergt als PR #292):**
 - **Feature 37 implementiert** (s. docs/FEATURES.md + **docs/REGISTRATION.md** Setup-Guide):
   Registrierung mit E-Mail-Verifizierung (Pflicht-E-Mail + Bestätigungslink, Login-Sperre

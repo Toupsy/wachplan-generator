@@ -191,6 +191,26 @@ async function start() {
     setupRealtime(server, sessionMiddleware);
 
     installSigtermHandler(server, 'Server');
+
+    // ── Admin-Panel IM SELBEN Prozess auf ADMIN_PORT mitbedienen ──────
+    // GRUND (SQLITE_CORRUPT-Dauerfix): Lief das Admin-Panel als zweiter Container
+    // (admin-server.js) neben diesem Server, öffneten ZWEI Prozesse dieselbe
+    // wachplan.db auf dem geteilten Volume. SQLite koordiniert gleichzeitige Zugriffe
+    // nur INNERHALB eines Prozesses zuverlässig – zwischen Prozessen auf einem
+    // (NAS-)Volume kippt das in transientes „database disk image is malformed"
+    // (sichtbar seit das Audit-Log #294 beide Prozesse gleichzeitig schreiben ließ).
+    // Ein Prozess, der beide Ports bedient, öffnet die DB nur einmal → Problem behoben.
+    // Die Admin-App teilt sich dieselbe Session-Middleware (= dieselbe DB-Verbindung).
+    // RUN_EMBEDDED_ADMIN=0 → klassischer Zwei-Prozess-Betrieb (nur mit getrennter DB!).
+    const adminPort = process.env.ADMIN_PORT;
+    if (adminPort && process.env.RUN_EMBEDDED_ADMIN !== '0') {
+      const { createAdminApp } = require('./admin-server');
+      const adminApp = createAdminApp({ sessionMiddleware });
+      adminApp.listen(adminPort, HOST, () => {
+        console.log(`🔐 Admin-Panel (eingebettet) läuft`);
+        console.log(`   URL: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${adminPort}`);
+      });
+    }
   } catch (error) {
     console.error('❌ Fehler beim Starten des Servers:', error.message);
     process.exit(1);

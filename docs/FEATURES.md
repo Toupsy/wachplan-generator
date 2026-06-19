@@ -483,6 +483,29 @@ Turmplatz verfügbar ist** – das ist bei **überzähligen** BF der Fall (sie s
 
 ## Bugfixes
 
+### SQLITE_CORRUPT-Wurzelfix: Admin-Panel in den Hauptprozess eingebettet (ein DB-Öffner)
+**Problem:** Trotz `journal_mode=DELETE` (s. u.), Integritäts-Check, Auto-Heilung, busy_timeout
+und Retries traten im Betrieb weiterhin **transiente** `SQLITE_CORRUPT: database disk image is
+malformed`-Fehler auf (`Save plan error`, `Create plan error`, `Session save error`) – über Tage
+verteilt, während der Start-`integrity_check` jedes Mal „ok" meldete. Genau dieses Muster (Datei
+auf der Platte intakt, einzelne Operationen sehen kurzzeitig inkonsistente Pages) ist die Signatur
+von **prozessübergreifendem** SQLite-Zugriff auf einem (NAS-/Netzwerk-)Volume: SQLite koordiniert
+gleichzeitige Zugriffe nur **innerhalb eines Prozesses** zuverlässig (per-Inode-Mutex); zwischen
+Prozessen hängt es an advisory-Locks + Page-Cache-Kohärenz des Dateisystems, die auf NAS/NFS nicht
+verlässlich sind. **Auslöser** (daher „seit dem Audit-Log"): vor #294 schrieb der zweite Prozess
+(`wachplan-admin`) praktisch nicht in die geteilten Tabellen; das Audit-Log ließ erstmals **beide**
+Container (`wachplan` + `wachplan-admin`) gleichzeitig in `audit_log` schreiben und legte die
+latente Cross-Process-Unsicherheit offen. Die Journal-Mode-Umstellung (#325–#329) milderte das,
+konnte ein **prozessübergreifendes** Problem aber prinzipiell nicht lösen.
+- **Lösung:** Nur noch **EIN Prozess** öffnet die DB. `server/admin-server.js` exportiert jetzt
+  `createAdminApp({ sessionMiddleware })` (App-Aufbau ohne eigenes `listen`/`initDatabase`,
+  Auto-Start nur via `require.main`-Guard). `server/server.js` startet nach dem Haupt-Listener
+  bei gesetztem `ADMIN_PORT` einen **zweiten Listener im selben Prozess** mit dieser App, die sich
+  **dieselbe Session-Middleware (= dieselbe DB-Verbindung)** teilt. `docker-compose.yml` läuft nur
+  noch als **EIN** Container (Ports 3000 **und** 3001, `ADMIN_PORT=3001`). SQLite koordiniert die
+  verbleibende Intra-Prozess-Nebenläufigkeit zuverlässig auf jedem Dateisystem. `RUN_EMBEDDED_ADMIN=0`
+  stellt den klassischen Zwei-Prozess-Betrieb wieder her (dann zwingend eigene DB pro Prozess).
+
 ### SQLITE_CORRUPT-Dauerfix: Rollback-Journal (DELETE) statt WAL
 **Problem (reproduzierbar, frische DB):** Nach komplettem DB-Löschen + Neustart trat beim ersten
 Schreiben sofort `SQLITE_CORRUPT: database disk image is malformed` auf (zuerst sichtbar an den
