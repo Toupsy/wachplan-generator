@@ -582,6 +582,31 @@ function generate(startDay = 0){
       }
     }
 
+    // Feature 43: HW als „San-Turm". Ist hwSanTower aktiv und – NACH den San-Türmen – noch ein
+    // Sanitäter im Guard-Pool frei, wird (analog zur Turm-Reservierung) genau EINER vorab für die
+    // HW reserviert und unten als fester mainGuard platziert. So ist die HW garantiert mit einem
+    // Sanitäter besetzt; ohne die Reservierung würde die normale HW-Befüllung Sanitäter (für die
+    // San-Türme) ans Ende sortieren (s. „Sanitäter zuletzt an die HW"). San-Türme haben Vorrang
+    // (diese Reservierung läuft danach). Nur reservieren, wenn die HW dafür einen freien (nicht
+    // zwangsbelegten) Slot hat und dort noch kein Sanitäter sitzt – sonst ginge der aus dem Pool
+    // gezogene Sanitäter für den Tag verloren. Faire Rotation: wenigste aktiven HW-Dienste /
+    // Gesamteinsätze zuerst (wie bei der BF-an-HW-Reservierung).
+    let reservedSanForHW = null;
+    if(hwSanTower && (k - forcedForMain.length) >= 1 && !forcedForMain.some(p => p.sanitaeter)){
+      const avail = getGuardPool().filter(p => p.sanitaeter);
+      if(avail.length > 0){
+        avail.sort((a, b) => {
+          const sa = ensure(a.id), sb = ensure(b.id);
+          return (sa.hwGuardDays - sb.hwGuardDays)
+              || (sa.total - sb.total)
+              || ((sa.hwVisits || 0) - (sb.hwVisits || 0))
+              || (a.id - b.id);
+        });
+        removeAll(avail[0]);
+        reservedSanForHW = avail[0];
+      }
+    }
+
     const mainPseudo = { id: MAIN_ID };
     const mainGuards = [];
     // HW-Paarungen dieses Tages (nur die per bestPair gebildeten Paare). Werden auf dem
@@ -594,6 +619,15 @@ function generate(startDay = 0){
       commitPerson(p, mainPseudo);
       mainGuards.push(p);
     });
+
+    // Feature 43: reservierten Sanitäter (HW-als-San-Turm) als festen Guard platzieren – VOR der
+    // BF-an-HW-Pflicht (medizinische Abdeckung hat Vorrang vor dem BF-Wunschplatz). Bereits aus
+    // dem Pool gezogen → commitPerson zählt den aktiven HW-Dienst (hwGuardDays für faire Rotation).
+    // Die Reservierungsbedingung garantierte einen freien Slot → push ist sicher.
+    if(reservedSanForHW){
+      commitPerson(reservedSanForHW, mainPseudo);
+      mainGuards.push(reservedSanForHW);
+    }
 
     // Feature: BF-an-HW-Pflicht. Bei aktivierter Option und echter BF-Überzahl wird VOR
     // der normalen HW-Befüllung ein überzähliger Bootsführer als fester Guard platziert –
