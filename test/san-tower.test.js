@@ -22,13 +22,13 @@ const { loadAlgoContext } = require('./harness');
 
 const ctx = loadAlgoContext();
 
-function run({ people, towers, boats = [], days = 5, mainK = 2 }) {
+function run({ people, towers, boats = [], days = 5, mainK = 2, sanAtHw = false }) {
   const code = `
     resetGlobalState();
     people = ${JSON.stringify(people)};
     towers = ${JSON.stringify(towers)};
     boats  = ${JSON.stringify(boats)};
-    uid = 9999; DAYS = ${days}; mainK = ${mainK}; randomSeed = 0;
+    uid = 9999; DAYS = ${days}; mainK = ${mainK}; sanAtHw = ${sanAtHw}; randomSeed = 0;
     dayState = freshDayState();
     forcedPlacements = freshForcedPlacements();
     exportColumns = Array(16).fill('');
@@ -41,6 +41,7 @@ function run({ people, towers, boats = [], days = 5, mainK = 2 }) {
 const towerSlot = (day, towerId) => day.assign.find(s => s.kind === 'tower' && s.towerId === towerId);
 const medicsOn  = (day, towerId) => (towerSlot(day, towerId)?.occupants || []).filter(p => p.sanitaeter);
 const hwGuards  = day => (day.assign.find(s => s.kind === 'main').mainGuards || []);
+const hwMedics  = day => hwGuards(day).filter(p => p.sanitaeter);
 
 // Großzügiger Wachgänger-Pool, damit alle Türme + HW besetzt werden können.
 const FILLERS = [
@@ -147,6 +148,21 @@ test('Kein San-Turm: Plan bleibt gültig, Sanitäter wie normale Wachgänger', (
       else if (s.kind === 'main') [...(s.fuehrung || []), ...(s.mainGuards || [])].forEach(p => ids.push(p.id));
     });
     assert.equal(ids.length, new Set(ids).size, `Tag ${i + 1}: keine Person doppelt`);
+  });
+});
+
+test('San-HW + Sanitäter verfügbar: jeden Tag ≥1 Sanitäter auf der Hauptwache', () => {
+  const people = [
+    ...FILLERS,
+    { id: 2, name: 'San1', role: 'W', experienced: true, sanitaeter: true },
+    { id: 3, name: 'San2', role: 'W', experienced: true, sanitaeter: true },
+  ];
+  const towers = [
+    { id: 21, name: 'T1', prio: 1, code: 'T1', slotCount: 2, leaderCount: 0 },
+  ];
+  const res = run({ people, towers, days: 5, mainK: 2, sanAtHw: true });
+  res.schedule.forEach((day, i) => {
+    assert.ok(hwMedics(day).length >= 1, `Tag ${i + 1}: mind. 1 Sanitäter auf der HW`);
   });
 });
 

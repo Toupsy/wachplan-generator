@@ -247,6 +247,13 @@ if(requireBfHwInput) requireBfHwInput.onchange = e => {
   scheduleAutoSave();
 };
 
+const sanHwInput = document.getElementById('san-at-hw');
+if(sanHwInput) sanHwInput.onchange = e => {
+  sanAtHw = !!e.target.checked;
+  if(lastResult) generate();
+  scheduleAutoSave();
+};
+
 // ── Sidebar – Dienstzeit (Feature 15) ────────────────────────────────
 const serviceStartHourInput = document.getElementById('service-start-hour');
 const serviceEndHourInput = document.getElementById('service-end-hour');

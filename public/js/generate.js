@@ -499,13 +499,17 @@ function generate(startDay = 0){
             // sie nicht an der HW „verbraucht" werden – jeder Turm braucht ≥1 Erfahrenen.
             // Großer, aber endlicher Penalty → Unerfahrene zuerst, Erfahrene nur als Notnagel.
             if(reserveExpAtHW){
-              if(getEffectiveRole(A) === 'E') score += algoParams.reserveExpPenalty;
-              if(getEffectiveRole(B) === 'E') score += algoParams.reserveExpPenalty;
+              if(getEffectiveRole(A) === 'E' && !(towerNeedsSan && A.sanitaeter)) score += algoParams.reserveExpPenalty;
+              if(getEffectiveRole(B) === 'E' && !(towerNeedsSan && B.sanitaeter)) score += algoParams.reserveExpPenalty;
             }
-            // Sanitäter an der HW nur als Reserve – auf San-Türmen besser aufgehoben.
             if(sanActive){
-              if(A.sanitaeter) score += algoParams.sanReservePenalty;
-              if(B.sanitaeter) score += algoParams.sanReservePenalty;
+              if(towerNeedsSan){
+                if(A.sanitaeter || B.sanitaeter) score -= algoParams.sanTowerBonus;
+              } else {
+                // Sanitäter an der HW nur als Reserve – auf San-Türmen besser aufgehoben.
+                if(A.sanitaeter) score += algoParams.sanReservePenalty;
+                if(B.sanitaeter) score += algoParams.sanReservePenalty;
+              }
             }
           }
           score += (d === 0 && randomSeed !== 0)
@@ -540,7 +544,7 @@ function generate(startDay = 0){
     const expDemand = openTowers.filter(t => !(t.leaderTower && poolF.length > 0)).length;
     const reserveExpAtHW = availE.length <= expDemand;
 
-    // Feature: Sanitäter (San-Türme). Türme mit sanTower:true sollen – wenn möglich – immer
+    // Feature: Sanitäter (San-Türme/HW). Markierte Ziele sollen – wenn möglich – immer
     // mindestens einen Sanitäter besetzen. Sanitäter können Wachgänger ODER (überzählige)
     // Bootsführer sein – maßgeblich ist, wer für einen Turmplatz verfügbar ist, also im
     // Guard-Pool steht (poolE/poolU = Wachgänger, poolSBF = überzählige Bootsführer; aktive
@@ -549,9 +553,9 @@ function generate(startDay = 0){
     // gezogen und über eine Reserve-Strafe von Nicht-San-Türmen/HW ferngehalten, damit sie
     // nicht „verbraucht" werden, bevor ein San-Turm an der Reihe ist. Faire Rotation unter
     // den Sanitätern ergibt sich aus den bestehenden towerVisit-/Konsekutiv-Strafen.
-    // Gating: nur aktiv, wenn ein offener San-Turm UND ein Sanitäter im Guard-Pool existiert –
+    // Gating: nur aktiv, wenn ein offenes San-Ziel UND ein Sanitäter im Guard-Pool existiert –
     // sonst verhalten sich Sanitäter exakt wie normale Pool-Personen.
-    const sanActive = openTowers.some(t => t.sanTower)
+    const sanActive = (openTowers.some(t => t.sanTower) || (sanAtHw && k > 0))
       && getGuardPool().some(p => p.sanitaeter);
 
     // Feature 33: San-Türme – Sanitäter VORAB reservieren (analog Führungsturm, Feature 34).
@@ -584,6 +588,7 @@ function generate(startDay = 0){
 
     const mainPseudo = { id: MAIN_ID };
     const mainGuards = [];
+    const mainNeedsSan = () => sanActive && sanAtHw && !mainGuards.some(p => p.sanitaeter);
     // HW-Paarungen dieses Tages (nur die per bestPair gebildeten Paare). Werden auf dem
     // main-Slot gespeichert, damit _reAccumulateDayStats (Teil-Neuberechnung, generate(startDay>0))
     // den pairCount für HW-Paare exakt wie der Voll-Lauf reproduzieren kann (sonst Fairness-Drift).
@@ -605,6 +610,10 @@ function generate(startDay = 0){
        && !mainGuards.some(p => p.role === 'B')){
       const bf = [...poolSBF].sort((a,b) => {
         const sa = ensure(a.id), sb = ensure(b.id);
+        if(mainNeedsSan()){
+          const am = a.sanitaeter ? 1 : 0, bm = b.sanitaeter ? 1 : 0;
+          if(am !== bm) return bm - am;
+        }
         return (sa.hwGuardDays - sb.hwGuardDays)
             || (sa.total - sb.total)
             || ((sa.hwVisits||0) - (sb.hwVisits||0))
@@ -618,7 +627,7 @@ function generate(startDay = 0){
     while(mainGuards.length < k && guardPoolSize() > 0){
       const remaining = k - mainGuards.length;
       if(remaining >= 2 && guardPoolSize() >= 2){
-        const pair = bestPair(mainPseudo, false, d);
+        const pair = bestPair(mainPseudo, false, d, mainNeedsSan());
         if(!pair) break;
         const [A, B] = pair;
         removeAll(A); removeAll(B);
@@ -631,6 +640,10 @@ function generate(startDay = 0){
           // BF-HW-Wunsch: noch offener Wunsch hat Vorrang vor allem anderen
           const wa = hwWishBonus(a), wb = hwWishBonus(b);
           if(wa !== wb) return wb - wa;  // höherer Bonus zuerst
+          if(mainNeedsSan()){
+            const am = a.sanitaeter ? 1 : 0, bm = b.sanitaeter ? 1 : 0;
+            if(am !== bm) return bm - am;
+          }
           // Experience-Reservierung (s. o.): Unerfahrene zuerst an die HW
           if(reserveExpAtHW){
             const ae = effLevel(a) === 'E' ? 1 : 0, be = effLevel(b) === 'E' ? 1 : 0;

@@ -104,6 +104,7 @@ let mainK    = 2;    // Anzahl Guard-Slots neben der Führung
 // mindestens EIN überzähliger Bootsführer einen aktiven HW-Dienst bekommen
 // (z.B. 3 HW-Slots → 2 Wachgänger + 1 BF). Default aus.
 let requireBfAtHw = false;
+let sanAtHw = false; // wenn möglich ≥1 Sanitäter in aktiven HW-Slots
 
 // Dienstzeit-Konfiguration (Feature 15)
 let serviceStartHour = 9;   // Default 09:00
@@ -184,6 +185,7 @@ function resetGlobalState() {
   boats = [];
   mainK = 2;
   requireBfAtHw = false;
+  sanAtHw = false;
   serviceStartHour = 9;
   serviceEndHour = 17;
   dayState = freshDayState();

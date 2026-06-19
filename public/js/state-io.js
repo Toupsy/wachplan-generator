@@ -45,6 +45,7 @@ function _buildStateObject(){
     startDate,
     mainK,
     requireBfAtHw,
+    sanAtHw,
     serviceStartHour,
     serviceEndHour,
     days:                 DAYS,
@@ -114,6 +115,7 @@ function importStateJSON(json, silent = false){
   startDate         = s.startDate         ?? '';
   mainK             = s.mainK             ?? 2;
   requireBfAtHw     = s.requireBfAtHw     ?? false;
+  sanAtHw           = s.sanAtHw           ?? false;
   serviceStartHour  = s.serviceStartHour  ?? 9;
   serviceEndHour    = s.serviceEndHour    ?? 17;
   DAYS              = s.days              ?? 6;
@@ -190,6 +192,8 @@ function importStateJSON(json, silent = false){
   document.getElementById('main-k').value     = mainK;
   const reqBfEl = document.getElementById('require-bf-hw');
   if(reqBfEl) reqBfEl.checked = requireBfAtHw;
+  const sanHwEl = document.getElementById('san-at-hw');
+  if(sanHwEl) sanHwEl.checked = sanAtHw;
   document.getElementById('service-start-hour').value = serviceStartHour;
   document.getElementById('service-end-hour').value   = serviceEndHour;
   updateSeedDisplay();
@@ -404,6 +408,7 @@ function _rebuildAllUI(){
   const sd = document.getElementById('start-date'); if(sd) sd.value = startDate || '';
   const mk = document.getElementById('main-k');     if(mk) mk.value = mainK;
   const rbf = document.getElementById('require-bf-hw'); if(rbf) rbf.checked = requireBfAtHw;
+  const sah = document.getElementById('san-at-hw'); if(sah) sah.checked = sanAtHw;
   if(typeof updateSeedDisplay === 'function') updateSeedDisplay();
   autoCodes();
   renderPeople(); renderTowerCfg(); renderBoatCfg();
