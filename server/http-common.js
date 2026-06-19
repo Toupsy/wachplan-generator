@@ -18,6 +18,11 @@ function securityHeaders({ captcha = false, worker = false } = {}) {
 
 function notFoundHandler(service) {
   return (req, res) => {
+    // Schutz wie im jsonErrorHandler: serve-static reicht abgebrochene/teilweise
+    // gesendete Antworten (Client-Disconnect, Range-/404-Fälle) an die nächste
+    // Middleware weiter. Sind die Header schon raus, würde res.status().json()
+    // mit ERR_HTTP_HEADERS_SENT scheitern – also nichts mehr senden.
+    if (res.headersSent) return;
     const body = { error: 'Not found', path: req.url };
     if (service) body.service = service;
     res.status(404).json(body);
