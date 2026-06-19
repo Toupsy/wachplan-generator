@@ -330,13 +330,41 @@ function renderOutput(){
           : '<div style="color:var(--coral);font-size:.78rem;padding:6px 0">⚠ Kein Bootsführer verfügbar</div>'}`).join('');
     };
 
-    html += `<div class="towers-grid">`;
-    d.assign.forEach(slot => {
-      // Boot-Slots werden inline im Turm gerendert → hier überspringen
-      if(slot.kind === 'boat') return;
-      // ─ Hauptwache ─
-      if(slot.kind === 'main'){
-        html += `<div class="tower-card main" id="card-main-${di}" style="grid-column:span 2;" data-drop-kind="main" data-drop-slot="${MAIN_ID}" data-panel-name="Hauptwache" data-card-type="main">
+    html += `<div class="towers-grid" style="--ptc:${Math.min(Math.max(towers.length,1),8)}">`;
+
+    // Türme IMMER in fester Reihenfolge rendern (prio asc, dann id) – OFFEN oder
+    // GESCHLOSSEN. So bleibt ein geschlossener Turm an seiner Position (z. B. T16
+    // zwischen T15 und T17) statt ans Raster-Ende zu rutschen. Gleiche Sortierung
+    // wie generate.js (openTowers/personnelClosed/manualClosed). Die HW wird danach
+    // gerendert (im Druck per CSS als volle letzte Reihe; s. .tower-card.main).
+    const openTowerById = {};
+    d.assign.forEach(s => { if(s.kind === 'tower') openTowerById[s.towerId] = s; });
+    const closedReasonById = {};
+    d.manualClosed.forEach(t => { closedReasonById[t.id] = 'manuell geschlossen'; });
+    d.personnelClosed.forEach(t => { if(!(t.id in closedReasonById)) closedReasonById[t.id] = 'Personalmangel'; });
+
+    towers.slice().sort((a,b) => (a.prio-b.prio)||(a.id-b.id)).forEach(t => {
+      const slot = openTowerById[t.id];
+      if(slot){
+        // ─ Offener Turm (inkl. inline Boot, falls vorhanden) ─
+        html += `<div class="tower-card" id="card-tower-${di}-${slot.towerId}" data-drop-kind="tower" data-drop-slot="${slot.towerId}" data-panel-name="Turm: ${escapeHtml(slot.tower)}" data-card-type="tower" data-tower-id="${slot.towerId}">
+          <div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="tower" data-card-slot="${slot.towerId}" title="Zum Sortieren ziehen"><span class="tc-name">🗼 ${escapeHtml(slot.tower)}</span><span class="tc-type normal">${slot.mainBeach?'🏖️ ':''}Turm · ${escapeHtml(slot.code||'?')} · P${slot.prio}</span></div>
+          ${slot.occupants.map(p=>renderOccupant(p, null, 'tower', slot.towerId)).join('')}
+          ${(!viewOnly && slot.warn)?`<div class="warn-pair">⚠ ${slot.warn}</div>`:''}
+          ${renderInlineBoat(boatsByTower[slot.towerId])}
+        </div>`;
+      } else if(t.id in closedReasonById){
+        // ─ Geschlossener Turm – an seiner Position (mit data-drop für Override) ─
+        const reason = closedReasonById[t.id];
+        html += `<div class="tower-card closed" id="card-tower-closed-${di}-${t.id}" data-drop-kind="tower" data-drop-slot="${t.id}" data-closed-override="true" data-panel-name="Turm: ${escapeHtml(t.name)} (geschlossen)" data-card-type="tower-closed" data-tower-id="${t.id}"><div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="tower" data-card-slot="${t.id}" title="Zum Sortieren ziehen"><span class="tc-name">🗼 ${escapeHtml(t.name)}</span><span class="tc-type closed">zu</span></div><div style="color:var(--text-dim);font-size:.82rem;padding:8px 0">${reason}</div></div>`;
+      }
+    });
+
+    // ─ Hauptwache (immer nach den Türmen) ─
+    const mainSlot = d.assign.find(s => s.kind === 'main');
+    if(mainSlot){
+      const slot = mainSlot;
+      html += `<div class="tower-card main" id="card-main-${di}" style="grid-column:span 2;" data-drop-kind="main" data-drop-slot="${MAIN_ID}" data-panel-name="Hauptwache" data-card-type="main">
           <div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="main" data-card-slot="${MAIN_ID}" title="Zum Sortieren ziehen"><span class="tc-name">⛱ ${slot.tower}</span><span class="tc-type main">Zentrale · k=${slot.k}</span></div>
           ${slot.fuehrung.map(p=>renderOccupant(p,'Führung','main',MAIN_ID)).join('')}
           ${slot.mainGuards.map(p=>renderOccupant(p,viewOnly?'Hauptwache':(p.experienced?'Erfahren · HW':'Unerf. · HW'),'main',MAIN_ID)).join('')}
@@ -345,24 +373,9 @@ function renderOutput(){
           ${renderInlineBoat(boatsByTower['HW'])}
           ${slot.sick.map(p=>`<div class="occupant" style="opacity:.55"><i class="role-dot rd-${viewOnly?roleDotSafe(p):roleDot(p)}"></i><span style="text-decoration:line-through">${escapeHtml(p.name)}</span><span class="o-role" style="color:var(--coral)">außer Dienst</span></div>`).join('')}
         </div>`;
-      }
-      // ─ Turm (inkl. inline Boot, falls vorhanden) ─
-      else if(slot.kind === 'tower'){
-        html += `<div class="tower-card" id="card-tower-${di}-${slot.towerId}" data-drop-kind="tower" data-drop-slot="${slot.towerId}" data-panel-name="Turm: ${escapeHtml(slot.tower)}" data-card-type="tower" data-tower-id="${slot.towerId}">
-          <div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="tower" data-card-slot="${slot.towerId}" title="Zum Sortieren ziehen"><span class="tc-name">🗼 ${escapeHtml(slot.tower)}</span><span class="tc-type normal">${slot.mainBeach?'🏖️ ':''}Turm · ${escapeHtml(slot.code||'?')} · P${slot.prio}</span></div>
-          ${slot.occupants.map(p=>renderOccupant(p, null, 'tower', slot.towerId)).join('')}
-          ${(!viewOnly && slot.warn)?`<div class="warn-pair">⚠ ${slot.warn}</div>`:''}
-          ${renderInlineBoat(boatsByTower[slot.towerId])}
-        </div>`;
-      }
-    });
+    }
 
-    // Geschlossene Türme & Boote (mit data-drop für Override)
-    // personnelClosed kommt bereits nach Prio sortiert aus generate.js
-    [...d.manualClosed,...d.personnelClosed].forEach(t => {
-      const reason = d.manualClosed.includes(t)?'manuell geschlossen':'Personalmangel';
-      html += `<div class="tower-card closed" id="card-tower-closed-${di}-${t.id}" data-drop-kind="tower" data-drop-slot="${t.id}" data-closed-override="true" data-panel-name="Turm: ${escapeHtml(t.name)} (geschlossen)" data-card-type="tower-closed" data-tower-id="${t.id}"><div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="tower" data-card-slot="${t.id}" title="Zum Sortieren ziehen"><span class="tc-name">🗼 ${escapeHtml(t.name)}</span><span class="tc-type closed">zu</span></div><div style="color:var(--text-dim);font-size:.82rem;padding:8px 0">${reason}</div></div>`;
-    });
+    // Geschlossene Boote (nach der HW; im Druck stehen sie ohnehin vor der vollbreiten HW-Reihe)
     [...d.boatsManualClosed,...d.boatsClosedTower,...d.boatsNoBootsf].forEach(b => {
       const reason = d.boatsManualClosed.includes(b)?'manuell außer Dienst':d.boatsClosedTower.includes(b)?'Turm zu':'kein Bootsführer';
       html += `<div class="tower-card closed boot" id="card-boat-closed-${di}-${b.id}" data-panel-name="Boot: ${escapeHtml(b.name)} (außer Dienst)" data-card-type="boat-closed" data-boat-id="${b.id}"><div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="boat" data-card-slot="${b.id}" title="Zum Sortieren ziehen"><span class="tc-name">🚤 ${escapeHtml(b.name)}</span><span class="tc-type closed">zu</span></div><div style="color:var(--text-dim);font-size:.82rem;padding:8px 0">${reason}</div></div>`;

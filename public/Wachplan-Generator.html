@@ -607,8 +607,11 @@
     .date-pick input{border:none !important;background:none !important;color:#000 !important}
     /* Notices: kompakt, nicht über Seiten umbrechen */
     .notice.bad,.notice.warn-n{break-inside:avoid !important;margin:2mm 0 !important;padding:6px 8px !important;font-size:9pt !important}
-    /* Karten hell, kompakt; dichteres Raster, damit ein Tag auf eine Seite passt */
-    .towers-grid{gap:3mm !important;grid-template-columns:repeat(auto-fill,minmax(170px,1fr)) !important;align-content:start}
+    /* Karten hell, kompakt. Im Druck bekommen ALLE Türme genau so viele Spalten wie es
+       Türme gibt (--ptc, gesetzt in render-output.js, gedeckelt auf 8) → alle Türme in
+       EINER Reihe, geschlossene Türme bleiben an ihrer Position. Die HW liegt darunter
+       (volle Breite, s. .tower-card.main). Fallback 5 Spalten, falls --ptc fehlt. */
+    .towers-grid{gap:3mm !important;grid-template-columns:repeat(var(--ptc,5),1fr) !important;align-content:start}
     .tower-card{break-inside:avoid;background:#fff !important;border:1px solid #888 !important;color:#000 !important;box-shadow:none !important;padding:7px 9px !important}
     /* Hauptwache IMMER als volle, letzte Reihe unten – damit alle (auch geschlossene)
        Türme in den Reihen DARÜBER liegen und kein Turm in einer Waisen-Reihe unter der
