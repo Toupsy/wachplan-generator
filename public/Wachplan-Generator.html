@@ -587,8 +587,15 @@
     .day-controls .dc-section,.move-btn,.mobile-switch{display:none !important}
     .notice:not(.bad):not(.warn-n){display:none !important}
     .wrap,.panel,#output-panel,.main-panels{display:block !important;max-width:none !important;width:auto !important;margin:0 !important;padding:0 !important;background:#fff !important;border:none !important;box-shadow:none !important;grid-template-columns:none !important;height:auto !important}
-    /* Jeder Tag genau eine Seite */
-    .day-panel{display:block !important;page-break-after:always;break-after:page;break-inside:avoid;padding:0 !important;margin:0 !important}
+    /* Jeder Tag GENAU eine Seite.
+       WICHTIG: KEIN break-inside:avoid auf .day-panel / .towers-grid! Diese schoben
+       (wenn der Inhalt nicht mehr auf die Restseite passte – z. B. durch Warn-Notices
+       bei geschlossenem Turm/Abwesenden) den GANZEN Block auf die nächste Seite und
+       hinterließen so eine fast leere bzw. eine Nur-Warnmeldung-Seite. Stattdessen
+       erzwingt nur der Seitenumbruch NACH jedem Tag die 1-Tag-1-Seite-Regel; der
+       Inhalt fließt frei (nur einzelne Karten bleiben dank break-inside:avoid intakt).
+       Das dichtere Karten-Raster (s. .towers-grid unten) hält einen Tag auf einer Seite. */
+    .day-panel{display:block !important;page-break-after:always;break-after:page;page-break-inside:auto;break-inside:auto;padding:0 !important;margin:0 !important}
     .day-panel:last-child{page-break-after:avoid;break-after:auto}
     /* Tages-Kopf kompakt behalten (Titel + Datum) */
     .day-controls{border:none !important;background:none !important;padding:0 !important;margin:0 0 2mm !important;break-inside:avoid !important}
@@ -599,9 +606,9 @@
     .date-pick input{border:none !important;background:none !important;color:#000 !important}
     /* Notices: kompakt, nicht über Seiten umbrechen */
     .notice.bad,.notice.warn-n{break-inside:avoid !important;margin:2mm 0 !important;padding:6px 8px !important;font-size:9pt !important}
-    /* Karten hell, kompakt, nicht über Seiten umbrechen */
-    .towers-grid{gap:4mm !important;break-inside:avoid !important}
-    .tower-card{break-inside:avoid;background:#fff !important;border:1px solid #888 !important;color:#000 !important;box-shadow:none !important;padding:8px 10px !important}
+    /* Karten hell, kompakt; dichteres Raster, damit ein Tag auf eine Seite passt */
+    .towers-grid{gap:3mm !important;grid-template-columns:repeat(auto-fill,minmax(185px,1fr)) !important}
+    .tower-card{break-inside:avoid;background:#fff !important;border:1px solid #888 !important;color:#000 !important;box-shadow:none !important;padding:7px 9px !important}
     .tower-card.main{background:#f7f7f7 !important}
     .tower-card::before{display:none !important}
     .tower-card *{color:#000 !important}

@@ -317,31 +317,43 @@ router.post('/reload-config', express.json(), async (req, res) => {
 
 // ───────────────────────────────────────────────────────────
 // GET /api/admin/audit-log – Audit-Log-Einträge auflisten
-// Query-Parameter: action, user_id, limit (default 100), offset (default 0)
+// Query-Parameter: action, user_id, limit (default 100, 'all' = alle), offset (default 0)
+// Antwort: { logs, total } – total = Anzahl aller (gefilterten) Datensätze für die
+//          seitenbasierte Navigation im Admin-Panel (Pagination).
 // ───────────────────────────────────────────────────────────
 router.get('/audit-log', async (req, res) => {
   try {
     const { action, user_id, limit = 100, offset = 0 } = req.query;
 
+    // 'all' → keine LIMIT-Begrenzung (Admin-Compliance-Ansicht „Alle Zeilen").
+    const wantAll = String(limit).toLowerCase() === 'all';
     // Validate limit (prevent abuse)
     const safeLimit = Math.min(Math.max(1, parseInt(limit) || 100), 500);
     const safeOffset = Math.max(0, parseInt(offset) || 0);
 
-    let query = 'SELECT * FROM audit_log WHERE 1=1';
-    const params = [];
+    // Gemeinsame WHERE-Klausel für Count + Datensätze (gleiche Filter → konsistente total).
+    let where = ' WHERE 1=1';
+    const filterParams = [];
 
     if (action) {
-      query += ' AND action = ?';
-      params.push(action);
+      where += ' AND action = ?';
+      filterParams.push(action);
     }
 
     if (user_id) {
-      query += ' AND user_id = ?';
-      params.push(parseInt(user_id));
+      where += ' AND user_id = ?';
+      filterParams.push(parseInt(user_id));
     }
 
-    query += ' ORDER BY timestamp DESC LIMIT ? OFFSET ?';
-    params.push(safeLimit, safeOffset);
+    const countRow = await dbGet('SELECT COUNT(*) AS total FROM audit_log' + where, filterParams);
+    const total = countRow ? countRow.total : 0;
+
+    let query = 'SELECT * FROM audit_log' + where + ' ORDER BY timestamp DESC';
+    const params = [...filterParams];
+    if (!wantAll) {
+      query += ' LIMIT ? OFFSET ?';
+      params.push(safeLimit, safeOffset);
+    }
 
     const logs = await dbAll(query, params);
 
@@ -360,7 +372,7 @@ router.get('/audit-log', async (req, res) => {
       return { ...log, details };
     });
 
-    res.json({ logs: formattedLogs });
+    res.json({ logs: formattedLogs, total });
   } catch (error) {
     console.error('Audit log fetch error:', error);
     res.status(500).json({ error: 'Failed to fetch audit log' });

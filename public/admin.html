@@ -190,6 +190,26 @@
       font-size: 0.9em;
     }
 
+    .btn-page {
+      padding: 5px 11px;
+      font-size: 0.85em;
+      background: var(--navy-2);
+      border: 1px solid var(--sea);
+    }
+    .btn-page:hover:not(:disabled) { background: var(--sea); }
+    .btn-page.active {
+      background: var(--sea-bright);
+      border-color: var(--sea-bright);
+      cursor: default;
+    }
+    .btn-page:disabled { opacity: 0.4; cursor: default; }
+    .btn-page.ellipsis {
+      background: transparent;
+      border: none;
+      cursor: default;
+      padding: 5px 4px;
+    }
+
     .btn-group {
       display: flex;
       gap: 8px;
@@ -410,6 +430,16 @@
         <select id="audit-filter" style="max-width:240px;">
           <option value="">Alle Aktionen</option>
         </select>
+        <label style="display:flex; align-items:center; gap:6px; color:var(--text-dim); font-size:.9em;">
+          Pro Seite
+          <select id="audit-page-size" style="max-width:120px;">
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100" selected>100</option>
+            <option value="all">Alle</option>
+          </select>
+        </label>
         <button class="btn-small" id="audit-refresh" type="button">🔄 Aktualisieren</button>
       </div>
       <table id="audit-table">
@@ -429,6 +459,10 @@
           </tr>
         </tbody>
       </table>
+      <div id="audit-pagination" style="display:flex; gap:8px; align-items:center; justify-content:space-between; margin-top:12px; flex-wrap:wrap;">
+        <span id="audit-page-info" style="color:var(--text-dim); font-size:.85em;"></span>
+        <div id="audit-page-nav" style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;"></div>
+      </div>
     </div>
   </div>
 
@@ -479,9 +513,11 @@
         }
       });
 
-      // Audit-Log: Filter + Aktualisieren
-      document.getElementById('audit-refresh').addEventListener('click', loadAuditLog);
-      document.getElementById('audit-filter').addEventListener('change', loadAuditLog);
+      // Audit-Log: Filter + Aktualisieren. Filter-/Seitengrößen-Wechsel springt
+      // zurück auf Seite 1 (sonst stünde man evtl. außerhalb des neuen Bereichs).
+      document.getElementById('audit-refresh').addEventListener('click', () => loadAuditLog());
+      document.getElementById('audit-filter').addEventListener('change', () => { auditPage = 0; loadAuditLog(); });
+      document.getElementById('audit-page-size').addEventListener('change', () => { auditPage = 0; loadAuditLog(); });
 
       try {
         const response = await fetch('/api/auth/me');
@@ -552,17 +588,28 @@
     }
 
     let auditFilterPopulated = false;
+    let auditPage = 0;  // 0-basierte aktuelle Seite
 
     async function loadAuditLog() {
       const tbody = document.getElementById('audit-tbody');
       try {
         const action = document.getElementById('audit-filter').value;
-        const url = '/api/admin/audit-log' + (action ? '?action=' + encodeURIComponent(action) : '');
-        const response = await fetch(url);
+        const pageSize = document.getElementById('audit-page-size').value; // '10'|'25'|'50'|'100'|'all'
+        const showAll = pageSize === 'all';
+        const limit = showAll ? 'all' : parseInt(pageSize, 10);
+        const offset = showAll ? 0 : auditPage * limit;
+
+        const params = new URLSearchParams();
+        if (action) params.set('action', action);
+        params.set('limit', limit);
+        if (!showAll) params.set('offset', offset);
+
+        const response = await fetch('/api/admin/audit-log?' + params.toString());
         if (!response.ok) throw new Error('Failed to load audit log');
 
         const data = await response.json();
         const logs = data.logs || [];
+        const total = data.total != null ? data.total : logs.length;
 
         // Filter-Dropdown einmalig mit allen bekannten Aktionen befüllen
         if (!auditFilterPopulated) {
@@ -575,6 +622,8 @@
           });
           auditFilterPopulated = true;
         }
+
+        renderAuditPagination(total, showAll ? total : limit, showAll, logs.length);
 
         if (logs.length === 0) {
           tbody.innerHTML = '<tr><td colspan="6" class="empty">Keine Einträge</td></tr>';
@@ -615,7 +664,59 @@
       } catch (error) {
         console.error('Load audit log error:', error);
         tbody.innerHTML = '<tr><td colspan="6" class="empty">Fehler beim Laden des Audit-Logs</td></tr>';
+        document.getElementById('audit-page-info').textContent = '';
+        document.getElementById('audit-page-nav').innerHTML = '';
       }
+    }
+
+    // Rendert die Seiten-Navigation (1, 2, 3, … mit Ellipsen) + Info-Zeile.
+    // total = Gesamtzahl Datensätze, pageSize = Einträge/Seite, showAll = „Alle"-Modus,
+    // shown = tatsächlich auf dieser Seite gerenderte Zeilen.
+    function renderAuditPagination(total, pageSize, showAll, shown) {
+      const info = document.getElementById('audit-page-info');
+      const nav = document.getElementById('audit-page-nav');
+      nav.innerHTML = '';
+
+      const totalPages = showAll ? 1 : Math.max(1, Math.ceil(total / pageSize));
+      // Sicherheitsnetz: aktuelle Seite kann nach Filterwechsel außerhalb liegen.
+      if (auditPage > totalPages - 1) auditPage = totalPages - 1;
+
+      if (showAll || total === 0) {
+        info.textContent = total === 0 ? 'Keine Einträge' : `Alle ${total} Einträge`;
+      } else {
+        const from = total === 0 ? 0 : auditPage * pageSize + 1;
+        const to = auditPage * pageSize + shown;
+        info.textContent = `${from}–${to} von ${total}`;
+      }
+
+      if (showAll || totalPages <= 1) return;
+
+      const mkBtn = (label, page, opts = {}) => {
+        const b = document.createElement('button');
+        b.className = 'btn-page' + (opts.active ? ' active' : '') + (opts.ellipsis ? ' ellipsis' : '');
+        b.textContent = label;
+        if (opts.ellipsis) { b.disabled = true; return b; }
+        if (opts.disabled) b.disabled = true;
+        else b.addEventListener('click', () => { auditPage = page; loadAuditLog(); });
+        return b;
+      };
+
+      // ‹ Zurück
+      nav.appendChild(mkBtn('‹', auditPage - 1, { disabled: auditPage === 0 }));
+
+      // Seitenzahlen mit Ellipsen: immer 1, letzte, und ±1 um die aktuelle Seite.
+      const cur = auditPage + 1; // 1-basiert für die Anzeige
+      const pages = new Set([1, totalPages, cur, cur - 1, cur + 1]);
+      const list = [...pages].filter(p => p >= 1 && p <= totalPages).sort((a, b) => a - b);
+      let prev = 0;
+      list.forEach(p => {
+        if (p - prev > 1) nav.appendChild(mkBtn('…', 0, { ellipsis: true }));
+        nav.appendChild(mkBtn(String(p), p - 1, { active: p === cur }));
+        prev = p;
+      });
+
+      // › Weiter
+      nav.appendChild(mkBtn('›', auditPage + 1, { disabled: auditPage >= totalPages - 1 }));
     }
 
     async function createUser(event) {
