@@ -221,6 +221,19 @@ BF fahren Boot. `sanActive`-Gating prüft den ganzen `getGuardPool()`. Tests: `s
 
 ## Bugfixes
 
+### EE-Turm neben UU-Turm trotz genug Erfahrenen (Türme rein unerfahren besetzt)
+Bei genügend Erfahrenen für alle Türme (z. B. 9 Erfahrene, 7 Türme) saßen trotzdem **zwei
+Unerfahrene** auf einem Turm (UU), während ein anderer Turm **zwei Erfahrene** (EE) doppelte und
+die HW zwei Erfahrene bekam. **Ursache:** Die EE-Paar-Strafe war nur stark (`eePenaltyReserve`
+1500), wenn Erfahrene global *knapp* sind (`reserveExpAtHW = availE ≤ expDemand`). Bei Überschuss
+griff nur `eePenaltyNormal` (40) – zu schwach, um zu verhindern, dass ein Turm zwei Erfahrene
+„verbraucht" und ein späterer Turm (prio-letzter) ohne Erfahrenen UU wird.
+**Fix:** Die EE-Strafe ist jetzt auch stark, solange überhaupt noch **Unerfahrene im Pool paarbar**
+sind (`uAvailable` in `bestPair`) – dann ist für jeden Turm ein E+U-Paar möglich und wird dem
+E+E-Paar vorgezogen. So bekommt jeder Turm genau **einen** Erfahrenen (alle EU), überzählige
+Erfahrene gehen an die HW; ein EE-Turm entsteht nur noch, wenn keine Unerfahrenen mehr übrig sind
+(voll erfahren = unbedenklich). Priorität: kein Turm rein unerfahren, solange Erfahrene reichen.
+
 ### Spät-Einsteiger klebten an der HW (HW von `total` entkoppelt + San-Vorab-Reservierung)
 Eine Person, die erst mitten in der Woche dazukam (erste Tage abwesend), saß **jeden** ihrer Tage an
 der HW (z. B. 4 Tage in Folge). **Ursache:** Die HW wird **vor** den Türmen befüllt und ihre Auswahl

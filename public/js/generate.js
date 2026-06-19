@@ -419,6 +419,10 @@ function generate(startDay = 0){
       let best = null, bestScore = Infinity;
       // Feature 13: B/W werden über experienced als E/U behandelt (nur für Turm-Zuweisung)
       const getEffectiveRole = effLevel;
+      // Sind noch Unerfahrene im Pool? Dann ist für JEDEN Turm ein E+U-Paar möglich → zwei
+      // Erfahrene NICHT zusammenlegen (sonst landet anderswo ein U+U-Turm). Erst wenn keine
+      // Unerfahrenen mehr übrig sind, ist EE unvermeidlich und wird nicht mehr bestraft.
+      const uAvailable = cand.some(p => getEffectiveRole(p) === 'U');
       // Feature 8: Personen die GESTERN auf diesem Turm waren einmalig vorberechnen
       // (statt pro Paar erneut den Vortag zu durchsuchen → O(n²·m) ⇒ O(m + n²))
       let prevTowerSet = null;
@@ -437,10 +441,12 @@ function generate(startDay = 0){
               // Reduced penalty for HW (isMain=true) to make it more attractive
               score += isMain ? algoParams.uuPenaltyHW : algoParams.uuPenaltyTower;
             }
-            // EE-Paar normalerweise nur leicht gebremst; sind Erfahrene aber knapp
-            // (reserveExpAtHW), zwei Erfahrene NICHT zusammenlegen → jeder Turm bekommt
-            // genau einen Erfahrenen, statt einen Turm doppelt und einen leer zu lassen.
-            else if(roles === 'EE') score += reserveExpAtHW ? algoParams.eePenaltyReserve : algoParams.eePenaltyNormal;
+            // EE-Paar stark bremsen, solange ein Erfahrener stattdessen mit einem Unerfahrenen
+            // gepaart werden könnte (uAvailable) ODER Erfahrene knapp sind (reserveExpAtHW) →
+            // jeder Turm bekommt genau EINEN Erfahrenen, statt einen Turm doppelt (EE) und einen
+            // anderen leer (UU) zu lassen. Nur wenn keine Unerfahrenen mehr übrig sind, ist EE
+            // unvermeidlich und wird lediglich leicht gebremst (eePenaltyNormal).
+            else if(roles === 'EE') score += (reserveExpAtHW || uAvailable) ? algoParams.eePenaltyReserve : algoParams.eePenaltyNormal;
           }
           score += (pairCount[pairKey(A.id, B.id)] || 0) * algoParams.pairRepeatWeight;
           const vA = sA.towerVisits[t.id] || 0;
