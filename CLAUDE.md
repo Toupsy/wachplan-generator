@@ -141,9 +141,9 @@ Läuft **sequenziell** über alle Tage; akkumulierte `stats` übertragen sich au
 ```
 +1000  UU + requireMix (Notlösung; an HW nur +300)      +40/1500 EE + requireMix (1500 bei E-Knappheit)
 +250×  bisherige gemeinsame Turmdienste (Paar-Wdh.)     +200×v Turmbesuche A/B (linear)
-+10×   (totalA+totalB) Fairness                         +800/-350 surplusBF aktiv/inaktiv-Boot
++10×   (totalA+totalB) Fairness (NUR Türme, nicht HW)   +800/-350 surplusBF aktiv/inaktiv-Boot
 +200×  konsekutive Tage gleicher Turm (Feature 8)       +150 beide viele Boot-Tage
--60×   hwVisits (Bonus für Turm)  / +200×v hwVisits an HW-k-Slots (HW-Wiederholungsbesuch, Feature 42)
+-60×   hwVisits (Bonus für Turm)  / +200×v hwVisits an HW-k-Slots (HW-Wiederholungsbesuch, Feature 42; HW rein nach hwVisits, KEIN total → Spät-Einsteiger landen auf Türmen statt HW)
 +5000  E an HW wenn reserveExpAtHW (Experience-Reservierung, s. u.)
 +60×   Außen-/Hauptstrand-Überhang (Feature 25, nur wenn beide Turm-Sorten existieren)
 + Tiebreaker (deterministisch bzw. seededRand() für Tag 1)
@@ -174,12 +174,16 @@ Feature 26 (per-Person-Wunsch, ≥1×/Woche) ist das ein globaler, **täglicher*
 **Sanitäter & San-Türme (Feature 33/35):** Person-Flag `sanitaeter` (W **und** B – Feature 35)
 + Turm-Flag `sanTower`. Pro Tag `sanActive` = es gibt einen offenen San-Turm UND ≥1 Sanitäter
 **im Guard-Pool** (`getGuardPool()` = poolE/poolU + überzählige BF poolSBF; aktive BF fahren ein
-Boot und kommen für einen Turm ohnehin nicht in Frage) – nur dann greift die Logik (sonst normal). `sanTowerBonus` (5000) zieht – solange der San-Turm
-noch keinen Sanitäter hat – einen Sanitäter an (Bonus pro Paar nur **einmal** → keine Häufung);
-`sanReservePenalty` (350) hält Sanitäter von Nicht-San-Türmen/HW als Reserve fern (hebt sich
-unter Sanitätern auf → Fairness bleibt). Eingebaut in `bestPair` (Param `towerNeedsSan`),
-Turm-Einzelbefüllung und HW-Sortierung. Faire Rotation entsteht aus den bestehenden
-`towerVisit`-/Konsekutiv-Strafen; wichtigere San-Türme (prio asc) zuerst befüllt.
+Boot und kommen für einen Turm ohnehin nicht in Frage) – nur dann greift die Logik (sonst normal).
+**Vorab-Reservierung (analog Führungsturm):** Ist `sanActive`, wird pro offenem San-Turm (prio asc,
+freier Slot) genau EIN Sanitäter **vor** der HW-Befüllung fest aus dem Guard-Pool gezogen
+(`reservedSanByTower`, fairste Rotation: wenigste Gesamteinsätze/Turmbesuche zuerst) und im
+Turm-Loop zuerst platziert. Dadurch kann die HW keinen Sanitäter „verbrauchen" (der dauer-aktive
+Sanitäter hat `hwVisits=0` und wäre sonst HW-Kandidat) → erst diese Reservierung macht das
+Entkoppeln der HW von `total` gefahrlos. Die alten Strafen `sanTowerBonus` (5000) / `sanReservePenalty`
+(350) bleiben als Feinsteuerung für **überzählige** Sanitäter (mehr San als San-Türme) in `bestPair`
+(Param `towerNeedsSan`), Turm-Einzelbefüllung und HW-Sortierung erhalten; die reservierten sind
+nicht mehr im Pool. Wichtigere San-Türme (prio asc) zuerst.
 
 **Führungstürme (Feature 34, Turm-Flag `leaderTower`, ersetzt den früheren `leaderCount`-Spinner):**
 Markierte Türme bekommen – wenn möglich – genau **eine** Führungskraft auf einen **regulären**

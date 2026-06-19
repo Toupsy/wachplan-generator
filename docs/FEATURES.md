@@ -221,16 +221,22 @@ BF fahren Boot. `sanActive`-Gating prüft den ganzen `getGuardPool()`. Tests: `s
 
 ## Bugfixes
 
-### HW-Einzelbefüllung ignorierte die pro-Besuch-Rotation (Spät-Einsteiger klebten an der HW)
-Eine Person, die erst mitten in der Woche dazukam (z. B. erste Tage abwesend), saß **jeden** ihrer
-Tage an der HW. Ursache: Die HW hat k Slots; bei k=3 wird ein Paar via `bestPair` (dort dominiert
-`hwVisits × hwVisitWeightHW`) + **eine Einzelperson** befüllt. Die Einzelbefüllung sortierte aber
-**primär nach `total`** (Gesamteinsätze) und nur als Tiebreaker nach `hwVisits`. Ein Spät-Einsteiger
-hat dauerhaft den niedrigsten `total` (er kann den Rückstand im Fenster nie aufholen) → wurde jeden
-Tag zuerst auf den HW-Einzelplatz gezogen, die pro-Besuch-Strafe (selbst bei 400) lief ins Leere.
-**Fix:** Die Einzelbefüllung nutzt jetzt denselben gewichteten Score wie `bestPair`
-(`hwVisits × hwVisitWeightHW + total × totalFairnessWeight`) → `hwVisits` dominiert, `total` ist nur
-Feinausgleich. Der Spät-Einsteiger rotiert wieder (HW ↔ Turm) statt 4 Tage am Stück HW.
+### Spät-Einsteiger klebten an der HW (HW von `total` entkoppelt + San-Vorab-Reservierung)
+Eine Person, die erst mitten in der Woche dazukam (erste Tage abwesend), saß **jeden** ihrer Tage an
+der HW (z. B. 4 Tage in Folge). **Ursache:** Die HW wird **vor** den Türmen befüllt und ihre Auswahl
+nutzte den `total`-Ausgleich (Gesamteinsätze). Ein Spät-Einsteiger hat strukturell den niedrigsten
+`total` – obwohl er an **jedem anwesenden Tag aktiv** (also voll ausgelastet) ist, lässt sich der
+Rückstand im Fenster nie aufholen. Sowohl die HW-**Einzelbefüllung** (sortierte primär nach `total`)
+als auch das HW-**Paar** in `bestPair` (am letzten Tag, wenn alle `hwVisits` gleich sind, entschied
+der `total×10`-Tiebreak) zogen ihn so jeden Tag wieder auf die HW.
+**Fix:** Die HW-Auswahl rotiert jetzt **rein nach `hwVisits`**; der `total`-Ausgleich gilt nur noch
+für **Türme** (`bestPair`-Term `if(!isMain)`, HW-Einzelbefüllung ohne `total`). Sein Rückstand wird
+damit auf echten Wachdiensten (Türmen) aufgeholt, nicht an der HW. **Voraussetzung dafür:**
+Sanitäter werden jetzt **vorab reserviert** (analog Führungsturm, s. Feature 33): ohne den
+`total`-Deterrent hätte die HW sonst den dauer-aktiven Sanitäter (`hwVisits=0`) verbraucht. Pro
+offenem San-Turm wird ein Sanitäter **vor** der HW-Befüllung fest aus dem Guard-Pool gezogen
+(`reservedSanByTower`) → robuste San-Besetzung statt nur penalty-basiert. Ergebnis: Der
+Spät-Einsteiger ist nur noch an seinem **ersten** anwesenden Tag an der HW, danach auf Türmen.
 
 ### SQLITE_CORRUPT-Wurzelfix: Admin-Panel in den Hauptprozess eingebettet
 Transiente `SQLITE_CORRUPT` im Betrieb = prozessübergreifender SQLite-Zugriff auf NAS/Netzwerk-

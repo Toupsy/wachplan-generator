@@ -447,10 +447,14 @@ function generate(startDay = 0){
           const vB = sB.towerVisits[t.id] || 0;
           score += vA * algoParams.towerVisitWeight;
           score += vB * algoParams.towerVisitWeight;
-          score += (sA.total + sB.total) * algoParams.totalFairnessWeight;
+          // Gesamteinsatz-Ausgleich gilt NUR für Türme (s. else-Zweig): ein Spät-Einsteiger mit
+          // strukturell niedrigstem `total` (Tage abwesend, aber an jedem Anwesenheitstag aktiv)
+          // soll seinen Rückstand auf echten Wachdiensten (Türmen) aufholen, nicht an der HW.
+          // Sonst würde er, da die HW VOR den Türmen befüllt wird, dort „geparkt".
           score += surplusBFPenalty(A, t) + surplusBFPenalty(B, t);
           score += beachBalancePenalty(A, t) + beachBalancePenalty(B, t);  // Hauptstrand-Ausgleich
           if(!isMain){
+            score += (sA.total + sB.total) * algoParams.totalFairnessWeight;
             // Feature 8: Konsekutive Tage auf gleichem Turm bestrafen
             if(prevTowerSet){
               if(prevTowerSet.has(A.id)) score += algoParams.consecutiveTowerPenalty;
@@ -544,6 +548,34 @@ function generate(startDay = 0){
     const sanActive = openTowers.some(t => t.sanTower)
       && getGuardPool().some(p => p.sanitaeter);
 
+    // Feature 33: San-Türme – Sanitäter VORAB reservieren (analog Führungsturm, Feature 34).
+    // Statt nur über Strafen wird – wenn sanActive – pro offenem San-Turm (prio asc) genau EIN
+    // Sanitäter fest aus dem Guard-Pool gezogen, BEVOR die HW befüllt wird. Dadurch kann die HW
+    // keinen Sanitäter „verbrauchen" (der dauer-aktive Sanitäter hat hwVisits=0 und wäre sonst ein
+    // HW-Kandidat) und die HW-Auswahl muss nicht über `total` balancieren (s. bestPair/HW-Sort).
+    // Nur reservieren, wenn der Turm einen freien (nicht zwangsbelegten) Slot hat und dort noch
+    // kein Sanitäter sitzt. Faire Rotation: Sanitäter mit wenig Gesamteinsätzen / wenig Besuchen
+    // dieses Turms zuerst. Die alten Strafen (sanTowerBonus/sanReservePenalty) bleiben als
+    // Feinsteuerung für ÜBERZÄHLIGE Sanitäter erhalten – die reservierten sind nicht mehr im Pool.
+    const reservedSanByTower = {};
+    if(sanActive){
+      for(const t of openTowers){
+        if(!t.sanTower) continue;
+        const preOcc = forcedByTower[t.id] || [];
+        if((t.slotCount || 2) - preOcc.length < 1 || preOcc.some(p => p.sanitaeter)) continue;
+        const avail = getGuardPool().filter(p => p.sanitaeter);
+        if(avail.length === 0) break;
+        avail.sort((a, b) => {
+          const sa = ensure(a.id), sb = ensure(b.id);
+          return (sa.total - sb.total)
+              || ((sa.towerVisits[t.id] || 0) - (sb.towerVisits[t.id] || 0))
+              || (a.id - b.id);
+        });
+        removeAll(avail[0]);
+        reservedSanByTower[t.id] = avail[0];
+      }
+    }
+
     const mainPseudo = { id: MAIN_ID };
     const mainGuards = [];
     // HW-Paarungen dieses Tages (nur die per bestPair gebildeten Paare). Werden auf dem
@@ -603,15 +635,13 @@ function generate(startDay = 0){
             const am = a.sanitaeter ? 1 : 0, bm = b.sanitaeter ? 1 : 0;
             if(am !== bm) return am - bm;
           }
-          // HW-Wiederholungsbesuch: wer schon oft HW-Dienst hatte, kommt zuletzt → Rotation pro
-          // Besuch. Gewichtung identisch zu bestPair (hwVisits dominiert, total nur Feinausgleich),
-          // sonst würde ein Spät-Einsteiger mit dauerhaft niedrigstem `total` jeden Tag wieder auf
-          // den HW-Einzelplatz gezogen, obwohl er gestern schon HW hatte.
-          const scoreA = (ensure(a.id).hwVisits || 0) * algoParams.hwVisitWeightHW
-                       + ensure(a.id).total * algoParams.totalFairnessWeight;
-          const scoreB = (ensure(b.id).hwVisits || 0) * algoParams.hwVisitWeightHW
-                       + ensure(b.id).total * algoParams.totalFairnessWeight;
-          return scoreA - scoreB;
+          // HW-Wiederholungsbesuch: rein nach bisherigen HW-Diensten (hwVisits), KEIN `total`-
+          // Ausgleich an der HW – sonst würde ein Spät-Einsteiger mit dauerhaft niedrigstem `total`
+          // jeden Tag wieder auf den HW-Einzelplatz gezogen. Sein Rückstand wird auf Türmen
+          // aufgeholt (s. bestPair, !isMain). Gleichstand → deterministisch nach id.
+          const scoreA = (ensure(a.id).hwVisits || 0) * algoParams.hwVisitWeightHW;
+          const scoreB = (ensure(b.id).hwVisits || 0) * algoParams.hwVisitWeightHW;
+          return (scoreA - scoreB) || (a.id - b.id);
         });
         const P = cand[0]; if(!P) break;
         removeAll(P); commitPerson(P, mainPseudo); mainGuards.push(P);
@@ -628,6 +658,16 @@ function generate(startDay = 0){
 
       // Algorithmus füllt verbleibende Plätze (variable Slot-Anzahl)
       const totalSlots = (t.slotCount || 2);
+
+      // San-Turm (Feature 33): vorab reservierten Sanitäter zuerst auf einen regulären Slot setzen
+      // (analog Führungskraft). Er wurde bereits aus dem Guard-Pool gezogen → kein Doppel-Einsatz.
+      const reservedSan = reservedSanByTower[t.id];
+      if(reservedSan && (totalSlots - slot.occupants.length) > 0
+         && !slot.occupants.some(o => o.id === reservedSan.id)){
+        slot.occupants.push(reservedSan);
+        commitPerson(reservedSan, t);
+      }
+
       let need = totalSlots - slot.occupants.length;
       const wasEmpty = slot.occupants.length === 0;
 
