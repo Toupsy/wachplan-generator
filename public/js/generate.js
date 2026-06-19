@@ -422,9 +422,17 @@ function generate(startDay = 0){
       // Feature 8: Personen die GESTERN auf diesem Turm waren einmalig vorberechnen
       // (statt pro Paar erneut den Vortag zu durchsuchen → O(n²·m) ⇒ O(m + n²))
       let prevTowerSet = null;
-      if(!isMain && currentDay > 0 && schedule[currentDay-1]){
-        const slot = schedule[currentDay-1].assign.find(s => s.kind==='tower' && s.towerId===t.id);
-        if(slot) prevTowerSet = new Set(slot.occupants.map(p => p.id));
+      // Feature: dieselbe Konsekutiv-Logik für die HW – wer gestern aktiver HW-Dienst war,
+      // soll nicht „zufällig" mehrere Tage in Folge an der HW sitzen, sondern rotieren.
+      let prevHwSet = null;
+      if(currentDay > 0 && schedule[currentDay-1]){
+        if(isMain){
+          const slot = schedule[currentDay-1].assign.find(s => s.kind==='main');
+          if(slot) prevHwSet = new Set((slot.mainGuards || []).map(p => p.id));
+        } else {
+          const slot = schedule[currentDay-1].assign.find(s => s.kind==='tower' && s.towerId===t.id);
+          if(slot) prevTowerSet = new Set(slot.occupants.map(p => p.id));
+        }
       }
       for(let i = 0; i < cand.length; i++){
         for(let j = i + 1; j < cand.length; j++){
@@ -480,6 +488,11 @@ function generate(startDay = 0){
             // HW k-Slot-Auswahl: Personen mit vielen HW-Tagen NICHT nochmal auf HW
             score += sA.hwVisits * algoParams.hwVisitWeightHW;
             score += sB.hwVisits * algoParams.hwVisitWeightHW;
+            // Konsekutive HW-Tage bestrafen (analog zum Turm) → Rotation statt 4 Tage am Stück
+            if(prevHwSet){
+              if(prevHwSet.has(A.id)) score += algoParams.consecutiveHwPenalty;
+              if(prevHwSet.has(B.id)) score += algoParams.consecutiveHwPenalty;
+            }
             // BF-HW-Wunsch: noch nicht erfüllte Wünsche bevorzugt an die HW holen
             score -= hwWishBonus(A);
             score -= hwWishBonus(B);
@@ -575,6 +588,11 @@ function generate(startDay = 0){
       mainGuards.push(bf);
     }
 
+    // Wer war gestern aktiver HW-Dienst? Für die Konsekutiv-Rotation der Einzelbefüllung.
+    const prevHwGuardSet = (d > 0 && schedule[d-1])
+      ? new Set(((schedule[d-1].assign.find(s => s.kind==='main') || {}).mainGuards || []).map(p => p.id))
+      : null;
+
     while(mainGuards.length < k && guardPoolSize() > 0){
       const remaining = k - mainGuards.length;
       if(remaining >= 2 && guardPoolSize() >= 2){
@@ -600,6 +618,11 @@ function generate(startDay = 0){
           if(sanActive){
             const am = a.sanitaeter ? 1 : 0, bm = b.sanitaeter ? 1 : 0;
             if(am !== bm) return am - bm;
+          }
+          // Konsekutive HW-Tage meiden: wer gestern schon HW-Dienst war, kommt zuletzt → Rotation.
+          if(prevHwGuardSet){
+            const ah = prevHwGuardSet.has(a.id) ? 1 : 0, bh = prevHwGuardSet.has(b.id) ? 1 : 0;
+            if(ah !== bh) return ah - bh;
           }
           return (ensure(a.id).total - ensure(b.id).total) ||
                  ((ensure(a.id).hwVisits||0) - (ensure(b.id).hwVisits||0)); // weniger HW → bevorzugt

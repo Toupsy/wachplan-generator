@@ -11,6 +11,19 @@
 
 ## Features
 
+### Feature 42: Konsekutiv-Rotation auch an der Hauptwache
+Die schon für Türme geltende „nicht denselben Platz an zwei Tagen in Folge"-Strafe (Feature 8,
+`consecutiveTowerPenalty`) gilt jetzt analog für die **Hauptwache**. Zuvor konnten Personen rein
+zufällig mehrere Tage am Stück als aktiver HW-Dienst sitzen; jetzt rotiert das.
+- **`generate.js`:** Neuer Parameter `consecutiveHwPenalty` (Default 200). In `bestPair` wird für
+  den HW-Zweig (`isMain`) ein `prevHwSet` aus den gestrigen `mainGuards` gebildet und jeder, der
+  gestern aktiver HW-Dienst war, mit `consecutiveHwPenalty` bestraft. Die HW-**Einzelbefüllung**
+  (Single-Sort) erhält denselben Faktor über `prevHwGuardSet` (gestriger HW-Dienst → zuletzt
+  einsortiert). Greift nur auf **aktive** HW-Dienste (`mainGuards`), nicht auf den HW-Overflow
+  (`base`), und ist eine weiche Präferenz → bei zu wenig Personal füllt die HW trotzdem auf.
+- **UI:** Regler „Aufeinanderfolgend. HW" in der Algorithmus-Parameter-Gruppe „Hauptwache (HW)"
+  (`render-sidebar.js`), 0–1000.
+
 ### Feature 41: Druck „1 Tag = 1 Seite" + Admin-Audit-Log-Pagination
 - **Druck (`Wachplan-Generator.html` @media print):** `break-inside:avoid` auf `.day-panel`/
   `.towers-grid` entfernt – es schob ganze Blöcke (bei Warn-Notices durch geschlossenen Turm/
