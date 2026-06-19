@@ -164,13 +164,24 @@ async function start() {
 
     console.log('✓ API routes registered');
 
-    // Register static files and SPA routes AFTER API routes
-    app.use(express.static(path.join(__dirname, '..', 'public')));
+    // Register static files and SPA routes AFTER API routes.
+    // Index-HTML mit Asset-Version ausliefern (Cache-Busting): die lokalen <script>-URLs
+    // tragen ?v=__ASSET_V__ → beim Ausliefern durch APP_VERSION ersetzt. So holt der
+    // Browser/CDN nach jedem Release garantiert die NEUEN JS-Dateien (andere Version =
+    // andere Query = anderer Cache-Key) statt veralteter, gecachter Skripte.
+    const INDEX_HTML = path.join(__dirname, '..', 'public', 'Wachplan-Generator.html');
+    const serveIndex = (req, res) => {
+      fs.readFile(INDEX_HTML, 'utf-8', (err, html) => {
+        if (err) { res.status(500).send('Index nicht verfügbar'); return; }
+        res.set('Cache-Control', 'no-cache');
+        res.type('html').send(html.replace(/__ASSET_V__/g, encodeURIComponent(APP_VERSION)));
+      });
+    };
+    // Index-Routen VOR express.static, damit die Versions-Injektion greift (nicht die Rohdatei).
+    app.get('/', serveIndex);
+    app.get('/Wachplan-Generator.html', serveIndex);
 
-    // SPA-Route: Immer index/main servieren
-    app.get('/', (req, res) => {
-      res.sendFile(path.join(__dirname, '..', 'public', 'Wachplan-Generator.html'));
-    });
+    app.use(express.static(path.join(__dirname, '..', 'public')));
 
     // 404 Handler (NACH all anderen routes)
     app.use(notFoundHandler());
