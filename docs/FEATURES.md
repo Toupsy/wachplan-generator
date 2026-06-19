@@ -11,6 +11,20 @@
 
 ## Features
 
+### Feature 43: Hauptwache wie ein San-Turm (`hwSanTower`)
+Neuer globaler Schalter „Hauptwache wie San-Turm (immer 1 Sanitäter)" neben der BF-an-HW-Option.
+Ist er aktiv und gibt es einen Sanitäter im Guard-Pool, sitzt jeden Tag mindestens **ein
+Sanitäter** aktiv an der HW – analog zu `sanTower`-Türmen (Feature 33), nur eben für die
+Hauptwache.
+- **`generate.js`:** Nach der San-Turm-Reservierung (`reservedSanByTower`) wird – wenn `hwSanTower`
+  und ein freier HW-Slot vorhanden – genau EIN Sanitäter vorab aus dem Guard-Pool gezogen
+  (`reservedSanForHW`) und vor der BF-an-HW-Pflicht als fester `mainGuard` platziert. So kann die
+  normale HW-Befüllung (die Sanitäter sonst „zuletzt" sortiert) das nicht verhindern. **San-Türme
+  haben Vorrang** (deren Reservierung läuft davor); faire Rotation über `hwGuardDays`/`total`.
+- **Verdrahtung:** State `hwSanTower` (Def false) an den 3 üblichen Stellen (`state.js`,
+  `state-io.js` `_buildStateObject`/`importStateJSON` + UI-Sync), Checkbox `#hw-san-tower` in
+  der HW-Konfiguration, Handler in `init.js`. Test: `test/hw-san-tower.test.js`.
+
 ### Feature 42: HW rotiert pro Besuch (analog zum Turm-Wiederholungsbesuch)
 Die HW-Zuweisung rotiert jetzt **pro bisherigem HW-Dienst** – analog zur Turm-Strafe
 `towerVisitWeight` (200 pro Turmbesuch). Zuvor war die HW-Strafe schwächer (60) bzw. nur eine

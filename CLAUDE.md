@@ -111,6 +111,7 @@ exportColumns[] // 16 Stationscodes → Template-Spalten
 lastResult      // { schedule, pairCount, stats, peopleGuards, fairnessMetrics }
 activeDay, DAYS(1–14), uid, randomSeed(0=keiner), mainK
 requireBfAtHw   // global Bool (Def false): bei echter BF-Überzahl täglich ≥1 überzähliger BF aktiv auf der HW (Feature 32)
+hwSanTower      // global Bool (Def false): HW wie ein San-Turm – bei vorhandenem Sanitäter täglich ≥1 Sanitäter aktiv auf der HW; San-Türme haben Vorrang (Feature 43)
 serviceStartHour/EndHour // Def 9/17, clamp 8–19
 ```
 **Rollen:** F=Führung, B=Bootsführer, W=Wachgänger · **MAIN_ID = 0** (HW-Pseudo-ID).
@@ -188,6 +189,13 @@ Entkoppeln der HW von `total` gefahrlos. Die alten Strafen `sanTowerBonus` (5000
 (350) bleiben als Feinsteuerung für **überzählige** Sanitäter (mehr San als San-Türme) in `bestPair`
 (Param `towerNeedsSan`), Turm-Einzelbefüllung und HW-Sortierung erhalten; die reservierten sind
 nicht mehr im Pool. Wichtigere San-Türme (prio asc) zuerst.
+**HW als San-Turm (Feature 43, global `hwSanTower`):** Ist das Flag aktiv und nach den San-Türmen
+noch ein Sanitäter im Guard-Pool frei, wird **nach** `reservedSanByTower` genau EIN Sanitäter für
+die HW reserviert (`reservedSanForHW`, freier HW-Slot vorausgesetzt) und **vor** der BF-an-HW-Pflicht
+als fester `mainGuard` platziert (`commitPerson` zählt `hwGuardDays` → faire Rotation: wenigste
+HW-Dienste/`total` zuerst). So sitzt täglich ≥1 Sanitäter aktiv an der HW, obwohl die reguläre
+HW-Befüllung Sanitäter sonst „zuletzt" sortiert. **San-Türme haben Vorrang** (deren Reservierung
+läuft davor); reichen die Sanitäter nicht, geht die HW leer aus.
 
 **Führungstürme (Feature 34, Turm-Flag `leaderTower`, ersetzt den früheren `leaderCount`-Spinner):**
 Markierte Türme bekommen – wenn möglich – genau **eine** Führungskraft auf einen **regulären**

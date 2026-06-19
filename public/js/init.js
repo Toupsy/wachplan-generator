@@ -247,6 +247,14 @@ if(requireBfHwInput) requireBfHwInput.onchange = e => {
   scheduleAutoSave();
 };
 
+// HW als „San-Turm": bei vorhandenem Sanitäter immer 1 Sanitäter aktiv auf der Hauptwache
+const hwSanTowerInput = document.getElementById('hw-san-tower');
+if(hwSanTowerInput) hwSanTowerInput.onchange = e => {
+  hwSanTower = !!e.target.checked;
+  if(lastResult) generate();
+  scheduleAutoSave();
+};
+
 // ── Sidebar – Dienstzeit (Feature 15) ────────────────────────────────
 const serviceStartHourInput = document.getElementById('service-start-hour');
 const serviceEndHourInput = document.getElementById('service-end-hour');
