@@ -221,6 +221,17 @@ BF fahren Boot. `sanActive`-Gating prüft den ganzen `getGuardPool()`. Tests: `s
 
 ## Bugfixes
 
+### HW-Einzelbefüllung ignorierte die pro-Besuch-Rotation (Spät-Einsteiger klebten an der HW)
+Eine Person, die erst mitten in der Woche dazukam (z. B. erste Tage abwesend), saß **jeden** ihrer
+Tage an der HW. Ursache: Die HW hat k Slots; bei k=3 wird ein Paar via `bestPair` (dort dominiert
+`hwVisits × hwVisitWeightHW`) + **eine Einzelperson** befüllt. Die Einzelbefüllung sortierte aber
+**primär nach `total`** (Gesamteinsätze) und nur als Tiebreaker nach `hwVisits`. Ein Spät-Einsteiger
+hat dauerhaft den niedrigsten `total` (er kann den Rückstand im Fenster nie aufholen) → wurde jeden
+Tag zuerst auf den HW-Einzelplatz gezogen, die pro-Besuch-Strafe (selbst bei 400) lief ins Leere.
+**Fix:** Die Einzelbefüllung nutzt jetzt denselben gewichteten Score wie `bestPair`
+(`hwVisits × hwVisitWeightHW + total × totalFairnessWeight`) → `hwVisits` dominiert, `total` ist nur
+Feinausgleich. Der Spät-Einsteiger rotiert wieder (HW ↔ Turm) statt 4 Tage am Stück HW.
+
 ### SQLITE_CORRUPT-Wurzelfix: Admin-Panel in den Hauptprozess eingebettet
 Transiente `SQLITE_CORRUPT` im Betrieb = prozessübergreifender SQLite-Zugriff auf NAS/Netzwerk-
 Volume (seit Audit-Log #294 schrieben **beide** Container in `audit_log`). **Lösung:** nur **ein**

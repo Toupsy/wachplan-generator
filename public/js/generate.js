@@ -603,9 +603,15 @@ function generate(startDay = 0){
             const am = a.sanitaeter ? 1 : 0, bm = b.sanitaeter ? 1 : 0;
             if(am !== bm) return am - bm;
           }
-          // HW-Wiederholungsbesuch: wer schon oft HW-Dienst hatte, kommt zuletzt → Rotation pro Besuch.
-          return (ensure(a.id).total - ensure(b.id).total) ||
-                 ((ensure(a.id).hwVisits||0) - (ensure(b.id).hwVisits||0)); // weniger HW → bevorzugt
+          // HW-Wiederholungsbesuch: wer schon oft HW-Dienst hatte, kommt zuletzt → Rotation pro
+          // Besuch. Gewichtung identisch zu bestPair (hwVisits dominiert, total nur Feinausgleich),
+          // sonst würde ein Spät-Einsteiger mit dauerhaft niedrigstem `total` jeden Tag wieder auf
+          // den HW-Einzelplatz gezogen, obwohl er gestern schon HW hatte.
+          const scoreA = (ensure(a.id).hwVisits || 0) * algoParams.hwVisitWeightHW
+                       + ensure(a.id).total * algoParams.totalFairnessWeight;
+          const scoreB = (ensure(b.id).hwVisits || 0) * algoParams.hwVisitWeightHW
+                       + ensure(b.id).total * algoParams.totalFairnessWeight;
+          return scoreA - scoreB;
         });
         const P = cand[0]; if(!P) break;
         removeAll(P); commitPerson(P, mainPseudo); mainGuards.push(P);
