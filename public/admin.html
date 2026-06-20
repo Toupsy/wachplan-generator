@@ -397,6 +397,24 @@
       <div id="config-status" style="margin-top: 10px; font-size: 0.9em; color: var(--text-dim);"></div>
     </div>
 
+    <!-- Impressum & Datenschutz -->
+    <div class="card">
+      <div class="card-title">📄 Impressum &amp; Datenschutz</div>
+      <p style="color: var(--text-dim); margin-bottom: 15px; font-size: 0.9em;">
+        Diese Betreiberangaben erscheinen öffentlich im <a href="/impressum.html" target="_blank" style="color:var(--sea-bright)">Impressum</a>
+        und in der <a href="/datenschutz.html" target="_blank" style="color:var(--sea-bright)">Datenschutzerklärung</a>
+        (Verantwortlicher / Kontakt). Pflichtangaben in Deutschland: Name, Anschrift und Kontakt des Betreibers.
+        Optionale Felder leer lassen, wenn nicht zutreffend.
+      </p>
+      <form id="site-settings-form" onsubmit="saveSiteSettings(event)">
+        <div id="site-settings-fields" class="form-row" style="flex-wrap:wrap;">
+          <p style="color: var(--text-dim);">Lädt…</p>
+        </div>
+        <button type="submit" style="margin-top: 10px;">💾 Angaben speichern</button>
+        <span id="site-settings-status" style="margin-left: 12px; font-size: 0.9em; color: var(--text-dim);"></span>
+      </form>
+    </div>
+
     <!-- Benutzerliste -->
     <h2>👥 Alle Benutzer</h2>
     <div class="card">
@@ -482,6 +500,7 @@
       admin_user_create: 'Admin: Benutzer erstellt',
       admin_user_delete: 'Admin: Benutzer gelöscht',
       admin_password_reset: 'Admin: Passwort zurückgesetzt',
+      admin_site_settings_update: 'Admin: Impressum/Datenschutz geändert',
       plan_cleanup: 'Plan-Aufräumung (System)'
     };
     const auditActionLabel = a => AUDIT_ACTION_LABELS[a] || a;
@@ -508,6 +527,7 @@
           document.getElementById('login-overlay').classList.remove('visible');
           loadUsers();
           loadAuditLog();
+          loadSiteSettings();
         } catch (err) {
           errorEl.textContent = 'Netzwerkfehler';
         }
@@ -533,6 +553,7 @@
         currentUserId = data.userId;
         loadUsers();
         loadAuditLog();
+        loadSiteSettings();
       } catch (error) {
         document.getElementById('login-overlay').classList.add('visible');
       }
@@ -852,6 +873,61 @@
         document.getElementById('change-password-form').reset();
       } catch (error) {
         showToast(error.message, true);
+      }
+    }
+
+    // ── Impressum & Datenschutz-Betreiberangaben ───────────────────────
+    async function loadSiteSettings() {
+      const wrap = document.getElementById('site-settings-fields');
+      try {
+        const res = await fetch('/api/admin/site-settings');
+        if (!res.ok) throw new Error('Laden fehlgeschlagen');
+        const { fields, values } = await res.json();
+        wrap.innerHTML = '';
+        fields.forEach(f => {
+          const group = document.createElement('div');
+          group.className = 'form-group';
+          group.style.flex = '1 1 280px';
+          const label = document.createElement('label');
+          label.setAttribute('for', 'ss-' + f.key);
+          label.textContent = f.label;
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.id = 'ss-' + f.key;
+          input.dataset.key = f.key;
+          input.placeholder = f.placeholder || '';
+          input.value = values[f.key] || '';
+          group.appendChild(label);
+          group.appendChild(input);
+          wrap.appendChild(group);
+        });
+      } catch (err) {
+        wrap.innerHTML = '<p style="color:var(--warn)">Fehler beim Laden der Angaben.</p>';
+      }
+    }
+
+    async function saveSiteSettings(event) {
+      event.preventDefault();
+      const statusEl = document.getElementById('site-settings-status');
+      const payload = {};
+      document.querySelectorAll('#site-settings-fields input[data-key]').forEach(inp => {
+        payload[inp.dataset.key] = inp.value;
+      });
+      statusEl.textContent = 'Speichert…';
+      try {
+        const res = await fetch('/api/admin/site-settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Speichern fehlgeschlagen');
+        statusEl.textContent = '✓ Gespeichert';
+        showToast('✓ Betreiberangaben gespeichert');
+        setTimeout(() => { statusEl.textContent = ''; }, 4000);
+      } catch (err) {
+        statusEl.textContent = '✗ ' + err.message;
+        showToast(err.message, true);
       }
     }
 

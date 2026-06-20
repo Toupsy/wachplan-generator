@@ -15,6 +15,23 @@ const router = express.Router();
 const { dbGet } = require('../db/connection');
 const { decryptPlanState } = require('../db/crypto');
 const { hashLinkToken } = require('./plans');
+const { getSiteSettings } = require('../db/site-settings');
+
+// ───────────────────────────────────────────────────────────
+// GET /api/public/site-info – Betreiberangaben für Impressum & Datenschutz.
+// Auth-frei und nur Lesen: Diese Daten sind ohnehin öffentlich anzugeben
+// (Impressumspflicht § 5 DDG, Verantwortlicher Art. 13 DSGVO).
+// ───────────────────────────────────────────────────────────
+router.get('/site-info', async (req, res) => {
+  try {
+    const values = await getSiteSettings();
+    res.set('Cache-Control', 'no-store');
+    res.json(values);
+  } catch (error) {
+    console.error('Public site-info error:', error);
+    res.status(500).json({ error: 'Failed to load site info' });
+  }
+});
 
 router.get('/plan/:token', async (req, res) => {
   try {

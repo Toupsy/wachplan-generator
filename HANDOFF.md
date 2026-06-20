@@ -13,6 +13,22 @@
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: Tests grün, alle Server parsen (`node -c`).
 
+**Letzter Lauf (2026-06-20, Impressum + editierbare Datenschutz-Angaben + „Letzter Login"-Fix – Branch `claude/sharp-babbage-a3q719`):**
+- **Bugfix „Letzter Login":** Bei „Angemeldet bleiben" wurde `last_login` nie aktualisiert
+  (nur `/login` schrieb es, nicht der Session-Resume via `/me`). `GET /api/auth/me` aktualisiert
+  `last_login` jetzt gedrosselt (max 1×/10 min). Details: docs/FEATURES.md „Bugfixes".
+- **Feature 44 (Impressum & Betreiberangaben):** Neue Seite `public/impressum.html` (Pflicht § 5 DDG),
+  Datenschutz-Verantwortlicher/Kontakt jetzt dynamisch. Pflege im Admin-Panel (Karte
+  „📄 Impressum & Datenschutz") via `GET`/`PUT /api/admin/site-settings`; Anzeige auth-frei über
+  `GET /api/public/site-info`. Neue Tabelle `site_settings` + Modul `server/db/site-settings.js`
+  (Feld-Whitelist). Login-Modal-Footer verlinkt beide Seiten. Details: docs/FEATURES.md „Feature 44".
+- **Tests:** voller `npm test` grün bis auf das bekannt-flaky `auth-flow.test.js`
+  (IPC-„Unable to deserialize cloned data" → isoliert 18/18 grün). E2E der neuen Endpoints
+  (Login/`/me`-Drosselung, site-settings GET/PUT inkl. Whitelist & Auth-Schutz, public site-info,
+  statische Seiten) manuell verifiziert: 14/14 PASS.
+- **Hinweis für Betreiber:** Nach dem Update im Admin-Panel die Betreiberangaben (Name, Anschrift,
+  Kontakt) eintragen – ohne sie zeigen Impressum/Datenschutz einen neutralen Platzhaltertext.
+
 **Letzter Lauf (2026-06-19, SQLITE_CORRUPT-Wurzelfix – Branch `claude/hopeful-keller-y73g6l`):**
 - **Symptom:** Trotz aller vorherigen DB-Fixes (#323–#329: DELETE-Journal, Integritäts-Check,
   Auto-Heilung, busy_timeout, Retries) weiterhin **transiente** `SQLITE_CORRUPT`-Fehler im Betrieb

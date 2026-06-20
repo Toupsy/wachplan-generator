@@ -136,8 +136,12 @@
 
     <!-- 1. Verantwortlicher -->
     <h2>1. Verantwortlicher und Datenschutzbeauftragter</h2>
-    <p>Verantwortliche Stelle für die Datenverarbeitung ist die DLRG-Ortsgruppe oder der Administrator der Wachplan-Generator-Instanz.</p>
-    <p>Für technische und datenschutzrechtliche Fragen kontaktieren Sie bitte den Administrator dieser Instanz.</p>
+    <p>Verantwortliche Stelle im Sinne der DSGVO für die Datenverarbeitung ist:</p>
+    <div class="contact-info" id="responsible-info">
+      <p>Verantwortliche Stelle ist die DLRG-Ortsgruppe bzw. der Administrator der Wachplan-Generator-Instanz.</p>
+    </div>
+    <p>Die vollständigen Betreiberangaben finden Sie auch im <a href="impressum.html">Impressum</a>.</p>
+    <p>Für technische und datenschutzrechtliche Fragen kontaktieren Sie bitte den oben genannten Verantwortlichen.</p>
 
     <!-- 2. Datenverarbeitung -->
     <h2>2. Umfang der Datenverarbeitung</h2>
@@ -267,7 +271,9 @@
 
     <div class="contact-info">
       <h3>Datenschutzbeauftragter / Administrator dieser Instanz:</h3>
-      <p>Bitte kontaktieren Sie den Administrator der DLRG-Ortsgruppe oder Instanz, bei der Sie angemeldet sind.</p>
+      <div id="contact-info-dynamic">
+        <p>Bitte kontaktieren Sie den Administrator der DLRG-Ortsgruppe oder Instanz, bei der Sie angemeldet sind.</p>
+      </div>
 
       <h3>Beschwerde bei der Datenschutzbehörde:</h3>
       <p>
@@ -275,6 +281,7 @@
         <br><br>
         <strong>Bundesrepublik Deutschland:</strong> <a href="https://www.bfdi.bund.de/" target="_blank">Bundesbeauftragter für Datenschutz und Informationsfreiheit (BfDI)</a>
       </p>
+      <p id="supervisory-authority" style="display:none;"></p>
     </div>
 
     <!-- 14. Änderungen -->
@@ -289,5 +296,57 @@
       Version: 1.0
     </div>
   </div>
+
+  <script>
+    function esc(t) {
+      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+      return String(t == null ? '' : t).replace(/[&<>"']/g, m => map[m]);
+    }
+
+    function applySiteInfo(s) {
+      const has = k => s[k] && String(s[k]).trim() !== '';
+
+      // Verantwortliche Stelle (Abschnitt 1)
+      const addr = [];
+      if (has('org_name')) addr.push('<strong>' + esc(s.org_name) + '</strong>');
+      if (has('represented_by')) addr.push('Vertreten durch: ' + esc(s.represented_by));
+      if (has('org_street')) addr.push(esc(s.org_street));
+      const cityLine = [s.org_zip, s.org_city].filter(Boolean).map(esc).join(' ');
+      if (cityLine) addr.push(cityLine);
+      if (has('org_country')) addr.push(esc(s.org_country));
+      if (has('contact_phone')) addr.push('Telefon: ' + esc(s.contact_phone));
+      if (has('contact_email')) addr.push('E-Mail: <a href="mailto:' + esc(s.contact_email) + '">' + esc(s.contact_email) + '</a>');
+
+      if (addr.length) {
+        document.getElementById('responsible-info').innerHTML = '<p>' + addr.join('<br>') + '</p>';
+      }
+
+      // Datenschutzbeauftragte:r / Kontakt (Abschnitt 13)
+      const contact = [];
+      if (has('dpo_name')) contact.push('Datenschutzbeauftragte:r: ' + esc(s.dpo_name));
+      if (has('dpo_contact')) contact.push('Kontakt: ' + esc(s.dpo_contact));
+      if (!contact.length && addr.length) {
+        // Kein DSB bestellt → Kernkontakt der verantwortlichen Stelle anzeigen.
+        if (has('org_name')) contact.push('<strong>' + esc(s.org_name) + '</strong>');
+        if (has('contact_email')) contact.push('E-Mail: <a href="mailto:' + esc(s.contact_email) + '">' + esc(s.contact_email) + '</a>');
+        if (has('contact_phone')) contact.push('Telefon: ' + esc(s.contact_phone));
+      }
+      if (contact.length) {
+        document.getElementById('contact-info-dynamic').innerHTML = '<p>' + contact.join('<br>') + '</p>';
+      }
+
+      // Zuständige Aufsichtsbehörde (Abschnitt 13), falls hinterlegt.
+      if (has('supervisory_authority')) {
+        const el = document.getElementById('supervisory-authority');
+        el.innerHTML = '<strong>Zuständige Aufsichtsbehörde dieser Instanz:</strong><br>' + esc(s.supervisory_authority).replace(/\n/g, '<br>');
+        el.style.display = '';
+      }
+    }
+
+    fetch('/api/public/site-info')
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
+      .then(applySiteInfo)
+      .catch(() => { /* statische Fallback-Texte bleiben stehen */ });
+  </script>
 </body>
 </html>

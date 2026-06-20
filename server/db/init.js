@@ -216,6 +216,14 @@ function initDatabase() {
         db.run("ALTER TABLE plans ADD COLUMN marked_for_deletion BOOLEAN DEFAULT 0", () => {});
         db.run("ALTER TABLE plans ADD COLUMN marked_for_deletion_at DATETIME", () => {});
 
+        // Idempotente Migration: site_settings-Tabelle (Impressum/Datenschutz-Betreiberangaben).
+        // CREATE TABLE IF NOT EXISTS greift auch auf Bestands-DBs (anders als das Schema-Replay).
+        db.run(`CREATE TABLE IF NOT EXISTS site_settings (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL DEFAULT '',
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`, () => {});
+
         // Auto-create admin if ADMIN_USERNAME + ADMIN_PASSWORD are set
         db.get("SELECT COUNT(*) as count FROM users WHERE is_admin = 1", async (err, row) => {
           if (err) {

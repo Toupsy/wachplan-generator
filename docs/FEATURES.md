@@ -231,9 +231,28 @@ gedeckte Führungstürme nicht. Migration `leaderCount>0`→`leaderTower:true` (
 San-Haken jetzt auch für B. Überzählige BF (`poolSBF`, im Guard-Pool) decken San-Türme ab; aktive
 BF fahren Boot. `sanActive`-Gating prüft den ganzen `getGuardPool()`. Tests: `san-tower.test.js` (+1).
 
+### Feature 44: Impressum + editierbare Betreiberangaben (Admin-Panel)
+Neues, in Deutschland pflichtiges **Impressum** (`public/impressum.html`, § 5 DDG / § 18 Abs. 2 MStV)
+plus dynamische **Datenschutz-Betreiberangaben** (Verantwortlicher/Kontakt). Beide Seiten ziehen die
+Daten auth-frei via `GET /api/public/site-info`. Gepflegt werden sie im Admin-Panel
+(Karte „📄 Impressum & Datenschutz") über `GET`/`PUT /api/admin/site-settings` (Admin-only,
+Audit-Log `admin_site_settings_update`). Speicher: neue Tabelle `site_settings` (Key/Value), Felder
+als Whitelist in `server/db/site-settings.js` (z. B. `org_name`, `org_street`, `org_zip`, `org_city`,
+`represented_by`, `contact_email`, `register_court`, `dpo_name`, `supervisory_authority` …) – unbekannte
+Keys werden ignoriert, Werte getrimmt/gekappt (1000 Zeichen). Fehlen Angaben, zeigen beide Seiten einen
+neutralen Platzhaltertext. Footer im Login-Modal verlinkt Impressum + Datenschutz.
+
 ---
 
 ## Bugfixes
+
+### „Letzter Login" blieb bei „Angemeldet bleiben" auf dem ersten Login stehen
+Wer „Angemeldet bleiben" (rememberMe) wählte, durchlief `/api/auth/login` nur einmal; danach stellte
+jeder Seitenaufruf die Session über `GET /api/auth/me` wieder her, **ohne** `last_login` zu aktualisieren.
+Im Admin-Panel sah es dadurch so aus, als wäre der Nutzer seit Wochen nicht mehr aktiv gewesen.
+**Fix:** `/api/auth/me` aktualisiert `last_login` jetzt auch bei wiederhergestellter Session – gedrosselt
+auf höchstens 1× / 10 min (`WHERE last_login IS NULL OR last_login < datetime('now','-10 minutes')`),
+damit nicht jeder Request schreibt. CURRENT_TIMESTAMP (UTC) bleibt konsistent mit `/login`.
 
 ### EE-Turm neben UU-Turm trotz genug Erfahrenen (Türme rein unerfahren besetzt)
 Bei genügend Erfahrenen für alle Türme (z. B. 9 Erfahrene, 7 Türme) saßen trotzdem **zwei

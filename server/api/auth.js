@@ -118,6 +118,19 @@ router.get('/me', async (req, res) => {
       return res.status(401).json({ error: 'User not found' });
     }
 
+    // „Letzter Login"-Aktualisierung auch bei wiederhergestellter Session.
+    // Wer „Angemeldet bleiben" wählt, durchläuft /login nur einmal und landet danach
+    // bei jedem Seitenaufruf hier – ohne dieses Update bliebe last_login dauerhaft auf
+    // dem ersten Login stehen (im Admin-Panel sah es so aus, als wäre der Nutzer nie
+    // wieder aktiv gewesen). Gedrosselt auf höchstens 1× / 10 min, damit das nicht bei
+    // jedem Request schreibt. CURRENT_TIMESTAMP = UTC, konsistent mit /login.
+    dbRun(
+      `UPDATE users SET last_login = CURRENT_TIMESTAMP
+         WHERE id = ?
+           AND (last_login IS NULL OR last_login < datetime('now', '-10 minutes'))`,
+      [user.id]
+    ).catch(err => console.error('last_login (session resume) update failed:', err));
+
     res.json({
       userId: user.id,
       username: user.username,

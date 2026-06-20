@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Impressum – DLRG Wachplan-Generator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black:wght@400&family=Spline+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Spline Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      line-height: 1.6;
+      color: #e8e8e8;
+      background: #0f1419;
+      padding: 20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #1a2432;
+      border-radius: 12px;
+      padding: 40px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    }
+    h1 {
+      font-family: 'Archivo Black', sans-serif;
+      font-size: 2.5em;
+      color: #e0f0ff;
+      margin-bottom: 30px;
+      border-bottom: 3px solid #2caeba;
+      padding-bottom: 15px;
+    }
+    h2 {
+      font-family: 'Archivo Black', sans-serif;
+      font-size: 1.5em;
+      color: #c8e0f0;
+      margin-top: 35px;
+      margin-bottom: 15px;
+    }
+    p { margin-bottom: 12px; color: #d0d0d0; }
+    .block { background: #243448; border-left: 4px solid #2caeba; padding: 20px; margin-bottom: 20px; border-radius: 6px; }
+    .block strong { color: #c8e0f0; }
+    a { color: #2caeba; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .muted { color: #8aa0b4; font-size: 0.92em; }
+    .placeholder { color: #c99; font-style: italic; }
+    .last-updated { font-size: 0.9em; color: #888; margin-top: 40px; padding-top: 20px; border-top: 1px solid #333; }
+    .back-button {
+      display: inline-block; margin-bottom: 30px; padding: 10px 20px;
+      background: #2caeba; color: #fff; border-radius: 6px; text-decoration: none;
+    }
+    .back-button:hover { background: #1fa0a0; text-decoration: none; }
+    .nav-links { margin-top: 10px; font-size: 0.95em; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="/" class="back-button">← Zurück zur Anwendung</a>
+
+    <h1>Impressum</h1>
+
+    <p class="muted">Angaben gemäß § 5 Digitale-Dienste-Gesetz (DDG) sowie § 18 Abs. 2 Medienstaatsvertrag (MStV).</p>
+
+    <div id="imprint-content">
+      <p class="muted">Lädt …</p>
+    </div>
+
+    <p class="nav-links"><a href="datenschutz.html">→ Zur Datenschutzerklärung</a></p>
+
+    <div class="last-updated" id="last-updated"></div>
+  </div>
+
+  <script>
+    function esc(t) {
+      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+      return String(t == null ? '' : t).replace(/[&<>"']/g, m => map[m]);
+    }
+
+    function renderImprint(s) {
+      const has = k => s[k] && String(s[k]).trim() !== '';
+      const blocks = [];
+
+      // Diensteanbieter / Anschrift
+      const addrLines = [];
+      if (has('org_name')) addrLines.push('<strong>' + esc(s.org_name) + '</strong>');
+      if (has('represented_by')) addrLines.push('Vertreten durch: ' + esc(s.represented_by));
+      if (has('org_street')) addrLines.push(esc(s.org_street));
+      const cityLine = [s.org_zip, s.org_city].filter(Boolean).map(esc).join(' ');
+      if (cityLine) addrLines.push(cityLine);
+      if (has('org_country')) addrLines.push(esc(s.org_country));
+
+      if (addrLines.length) {
+        blocks.push('<h2>Diensteanbieter</h2><div class="block"><p>' + addrLines.join('<br>') + '</p></div>');
+      } else {
+        blocks.push('<h2>Diensteanbieter</h2><div class="block"><p class="placeholder">' +
+          'Es wurden noch keine Betreiberangaben hinterlegt. Der Administrator dieser Instanz kann sie im Admin-Panel eintragen.</p></div>');
+      }
+
+      // Kontakt
+      const contact = [];
+      if (has('contact_phone')) contact.push('Telefon: ' + esc(s.contact_phone));
+      if (has('contact_email')) contact.push('E-Mail: <a href="mailto:' + esc(s.contact_email) + '">' + esc(s.contact_email) + '</a>');
+      if (contact.length) {
+        blocks.push('<h2>Kontakt</h2><div class="block"><p>' + contact.join('<br>') + '</p></div>');
+      }
+
+      // Register / USt-IdNr.
+      const reg = [];
+      if (has('register_court')) reg.push('Registergericht: ' + esc(s.register_court));
+      if (has('register_number')) reg.push('Registernummer: ' + esc(s.register_number));
+      if (has('vat_id')) reg.push('USt-IdNr.: ' + esc(s.vat_id));
+      if (reg.length) {
+        blocks.push('<h2>Registereintrag &amp; Umsatzsteuer</h2><div class="block"><p>' + reg.join('<br>') + '</p></div>');
+      }
+
+      // Inhaltlich verantwortlich (§ 18 Abs. 2 MStV)
+      const responsible = has('content_responsible')
+        ? esc(s.content_responsible)
+        : (addrLines.length ? addrLines.join('<br>') : '');
+      if (responsible) {
+        blocks.push('<h2>Inhaltlich verantwortlich gemäß § 18 Abs. 2 MStV</h2><div class="block"><p>' + responsible + '</p></div>');
+      }
+
+      blocks.push('<h2>Haftung &amp; Streitschlichtung</h2>' +
+        '<p class="muted">Die Europäische Kommission stellt eine Plattform zur Online-Streitbeilegung (OS) bereit: ' +
+        '<a href="https://ec.europa.eu/consumers/odr/" target="_blank" rel="noopener">https://ec.europa.eu/consumers/odr/</a>. ' +
+        'Wir sind nicht verpflichtet und nicht bereit, an einem Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen.</p>');
+
+      document.getElementById('imprint-content').innerHTML = blocks.join('\n');
+    }
+
+    fetch('/api/public/site-info')
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
+      .then(renderImprint)
+      .catch(() => {
+        document.getElementById('imprint-content').innerHTML =
+          '<div class="block"><p class="placeholder">Die Betreiberangaben konnten nicht geladen werden.</p></div>';
+      });
+
+    document.getElementById('last-updated').textContent =
+      'Diese Angaben werden vom Betreiber der Instanz gepflegt.';
+  </script>
+</body>
+</html>

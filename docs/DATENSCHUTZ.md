@@ -67,7 +67,8 @@ Diese Vorlage hilft der betreibenden Organisation, ihre Verarbeitungstätigkeit 
 #### Admin-Panel & Nachverfolgung
 | Maßnahme | Details | Status |
 |----------|---------|--------|
-| **Letzter Login-Timestamp** | Spalte `last_login` in users-Tabelle (NULL = noch nie eingeloggt) | ✅ Implementiert (ab v0.4.4) |
+| **Letzter Login-Timestamp** | Spalte `last_login` in users-Tabelle (NULL = noch nie eingeloggt); wird beim Login und – gedrosselt (max 1×/10 min) – beim Session-Resume aktualisiert, damit „Angemeldet bleiben" nicht dauerhaft veraltet | ✅ Implementiert (ab v0.4.4) |
+| **Impressum & Datenschutz-Betreiberangaben** | Betreiber/Verantwortlicher pflegbar im Admin-Panel (`site_settings`), öffentlich angezeigt in `impressum.html`/`datenschutz.html` | ✅ Implementiert (Feature 44) |
 | **Admin-Panel-Zugriff** | Separater Admin-Server (Port 3001), Login-erforderlich, Admin-only Endpoints | ✅ Implementiert |
 | **Benutzer-Verwaltung** | Admins können Benutzer erstellen/löschen; Cascade-Delete entfernt Plandaten des Benutzers | ✅ Implementiert |
 

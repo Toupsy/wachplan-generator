@@ -10,9 +10,11 @@ const router = express.Router();
 const path = require('path');
 const fs = require('fs');
 const bcryptjs = require('bcryptjs');
-const { dbRun, dbGet, dbAll } = require('../db/connection');
+const { dbRun, dbGet, dbAll, getDb } = require('../db/connection');
 const { destroyUserSessions } = require('../db/session');
 const { parsePositiveInt } = require('../db/ids');
+const { auditLog } = require('../db/init');
+const { FIELDS: SITE_SETTING_FIELDS, getSiteSettings, saveSiteSettings } = require('../db/site-settings');
 
 // ───────────────────────────────────────────────────────────
 // Security Constants
@@ -280,6 +282,35 @@ router.get('/users/:id/export', async (req, res) => {
   } catch (error) {
     console.error('Export user data error:', error);
     res.status(500).json({ error: 'Failed to export user data' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// GET /api/admin/site-settings – Impressum/Datenschutz-Betreiberangaben lesen
+// Liefert zusätzlich die Feld-Metadaten (Label/Placeholder) fürs Formular.
+// ───────────────────────────────────────────────────────────
+router.get('/site-settings', async (req, res) => {
+  try {
+    const values = await getSiteSettings();
+    res.json({ fields: SITE_SETTING_FIELDS, values });
+  } catch (error) {
+    console.error('Get site-settings error:', error);
+    res.status(500).json({ error: 'Failed to load site settings' });
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// PUT /api/admin/site-settings – Betreiberangaben speichern (Admin only)
+// ───────────────────────────────────────────────────────────
+router.put('/site-settings', express.json(), async (req, res) => {
+  try {
+    const values = await saveSiteSettings(req.body || {});
+    auditLog(getDb(), req.session.userId, 'admin_site_settings_update', 'site_settings', null, null, req.ip)
+      .catch(err => console.error('Audit log error (site-settings):', err));
+    res.json({ success: true, values });
+  } catch (error) {
+    console.error('Save site-settings error:', error);
+    res.status(400).json({ error: error.message || 'Failed to save site settings' });
   }
 });
 
