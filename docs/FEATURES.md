@@ -248,7 +248,8 @@ Drei Verbesserungen der Admin-Audit-Log-Ansicht (`public/admin.html`, `GET /api/
   mit; das Frontend zeigt den Namen (Fallback `#id` für Altdaten, sonst „System"). LEFT JOIN, weil
   `user_id` für System-Events bzw. nach Nutzer-Löschung (`ON DELETE SET NULL`) NULL ist.
 - **Standort aus IP (offline):** Neues Modul `server/geoip.js` (`lookupLocation`) leitet per
-  **geoip-lite** (lokale MaxMind-GeoLite-DB, neue Dependency) Stadt/Land aus der IP ab – **kein**
+  **geoip-lite** (lokale MaxMind-GeoLite-DB, neue Dependency) Stadt/Land aus der IP ab (fehlt die
+  Stadt, dient das Bundesland als grober Ort – DE-Codes ausgeschrieben) – **kein**
   externer Aufruf (DSGVO-konform). Berechnung beim Lesen (keine Schema-Änderung). Private/interne
   IPs (RFC 1918, CGNAT, Loopback, ULA) → kein Standort. geoip-lite ist optional `require`-t: fehlt
   das Paket/die DB, läuft der Log ohne Standortspalte weiter. DB-Update beim Maintainer:

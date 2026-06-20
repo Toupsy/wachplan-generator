@@ -16,6 +16,7 @@ const { parsePositiveInt } = require('../db/ids');
 const { auditLog } = require('../db/init');
 const { FIELDS: SITE_SETTING_FIELDS, getSiteSettings, saveSiteSettings } = require('../db/site-settings');
 const { lookupLocation } = require('../geoip');
+const { compressIpv6 } = require('../http-common');
 
 // ───────────────────────────────────────────────────────────
 // Security Constants
@@ -408,7 +409,9 @@ router.get('/audit-log', async (req, res) => {
       }
       // Standort offline aus der IP ableiten (null bei privaten/internen IPs).
       const location = lookupLocation(log.ip_address);
-      return { ...log, details, location };
+      // IPv6 in Kurzform anzeigen – auch für Alt-Einträge, die noch lang gespeichert sind.
+      const ip_address = compressIpv6(log.ip_address);
+      return { ...log, ip_address, details, location };
     });
 
     res.json({ logs: formattedLogs, total });

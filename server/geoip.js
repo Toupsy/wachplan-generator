@@ -27,6 +27,16 @@ const COUNTRY_NAMES = {
   GB: 'Großbritannien', US: 'USA', SE: 'Schweden', NO: 'Norwegen',
 };
 
+// Deutsche Bundesland-Codes (ISO 3166-2:DE) → Name. Dient als grober Ort,
+// wenn geoip-lite keine Stadt liefert (z. B. bei Provider-Gateways).
+const DE_REGIONS = {
+  BW: 'Baden-Württemberg', BY: 'Bayern', BE: 'Berlin', BB: 'Brandenburg',
+  HB: 'Bremen', HH: 'Hamburg', HE: 'Hessen', MV: 'Mecklenburg-Vorpommern',
+  NI: 'Niedersachsen', NW: 'Nordrhein-Westfalen', RP: 'Rheinland-Pfalz',
+  SL: 'Saarland', SN: 'Sachsen', ST: 'Sachsen-Anhalt', SH: 'Schleswig-Holstein',
+  TH: 'Thüringen',
+};
+
 /**
  * Normalisiert eine IP-Adresse: entfernt das IPv6-Mapped-Präfix (::ffff:1.2.3.4)
  * und trimmt. Gibt '' bei leerer Eingabe.
@@ -78,7 +88,13 @@ function lookupLocation(ip) {
   }
   if (!geo || !geo.country) return null;
   const country = COUNTRY_NAMES[geo.country] || geo.country;
-  return geo.city ? `${geo.city}, ${country}` : country;
+  // Grober Ort: Stadt bevorzugt; sonst das Bundesland (DE ausgeschrieben, sonst
+  // der rohe Regions-Code als Anhaltspunkt). Nur Land, wenn beides fehlt.
+  let place = geo.city;
+  if (!place && geo.region) {
+    place = geo.country === 'DE' ? (DE_REGIONS[geo.region] || geo.region) : geo.region;
+  }
+  return place ? `${place}, ${country}` : country;
 }
 
 module.exports = { lookupLocation, isPrivateIp, normalizeIp };
