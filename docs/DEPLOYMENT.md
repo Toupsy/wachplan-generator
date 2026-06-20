@@ -109,10 +109,22 @@ ist dieser **nicht** korrekt konfiguriert, erscheint dort die **interne Containe
 (z. B. `172.23.0.6`) statt der echten Besucher-IP – und die Standort-Spalte bleibt leer
 (private IPs haben keinen Geo-Standort).
 
-Die App vertraut standardmäßig **genau einem** Proxy-Hop (`trust proxy = 1`) und liest die
-Client-IP aus `X-Forwarded-For`. Der Proxy muss diesen Header also korrekt setzen.
+### Standard (kein Umbau nötig): App liest die IP aus den Headern
 
-### Setup: Cloudflare → NGINX → App (empfohlen)
+Die App ermittelt die echte Client-IP **automatisch aus den Proxy-Headern** und überschreibt damit
+`req.ip` – ohne dass NGINX oder Cloudflare angepasst werden müssen. Reihenfolge:
+`CF-Connecting-IP` (von Cloudflare) → `X-Real-IP` → erste Adresse aus `X-Forwarded-For`. Davon
+profitieren **Audit-Log und Rate-Limiting** gleichermaßen. Cloudflare sendet `CF-Connecting-IP`
+bei aktiviertem Proxy (orange Wolke) immer; NGINX reicht eingehende Header standardmäßig durch →
+in den meisten Setups erscheint die echte IP + Standort sofort.
+
+> ⚠️ **Sicherheits-Trade-off:** Diese Header sind **vom Client fälschbar**, falls jemand den
+> Origin direkt – an Cloudflare/NGINX vorbei – erreicht. Für eine fälschungssichere Ermittlung
+> sollte der Origin nur aus Cloudflare-Netzen erreichbar sein (Firewall/Origin-Zertifikat) und/oder
+> die proxy-seitige **Variante A** (unten) genutzt werden. Letztere ist robuster, erfordert aber
+> NGINX-Anpassung.
+
+### Variante A (robust, proxy-seitig): Cloudflare → NGINX → App
 
 Cloudflare liefert die **echte, nicht fälschbare** Besucher-IP im Header `CF-Connecting-IP`.
 NGINX stellt sie wieder her (validiert gegen die Cloudflare-IP-Ranges) und reicht **genau diese

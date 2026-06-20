@@ -259,6 +259,19 @@ Drei Verbesserungen der Admin-Audit-Log-Ansicht (`public/admin.html`, `GET /api/
   `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;` (+ `X-Forwarded-Proto $scheme;`).
   Bei mehreren Proxy-Hops (z. B. Cloudflare → NGINX) `app.set('trust proxy', <Hop-Anzahl>)` erhöhen.
 
+### Echte Client-IP: konfigurierbar + code-seitige Auto-Ermittlung
+Nachgereicht zu Feature 45, damit die echte IP ohne Reverse-Proxy-Umbau erscheint:
+- **`TRUST_PROXY`-Env** (Default 1) macht den Trust-Proxy-Hop-Count konfigurierbar
+  (`trustProxyValue()` in `server/http-common.js`; genutzt in `server.js` + `admin-server.js`) →
+  Multi-Hop-Setups (Cloudflare → NGINX) ohne Code-Edit.
+- **Code-seitige IP-Ermittlung (Default):** Middleware `overrideClientIp()` setzt `req.ip` aus den
+  Proxy-Headern (`CF-Connecting-IP` → `X-Real-IP` → erstes `X-Forwarded-For`), Fallback = Express'
+  `req.ip`. Dadurch sehen **Audit-Log und Rate-Limiting** die echte IP, ohne NGINX/Cloudflare zu
+  ändern. **Trade-off:** diese Header sind fälschbar, wenn der Origin direkt erreichbar ist →
+  für Robustheit Origin auf Cloudflare-Netze beschränken bzw. proxy-seitige „Variante A".
+- **Proxy-seitige Variante A** (robust): `docs/nginx.cloudflare.conf.example` +
+  `docs/DEPLOYMENT.md` (Abschnitt „Echte Client-IP hinter Reverse-Proxy / Cloudflare").
+
 ---
 
 ## Bugfixes

@@ -24,10 +24,14 @@ const {
   installSigtermHandler,
   installFatalHandlers,
   trustProxyValue,
+  overrideClientIp,
 } = require('./http-common');
 
 const app = express();
 app.set('trust proxy', trustProxyValue());
+// Echte Client-IP aus Proxy-Headern (CF-Connecting-IP/X-Forwarded-For) übernehmen,
+// damit Audit-Log + Rate-Limiting ohne NGINX-Umbau die echte IP sehen.
+app.use(overrideClientIp());
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 
