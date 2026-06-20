@@ -285,6 +285,13 @@ PBKDF2 100k (gecacht pro userId), Rate-Limit IP+Account (10/15min), Session-Fixa
 CSP/HSTS/Security-Header. **Secrets in `.env`** (Pflicht: `MASTER_SECRET`≥32, `SALT`≥16,
 `SESSION_SECRET`≥16; geprüft von `validateEnv()`). API-Endpoints s. README/Code.
 
+**Audit-Log (Feature 36/46):** `auditLog()` (`db/init.js`) schreibt eine Zeile pro Aktion.
+**Falle:** `plan_update` feuert nach **jeder** `generate()` (Autosave) → daher im Autosave-Zweig
+**`auditLogCoalesced()`** statt `auditLog()` nutzen (verdichtet Wiederholungen pro User+Plan im
+Fenster `AUDIT_PLAN_UPDATE_WINDOW_MIN`, Def 10 min; Rename mit `name` bleibt eigene Zeile). Alte
+`plan_update` räumt `startAuditLogCleanup()` (`AUDIT_PLAN_UPDATE_RETENTION_DAYS`, Def 30) täglich +
+beim Start ab. Niemals `plan_update` wieder ungedrosselt loggen.
+
 **Registrierung/E-Mail/Passwort-Reset (Feature 30, Setup: docs/REGISTRATION.md):**
 Mit `SMTP_HOST` (+`APP_BASE_URL`) wird E-Mail bei Registrierung Pflicht, Account erst nach
 Bestätigungslink aktiv (`users.pending_verification`, Login vorher 403 `email_unverified`);
