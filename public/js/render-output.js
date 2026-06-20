@@ -323,11 +323,16 @@ function renderOutput(){
     // Inline-Boot-Renderer (wie HW-Boot in der Hauptwache)
     const renderInlineBoat = (bsList) => {
       if(!bsList || !bsList.length) return '';
+      // Jedes Boot bekommt eine eigene Drop-Zone (data-drop-kind="boat"), damit per D&D
+      // direkt aufs Boot gezogene Personen auch dem Boot zugeordnet werden – sonst greift
+      // e.target.closest('.tower-card') und die Person landet fälschlich auf dem Turm.
       return bsList.map(bs => `
-        <div class="hq-divider boat-inline" id="boat-inline-${di}-${bs.boatId}" draggable="true" data-boat-id="${bs.boatId}" data-boat-name="${escapeHtml(bs.name)}" data-boat-code="${escapeHtml(bs.code||'?')}" data-panel-name="Boot: ${escapeHtml(bs.name)}" title="Ziehen um Boot auf anderen Turm/HW zu verschieben">🚤 Boot: ${escapeHtml(bs.name)} · ${escapeHtml(bs.code||'?')}</div>
-        ${(bs.occupants && bs.occupants.length)
-          ? bs.occupants.map(p => renderOccupant(p, 'Bootsführer', 'boat', bs.boatId)).join('')
-          : '<div style="color:var(--coral);font-size:.78rem;padding:6px 0">⚠ Kein Bootsführer verfügbar</div>'}`).join('');
+        <div class="boat-drop-zone" data-drop-kind="boat" data-drop-slot="${bs.boatId}">
+          <div class="hq-divider boat-inline" id="boat-inline-${di}-${bs.boatId}" draggable="true" data-boat-id="${bs.boatId}" data-boat-name="${escapeHtml(bs.name)}" data-boat-code="${escapeHtml(bs.code||'?')}" data-panel-name="Boot: ${escapeHtml(bs.name)}" title="Ziehen um Boot auf anderen Turm/HW zu verschieben">🚤 Boot: ${escapeHtml(bs.name)} · ${escapeHtml(bs.code||'?')}</div>
+          ${(bs.occupants && bs.occupants.length)
+            ? bs.occupants.map(p => renderOccupant(p, 'Bootsführer', 'boat', bs.boatId)).join('')
+            : '<div style="color:var(--coral);font-size:.78rem;padding:6px 0">⚠ Kein Bootsführer verfügbar</div>'}
+        </div>`).join('');
     };
 
     html += `<div class="towers-grid" style="--ptc:${Math.min(Math.max(towers.length,1),8)}">`;
@@ -526,6 +531,15 @@ function renderOutput(){
 
     // Wenn Personen-Drag: einfach Highlight (closedOverride oder normal)
     if(dragSrc && !dragSrc.isBoat && !dragCardSrc) {
+      // Über einer Boot-Drop-Zone: Boot statt Turm hervorheben
+      const boatZone = e.target.closest('.boat-drop-zone');
+      if(boatZone) {
+        boatZone.style.backgroundColor = 'rgba(24,168,216,0.18)';
+        boatZone.style.outline = '2px dashed var(--sea-bright)';
+        card.style.backgroundColor = '';
+        card.style.borderColor = '';
+        return;
+      }
       if(card.dataset.closedOverride) {
         card.style.backgroundColor = 'rgba(255,165,0,0.15)';
         card.style.borderColor = 'var(--warn)';
@@ -562,6 +576,11 @@ function renderOutput(){
       card.style.backgroundColor = '';
       card.style.borderColor = '';
       card.style.borderTop = '';
+    }
+    const boatZone = e.target.closest('.boat-drop-zone');
+    if(boatZone) {
+      boatZone.style.backgroundColor = '';
+      boatZone.style.outline = '';
     }
   });
 
@@ -671,8 +690,10 @@ function renderOutput(){
       return;
     }
 
-    const targetKind = card.dataset.dropKind;
-    const targetSlot = +card.dataset.dropSlot;
+    // Über einer Boot-Drop-Zone abgelegt → Boot ist das Ziel (nicht der umgebende Turm).
+    const boatZone = e.target.closest('.boat-drop-zone');
+    const targetKind = boatZone ? boatZone.dataset.dropKind : card.dataset.dropKind;
+    const targetSlot = boatZone ? +boatZone.dataset.dropSlot : +card.dataset.dropSlot;
 
     // dragSrc VOR dem Modal-Aufruf sichern!
     // dragend feuert (async) sobald die Maus losgelassen wird → setzt dragSrc = null.
@@ -681,10 +702,14 @@ function renderOutput(){
     const srcKind     = dragSrc.kind;
     const srcSlot     = dragSrc.slot;
 
-    const clearCard = () => { card.style.backgroundColor = ''; card.style.borderColor = ''; };
+    const clearCard = () => {
+      card.style.backgroundColor = ''; card.style.borderColor = '';
+      if(boatZone) { boatZone.style.backgroundColor = ''; boatZone.style.outline = ''; }
+    };
 
     // Geschlossener Turm: Direkte Modifikation + optional Neuberechnung
-    if(card.dataset.closedOverride) {
+    // (Boot-Zonen liegen nur in OFFENEN Karten → boatZone und closedOverride schließen sich aus)
+    if(!boatZone && card.dataset.closedOverride) {
       const towerId = +card.dataset.dropSlot;
       const tower = getT(towerId);
       const person = getP(srcPersonId);
@@ -749,9 +774,15 @@ function renderOutput(){
     const isBoatTarget = (targetKind === 'boat' || targetKind === 'hwboat');
     const isRoleViolation = isBoatTarget && p && p.role !== 'B';
 
+    // Lesbarer Zielname für die Bestätigung
+    let targetLabel;
+    if(isBoatTarget) { const b = getBoat(targetSlot); targetLabel = b ? `🚤 ${b.name}` : 'Boot'; }
+    else if(targetKind === 'main') { targetLabel = 'Hauptwache'; }
+    else { const t = getT(targetSlot); targetLabel = t ? `🗼 ${t.name}` : 'Turm'; }
+
     const confirmMsg = isRoleViolation
-      ? `${p.name} ist ${roleLabel(p)}, nicht Bootsführer. Trotzdem zum Boot verschieben?`
-      : `Verschiebe ${p?.name || 'Person'} zu ${card.dataset.dropKind}?`;
+      ? `${p.name} ist ${roleLabel(p)}, nicht Bootsführer. Trotzdem zu ${targetLabel} verschieben?`
+      : `Verschiebe ${p?.name || 'Person'} zu ${targetLabel}?`;
 
     showConfirmation(
       confirmMsg,
@@ -783,6 +814,11 @@ function renderOutput(){
 
     const head = e.target.closest('.tc-head');
     if(head) head.style.opacity = '';
+
+    grid.querySelectorAll('.boat-drop-zone').forEach(z => {
+      z.style.backgroundColor = '';
+      z.style.outline = '';
+    });
 
     dragSrc = null;
     dragCardSrc = null;
