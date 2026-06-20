@@ -121,21 +121,32 @@ function createSessionMiddleware({ resave = true, saveUninitialized = true } = {
 // (auth.js/admin.js), das die sessions-Tabelle in der Haupt-DB voraussetzte und einen
 // zweiten Writer auf wachplan.db einführte. No-op, solange noch keine Session
 // geschrieben wurde (Tabelle existiert dann noch nicht).
+// Transiente Fehler (BUSY/LOCKED/IOERR) werden mit Backoff bis SESSION_STORE_RETRIES
+// wiederholt, damit Passwort-Reset-Sicherheitsversprechen auch bei kurzen Store-Fehlern hält.
 function destroyUserSessions(userId) {
   return new Promise((resolve, reject) => {
     const store = activeStore;
     if (!store || !store.db || typeof store.db.run !== 'function') return resolve(0);
-    store.db.run(
-      "DELETE FROM sessions WHERE json_extract(sess, '$.userId') = ?",
-      [userId],
-      function(err) {
-        if (err) {
-          if (/no such table/i.test(err.message)) return resolve(0);
-          return reject(err);
+    let attempt = 0;
+    const run = () => {
+      store.db.run(
+        "DELETE FROM sessions WHERE json_extract(sess, '$.userId') = ?",
+        [userId],
+        function(err) {
+          if (err) {
+            if (/no such table/i.test(err.message)) return resolve(0);
+            if (isTransientSessionError(err) && attempt < SESSION_STORE_RETRIES) {
+              attempt += 1;
+              setTimeout(run, 100 * attempt);
+              return;
+            }
+            return reject(err);
+          }
+          resolve(this.changes);
         }
-        resolve(this.changes);
-      }
-    );
+      );
+    };
+    run();
   });
 }
 

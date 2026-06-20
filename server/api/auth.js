@@ -640,21 +640,18 @@ router.post('/reset-password', express.json(), async (req, res) => {
       return res.status(400).json({ error: 'Link ungültig oder abgelaufen. Bitte neuen Reset-Link anfordern.' });
     }
 
+    // Sessions VOR dem Passwort-Update invalidieren: schlägt die Invalidierung
+    // trotz Retry-Backoff (in destroyUserSessions) endgültig fehl, bleibt das
+    // Passwort unverändert und der äußere catch gibt 500 zurück – kein falsches
+    // „success" bei unvollständigem Reset.
+    await destroyUserSessions(row.user_id);
+
     const newHash = await bcryptjs.hash(password, 10);
     // pending_verification=0: erfolgreicher Reset beweist E-Mail-Besitz
     await dbRun(
       'UPDATE users SET password_hash = ?, pending_verification = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
       [newHash, row.user_id]
     );
-
-    // Alle bestehenden Sessions des Users invalidieren (gestohlene Session
-    // überlebt den Reset nicht). Läuft über die eigene Connection des Session-Stores
-    // (sessions.db), nicht über die Haupt-Connection.
-    try {
-      await destroyUserSessions(row.user_id);
-    } catch (sessErr) {
-      console.error('Session invalidation error:', sessErr.message);
-    }
 
     _audit(row.user_id, 'password_reset', null, ip);
     res.json({ success: true, message: 'Passwort geändert. Bitte mit dem neuen Passwort anmelden.' });
