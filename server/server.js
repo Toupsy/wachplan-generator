@@ -23,10 +23,11 @@ const {
   jsonErrorHandler,
   installSigtermHandler,
   installFatalHandlers,
+  trustProxyValue,
 } = require('./http-common');
 
 const app = express();
-app.set('trust proxy', 1);
+app.set('trust proxy', trustProxyValue());
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 
