@@ -1,3 +1,19 @@
+const net = require('node:net');
+
+// Komprimiert eine IPv6-Adresse in ihre Kurzform (RFC 5952): führende Nullen weg,
+// längster Null-Block als "::" (z. B. 2001:0db8:0000:…:0001 → 2001:db8::1).
+// Nutzt den WHATWG-URL-Parser, der IPv6 kanonisch normalisiert. IPv4 und ungültige
+// Eingaben bleiben unverändert.
+function compressIpv6(ip) {
+  if (!ip || net.isIPv6(ip) !== true) return ip;
+  try {
+    const host = new URL(`http://[${ip}]`).hostname; // → "[2001:db8::1]"
+    return host.startsWith('[') ? host.slice(1, -1) : host;
+  } catch {
+    return ip;
+  }
+}
+
 function securityHeaders({ captcha = false, worker = false } = {}) {
   const scriptExtra = captcha ? ' https://www.google.com https://www.gstatic.com' : '';
   const frameSrc = captcha ? 'frame-src https://www.google.com; ' : '';
@@ -41,8 +57,9 @@ function clientIpFromHeaders(req) {
   const pick = (v) => {
     if (!v) return '';
     // X-Forwarded-For kann eine Liste sein – die linkeste Adresse ist der Client.
-    const first = String(v).split(',')[0].trim();
-    return first.replace(/^::ffff:/i, '');
+    const first = String(v).split(',')[0].trim().replace(/^::ffff:/i, '');
+    // IPv6 in Kurzform speichern (req.ip → Audit-Log/Rate-Limit konsistent kanonisch).
+    return compressIpv6(first);
   };
   return pick(req.headers['cf-connecting-ip'])
       || pick(req.headers['x-real-ip'])
@@ -121,6 +138,7 @@ function installFatalHandlers() {
 module.exports = {
   securityHeaders,
   trustProxyValue,
+  compressIpv6,
   clientIpFromHeaders,
   overrideClientIp,
   notFoundHandler,
