@@ -246,6 +246,18 @@ neutralen Platzhaltertext. Footer im Login-Modal verlinkt Impressum + Datenschut
 
 ## Bugfixes
 
+### Bootsführer per D&D aufs Boot ziehen landete fälschlich auf dem Turm
+Zog man eine Person (z. B. einen Bootsführer) per Drag-and-Drop direkt auf ein inline unter einem
+Turm gerendertes Boot, wurde sie immer **dem Turm** statt dem Boot zugeordnet. **Ursache:** Das
+inline-Boot (`renderInlineBoat`) war ein nackter Kind-Knoten der `.tower-card` ohne eigenes
+Drop-Ziel; der Drop-Handler löste über `e.target.closest('.tower-card')` auf → `dropKind:'tower'`.
+(Der ↕-Modal-Weg funktionierte korrekt, weil `_applyMove`/`generate.js` `kind:'boat'` längst
+kannten.) **Fix:** Jedes inline-Boot bekommt eine eigene Drop-Zone (`.boat-drop-zone`,
+`data-drop-kind="boat"` / `data-drop-slot=boatId`). Dragover/Dragleave/Drop in `render-output.js`
+prüfen jetzt zuerst `closest('.boat-drop-zone')` und nutzen dessen Ziel (Boot) statt der Turmkarte;
+eigener Highlight + lesbarer Zielname (🚤 …) in der Bestätigung. Rollen-Warnung (Nicht-BF aufs Boot)
+greift dadurch ebenfalls erstmals bei D&D.
+
 ### Spät-Einsteiger saß nur am Hauptstrand (Beach-Balance vs. Turm-Rotation)
 Analog zum HW-Parking: Eine Person, die erst mitten in der Woche dazukam, landete an **jedem** ihrer
 Tage nur auf Hauptstrand-Türmen (nie Außenturm). **Ursache:** `towerVisitWeight` (200) zieht einen

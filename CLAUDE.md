@@ -237,6 +237,9 @@ localStorage-Cache (`dlrg_wachplan_template_b64`).
 Checkbox „Folgetage neu berechnen" steuert `transparent`. D&D: `dragSrc` VOR
 `showConfirmation()` in lokale Vars sichern (`dragend` nullt async). Boote inline unter Turm
 via `renderInlineBoat()`; per D&D auf anderen Turm/HW ziehbar (`kind:'boat-reassign'`, immer transparent).
+Jedes inline-Boot ist zudem eine eigene **Drop-Zone** (`.boat-drop-zone`, `data-drop-kind="boat"`):
+Personen-Drops prüfen im Drop-Handler zuerst `closest('.boat-drop-zone')` (Ziel = Boot) und fallen
+sonst auf die `.tower-card` zurück – sonst landete eine direkt aufs Boot gezogene Person am Turm.
 
 **Autosave/State-IO (state-io.js):** `autoSave()` nach jeder `generate()` → `PUT /api/plans/:id`
 (localStorage-Fallback). `autoLoad()` beim Start. `_buildStateObject()` zentrale Serialisierung;
