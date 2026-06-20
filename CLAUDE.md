@@ -80,10 +80,11 @@ db/schema.sql      Schema (users, plans, plan_shares, auth_tokens, audit_log; se
 db/crypto.js       AES-256-GCM + deriveKey (PBKDF2 100k, Key-Cache pro userId)
 db/session.js      createSessionMiddleware (SQLite-Store in Haupt-DB, DRY für beide Server)
 db/access.js       getPlanAccess() zentral (Owner/Share-Prüfung, kein IDOR)
-api/auth.js        login/logout/init/me/register/password + E-Mail-Verifizierung/Passwort-Reset + Rate-Limiting
+db/site-settings.js Impressum/Datenschutz-Betreiberangaben (Tabelle site_settings, Key/Value + Feld-Whitelist, Feature 44)
+api/auth.js        login/logout/init/me/register/password + E-Mail-Verifizierung/Passwort-Reset + Rate-Limiting (GET /me aktualisiert last_login gedrosselt – Session-Resume bei „Angemeldet bleiben")
 api/plans.js       Plan-CRUD mit Verschlüsselung + Sharing + Beobachter-Links (plan_public_links, Feature 38)
-api/public.js      Auth-freier Nur-Lese-Endpoint GET /api/public/plan/:token (Beobachter-Link, Feature 38)
-api/admin.js       Admin-Endpoints (Admin-only) inkl. audit-log, DSGVO-Export
+api/public.js      Auth-freie Nur-Lese-Endpoints: GET /api/public/plan/:token (Beobachter-Link, Feature 38) + GET /api/public/site-info (Impressum/Datenschutz, Feature 44)
+api/admin.js       Admin-Endpoints (Admin-only) inkl. audit-log, DSGVO-Export, GET/PUT /api/admin/site-settings (Feature 44)
 api/import.js      Bulk-Import alter .json-Pläne
 ```
 **Pfad-Konvention:** `server/server.js` → `../public`/`../data`; `server/db/*` → `../../data`.
