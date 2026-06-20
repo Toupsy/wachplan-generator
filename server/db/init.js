@@ -39,6 +39,15 @@ const INIT_LOCK_TIMEOUT_MS = Number.parseInt(process.env.DB_INIT_LOCK_TIMEOUT_MS
 const INIT_LOCK_STALE_MS = Number.parseInt(process.env.DB_INIT_LOCK_STALE_MS || '120000', 10);
 const AUDIT_LOG_RETRIES = Number.parseInt(process.env.DB_AUDIT_RETRIES || '5', 10);
 const TRANSIENT_WRITE_CODES = new Set(['SQLITE_BUSY', 'SQLITE_LOCKED', 'SQLITE_IOERR', 'SQLITE_PROTOCOL']);
+// Coalescing-Fenster für wiederholte plan_update-Events (Autosave nach jeder generate()).
+// Innerhalb dieses Fensters wird pro User+Plan KEINE neue Zeile geschrieben, sondern der
+// Zeitstempel des vorhandenen Eintrags aktualisiert → eine Spur pro Bearbeitungs-Session
+// statt zig identischer Zeilen. 0 = deaktiviert (Verhalten wie zuvor).
+const AUDIT_COALESCE_WINDOW_MIN = Math.max(0, Number.parseInt(process.env.AUDIT_PLAN_UPDATE_WINDOW_MIN || '10', 10) || 0);
+// Aufbewahrung für plan_update-Einträge (Tage). Ältere werden vom täglichen Cleanup
+// gelöscht, damit die Tabelle langfristig schlank bleibt. Andere Aktionen (login, share,
+// delete, admin_*) bleiben unberührt. 0 = deaktiviert.
+const AUDIT_PLAN_UPDATE_RETENTION_DAYS = Math.max(0, Number.parseInt(process.env.AUDIT_PLAN_UPDATE_RETENTION_DAYS || '30', 10) || 0);
 
 // Validate environment variables
 function validateEnv() {
@@ -453,6 +462,42 @@ function auditLog(db, userId, action, entityType = null, entityId = null, detail
   });
 }
 
+// Wie auditLog(), aber „koalesziert" wiederholte identische Aktionen für denselben
+// User+Entity innerhalb von AUDIT_COALESCE_WINDOW_MIN Minuten zu EINER Zeile (Zeitstempel
+// wird gebumpt statt eine neue Zeile einzufügen). Verhindert, dass autosave-getriebene
+// plan_update-Events das Audit-Log fluten. Fällt bei deaktiviertem Fenster oder fehlender
+// user/entity-ID auf das normale auditLog() zurück.
+function auditLogCoalesced(db, userId, action, entityType = null, entityId = null, details = null, ipAddress = null) {
+  if (AUDIT_COALESCE_WINDOW_MIN <= 0 || userId == null || entityId == null) {
+    return auditLog(db, userId, action, entityType, entityId, details, ipAddress);
+  }
+  return new Promise((resolve, reject) => {
+    // timestamp und datetime('now') sind in SQLite beide UTC → direkt vergleichbar.
+    db.get(
+      `SELECT id FROM audit_log
+       WHERE user_id = ? AND action = ? AND entity_id = ?
+         AND timestamp > datetime('now', ?)
+       ORDER BY id DESC LIMIT 1`,
+      [userId, action, entityId, `-${AUDIT_COALESCE_WINDOW_MIN} minutes`],
+      (err, row) => {
+        if (err) return reject(err);
+        if (!row) {
+          // Kein jüngerer Eintrag → regulär einfügen.
+          return auditLog(db, userId, action, entityType, entityId, details, ipAddress).then(resolve, reject);
+        }
+        db.run(
+          'UPDATE audit_log SET timestamp = CURRENT_TIMESTAMP WHERE id = ?',
+          [row.id],
+          function(uerr) {
+            if (uerr) return reject(uerr);
+            resolve({ id: row.id, coalesced: true });
+          }
+        );
+      }
+    );
+  });
+}
+
 // Plan retention cleanup helper – marks plans for deletion after N days of inactivity
 function startPlanRetentionCleanup(db, retentionDays = 90) {
   if (!retentionDays || retentionDays <= 0) {
@@ -521,7 +566,48 @@ function startPlanRetentionCleanup(db, retentionDays = 90) {
   }, 24 * 60 * 60 * 1000);
 }
 
-module.exports = { initDatabase, validateEnv, auditLog, startPlanRetentionCleanup, checkIntegrity, isTransientIntegrityError, isSessionsOnlyCorruption, healSessionCorruption };
+// Audit-Log-Cleanup – löscht alte plan_update-Einträge (Tage = retentionDays).
+// Unabhängig von der Plan-Retention (greift auch ohne PLAN_RETENTION_DAYS). Nur
+// plan_update wird beschnitten; sicherheitsrelevante Aktionen (login, plan_share,
+// plan_delete, admin_*) bleiben dauerhaft erhalten. Läuft sofort beim Start + alle 24h.
+function startAuditLogCleanup(db, retentionDays = AUDIT_PLAN_UPDATE_RETENTION_DAYS) {
+  if (!retentionDays || retentionDays <= 0) {
+    console.log('ℹ Audit-Log-Cleanup deaktiviert (AUDIT_PLAN_UPDATE_RETENTION_DAYS ≤ 0)');
+    return;
+  }
+
+  console.log(`✓ Audit-Log-Cleanup eingeplant (plan_update älter als ${retentionDays} Tage)`);
+
+  let running = false;
+  const runCleanup = async () => {
+    if (running) return;
+    running = true;
+    try {
+      const deleted = await new Promise((resolve, reject) => {
+        db.run(
+          `DELETE FROM audit_log
+           WHERE action = 'plan_update' AND timestamp < datetime('now', ?)`,
+          [`-${retentionDays} days`],
+          function(err) {
+            if (err) reject(err);
+            else resolve(this.changes);
+          }
+        );
+      });
+      if (deleted > 0) console.log(`✓ Audit-Log-Cleanup: ${deleted} alte plan_update-Einträge gelöscht`);
+    } catch (error) {
+      console.error('❌ Audit-Log-Cleanup-Fehler:', error.message);
+    } finally {
+      running = false;
+    }
+  };
+
+  // Einmal beim Start (verdichtet Altbestand sofort), danach täglich.
+  runCleanup();
+  setInterval(runCleanup, 24 * 60 * 60 * 1000);
+}
+
+module.exports = { initDatabase, validateEnv, auditLog, auditLogCoalesced, startPlanRetentionCleanup, startAuditLogCleanup, checkIntegrity, isTransientIntegrityError, isSessionsOnlyCorruption, healSessionCorruption };
 
 // Run if called directly
 if (require.main === module) {

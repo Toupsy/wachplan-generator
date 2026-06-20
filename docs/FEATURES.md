@@ -11,6 +11,21 @@
 
 ## Features
 
+### Feature 46: Audit-Log-Coalescing + Retention für `plan_update`
+Das Admin-Audit-Log wurde von „Wachplan-Änderungen" geflutet: `autoSave()` schreibt nach **jeder**
+`generate()` ein `plan_update` (`PUT /api/plans/:id`) → pro Bearbeitungs-Session zig identische
+Zeilen. Zwei Maßnahmen:
+- **Coalescing (A):** Neue Helper-Funktion `auditLogCoalesced()` (`db/init.js`). Innerhalb von
+  `AUDIT_PLAN_UPDATE_WINDOW_MIN` Minuten (Default **10**, 0 = aus) wird pro User+Plan KEINE neue
+  Zeile geschrieben, sondern der Zeitstempel des vorhandenen `plan_update` gebumpt → genau **eine**
+  Spur je Session. `plans.js` nutzt das im Autosave-Zweig; **Umbenennungen** (`name` im Body) gehen
+  weiterhin über `auditLog()` als eigene Zeile (seltenes, bedeutsames Ereignis).
+- **Retention (D):** `startAuditLogCleanup()` (`db/init.js`, aufgerufen in `server.js`) löscht
+  `plan_update`-Einträge älter als `AUDIT_PLAN_UPDATE_RETENTION_DAYS` (Default **30**, 0 = aus) –
+  einmal beim Start (verdichtet Altbestand sofort) + alle 24 h. Unabhängig von `PLAN_RETENTION_DAYS`.
+  Sicherheitsrelevante Aktionen (login, plan_share, plan_delete, admin_*) bleiben unberührt.
+- Test: `test/audit-coalesce.test.js`.
+
 ### Feature 43: Hauptwache wie ein San-Turm (`hwSanTower`)
 Neuer globaler Schalter „Hauptwache wie San-Turm (immer 1 Sanitäter)" neben der BF-an-HW-Option.
 Ist er aktiv und gibt es einen Sanitäter im Guard-Pool, sitzt jeden Tag mindestens **ein

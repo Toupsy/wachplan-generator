@@ -15,7 +15,7 @@ const { encryptPlanState, decryptPlanState } = require('../db/crypto');
 const { getPlanAccess } = require('../db/access');
 const { broadcastPlanUpdate } = require('../realtime');
 const { parsePositiveInt } = require('../db/ids');
-const { auditLog } = require('../db/init');
+const { auditLog, auditLogCoalesced } = require('../db/init');
 
 // ───────────────────────────────────────────────────────────
 // Öffentliche Beobachter-Links (plan_public_links): unguessbares 256-Bit-Token,
@@ -234,8 +234,13 @@ router.put('/:id', express.json(), async (req, res) => {
     // (außer dem Speichernden selbst).
     broadcastPlanUpdate(planId, req.session.userId);
 
-    auditLog(getDb(), req.session.userId, 'plan_update', 'plan', planId, name ? { name } : null, req.ip)
-      .catch(err => console.error('Audit log error (plan_update):', err));
+    // Umbenennungen sind seltene, bedeutsame Ereignisse → immer eine eigene Zeile.
+    // Reine Autosaves (kein name) werden koalesziert (s. auditLogCoalesced), damit das
+    // Audit-Log nicht von „Wachplan-Änderungen" nach jeder generate() geflutet wird.
+    const auditPromise = name
+      ? auditLog(getDb(), req.session.userId, 'plan_update', 'plan', planId, { name }, req.ip)
+      : auditLogCoalesced(getDb(), req.session.userId, 'plan_update', 'plan', planId, null, req.ip);
+    auditPromise.catch(err => console.error('Audit log error (plan_update):', err));
 
     res.json({
       id: planId,

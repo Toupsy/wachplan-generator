@@ -200,6 +200,8 @@ openssl rand -base64 32    # SESSION_SECRET (≥ 16 Zeichen)
 | `REGISTRATION_MODE` | `disabled` | Selbstregistrierung: `disabled` \| `open` \| `code` |
 | `REGISTRATION_CODE` | – | nötig bei `REGISTRATION_MODE=code` |
 | `PLAN_RETENTION_DAYS` | `90` (deaktiviert bei ≤ 0) | Auto-Löschung inaktiver Pläne (DSGVO Art. 5) |
+| `AUDIT_PLAN_UPDATE_WINDOW_MIN` | `10` (0 = aus) | Coalescing-Fenster: wiederholte `plan_update` (Autosave) je Nutzer+Plan zu einer Audit-Zeile zusammenfassen |
+| `AUDIT_PLAN_UPDATE_RETENTION_DAYS` | `30` (0 = aus) | Auto-Löschung alter `plan_update`-Audit-Einträge |
 | `DATABASE_PATH` | `./data/wachplan.db` | Pfad zur SQLite-Datenbank |
 
 Vollständige Beschreibung mit Hinweisen: **[.env.example](.env.example)**.
