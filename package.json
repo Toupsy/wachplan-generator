@@ -1,6 +1,6 @@
 {
   "name": "dlrg-wachplan-generator",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "description": "Single-Page Application für automatische DLRG Wachplangeneration",
   "main": "server/server.js",
   "scripts": {
