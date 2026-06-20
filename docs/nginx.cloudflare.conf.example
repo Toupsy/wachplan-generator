@@ -1,0 +1,83 @@
+# ============================================================
+# Beispiel-NGINX-Konfiguration: Cloudflare → NGINX → Wachplan-Generator
+# ------------------------------------------------------------
+# Zweck: Im Audit-Log (und überall, wo der Server `req.ip` nutzt) die ECHTE
+# Besucher-IP statt der internen Container-/Proxy-IP (z. B. 172.23.0.x) sehen.
+#
+# Aufbau:   Client → Cloudflare → NGINX (dieser Block) → App (Port 3000)
+#
+# Prinzip (DSGVO-konform, fälschungssicher):
+#   1. `set_real_ip_from` erlaubt NUR Cloudflare-Netzen, die echte IP zu setzen.
+#   2. `real_ip_header CF-Connecting-IP` → NGINX ersetzt $remote_addr durch die
+#      von Cloudflare gelieferte, nicht fälschbare Besucher-IP.
+#   3. NGINX reicht GENAU diese eine IP als `X-Forwarded-For` weiter.
+#   → Die App (`trust proxy = 1`, Standard) liest sie korrekt als `req.ip`.
+#
+# WICHTIG: NGINX darf NICHT direkt aus dem Internet erreichbar sein (sonst kann
+# jemand Cloudflare umgehen und CF-Connecting-IP fälschen). Firewall/Origin-
+# Zertifikat so setzen, dass nur Cloudflare den Origin erreicht.
+#
+# Cloudflare-IP-Ranges aktuell halten: https://www.cloudflare.com/ips/
+# ============================================================
+
+# ── Cloudflare IPv4 ─────────────────────────────────────────
+set_real_ip_from 173.245.48.0/20;
+set_real_ip_from 103.21.244.0/22;
+set_real_ip_from 103.22.200.0/22;
+set_real_ip_from 103.31.4.0/22;
+set_real_ip_from 141.101.64.0/18;
+set_real_ip_from 108.162.192.0/18;
+set_real_ip_from 190.93.240.0/20;
+set_real_ip_from 188.114.96.0/20;
+set_real_ip_from 197.234.240.0/22;
+set_real_ip_from 198.41.128.0/17;
+set_real_ip_from 162.158.0.0/15;
+set_real_ip_from 104.16.0.0/13;
+set_real_ip_from 104.24.0.0/14;
+set_real_ip_from 172.64.0.0/13;
+set_real_ip_from 131.0.72.0/22;
+
+# ── Cloudflare IPv6 ─────────────────────────────────────────
+set_real_ip_from 2400:cb00::/32;
+set_real_ip_from 2606:4700::/32;
+set_real_ip_from 2803:f800::/32;
+set_real_ip_from 2405:b500::/32;
+set_real_ip_from 2405:8100::/32;
+set_real_ip_from 2a06:98c0::/29;
+set_real_ip_from 2c0f:f248::/32;
+
+# Cloudflare liefert die echte Besucher-IP in diesem Header. Nach der
+# Wiederherstellung steht sie in $remote_addr.
+real_ip_header CF-Connecting-IP;
+
+server {
+    listen 80;
+    server_name wachplan.example.org;   # ← anpassen
+
+    # ── Hauptanwendung (Port 3000) ──────────────────────────
+    location / {
+        proxy_pass http://wachplan:3000;   # ← Container-Name/Host anpassen
+        proxy_http_version 1.1;
+
+        proxy_set_header Host              $host;
+        # $remote_addr = echte Besucher-IP (dank real_ip_header oben).
+        # Genau EINE IP weitergeben → App mit `trust proxy = 1` liest sie korrekt.
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket (Realtime-Kollaboration)
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    # ── Admin-Panel (Port 3001) – optional, nur wenn extern nötig ──
+    # Besser: nur intern/VPN erreichbar lassen. Falls doch proxyt:
+    # location /admin-backend/ {
+    #     proxy_pass http://wachplan:3001/;
+    #     proxy_set_header Host              $host;
+    #     proxy_set_header X-Real-IP         $remote_addr;
+    #     proxy_set_header X-Forwarded-For   $remote_addr;
+    #     proxy_set_header X-Forwarded-Proto $scheme;
+    # }
+}

@@ -28,6 +28,7 @@ const {
   jsonErrorHandler,
   installSigtermHandler,
   installFatalHandlers,
+  trustProxyValue,
 } = require('./http-common');
 
 const HOST = process.env.HOST || '0.0.0.0';
@@ -38,7 +39,7 @@ const HOST = process.env.HOST || '0.0.0.0';
 // öffnen. Ohne Übergabe (echter Standalone-Betrieb) erzeugt die App ihre eigene.
 function createAdminApp({ sessionMiddleware } = {}) {
   const app = express();
-  app.set('trust proxy', 1);
+  app.set('trust proxy', trustProxyValue());
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));

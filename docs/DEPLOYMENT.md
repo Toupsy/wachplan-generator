@@ -101,6 +101,62 @@ Die Anwendung nutzt `trust proxy` automatisch (erkennt `X-Forwarded-Proto`). Mit
 
 **Lokale HTTP-Entwicklung:** `COOKIE_SECURE` nicht setzen oder explizit `false` → erlaubt HTTP ohne Secure-Flag
 
+## Echte Client-IP hinter Reverse-Proxy / Cloudflare
+
+Das **Audit-Log** (Admin-Panel) und alle Stellen, die `req.ip` nutzen, zeigen die IP, die der
+Server auf der Verbindung sieht. Steht ein Reverse-Proxy (NGINX) und/oder Cloudflare davor und
+ist dieser **nicht** korrekt konfiguriert, erscheint dort die **interne Container-/Proxy-IP**
+(z. B. `172.23.0.6`) statt der echten Besucher-IP – und die Standort-Spalte bleibt leer
+(private IPs haben keinen Geo-Standort).
+
+Die App vertraut standardmäßig **genau einem** Proxy-Hop (`trust proxy = 1`) und liest die
+Client-IP aus `X-Forwarded-For`. Der Proxy muss diesen Header also korrekt setzen.
+
+### Setup: Cloudflare → NGINX → App (empfohlen)
+
+Cloudflare liefert die **echte, nicht fälschbare** Besucher-IP im Header `CF-Connecting-IP`.
+NGINX stellt sie wieder her (validiert gegen die Cloudflare-IP-Ranges) und reicht **genau diese
+eine IP** als `X-Forwarded-For` an die App weiter – `trust proxy = 1` passt dann unverändert.
+
+Vollständige Beispiel-Config: **[`docs/nginx.cloudflare.conf.example`](nginx.cloudflare.conf.example)**.
+Kern:
+
+```nginx
+set_real_ip_from 173.245.48.0/20;   # … alle Cloudflare-Ranges (s. Beispieldatei)
+real_ip_header CF-Connecting-IP;     # echte Besucher-IP → $remote_addr
+
+location / {
+    proxy_pass http://wachplan:3000;
+    proxy_set_header Host            $host;
+    proxy_set_header X-Real-IP       $remote_addr;
+    proxy_set_header X-Forwarded-For $remote_addr;   # nur die echte IP, keine Kette
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade    $http_upgrade;        # WebSocket (Realtime)
+    proxy_set_header Connection "upgrade";
+}
+```
+
+**Wichtig (Sicherheit):** NGINX darf nicht direkt aus dem Internet erreichbar sein, sonst kann
+jemand Cloudflare umgehen und `CF-Connecting-IP` fälschen. Origin per Firewall/Cloudflare-Origin-
+Zertifikat so absichern, dass nur Cloudflare den Server erreicht. Die Cloudflare-IP-Ranges
+gelegentlich gegen <https://www.cloudflare.com/ips/> aktualisieren.
+
+### Alternative: ohne `CF-Connecting-IP` (Forwarded-Kette)
+
+Reicht NGINX stattdessen `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;` weiter,
+kommt bei der App die Kette `<client>, <cloudflare-edge>` an. Bei **zwei** Hops (Cloudflare +
+NGINX) würde `trust proxy = 1` fälschlich die **Cloudflare-Edge-IP** als Client werten. Dann muss
+der Hop-Count erhöht werden:
+
+```bash
+# .env
+TRUST_PROXY=2
+```
+
+Die Variante mit `CF-Connecting-IP` (oben) ist robuster gegen Spoofing und unabhängig von der
+Anzahl der Hops – daher bevorzugt.
+
 ## Selbstregistrierung (Feature 22)
 
 Neue Nutzer können sich selbstständig einen Account erstellen — mit drei konfigurierbaren Sicherheitsmodi.

@@ -16,6 +16,21 @@ function securityHeaders({ captcha = false, worker = false } = {}) {
   };
 }
 
+// Wert für `app.set('trust proxy', …)` aus der Umgebung (TRUST_PROXY).
+// Default 1 = ein vertrauenswürdiger Proxy-Hop (z. B. NGINX). Hinter mehreren
+// Hops (z. B. Cloudflare → NGINX) auf die Hop-Anzahl erhöhen, sonst landet die
+// Proxy-IP statt der echten Client-IP in req.ip / im Audit-Log.
+// Akzeptiert eine Zahl ("2") oder einen booleschen Wert ("true"/"false").
+function trustProxyValue() {
+  const raw = process.env.TRUST_PROXY;
+  if (raw === undefined || raw === '') return 1;
+  const s = String(raw).trim().toLowerCase();
+  if (s === 'true') return true;
+  if (s === 'false') return false;
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) && n >= 0 ? n : 1;
+}
+
 function notFoundHandler(service) {
   return (req, res) => {
     // Schutz wie im jsonErrorHandler: serve-static reicht abgebrochene/teilweise
@@ -67,6 +82,7 @@ function installFatalHandlers() {
 
 module.exports = {
   securityHeaders,
+  trustProxyValue,
   notFoundHandler,
   jsonErrorHandler,
   installSigtermHandler,
