@@ -72,6 +72,7 @@ server.js          Express (Port 3000), Static aus ../public, Route-Registration
 admin-server.js    Admin-Server (Port 3001), gleiches Image, anderer Entry-Point
 realtime.js        WebSocket-Server (setupRealtime, broadcastPlanUpdate)
 mailer.js          E-Mail-Versand (nodemailer, SMTP_* env; MAIL_TRANSPORT=outbox für Tests)
+geoip.js           Offline-GeoIP (geoip-lite) für Audit-Log-Standort; lookupLocation() (privat/intern→null), optionaler require (Feature 45)
 captcha.js         reCAPTCHA-v3-Verify (fail-closed; no-op ohne RECAPTCHA_*-Keys)
 config.json        Template-Config (Türme/Boote/exportColumns) → GET /api/config
 db/connection.js   Zentrale SQLite-Verbindung (DATABASE_PATH env respektiert)

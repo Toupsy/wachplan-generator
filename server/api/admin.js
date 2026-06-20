@@ -15,6 +15,7 @@ const { destroyUserSessions } = require('../db/session');
 const { parsePositiveInt } = require('../db/ids');
 const { auditLog } = require('../db/init');
 const { FIELDS: SITE_SETTING_FIELDS, getSiteSettings, saveSiteSettings } = require('../db/site-settings');
+const { lookupLocation } = require('../geoip');
 
 // ───────────────────────────────────────────────────────────
 // Security Constants
@@ -377,10 +378,14 @@ router.get('/audit-log', async (req, res) => {
       filterParams.push(parseInt(user_id));
     }
 
-    const countRow = await dbGet('SELECT COUNT(*) AS total FROM audit_log' + where, filterParams);
+    const countRow = await dbGet('SELECT COUNT(*) AS total FROM audit_log a' + where, filterParams);
     const total = countRow ? countRow.total : 0;
 
-    let query = 'SELECT * FROM audit_log' + where + ' ORDER BY timestamp DESC';
+    // LEFT JOIN users → Benutzername mitliefern (statt nur user_id).
+    // LEFT, weil user_id NULL sein kann (System-Events) bzw. nach Nutzer-Löschung
+    // per ON DELETE SET NULL ohnehin NULL wird.
+    let query = 'SELECT a.*, u.username FROM audit_log a LEFT JOIN users u ON a.user_id = u.id'
+      + where + ' ORDER BY a.timestamp DESC';
     const params = [...filterParams];
     if (!wantAll) {
       query += ' LIMIT ? OFFSET ?';
@@ -401,7 +406,9 @@ router.get('/audit-log', async (req, res) => {
           details = { _parseError: true, raw: log.details };
         }
       }
-      return { ...log, details };
+      // Standort offline aus der IP ableiten (null bei privaten/internen IPs).
+      const location = lookupLocation(log.ip_address);
+      return { ...log, details, location };
     });
 
     res.json({ logs: formattedLogs, total });

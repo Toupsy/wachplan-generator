@@ -468,12 +468,13 @@
             <th>Benutzer</th>
             <th>Objekt</th>
             <th>IP</th>
+            <th>Standort</th>
             <th>Details</th>
           </tr>
         </thead>
         <tbody id="audit-tbody">
           <tr>
-            <td colspan="6" class="empty">Lädt...</td>
+            <td colspan="7" class="empty">Lädt...</td>
           </tr>
         </tbody>
       </table>
@@ -647,7 +648,7 @@
         renderAuditPagination(total, showAll ? total : limit, showAll, logs.length);
 
         if (logs.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" class="empty">Keine Einträge</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7" class="empty">Keine Einträge</td></tr>';
           return;
         }
 
@@ -671,20 +672,25 @@
             <td></td>
             <td></td>
             <td></td>
+            <td></td>
             <td style="max-width:280px;word-break:break-word;font-size:.82em;color:var(--text-dim);"></td>
           `;
           const cells = tr.querySelectorAll('td');
           cells[0].textContent = ts;
           cells[1].textContent = auditActionLabel(log.action);
-          cells[2].textContent = log.user_id != null ? '#' + log.user_id : 'System';
+          // Benutzername, falls vorhanden; sonst #id (Altdaten); sonst System.
+          cells[2].textContent = log.username
+            ? log.username
+            : (log.user_id != null ? '#' + log.user_id : 'System');
           cells[3].textContent = entity;
           cells[4].textContent = log.ip_address || '-';
-          cells[5].textContent = details;
+          cells[5].textContent = log.location || '–';
+          cells[6].textContent = details;
           tbody.appendChild(tr);
         });
       } catch (error) {
         console.error('Load audit log error:', error);
-        tbody.innerHTML = '<tr><td colspan="6" class="empty">Fehler beim Laden des Audit-Logs</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">Fehler beim Laden des Audit-Logs</td></tr>';
         document.getElementById('audit-page-info').textContent = '';
         document.getElementById('audit-page-nav').innerHTML = '';
       }
