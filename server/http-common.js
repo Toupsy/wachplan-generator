@@ -31,6 +31,44 @@ function trustProxyValue() {
   return Number.isFinite(n) && n >= 0 ? n : 1;
 }
 
+// Ermittelt die echte Client-IP aus den Proxy-Headern – OHNE Reverse-Proxy-Umbau.
+// Reihenfolge: Cloudflare (CF-Connecting-IP) → X-Real-IP → erstes X-Forwarded-For.
+// Gibt '' zurück, wenn keiner gesetzt ist (dann gilt weiter Express' req.ip).
+// ACHTUNG (Sicherheit): Diese Header sind vom Client fälschbar, falls der Origin
+// direkt – an Cloudflare/NGINX vorbei – erreichbar ist. Für eine fälschungssichere
+// Ermittlung s. docs/nginx.cloudflare.conf.example (Variante A, proxy-seitig).
+function clientIpFromHeaders(req) {
+  const pick = (v) => {
+    if (!v) return '';
+    // X-Forwarded-For kann eine Liste sein – die linkeste Adresse ist der Client.
+    const first = String(v).split(',')[0].trim();
+    return first.replace(/^::ffff:/i, '');
+  };
+  return pick(req.headers['cf-connecting-ip'])
+      || pick(req.headers['x-real-ip'])
+      || pick(req.headers['x-forwarded-for'])
+      || '';
+}
+
+// Middleware: überschreibt `req.ip` mit der aus den Proxy-Headern ermittelten
+// echten Client-IP. Dadurch sehen Audit-Log UND Rate-Limiting (beide lesen
+// req.ip) die echte IP, ohne dass NGINX/Cloudflare angepasst werden müssen.
+// Ohne passende Header bleibt Express' ursprüngliches req.ip (trust proxy)
+// erhalten → lokale Entwicklung/Tests unverändert.
+function overrideClientIp() {
+  return (req, res, next) => {
+    const ip = clientIpFromHeaders(req);
+    if (ip) {
+      // req.ip ist ein Getter auf dem Request-Prototyp; eine eigene
+      // Daten-Property auf der Instanz überschattet ihn.
+      try {
+        Object.defineProperty(req, 'ip', { value: ip, configurable: true, enumerable: true });
+      } catch { /* req.ip nicht überschreibbar → Express-Wert behalten */ }
+    }
+    next();
+  };
+}
+
 function notFoundHandler(service) {
   return (req, res) => {
     // Schutz wie im jsonErrorHandler: serve-static reicht abgebrochene/teilweise
@@ -83,6 +121,8 @@ function installFatalHandlers() {
 module.exports = {
   securityHeaders,
   trustProxyValue,
+  clientIpFromHeaders,
+  overrideClientIp,
   notFoundHandler,
   jsonErrorHandler,
   installSigtermHandler,

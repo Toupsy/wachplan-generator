@@ -73,6 +73,7 @@ admin-server.js    Admin-Server (Port 3001), gleiches Image, anderer Entry-Point
 realtime.js        WebSocket-Server (setupRealtime, broadcastPlanUpdate)
 mailer.js          E-Mail-Versand (nodemailer, SMTP_* env; MAIL_TRANSPORT=outbox für Tests)
 geoip.js           Offline-GeoIP (geoip-lite) für Audit-Log-Standort; lookupLocation() (privat/intern→null), optionaler require (Feature 45)
+http-common.js     Geteilte HTTP-Bausteine: securityHeaders, trustProxyValue (TRUST_PROXY-Env), overrideClientIp (req.ip aus CF-Connecting-IP/X-Forwarded-For – Audit+Rate-Limit; fälschbar ohne Origin-Lockdown), 404/Error/Signal-Handler
 captcha.js         reCAPTCHA-v3-Verify (fail-closed; no-op ohne RECAPTCHA_*-Keys)
 config.json        Template-Config (Türme/Boote/exportColumns) → GET /api/config
 db/connection.js   Zentrale SQLite-Verbindung (DATABASE_PATH env respektiert)

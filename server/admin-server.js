@@ -29,6 +29,7 @@ const {
   installSigtermHandler,
   installFatalHandlers,
   trustProxyValue,
+  overrideClientIp,
 } = require('./http-common');
 
 const HOST = process.env.HOST || '0.0.0.0';
@@ -40,6 +41,7 @@ const HOST = process.env.HOST || '0.0.0.0';
 function createAdminApp({ sessionMiddleware } = {}) {
   const app = express();
   app.set('trust proxy', trustProxyValue());
+  app.use(overrideClientIp());
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
