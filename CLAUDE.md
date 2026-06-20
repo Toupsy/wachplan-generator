@@ -147,13 +147,18 @@ Läuft **sequenziell** über alle Tage; akkumulierte `stats` übertragen sich au
 +200×  konsekutive Tage gleicher Turm (Feature 8)       +150 beide viele Boot-Tage
 -60×   hwVisits (Bonus für Turm)  / +200×v hwVisits an HW-k-Slots (HW-Wiederholungsbesuch, Feature 42; HW rein nach hwVisits, KEIN total → Spät-Einsteiger landen auf Türmen statt HW)
 +5000  E an HW wenn reserveExpAtHW (Experience-Reservierung, s. u.)
-+60×   Außen-/Hauptstrand-Überhang (Feature 25, nur wenn beide Turm-Sorten existieren)
++overhang×max(beachW,towerVisitW) Außen-/Hauptstrand-Überhang (Feature 25; ≥towerVisitWeight, sonst Spät-Einsteiger nur Hauptstrand)
 + Tiebreaker (deterministisch bzw. seededRand() für Tag 1)
 ```
 **Hauptstrand-Türme (Feature 25):** Türme mit `mainBeach:true` bilden den „Hauptstrand".
 `beachBalancePenalty` hält pro Person `outerBeachDays`/`mainBeachDays` im Gleichgewicht
-(Strafe `overhang*60`), nur aktiv wenn Hauptstrand- UND Außentürme existieren → niemand
-sitzt mehrere Tage in Folge nur auf Außentürmen.
+(Strafe `overhang × max(beachBalanceWeight, towerVisitWeight)`), nur aktiv wenn Hauptstrand- UND
+Außentürme existieren → niemand sitzt mehrere Tage in Folge nur auf einer Strand-Sorte.
+**Wichtig (Falle):** Das Gewicht ist bewusst **mind. so stark wie `towerVisitWeight`** (200) –
+sonst zieht die Turm-Wiederholungs-Rotation einen „Blank-Slate"-Spät-Einsteiger (0 Besuche auf
+JEDEM Turm → überall am billigsten) in die zuerst befüllten Türme; da Haupt-Türme meist die
+höchste Prio haben (zuerst dran), säße er sonst Tag für Tag nur am Hauptstrand (analog zum
+HW-Parking). `beachBalanceWeight` (Def 60) bleibt als User-Knopf, wirkt aber erst oberhalb 200.
 **Experience-Reservierung (v0.4.24):** Vor der HW-Befüllung wird `reserveExpAtHW =
 availE.length ≤ expDemand` gesetzt (`expDemand` = offene Türme ohne Leader-Deckung). Ist es
 `true`, dürfen Erfahrene nicht an der HW „verbraucht" werden (+5000 in `bestPair`, U-zuerst in

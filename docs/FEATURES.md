@@ -246,6 +246,18 @@ neutralen Platzhaltertext. Footer im Login-Modal verlinkt Impressum + Datenschut
 
 ## Bugfixes
 
+### Spät-Einsteiger saß nur am Hauptstrand (Beach-Balance vs. Turm-Rotation)
+Analog zum HW-Parking: Eine Person, die erst mitten in der Woche dazukam, landete an **jedem** ihrer
+Tage nur auf Hauptstrand-Türmen (nie Außenturm). **Ursache:** `towerVisitWeight` (200) zieht einen
+„Blank-Slate"-Spät-Einsteiger (0 Besuche auf **jedem** Turm → überall am billigsten) in die zuerst
+befüllten Türme; da Haupt-Türme i. d. R. die höchste Prio haben (zuerst dran), bekam er Tag für Tag
+nur Hauptstrand. Die Beach-Strafe (`beachBalanceWeight` 60) war zu schwach, um die 200 zu überbieten
+– und ein reiner Default-Wechsel hätte gespeicherten Plänen (die `beachBalanceWeight:60` mitspeichern)
+nicht geholfen. **Fix (strukturell):** `beachBalancePenalty` nutzt jetzt
+`overhang × max(beachBalanceWeight, towerVisitWeight)` → die Strand-Balance ist nie schwächer als die
+Turm-Wiederholungs-Rotation, unabhängig vom gespeicherten Knopf. Ein höherer User-Wert wird weiter
+respektiert. Ergebnis: ausgewogenes Haupt/Neben-Verhältnis auch für Spät-Einsteiger; 107/107 Tests grün.
+
 ### „Letzter Login" blieb bei „Angemeldet bleiben" auf dem ersten Login stehen
 Wer „Angemeldet bleiben" (rememberMe) wählte, durchlief `/api/auth/login` nur einmal; danach stellte
 jeder Seitenaufruf die Session über `GET /api/auth/me` wieder her, **ohne** `last_login` zu aktualisieren.

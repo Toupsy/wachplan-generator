@@ -370,7 +370,12 @@ function generate(startDay = 0){
       const s = ensure(candidate.id);
       const imbalance = (s.outerBeachDays || 0) - (s.mainBeachDays || 0);
       const overhang = tower.mainBeach ? Math.max(0, -imbalance) : Math.max(0, imbalance);
-      return overhang * algoParams.beachBalanceWeight;
+      // Gewicht mind. so stark wie die Turm-Wiederholungs-Rotation (towerVisitWeight): sonst zieht
+      // diese einen „Blank-Slate"-Spät-Einsteiger (0 Besuche auf JEDEM Turm → überall am billigsten)
+      // in die zuerst befüllten Türme – und da die Haupt-Türme i.d.R. die höchste Prio haben (zuerst
+      // dran), landet er sonst Tag für Tag nur am Hauptstrand. Höherer User-Wert wird respektiert.
+      const w = Math.max(algoParams.beachBalanceWeight, algoParams.towerVisitWeight);
+      return overhang * w;
     }
 
     /**
