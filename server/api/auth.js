@@ -199,9 +199,6 @@ router.post('/login', express.json(), async (req, res) => {
   const ip = req.ip || 'unknown';
   const { username, password, rememberMe } = req.body;
 
-  // Periodically clean up expired entries to prevent map unbounded growth
-  _cleanupExpiredEntries();
-
   if (_isRateLimited(ip)) {
     return res.status(429).json({ error: 'Zu viele Login-Versuche. Bitte später erneut versuchen.' });
   }
@@ -381,9 +378,6 @@ router.post('/register', express.json(), async (req, res) => {
   const ip = req.ip || 'unknown';
   const { username, password, password2, email, code, acceptedPrivacy, captchaToken } = req.body;
 
-  // Periodically clean up expired entries
-  _cleanupExpiredEntries();
-
   // Check if registration is enabled
   if (REGISTRATION_MODE === 'disabled') {
     return res.status(403).json({ error: 'Registrierung ist deaktiviert' });
@@ -550,7 +544,6 @@ router.get('/verify-email', async (req, res) => {
 // ───────────────────────────────────────────────────────────
 router.post('/resend-verification', express.json(), async (req, res) => {
   const ip = req.ip || 'unknown';
-  _cleanupExpiredEntries();
   if (_isRateLimited(ip)) {
     return res.status(429).json({ error: 'Zu viele Anfragen. Bitte später erneut versuchen.' });
   }
@@ -584,7 +577,6 @@ router.post('/resend-verification', express.json(), async (req, res) => {
 // ───────────────────────────────────────────────────────────
 router.post('/request-password-reset', express.json(), async (req, res) => {
   const ip = req.ip || 'unknown';
-  _cleanupExpiredEntries();
 
   if (!isMailEnabled()) {
     return res.status(503).json({ error: 'Passwort-Reset ist nicht verfügbar (kein E-Mail-Versand konfiguriert).' });
@@ -632,7 +624,6 @@ router.post('/request-password-reset', express.json(), async (req, res) => {
 // ───────────────────────────────────────────────────────────
 router.post('/reset-password', express.json(), async (req, res) => {
   const ip = req.ip || 'unknown';
-  _cleanupExpiredEntries();
   if (_isRateLimited(ip)) {
     return res.status(429).json({ error: 'Zu viele Anfragen. Bitte später erneut versuchen.' });
   }
