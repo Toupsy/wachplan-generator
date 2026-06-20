@@ -7,8 +7,6 @@
     "test": "NODE_ENV=test node --test --test-concurrency=1 test/*.test.js",
     "start": "node server/server.js",
     "start:admin": "node server/admin-server.js",
-    "dev": "node server/server.js",
-    "dev:admin": "node server/admin-server.js",
     "deploy": "npx wrangler deploy",
     "deploy:dev": "npx wrangler deploy --env development"
   },

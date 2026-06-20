@@ -29,8 +29,6 @@ const hashLinkToken = t => crypto.createHash('sha256').update(t).digest('hex');
 // ID Parsing Helpers – zentral über db/ids.js (strikte Validierung:
 // '5abc' → null statt 5; verhindert teilgeparste IDs in DB-Queries).
 // ───────────────────────────────────────────────────────────
-const parsePlanId = parsePositiveInt;
-const parseUserId = parsePositiveInt;
 
 // ───────────────────────────────────────────────────────────
 // Eingabe-Limits (Schutz vor Storage-Exhaustion, Issue #218)
@@ -146,7 +144,7 @@ router.post('/', express.json(), async (req, res) => {
 // ───────────────────────────────────────────────────────────
 router.get('/:id', async (req, res) => {
   try {
-    const planId = parsePlanId(req.params.id);
+    const planId = parsePositiveInt(req.params.id);
     if (!planId) return res.status(400).json({ error: 'Ungültige Plan-ID' });
 
     const access = await getPlanAccess(planId, req.session.userId);
@@ -188,7 +186,7 @@ router.get('/:id', async (req, res) => {
 // ───────────────────────────────────────────────────────────
 router.put('/:id', express.json(), async (req, res) => {
   try {
-    const planId = parsePlanId(req.params.id);
+    const planId = parsePositiveInt(req.params.id);
     if (!planId) return res.status(400).json({ error: 'Ungültige Plan-ID' });
 
     const { state, name } = req.body;
@@ -257,7 +255,7 @@ router.put('/:id', express.json(), async (req, res) => {
 // ───────────────────────────────────────────────────────────
 router.delete('/:id', async (req, res) => {
   try {
-    const planId = parsePlanId(req.params.id);
+    const planId = parsePositiveInt(req.params.id);
     if (!planId) return res.status(400).json({ error: 'Ungültige Plan-ID' });
 
     // Verify plan belongs to user (fetch name for audit log)
@@ -291,7 +289,7 @@ router.delete('/:id', async (req, res) => {
 // ───────────────────────────────────────────────────────────
 router.get('/:id/shares', async (req, res) => {
   try {
-    const planId = parsePlanId(req.params.id);
+    const planId = parsePositiveInt(req.params.id);
     if (!planId) return res.status(400).json({ error: 'Ungültige Plan-ID' });
 
     const access = await getPlanAccess(planId, req.session.userId);
@@ -323,7 +321,7 @@ router.get('/:id/shares', async (req, res) => {
 // ───────────────────────────────────────────────────────────
 router.post('/:id/share', express.json(), async (req, res) => {
   try {
-    const planId = parsePlanId(req.params.id);
+    const planId = parsePositiveInt(req.params.id);
     if (!planId) return res.status(400).json({ error: 'Ungültige Plan-ID' });
 
     const username = (req.body.username || '').trim();
@@ -360,10 +358,10 @@ router.post('/:id/share', express.json(), async (req, res) => {
 // ───────────────────────────────────────────────────────────
 router.delete('/:id/share/:userId', async (req, res) => {
   try {
-    const planId = parsePlanId(req.params.id);
+    const planId = parsePositiveInt(req.params.id);
     if (!planId) return res.status(400).json({ error: 'Ungültige Plan-ID' });
 
-    const userId = parseUserId(req.params.userId);
+    const userId = parsePositiveInt(req.params.userId);
     if (!userId) return res.status(400).json({ error: 'Ungültige Benutzer-ID' });
 
     const access = await getPlanAccess(planId, req.session.userId);
@@ -389,7 +387,7 @@ router.delete('/:id/share/:userId', async (req, res) => {
 // ───────────────────────────────────────────────────────────
 router.get('/:id/public-links', async (req, res) => {
   try {
-    const planId = parsePlanId(req.params.id);
+    const planId = parsePositiveInt(req.params.id);
     if (!planId) return res.status(400).json({ error: 'Ungültige Plan-ID' });
 
     const access = await getPlanAccess(planId, req.session.userId);
@@ -416,7 +414,7 @@ router.get('/:id/public-links', async (req, res) => {
 // ───────────────────────────────────────────────────────────
 router.post('/:id/public-link', express.json(), async (req, res) => {
   try {
-    const planId = parsePlanId(req.params.id);
+    const planId = parsePositiveInt(req.params.id);
     if (!planId) return res.status(400).json({ error: 'Ungültige Plan-ID' });
 
     const access = await getPlanAccess(planId, req.session.userId);
@@ -447,7 +445,7 @@ router.post('/:id/public-link', express.json(), async (req, res) => {
 // ───────────────────────────────────────────────────────────
 router.delete('/:id/public-link/:linkId', async (req, res) => {
   try {
-    const planId = parsePlanId(req.params.id);
+    const planId = parsePositiveInt(req.params.id);
     if (!planId) return res.status(400).json({ error: 'Ungültige Plan-ID' });
 
     const linkId = parsePositiveInt(req.params.linkId);
