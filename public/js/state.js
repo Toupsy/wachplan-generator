@@ -122,6 +122,11 @@ let dayState = [];   // Array[DAYS] von { sick:Set, absent:Set, closed:Set, clos
 // forcedPlacements[day] = [{ personId, kind:'tower'|'boat'|'main', slotId }]
 let forcedPlacements = [];
 
+// Gesperrte Tage (Feature: „Tag sperren"). Set von Tag-Indizes (0-basiert). Ein gesperrter
+// Tag wird bei JEDER Neuberechnung aus lastResult übernommen statt neu generiert → Änderungen
+// an anderen Tagen verändern ihn nicht mehr. Sicherung am Ende der Tagesplanung.
+let lockedDays = new Set();
+
 // Positionsbeschriftungen für den XLSX-Export (Feature 2)
 // Entsprechen den Zellen C11, C13, C15, C17, C19 im DLRG-Formular
 let positionDescriptions = { 3:'', 4:'', 5:'', 6:'', 7:'' };
@@ -193,6 +198,7 @@ function resetGlobalState() {
   serviceEndHour = 17;
   dayState = freshDayState();
   forcedPlacements = freshForcedPlacements();
+  lockedDays = new Set();
   positionDescriptions = { 3:'', 4:'', 5:'', 6:'', 7:'' };
   fairnessMetricsDisplay = {
     hwBoatBalance: true,

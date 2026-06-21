@@ -2,7 +2,7 @@
 // state-io.js – Planstatus-Import / Export (Feature 7) + Server-Sync
 // ============================================================
 
-const STATE_VERSION = 10;
+const STATE_VERSION = 11;
 
 // Migriert eine Person vom alten Rollenmodell (role 'E'/'U' + bfLevel) auf das
 // neue Modell (role 'F'|'B'|'W' + experienced:bool). Idempotent.
@@ -70,6 +70,7 @@ function _buildStateObject(){
       closedBoats: [...d.closedBoats],
     })),
     forcedPlacements: forcedPlacements.map(fp => fp.map(f => ({ ...f }))),
+    lockedDays:       (typeof lockedDays !== 'undefined' && lockedDays) ? [...lockedDays] : [],
   };
 }
 
@@ -186,6 +187,10 @@ function importStateJSON(json, silent = false){
   // forcedPlacements
   forcedPlacements = (s.forcedPlacements || []).map(fp => (fp || []).map(f => ({ ...f })));
   while(forcedPlacements.length < DAYS) forcedPlacements.push([]);
+
+  // Gesperrte Tage (Feature „Tag sperren"; Default leer für Altpläne). Indizes ≥ DAYS verwerfen.
+  lockedDays = new Set((Array.isArray(s.lockedDays) ? s.lockedDays : [])
+    .map(Number).filter(d => Number.isInteger(d) && d >= 0 && d < DAYS));
 
   // UI neu aufbauen
   document.getElementById('start-date').value = startDate;

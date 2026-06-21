@@ -108,6 +108,7 @@ dayState[]      // Array[DAYS]: { sick:Set, absent:Set, closed:Set, closedBoats:
                 //   sick   = außer Dienst → wird an der HW geführt (zählt im Plan/Export)
                 //   absent = komplett abwesend → NICHT eingeplant, nicht im XLSX/Druck (Feature 27)
 forcedPlacements[] // Array[DAYS]: [{ personId, kind, slotId, transparent:bool }]
+lockedDays      // Set<Tag-Index> (Feature 47): gesperrter Tag wird bei generate() NICHT neu berechnet, sondern aus lastResult übernommen (wie der startDay-Prefix) → Änderungen an anderen Tagen lassen ihn unverändert
 positionDescriptions   // { 3..7 } → XLSX C11,C13,C15,C17,C19
 fairnessMetricsDisplay // { hwBoatBalance, towerDistribution, boatPairingDiversity }
 exportColumns[] // 16 Stationscodes → Template-Spalten
@@ -131,6 +132,10 @@ mainBeachDays, outerBeachDays, hwGuardDays }`.
 
 ## Kern-Algorithmus (generate.js)
 Läuft **sequenziell** über alle Tage; akkumulierte `stats` übertragen sich auf Folgetage → faire Rotation.
+**Behaltene Tage:** Im Haupt-Loop wird ein Tag NICHT neu generiert, sondern aus `lastResult` übernommen
+(+ Stats via `_reAccumulateDayStats` re-akkumuliert), wenn `d < startDay` (Teil-Neuberechnung nach
+manuellem Verschieben) ODER `lockedDays.has(d)` (Feature 47 „Tag sperren"). Gesperrte Tage bleiben so
+unverändert, egal welcher andere Tag neu berechnet wird.
 
 **Zuweisung pro Tag (Reihenfolge):**
 0. **BF-Fairness-Sort** – `availB` nach `(boatDays*50 - hwVisits*10)` VOR activeBF/surplusBF-Split
@@ -245,7 +250,7 @@ sonst auf die `.tower-card` zurück – sonst landete eine direkt aufs Boot gezo
 
 **Autosave/State-IO (state-io.js):** `autoSave()` nach jeder `generate()` → `PUT /api/plans/:id`
 (localStorage-Fallback). `autoLoad()` beim Start. `_buildStateObject()` zentrale Serialisierung;
-Sets als Arrays. `STATE_VERSION = 8`; `migratePerson()` für Altpläne.
+Sets als Arrays. `STATE_VERSION = 11`; `migratePerson()` für Altpläne.
 
 **Wachlisten-Import (roster.js, Feature 31):** Upload (CSV/PDF) → `roster[]` (Roh-Verfügbarkeiten).
 `applyRosterToWindow()` baut `people[]` + tageweise `absent` **dynamisch** aus `startDate`+`DAYS`

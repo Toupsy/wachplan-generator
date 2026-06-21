@@ -13,6 +13,17 @@
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: Tests grün, alle Server parsen (`node -c`).
 
+**Letzter Lauf (2026-06-21, Feature 47: Tag sperren – Branch `claude/festive-johnson-j2cwag`):**
+- **Feature 47 (Tag sperren):** Neuer Pro-Tag-Knopf „🔓 Tag sperren" in der Tages-Steuerung. Ein
+  gesperrter Tag wird bei `generate()` nicht mehr neu berechnet, sondern aus `lastResult` übernommen
+  (Prefix-Behalten-Loop in den Haupt-Loop integriert: `d < startDay || lockedDays.has(d)`). Use-Case:
+  fertig geplanten Tag sichern, damit Änderungen an anderen Tagen ihn nicht mehr verändern. UI:
+  🔒-Flag im Day-Tab, Editier-Sektionen ausgeblendet, Personen/Boote nicht verschiebbar, grüner
+  Rahmen. Neues State-Set `lockedDays` (serialisiert in `_buildStateObject`/`importStateJSON`,
+  `STATE_VERSION` 10→11). Details: docs/FEATURES.md „Feature 47", CLAUDE.md (State + Algorithmus).
+- **Tests:** `test/locked-days.test.js` (3 Checks: Schutz, Plausibilität, Entsperren) + voller
+  `npm test` **114/114 grün** (nach `npm install` für sqlite3-Natives).
+
 **Letzter Lauf (2026-06-20, Impressum + editierbare Datenschutz-Angaben + „Letzter Login"-Fix – Branch `claude/sharp-babbage-a3q719`):**
 - **Bugfix „Letzter Login":** Bei „Angemeldet bleiben" wurde `last_login` nie aktualisiert
   (nur `/login` schrieb es, nicht der Session-Resume via `/me`). `GET /api/auth/me` aktualisiert

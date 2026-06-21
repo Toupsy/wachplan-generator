@@ -246,6 +246,23 @@ gedeckte Führungstürme nicht. Migration `leaderCount>0`→`leaderTower:true` (
 San-Haken jetzt auch für B. Überzählige BF (`poolSBF`, im Guard-Pool) decken San-Türme ab; aktive
 BF fahren Boot. `sanActive`-Gating prüft den ganzen `getGuardPool()`. Tests: `san-tower.test.js` (+1).
 
+### Feature 47: Tag sperren (`lockedDays`)
+Pro-Tag-Knopf **„🔓 Tag sperren"** in der Tages-Steuerung (`render-output.js`, `dc-head`). Use-Case:
+Ist die Planung eines Tages fertig, sichert man ihn – Änderungen an anderen Tagen (Krankmeldung,
+Turm/Boot schließen, Person-/Konfig-Änderungen, manuelles Verschieben) berechnen ihn dann **nicht
+mehr neu**. Mechanik: neues State-Set `lockedDays` (Tag-Indizes). `generate()` behandelt einen
+gesperrten Tag wie den behaltenen Prefix bei der Teil-Neuberechnung – statt ihn neu zu generieren,
+wird `lastResult.schedule[d]` übernommen und seine Stats via `_reAccumulateDayStats` re-akkumuliert
+(faire Folgetage). Der frühere separate Prefix-Loop wurde dafür in den Haupt-Loop integriert
+(`d < startDay || lockedDays.has(d)` ⇒ behalten). UI: gesperrte Tage zeigen ein 🔒 im Day-Tab,
+blenden die Editier-Sektionen aus, machen Personen/Boote nicht verschiebbar (`draggable=false`,
+keine ↕-Buttons) und heben die `.day-controls` grün hervor; der Knopf wechselt zu „🔒 Gesperrt".
+Sperren löst KEIN `generate()` aus (bestehender Plan bleibt) – nur Re-Render + Autosave. Persistenz:
+`lockedDays` als Array in `_buildStateObject()`/`importStateJSON()` (Indizes ≥ DAYS werden verworfen),
+`STATE_VERSION` 10 → 11. **Scope:** Der Schutz wirkt über die in-memory `lastResult.schedule`; nach
+einem kompletten Reload wird der Plan deterministisch neu erzeugt (gleiche Eingaben → gleicher Tag),
+die Sperre selbst bleibt erhalten und schützt ab dann weiter. Tests: `test/locked-days.test.js`.
+
 ### Feature 44: Impressum + editierbare Betreiberangaben (Admin-Panel)
 Neues, in Deutschland pflichtiges **Impressum** (`public/impressum.html`, § 5 DDG / § 18 Abs. 2 MStV)
 plus dynamische **Datenschutz-Betreiberangaben** (Verantwortlicher/Kontakt). Beide Seiten ziehen die

@@ -147,15 +147,19 @@ function generate(startDay = 0){
   // Nur aktiv, wenn es BEIDE Sorten gibt (sonst kein Ausgleich nötig/sinnvoll).
   const beachBalanceActive = towers.some(t => t.mainBeach) && towers.some(t => !t.mainBeach);
 
-  // Wenn startDay > 0: bestehende Tage übernehmen + Stats daraus akkumulieren
-  if(startDay > 0 && lastResult?.schedule){
-    for(let d = 0; d < Math.min(startDay, lastResult.schedule.length); d++){
+  // Behaltene Tage werden NICHT neu berechnet, sondern aus lastResult übernommen; ihre Stats
+  // werden re-akkumuliert, damit die neu generierten Tage fair darauf aufbauen. Behalten wird:
+  //   - der Prefix [0, startDay-1] (Teil-Neuberechnung nach manueller Verschiebung), und
+  //   - jeder gesperrte Tag (Feature „Tag sperren") – unabhängig von startDay, damit er sich
+  //     bei Änderungen an anderen Tagen nicht mehr verändert.
+  const _isLockedDay = d => (typeof lockedDays !== 'undefined' && lockedDays && lockedDays.has(d));
+
+  for(let d = 0; d < DAYS; d++){
+    if((d < startDay || _isLockedDay(d)) && lastResult?.schedule?.[d]){
       schedule.push(lastResult.schedule[d]);
       _reAccumulateDayStats(lastResult.schedule[d], d, stats, pairCount, ensure, pairKey);
+      continue;
     }
-  }
-
-  for(let d = startDay; d < DAYS; d++){
     const ds       = dayState[d] || freshDay();
     const isAbsent = id => (ds.absent || new Set()).has(id);
     // "außer Dienst" (HW-Anzeige) gilt nur für nicht komplett abwesende Personen.
