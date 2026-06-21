@@ -129,9 +129,18 @@ function renderOutput(){
   const distinctPairs  = allPairs.filter(([,v])=>v>0).length;
   const repeatedPairs  = allPairs.filter(([,v])=>v>1).length;
   let uuTotal = 0, repeatTowers = 0;
-  schedule.forEach(day => day.assign.forEach(s => {
-    if(s.occupants?.length===2 && (effLevel(s.occupants[0])+effLevel(s.occupants[1]))==='UU') uuTotal++;
-  }));
+  schedule.forEach(day => {
+    // Türme mit erfahrenem BF auf zugeordnetem Boot zählen nicht als U+U-Besetzung
+    // (der erfahrene Bootsführer deckt die fehlende Erfahrung am Turm ab – analog Tages-Warnung).
+    const expBoatTowers = new Set(
+      day.assign.filter(s=>s.kind==='boat'&&s.towerId&&s.occupants.some(o=>effLevel(o)==='E'))
+                .map(s=>s.towerId)
+    );
+    day.assign.forEach(s => {
+      if(s.occupants?.length===2 && (effLevel(s.occupants[0])+effLevel(s.occupants[1]))==='UU'
+         && !(s.kind==='tower' && expBoatTowers.has(s.towerId))) uuTotal++;
+    });
+  });
   Object.values(lastResult.stats).forEach(s =>
     Object.values(s.towerVisits).forEach(v => { if(v>2) repeatTowers++; }));
 
@@ -293,7 +302,13 @@ function renderOutput(){
     if(d.boatsNoBootsf.length)
       html+=`<div class="notice warn-n">🚤 <div>Boot zu (kein BF): <strong>${d.boatsNoBootsf.map(b=>escapeHtml(b.name)).join(', ')}</strong></div></div>`;
     // Beobachter-Modus: UU-Hinweis ausblenden (Erfahrungs-Einstufung nicht offenlegen).
-    const uuToday = viewOnly ? 0 : d.assign.filter(s=>s.kind==='tower'&&s.occupants.length===2&&(effLevel(s.occupants[0])+effLevel(s.occupants[1]))==='UU').length;
+    // Türme mit einem erfahrenen BF auf einem zugeordneten Boot brauchen keine UU-Warnung
+    // (der erfahrene Bootsführer ist am Turm präsent) → solche Türme ausnehmen.
+    const towersWithExpBoat = new Set(
+      d.assign.filter(s=>s.kind==='boat'&&s.towerId&&s.occupants.some(o=>effLevel(o)==='E'))
+              .map(s=>s.towerId)
+    );
+    const uuToday = viewOnly ? 0 : d.assign.filter(s=>s.kind==='tower'&&s.occupants.length===2&&(effLevel(s.occupants[0])+effLevel(s.occupants[1]))==='UU'&&!towersWithExpBoat.has(s.towerId)).length;
     if(uuToday>0) html+=`<div class="notice warn-n">⚠️ <div>${uuToday}× zwei Unerfahrene auf einem Turm.</div></div>`;
 
     // ── Karten ─────────────────────────────────────────────────
@@ -366,7 +381,7 @@ function renderOutput(){
         html += `<div class="tower-card" id="card-tower-${di}-${slot.towerId}" data-drop-kind="tower" data-drop-slot="${slot.towerId}" data-panel-name="Turm: ${escapeHtml(slot.tower)}" data-card-type="tower" data-tower-id="${slot.towerId}">
           <div class="tc-head" draggable="true" style="cursor:grab" data-card-kind="tower" data-card-slot="${slot.towerId}" title="Zum Sortieren ziehen"><span class="tc-name">🗼 ${escapeHtml(slot.tower)}</span><span class="tc-type normal">${slot.mainBeach?'🏖️ ':''}Turm · ${escapeHtml(slot.code||'?')} · P${slot.prio}</span></div>
           ${slot.occupants.map(p=>renderOccupant(p, null, 'tower', slot.towerId)).join('')}
-          ${(!viewOnly && slot.warn)?`<div class="warn-pair">⚠ ${slot.warn}</div>`:''}
+          ${(!viewOnly && slot.warn && !towersWithExpBoat.has(slot.towerId))?`<div class="warn-pair">⚠ ${slot.warn}</div>`:''}
           ${renderInlineBoat(boatsByTower[slot.towerId])}
         </div>`;
       } else if(t.id in closedReasonById){
