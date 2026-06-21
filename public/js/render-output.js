@@ -149,6 +149,7 @@ function renderOutput(){
     if(d.sickCount > 0)            flags.push('🤒');
     if(d.absentCount > 0)          flags.push('👋');
     if(d.manualClosed.length > 0)  flags.push('⛔');
+    if(!viewOnly && lockedDays.has(i)) flags.push('🔒');
     return `<button class="day-tab ${i===activeDay?'active':''}" data-day="${i}">${dayLabel(i)}${flags.length?`<span class="flag">${flags.join('')}</span>`:''}</button>`;
   }).join('');
 
@@ -205,6 +206,9 @@ function renderOutput(){
     const dayForced = forcedPlacements[di] || [];
     const forcedIds = new Set(dayForced.map(f => f.personId));
     const dayLabelTxt = dayLabel(di);
+    // Gesperrter Tag (Feature „Tag sperren"): wird bei Neuberechnung nicht mehr verändert
+    // → Editier-Steuerung dieses Tages wird ausgeblendet, Personen sind nicht verschiebbar.
+    const dayLocked = !viewOnly && lockedDays.has(di);
 
     html += `<div class="day-panel ${di===activeDay?'active':''}" id="day-panel-${di}" style="display:${di===activeDay?'block':'none'}" data-panel="${di}" data-panel-name="Tag ${di + 1} - ${dayLabelTxt}" data-day-index="${di}">`;
 
@@ -214,13 +218,19 @@ function renderOutput(){
       html += `<div class="vo-day-head"><span class="dc-title">${dayLabel(di)}</span>${_vd?`<span class="vo-date">📅 ${_vd}</span>`:''}</div>`;
     } else {
     // Tages-Steuerung
-    html += `<div class="day-controls">
+    const lockBtn = `<button class="ghost-btn lock-day-btn" data-lock-day="${di}"
+        style="border-color:${dayLocked?'var(--green)':'var(--text-dim)'};color:${dayLocked?'var(--green)':'var(--text-dim)'}"
+        title="${dayLocked?'Tag entsperren – wieder bearbeitbar':'Tag sperren – bleibt bei Änderungen an anderen Tagen unverändert'}">${dayLocked?'🔒 Gesperrt':'🔓 Tag sperren'}</button>`;
+    html += `<div class="day-controls${dayLocked?' day-locked':''}">
       <div class="dc-head">
-        <div><span class="dc-title">${dayLabel(di)}</span> <span class="dc-sub">— Status nur für diesen Tag</span></div>
-        <div class="date-pick"><label>📅 Datum</label>
-          <input type="date" value="${computeDayDates()[di]||''}" readonly title="Aus Startdatum berechnet"></div>
+        <div><span class="dc-title">${dayLabel(di)}</span> <span class="dc-sub">${dayLocked?'— 🔒 gesperrt (wird nicht neu berechnet)':'— Status nur für diesen Tag'}</span></div>
+        <div style="display:flex;align-items:center;gap:10px">
+          ${lockBtn}
+          <div class="date-pick"><label>📅 Datum</label>
+            <input type="date" value="${computeDayDates()[di]||''}" readonly title="Aus Startdatum berechnet"></div>
+        </div>
       </div>
-      ${dcSection('sick',
+      ${dayLocked ? '' : `${dcSection('sick',
         '🚫 Außer Dienst melden <span style="text-transform:none;letter-spacing:0;color:var(--text-dim)">(wird an der Hauptwache geführt)</span>',
         `<div class="toggle-grid">
           ${people.map(p=>`<span class="toggle-chip ${dayState[di].sick.has(p.id)?'sick':''}" data-sick="${p.id}" data-day="${di}">
@@ -267,7 +277,7 @@ function renderOutput(){
         </div>
         <button class="add-btn" style="margin-top:6px;border-color:rgba(255,179,71,0.4);color:var(--warn)"
           data-clear-all-day="${di}">Alle Fixierungen heute aufheben</button>`,
-        dayForced.length) : ''}
+        dayForced.length) : ''}`}
     </div>`;
     }
 
@@ -310,13 +320,14 @@ function renderOutput(){
       // weder über die Punkt-Farbe noch über das Label.
       const dotCls  = viewOnly ? roleDotSafe(p) : roleDot(p);
       const roleTxt = label || (viewOnly ? roleLabelSafe(p) : roleLabel(p));
+      const occEditable = !viewOnly && !dayLocked;
       return `
-          <div class="occupant" draggable="${viewOnly?'false':'true'}" data-person-id="${p.id}" data-source-kind="${kind}" data-source-slot="${slotId}">
+          <div class="occupant" draggable="${occEditable?'true':'false'}" data-person-id="${p.id}" data-source-kind="${kind}" data-source-slot="${slotId}">
             <i class="role-dot rd-${dotCls}"></i>${escapeHtml(p.name)}${labelText}
             ${forcedIds.has(p.id)?'<span class="forced-badge" title="Manuell fixiert">🔒</span>':''}
             <span class="o-role">${roleTxt}</span>
-            ${viewOnly?'':`<button class="move-btn" data-move-person="${p.id}" data-move-day="${di}"
-              data-move-kind="${kind}" data-move-slot="${slotId||''}" title="Verschieben">↕</button>`}
+            ${occEditable?`<button class="move-btn" data-move-person="${p.id}" data-move-day="${di}"
+              data-move-kind="${kind}" data-move-slot="${slotId||''}" title="Verschieben">↕</button>`:''}
           </div>`;
     };
 
@@ -328,7 +339,7 @@ function renderOutput(){
       // e.target.closest('.tower-card') und die Person landet fälschlich auf dem Turm.
       return bsList.map(bs => `
         <div class="boat-drop-zone" data-drop-kind="boat" data-drop-slot="${bs.boatId}">
-          <div class="hq-divider boat-inline" id="boat-inline-${di}-${bs.boatId}" draggable="true" data-boat-id="${bs.boatId}" data-boat-name="${escapeHtml(bs.name)}" data-boat-code="${escapeHtml(bs.code||'?')}" data-panel-name="Boot: ${escapeHtml(bs.name)}" title="Ziehen um Boot auf anderen Turm/HW zu verschieben">🚤 Boot: ${escapeHtml(bs.name)} · ${escapeHtml(bs.code||'?')}</div>
+          <div class="hq-divider boat-inline" id="boat-inline-${di}-${bs.boatId}" draggable="${dayLocked?'false':'true'}" data-boat-id="${bs.boatId}" data-boat-name="${escapeHtml(bs.name)}" data-boat-code="${escapeHtml(bs.code||'?')}" data-panel-name="Boot: ${escapeHtml(bs.name)}" title="${dayLocked?'Tag gesperrt':'Ziehen um Boot auf anderen Turm/HW zu verschieben'}">🚤 Boot: ${escapeHtml(bs.name)} · ${escapeHtml(bs.code||'?')}</div>
           ${(bs.occupants && bs.occupants.length)
             ? bs.occupants.map(p => renderOccupant(p, 'Bootsführer', 'boat', bs.boatId)).join('')
             : '<div style="color:var(--coral);font-size:.78rem;padding:6px 0">⚠ Kein Bootsführer verfügbar</div>'}
@@ -410,6 +421,22 @@ function renderOutput(){
   // Auf-/Zuklapp-Zustand der Tages-Steuerungs-Sektionen merken (überdauert Re-Renders)
   panel.querySelectorAll('details[data-dc-section]').forEach(dt =>
     dt.addEventListener('toggle', () => { dcSectionOpen[dt.dataset.dcSection] = dt.open; }));
+
+  // Tag sperren/entsperren: schützt den Tag vor Neuberechnung (s. generate()). Kein generate()
+  // nötig – der bestehende Plan bleibt; nur die persistierte Sperre + Anzeige ändern sich.
+  panel.querySelectorAll('[data-lock-day]').forEach(btn =>
+    btn.onclick = e => {
+      const day = +e.currentTarget.dataset.lockDay;
+      if(lockedDays.has(day)){
+        lockedDays.delete(day);
+        showToast('🔓 Tag entsperrt');
+      } else {
+        lockedDays.add(day);
+        showToast('🔒 Tag gesperrt – bleibt bei Änderungen an anderen Tagen unverändert');
+      }
+      renderOutput();
+      scheduleAutoSave();
+    });
 
   const togSets = [
     // exclusive: beim Aktivieren wird die jeweils andere Personen-Markierung entfernt
