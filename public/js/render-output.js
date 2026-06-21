@@ -129,9 +129,18 @@ function renderOutput(){
   const distinctPairs  = allPairs.filter(([,v])=>v>0).length;
   const repeatedPairs  = allPairs.filter(([,v])=>v>1).length;
   let uuTotal = 0, repeatTowers = 0;
-  schedule.forEach(day => day.assign.forEach(s => {
-    if(s.occupants?.length===2 && (effLevel(s.occupants[0])+effLevel(s.occupants[1]))==='UU') uuTotal++;
-  }));
+  schedule.forEach(day => {
+    // Türme mit erfahrenem BF auf zugeordnetem Boot zählen nicht als U+U-Besetzung
+    // (der erfahrene Bootsführer deckt die fehlende Erfahrung am Turm ab – analog Tages-Warnung).
+    const expBoatTowers = new Set(
+      day.assign.filter(s=>s.kind==='boat'&&s.towerId&&s.occupants.some(o=>effLevel(o)==='E'))
+                .map(s=>s.towerId)
+    );
+    day.assign.forEach(s => {
+      if(s.occupants?.length===2 && (effLevel(s.occupants[0])+effLevel(s.occupants[1]))==='UU'
+         && !(s.kind==='tower' && expBoatTowers.has(s.towerId))) uuTotal++;
+    });
+  });
   Object.values(lastResult.stats).forEach(s =>
     Object.values(s.towerVisits).forEach(v => { if(v>2) repeatTowers++; }));
 
