@@ -259,9 +259,20 @@ blenden die Editier-Sektionen aus, machen Personen/Boote nicht verschiebbar (`dr
 keine ↕-Buttons) und heben die `.day-controls` grün hervor; der Knopf wechselt zu „🔒 Gesperrt".
 Sperren löst KEIN `generate()` aus (bestehender Plan bleibt) – nur Re-Render + Autosave. Persistenz:
 `lockedDays` als Array in `_buildStateObject()`/`importStateJSON()` (Indizes ≥ DAYS werden verworfen),
-`STATE_VERSION` 10 → 11. **Scope:** Der Schutz wirkt über die in-memory `lastResult.schedule`; nach
-einem kompletten Reload wird der Plan deterministisch neu erzeugt (gleiche Eingaben → gleicher Tag),
-die Sperre selbst bleibt erhalten und schützt ab dann weiter. Tests: `test/locked-days.test.js`.
+`STATE_VERSION` 10 → 11.
+
+**Reload-Fix (`STATE_VERSION` 11 → 12):** `lastResult` (der berechnete Plan) wird NICHT
+mitserialisiert – nach einem Reload ist es `null`. Da jeder Load (autoLoad/loadPlan/Realtime) ein
+`generate()` auslöst, griff der Schutz `lastResult?.schedule?.[d]` nach einem Reload nicht mehr → der
+gesperrte Tag wurde neu berechnet und veränderte sich „im Nachhinein doch" (besonders bei `randomSeed=0`
+oder nach manuellem Verschieben, wo der Tag vom Voll-Lauf abweicht). Fix: `_buildLockedSchedules()`
+friert die Schedule-Einträge der gesperrten Tage als JSON-Snapshots ein (`lockedSchedules` im State,
+Personen als Plain-Objekt-Kopien). `importStateJSON()` hebt sie in ein **sparse `lastResult`** (nur die
+gesperrten Indizes belegt), bevor das nachgelagerte `generate()` läuft – so übernimmt es den gesperrten
+Tag bit-genau statt ihn neu zu rechnen. `lastResult` wird dabei nur überschrieben, wenn es gesperrte
+Tage MIT gesichertem Schedule gibt (sonst unangetastet → manueller Datei-Import rendert wie gehabt).
+Altpläne ohne `lockedSchedules` verhalten sich wie zuvor (Default leer). Tests: `test/locked-days.test.js`
+(jetzt 4 Checks inkl. Reload-Überlebens-/Bug-Reproduktions-Test).
 
 ### Feature 44: Impressum + editierbare Betreiberangaben (Admin-Panel)
 Neues, in Deutschland pflichtiges **Impressum** (`public/impressum.html`, § 5 DDG / § 18 Abs. 2 MStV)
