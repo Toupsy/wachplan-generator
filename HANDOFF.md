@@ -13,6 +13,24 @@
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: Tests grün, alle Server parsen (`node -c`).
 
+**Letzter Lauf (2026-06-23, Optimierungs-Audit – Branch `claude/kind-allen-dnqnvj`):**
+- **Dependency-Hygiene (#361 → PR #362, Low):** `jsdom` (`^29.1.1`) stand unter `dependencies`,
+  wird aber **nirgends** referenziert (`grep -rn jsdom` trifft nur die `package.json`-Zeile). Die
+  Test-Harness (`test/harness.js`) lädt die Browser-Globals via Node-`vm.Context` mit
+  handgeschriebenen DOM-Stubs statt jsdom → kein Laufzeit-/Test-Bedarf. `npm uninstall jsdom`
+  entfernt 1 Zeile aus `package.json` + ~504 Zeilen Transitiv-Deps aus `package-lock.json`,
+  keine Quellcode-Änderung. `npm test` **114/114 grün**, beide Server `node -c` OK.
+- **Audit-Befund, bewusst NICHT umgesetzt (Rauschen vermeiden):** Die parallel laufenden
+  Explore-Audits (Frontend+Backend) brachten überwiegend **theoretische** Befunde, die zu früheren
+  Audits passen: `getP()/getT()`-Null-Derefs in `render-sidebar.js` (data-ids stammen aus dem
+  synchron gerenderten DOM – bereits in einem Vorlauf als „theoretisch" eingestuft),
+  `schedule[dayIdx]`-Zugriffe in `move.js`/`export.js`/`render-output.js` (Indizes aus
+  synchronem DOM), `roster.js:394` `people[i]` vs `derived` (**kein** Bug: `mergeRosterOverrides`
+  ist ein 1:1-`.map()` über `derived` → gleiche Länge/Reihenfolge), `getDb()`-Null-Rückgabe
+  (sqlite3-Konstruktor liefert das Objekt synchron, `OPEN_CREATE` scheitert quasi nie), Plan-
+  DELETE-TOCTOU (Single-Prozess-SQLite, SELECT prüft bereits `user_id` → praktisch null Risiko).
+  Codebase ist nach ~5 vorherigen Audits ausgereift; keine echten High-Impact-Bugs offen.
+
 **Letzter Lauf (2026-06-21, Feature 47: Tag sperren – Branch `claude/festive-johnson-j2cwag`):**
 - **Feature 47 (Tag sperren):** Neuer Pro-Tag-Knopf „🔓 Tag sperren" in der Tages-Steuerung. Ein
   gesperrter Tag wird bei `generate()` nicht mehr neu berechnet, sondern aus `lastResult` übernommen
