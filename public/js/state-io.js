@@ -2,7 +2,29 @@
 // state-io.js – Planstatus-Import / Export (Feature 7) + Server-Sync
 // ============================================================
 
-const STATE_VERSION = 11;
+const STATE_VERSION = 12;
+
+/**
+ * Friert die Schedule-Einträge der gesperrten Tage ein (Feature „Tag sperren").
+ *
+ * Hintergrund: `lastResult` (der berechnete Plan) wird NICHT mitserialisiert – nach einem
+ * Reload ist es `null`. Das `generate()`, das jeder Load (autoLoad/loadPlan/Realtime) auslöst,
+ * kann einen gesperrten Tag aber nur dann übernehmen, wenn er in `lastResult.schedule[d]` liegt.
+ * Ohne gesicherten Schedule würde der gesperrte Tag also neu berechnet → er „verändert sich im
+ * Nachhinein doch". Deshalb sichern wir genau die gesperrten Tage als eingefrorene Snapshots
+ * (Personen werden als Plain-Objekt-Kopien geklont → der Tag bleibt bit-genau erhalten).
+ */
+function _buildLockedSchedules(){
+  const out = {};
+  if(typeof lockedDays === 'undefined' || !lockedDays || !lockedDays.size) return out;
+  if(!lastResult || !Array.isArray(lastResult.schedule)) return out;
+  lockedDays.forEach(d => {
+    const day = lastResult.schedule[d];
+    if(!day) return;
+    try { out[d] = JSON.parse(JSON.stringify(day)); } catch(e){ /* nicht klonbar → überspringen */ }
+  });
+  return out;
+}
 
 // Migriert eine Person vom alten Rollenmodell (role 'E'/'U' + bfLevel) auf das
 // neue Modell (role 'F'|'B'|'W' + experienced:bool). Idempotent.
@@ -71,6 +93,7 @@ function _buildStateObject(){
     })),
     forcedPlacements: forcedPlacements.map(fp => fp.map(f => ({ ...f }))),
     lockedDays:       (typeof lockedDays !== 'undefined' && lockedDays) ? [...lockedDays] : [],
+    lockedSchedules:  _buildLockedSchedules(),
   };
 }
 
@@ -191,6 +214,21 @@ function importStateJSON(json, silent = false){
   // Gesperrte Tage (Feature „Tag sperren"; Default leer für Altpläne). Indizes ≥ DAYS verwerfen.
   lockedDays = new Set((Array.isArray(s.lockedDays) ? s.lockedDays : [])
     .map(Number).filter(d => Number.isInteger(d) && d >= 0 && d < DAYS));
+
+  // Eingefrorene Schedules der gesperrten Tage in ein sparse lastResult heben, damit das nach
+  // dem Import folgende generate() sie übernimmt statt neu zu berechnen (sonst „verändert" sich
+  // ein gesperrter Tag nach jedem Reload). Nur überschreiben, wenn es gesperrte Tage MIT
+  // gesichertem Schedule gibt – sonst lastResult unangetastet lassen (das abschließende
+  // `if(lastResult) generate()` bzw. der Caller rendern wie gehabt).
+  const _lockedSched = (s.lockedSchedules && typeof s.lockedSchedules === 'object') ? s.lockedSchedules : null;
+  if(_lockedSched && lockedDays.size){
+    const sched = [];
+    lockedDays.forEach(d => {
+      const entry = _lockedSched[d];
+      if(entry && typeof entry === 'object') sched[d] = entry;
+    });
+    if(sched.some(Boolean)) lastResult = { schedule: sched };
+  }
 
   // UI neu aufbauen
   document.getElementById('start-date').value = startDate;

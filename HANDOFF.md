@@ -13,6 +13,20 @@
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: Tests grün, alle Server parsen (`node -c`).
 
+**Letzter Lauf (2026-06-23, Bugfix Feature 47: Sperre überlebt Reload – Branch `claude/plan-lock-function-fuj6du`):**
+- **Bug:** Gesperrte Tage veränderten sich „im Nachhinein doch". Ursache: `lastResult` wird nicht
+  mitserialisiert → nach einem Reload löst jeder Load (autoLoad/loadPlan/Realtime) ein `generate()`
+  mit `lastResult==null` aus, der Schutz `lastResult?.schedule?.[d]` greift nicht, der gesperrte Tag
+  wird neu berechnet (sichtbar v.a. bei `randomSeed=0` oder nach manuellem Verschieben).
+- **Fix (`STATE_VERSION` 11→12):** `_buildLockedSchedules()` friert die Schedules der gesperrten Tage
+  als JSON-Snapshots ein (`lockedSchedules` im State); `importStateJSON()` hebt sie in ein sparse
+  `lastResult`, bevor das nachgelagerte `generate()` läuft → der Tag wird bit-genau übernommen.
+  `lastResult` wird nur überschrieben, wenn es gesperrte Tage MIT Schedule gibt (sonst rendert der
+  manuelle Datei-Import wie gehabt). Details: docs/FEATURES.md „Feature 47" (Reload-Fix).
+- **Tests:** `test/locked-days.test.js` jetzt 4 Checks (neu: Reload-Überlebens-/Bug-Reproduktion).
+  Vor-/Nachher unverändert 12 pre-existing Failures (flaky DB/Session-Tests in Sandbox-FS), mein
+  Test bringt +1 Pass, keine Regression. `node -c public/js/state-io.js` grün.
+
 **Letzter Lauf (2026-06-21, Feature 47: Tag sperren – Branch `claude/festive-johnson-j2cwag`):**
 - **Feature 47 (Tag sperren):** Neuer Pro-Tag-Knopf „🔓 Tag sperren" in der Tages-Steuerung. Ein
   gesperrter Tag wird bei `generate()` nicht mehr neu berechnet, sondern aus `lastResult` übernommen

@@ -250,7 +250,9 @@ sonst auf die `.tower-card` zurück – sonst landete eine direkt aufs Boot gezo
 
 **Autosave/State-IO (state-io.js):** `autoSave()` nach jeder `generate()` → `PUT /api/plans/:id`
 (localStorage-Fallback). `autoLoad()` beim Start. `_buildStateObject()` zentrale Serialisierung;
-Sets als Arrays. `STATE_VERSION = 11`; `migratePerson()` für Altpläne.
+Sets als Arrays. `STATE_VERSION = 12`; `migratePerson()` für Altpläne. Gesperrte Tage (Feature 47)
+sichern zusätzlich ihren eingefrorenen Schedule (`lockedSchedules`), den `importStateJSON()` in ein
+sparse `lastResult` hebt → der gesperrte Tag überlebt einen Reload bit-genau statt neu gerechnet zu werden.
 
 **Wachlisten-Import (roster.js, Feature 31):** Upload (CSV/PDF) → `roster[]` (Roh-Verfügbarkeiten).
 `applyRosterToWindow()` baut `people[]` + tageweise `absent` **dynamisch** aus `startDate`+`DAYS`
