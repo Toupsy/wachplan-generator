@@ -320,6 +320,23 @@ Nachgereicht zu Feature 45, damit die echte IP ohne Reverse-Proxy-Umbau erschein
 
 ## Bugfixes
 
+### CI-Tests („Push Test") schlugen sporadisch durch `node:test`-Runner-Crash fehl (#361/#365-Folge)
+Der GitHub-Actions-„Tests"-Lauf wurde regelmäßig **zufällig rot**, obwohl alle Tests bestanden:
+`error: 'Unable to deserialize cloned data due to invalid or unsupported version'` /
+`failureType: 'uncaughtException'` an `session-user-deletion.test.js`. **Ursache:** kein Produkt-
+oder Test-Bug, sondern ein bekannter `node:test`-Runner-Bug (`#proccessRawBuffer`) beim
+Reassemblieren des v8-serialisierten Streams der pro Testdatei gespawnten Child-Prozesse – die
+Subtests liefen alle durch (`ok 1–5`), nur der Runner crashte. **Fix (zwei Maßnahmen, keine
+Code-/Verhaltensänderung an der App):**
+- `.github/workflows/test.yml` + `release.yml` von **Node 20 → 22** (angeglichen an lokale Dev
+  22.x und `deploy-preview.yml`; Node 20 wird auf den Runnern ohnehin deprecated). Neuere
+  Runner-Linie reassembliert den IPC-Stream robuster.
+- Test-Step **wiederholt sich bei Fehler genau einmal** (`npm test || (… && npm test)`), um exakt
+  diesen transienten Crash abzufangen. Ein echter Test-Fehler ist deterministisch und fällt auch
+  im Retry durch → es wird nichts maskiert.
+- `isolation=none` wurde **bewusst verworfen** (viele Testdateien setzen widersprüchliche
+  `process.env`/cachen DB-Verbindungen pro Prozess → liefe in einem gemeinsamen Prozess kaputt).
+
 ### Bootsführer per D&D aufs Boot ziehen landete fälschlich auf dem Turm
 Zog man eine Person (z. B. einen Bootsführer) per Drag-and-Drop direkt auf ein inline unter einem
 Turm gerendertes Boot, wurde sie immer **dem Turm** statt dem Boot zugeordnet. **Ursache:** Das

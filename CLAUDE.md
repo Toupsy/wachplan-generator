@@ -357,9 +357,16 @@ kein geschlossener Turm/Boot belegt, `slotCount` eingehalten. Perf-Baseline
 `node -c` + manuell. `npm install` im frischen Container nötig (sonst `sqlite3`-Fehler in
 `session-user-deletion.test.js`); `session-user-deletion`/`auth-flow` sind in Sandbox-FS
 gelegentlich flaky (IPC-Serialisierung bzw. sporadisches `SQLITE_CORRUPT`) →
-erneut laufen lassen, grün = alle.
+erneut laufen lassen, grün = alle. Die „IPC-Serialisierung"-Flake ist ein bekannter
+`node:test`-Runner-Bug (`#proccessRawBuffer`: „Unable to deserialize cloned data") beim
+Reassemblieren des v8-serialisierten Child-Prozess-Streams – die Tests selbst bestehen, nur
+der Runner crasht. **Niemals isolation=none** (viele Tests setzen widersprüchliche
+`process.env`/cachen DB-Verbindungen pro Prozess).
 **CI:** `.github/workflows/test.yml` führt `npm ci` + `npm test` bei jedem `push`/`pull_request`
-aus (Node 20) → roter Test blockt den Merge. (GDPR-Art.-17-Löschung ist über
+aus (Node 22; `release.yml` ebenso) → roter Test blockt den Merge. Der Test-Step **wiederholt
+sich bei Fehler genau einmal** (`npm test || (… && npm test)`), um exakt diesen transienten
+Runner-IPC-Crash abzufangen; ein echter Test-Fehler ist deterministisch und fällt auch im Retry
+durch → nichts wird maskiert. (GDPR-Art.-17-Löschung ist über
 `session-user-deletion.test.js` Teil von `npm test`; das alte Standalone-Skript
 `test/gdpr-deletion-verification.js` ist veraltet/kaputt und nicht in CI eingebunden.)
 

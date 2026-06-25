@@ -11,7 +11,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm test
+      # node:test spawns each test file in a child process and streams the results
+      # back over a v8-serialized IPC channel. That channel intermittently corrupts
+      # ("Unable to deserialize cloned data due to invalid or unsupported version"),
+      # a known node:test runner bug (#proccessRawBuffer) unrelated to our assertions
+      # — all subtests pass, only the runner crashes while reassembling the stream.
+      # Retry once so this transient runner crash doesn't block merges; a real test
+      # failure is deterministic and fails the retry too, so nothing is masked.
+      - name: Run tests
+        run: npm test || (echo "::warning::test run crashed; retrying once (suspected node:test IPC flake)" && npm test)
