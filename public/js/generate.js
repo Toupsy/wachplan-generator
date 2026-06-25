@@ -76,7 +76,6 @@ function _reAccumulateDayStats(daySchedule, dayIdx, stats, pairCount, ensure, pa
         const s = ensure(p.id);
         s.total++;
         s.boatVisits[slot.boatId] = (s.boatVisits[slot.boatId] || 0) + 1;
-        s.lastBoatId = slot.boatId;  // Track for rotation penalty on next day
       });
     } else if(slot.kind === 'main'){
       // Aktive HW-Wachen (mainGuards): total++ + hwVisits++ + hwGuardDays++.
@@ -131,7 +130,6 @@ function generate(startDay = 0){
       hwVisits: 0,
       towerWithBoatDays: 0,
       boatCaptainPairings: {},
-      lastBoatId: null,  // Track BF's previous boat for rotation penalty
       mainBeachDays: 0,  // Feature: Hauptstrand-Türme – Tage auf Hauptstrand-Türmen
       outerBeachDays: 0, // Feature: Hauptstrand-Türme – Tage auf Außen-Türmen
       hwGuardDays: 0     // Feature: BF-HW-Wunsch – Anzahl AKTIVER HW-Dienste (mainGuards/Führung)
@@ -902,7 +900,6 @@ function generate(startDay = 0){
           slot.bootsf = bf;
           const s = ensure(bf.id);
           s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id] || 0) + 1;
-          s.lastBoatId = bo.id;
         }
         if(slot.occupants.length > 0) dayAssign.push(slot);
         else                         boatsNoBootsf.push(bo);
@@ -947,7 +944,6 @@ function generate(startDay = 0){
           if(assigned === 0) slot.bootsf = bf;  // Erste Person als Bootsführer
           const s = ensure(bf.id);
           s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id]||0)+1;
-          s.lastBoatId = bo.id;  // Update for next day's rotation penalty
           assigned++;
         } else {
           break;
