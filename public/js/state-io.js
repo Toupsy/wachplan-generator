@@ -82,7 +82,7 @@ function _buildStateObject(){
       return obj;
     }),
     roster:               (typeof roster !== 'undefined' ? roster : []).map(r => ({ ...r })),
-    rosterOverrides:      (typeof rosterOverrides !== 'undefined' && rosterOverrides) ? JSON.parse(JSON.stringify(rosterOverrides)) : {},
+    rosterOverrides:      (typeof rosterOverrides !== 'undefined' && rosterOverrides) ? { ...rosterOverrides } : {},
     towers:               towers.map(t => { const { leaderCount, ...rest } = t; return { ...rest, slotCount: t.slotCount || 2, mainBeach: !!t.mainBeach, sanTower: !!t.sanTower, leaderTower: !!t.leaderTower }; }),
     boats:                boats.map(b => ({ ...b, slotCount: b.slotCount || 1 })),
     dayState: dayState.map(d => ({
