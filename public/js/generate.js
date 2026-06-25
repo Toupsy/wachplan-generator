@@ -121,9 +121,9 @@ function generate(startDay = 0){
   autoCodes();
 
   const pairCount = {};
-  const stats     = {};
+  const stats     = new Map();
   const ensure    = id => {
-    if(!stats[id]) stats[id] = {
+    if(!stats.has(id)) stats.set(id, {
       total: 0,
       towerVisits: {},
       boatVisits: {},
@@ -133,8 +133,8 @@ function generate(startDay = 0){
       mainBeachDays: 0,  // Feature: Hauptstrand-Türme – Tage auf Hauptstrand-Türmen
       outerBeachDays: 0, // Feature: Hauptstrand-Türme – Tage auf Außen-Türmen
       hwGuardDays: 0     // Feature: BF-HW-Wunsch – Anzahl AKTIVER HW-Dienste (mainGuards/Führung)
-    };
-    return stats[id];
+    });
+    return stats.get(id);
   };
   const pairKey   = (a,b) => a < b ? a + '|' + b : b + '|' + a;
 
@@ -1056,12 +1056,12 @@ function generate(startDay = 0){
   }
 
   // Calculate fairness metrics
-  const allStats = Object.values(stats);
+  const allStats = [...stats.values()];
 
   // Tower distribution: count unique towers per person
   const towerDistribution = {};
   people.forEach(p => {
-    const stat = stats[p.id];
+    const stat = stats.get(p.id);
     if(stat && stat.towerVisits) {
       towerDistribution[p.id] = Object.keys(stat.towerVisits).length;
     } else {
@@ -1073,7 +1073,7 @@ function generate(startDay = 0){
   const boatDistribution = {};
   const boatCounts = {};
   people.forEach(p => {
-    const stat = stats[p.id];
+    const stat = stats.get(p.id);
     if(stat && stat.boatVisits) {
       boatDistribution[p.id] = Object.keys(stat.boatVisits).length;
       boatCounts[p.id] = Object.values(stat.boatVisits).reduce((a,b) => a+b, 0);
@@ -1102,7 +1102,7 @@ function generate(startDay = 0){
     let maxRepeats = 0;
     let totalPairings = 0;
     let diversePairings = 0;
-    Object.values(stats).forEach(s => {
+    stats.forEach(s => {
       Object.values(s.boatCaptainPairings || {}).forEach(count => {
         totalPairings++;
         if(count === 1) diversePairings++;
@@ -1129,7 +1129,7 @@ function generate(startDay = 0){
     : 0;
 
   lastResult = {
-    schedule, pairCount, stats,
+    schedule, pairCount, stats: Object.fromEntries(stats),
     peopleGuards: people.filter(p => p.role==='W'),
     fairnessMetrics: {
       hwBalance: {
