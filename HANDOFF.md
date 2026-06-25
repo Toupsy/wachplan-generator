@@ -13,6 +13,24 @@
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: Tests grün, alle Server parsen (`node -c`).
 
+**Letzter Lauf (2026-06-25, Optimierungs-Audit – Branch `claude/kind-allen-psbuxv`):**
+- **Audit-Umfang:** Zwei parallele Audit-Agenten (Kern-Algorithmus `generate.js` + Frontend / Backend
+  `server/`) plus eigene Reviews von `dates.js`, `roster.js`, `export.js`. Codebase ist sehr reif und
+  mehrfach auditiert → kaum echte Befunde. Theoretische Treffer (fehlende `dayIdx`-Bounds in `move.js`
+  aus synchron gerendertem DOM; unbounded Rate-Limit-Maps mit 15-min-Cleanup+`unref`; owner-kontrollierte
+  Share-Rolle-Defaults) bewusst **nicht** als Issue gemeldet (Rauschen vermeiden, Klasse bereits im
+  Handoff als „theoretisch" eingestuft).
+- **Echter Befund + Fix (#365, Low, `chore:` → kein Bump):** `generate.js` trug ein totes Stat-Feld
+  `lastBoatId` – an 3 Stellen geschrieben (`_reAccumulateDayStats`, Min-Cost-Matching-Zweig,
+  Fairness-Scoring-Zweig) + in `ensure()` initialisiert, aber **nirgends gelesen**. Überrest der alten
+  Boot-Rotation (#253, v0.4.21: „`lastBoatId`+300"); die heutige `boatRotationPenalty()` liest die
+  **Schedule-Historie** (`schedule[d-back]`) direkt, deckt also auch Zwangszuweisungen ab. Schlimmer:
+  die Kommentare („Track for rotation penalty") behaupteten das Gegenteil und verleiteten einen
+  Audit-Agenten zur Fehldiagnose. Feld + 3 Writes + Kommentare entfernt. **Keine Verhaltensänderung**
+  (Wert nie gelesen), `npm test` **115/115 grün**, `node -c` OK. Commit `c866d8a`.
+- **Offen (von anderem Lauf):** Issue #361 (jsdom entfernen) mit zwei offenen PRs #362/#363 – nicht
+  dupliziert.
+
 **Letzter Lauf (2026-06-23, Bugfix Feature 47: Sperre überlebt Reload – Branch `claude/plan-lock-function-fuj6du`):**
 - **Bug:** Gesperrte Tage veränderten sich „im Nachhinein doch". Ursache: `lastResult` wird nicht
   mitserialisiert → nach einem Reload löst jeder Load (autoLoad/loadPlan/Realtime) ein `generate()`
