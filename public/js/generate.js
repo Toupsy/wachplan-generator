@@ -836,8 +836,12 @@ function generate(startDay = 0){
     // Min-Cost-Matching über alle Boote+BF des Tages findet die fairste Gesamt-
     // Zuordnung; zusammen mit dem Lookback-Penalty ergibt das die saubere Rotation.
     // Nur im Standardfall: keine Zwangsboote, je 1 BF pro Boot, kleine Anzahl.
+    // LIMIT: DFS ist O(n!) im Worst-Case; bei ≤8 Booten = 8! = 40320 Kombinationen
+    // (in <50ms). Bei >8 Booten gierige Fallback — erhöhe MAX_BOAT_MATCHING
+    // nur wenn du auch den DFS mit Branch-and-Bund erweiterst (s. boatRotationPenalty).
+    const MAX_BOAT_MATCHING = 8;
     const useBoatMatching =
-      boatsProcessed.length > 0 && poolB.length > 0 && boatsProcessed.length <= 8 &&
+      boatsProcessed.length > 0 && poolB.length > 0 && boatsProcessed.length <= MAX_BOAT_MATCHING &&
       boatsProcessed.every(bo => !(forcedByBoat[bo.id]?.length) && (bo.slotCount || 1) === 1);
     const boatMatch = new Map();  // boatId → BF
     if(useBoatMatching){
