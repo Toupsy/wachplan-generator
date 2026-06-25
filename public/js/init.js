@@ -275,6 +275,7 @@ if(serviceEndHourInput) serviceEndHourInput.onchange = e => {
 const startDateInput = document.getElementById('start-date');
 if(startDateInput) startDateInput.onchange = e => {
   startDate = e.target.value;
+  if(typeof invalidateDayDatesCache === 'function') invalidateDayDatesCache();
   // Dynamische Namensliste: bei hochgeladener Wachliste neu ableiten
   if(typeof roster !== 'undefined' && roster.length && typeof applyRosterToWindow === 'function') applyRosterToWindow();
 };
