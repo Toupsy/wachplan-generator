@@ -188,13 +188,11 @@ function generate(startDay = 0){
     const transparentDayForced = dayForced.filter(f =>  f.transparent);
     const effectiveForcedIds   = new Set(effectiveDayForced.map(f => f.personId));
 
-    const isForced = p => effectiveForcedIds.has(p.id);  // nur effektive aus Pool entfernen
-
     // Verfügbare Personen OHNE effektiv-zwangsweise zugewiesene
     const byRole = {};
     people.forEach(p => {
       // Komplett abwesende Personen werden gar nicht eingeplant (auch nicht an der HW).
-      if(isAbsent(p.id) || isSick(p.id) || isForced(p)) return;
+      if(isAbsent(p.id) || isSick(p.id) || effectiveForcedIds.has(p.id)) return;
       (byRole[p.role] || (byRole[p.role] = [])).push(p);
     });
     // availE/availU werden aus den Wachgängern (role 'W') über das experienced-Flag
@@ -205,24 +203,8 @@ function generate(startDay = 0){
     const availU  = guardsW.filter(p => !p.experienced);
     const sickToday = people.filter(p => isSick(p.id));
 
-    // Zusätzlich: nur EFFEKTIV forcierte Personen aus Pools entfernen
-    // Transparent forcierte Personen bleiben im Pool, werden normal eingeplant,
-    // dann visuell verschoben (am Ende des Tags)
-    const removeFromPools = (id) => {
-      const person = people.find(x => x.id === id);
-      if(!person) return;
-      // Remove from all pools
-      const idx_f = availF.findIndex(x => x.id === id);
-      if(idx_f >= 0) availF.splice(idx_f, 1);
-      const idx_b = availB.findIndex(x => x.id === id);
-      if(idx_b >= 0) availB.splice(idx_b, 1);
-      const idx_e = availE.findIndex(x => x.id === id);
-      if(idx_e >= 0) availE.splice(idx_e, 1);
-      const idx_u = availU.findIndex(x => x.id === id);
-      if(idx_u >= 0) availU.splice(idx_u, 1);
-    };
-    // Remove only EFFECTIVE forced persons (transparent stay in pools)
-    effectiveDayForced.forEach(f => removeFromPools(f.personId));
+    // Personen bereits in byRole gefiltert (effectiveForcedIds).
+    // Kein manuelles removeFromPools() mehr nötig — O(n) statt O(n×m).
 
     // Effektive Zwangszuweisungen nach Ziel gruppieren
     const forcedByTower = {};
