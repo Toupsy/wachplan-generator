@@ -70,6 +70,11 @@ function defaultAlgoParams(){
     hwVisitWeightHW:         200,   // HW-Strafe pro bisherigem HW-Dienst (Rotation, analog towerVisitWeight beim Turm)
     hwWishBonusEarly:        600,   // BF-HW-Wunsch Bonus (früh, >2 Tage vor Ende)
     hwWishBonusNear:        6000,   // BF-HW-Wunsch Bonus (2 Tage vor Ende)
+    // Turmpartner-Wunsch (Feature 48) – BEWUSST klein gehalten (< uuPenaltyTower/eePenaltyReserve),
+    // damit der Wunsch der E/U-Mischung und harten Fairness-Regeln weicht ("ohne Fairness zu beeinflussen").
+    partnerWishBonusEarly:   300,   // Turmpartner-Wunsch Bonus (früh, >2 Tage vor Ende)
+    partnerWishBonusNear:    800,   // Turmpartner-Wunsch Bonus (≤2 Tage vor Ende)
+    partnerWishMutualExtra:  150,   // Zusatz-Bonus, wenn der Wunsch gegenseitig ist
     // BF-Schutz
     surplusBfActivePenalty:  800,   // Überzahl-BF auf Turm mit aktivem Boot
     surplusBfClosedBonus:    350,   // Überzahl-BF Bonus auf Turm ohne aktives Boot
@@ -86,7 +91,7 @@ function defaultAlgoParams(){
 let algoParams = defaultAlgoParams();
 
 // Stammdaten
-let people   = [];   // [{ id, name, role:'F'|'B'|'W', experienced:bool, labels:'', enableLabels:true, wantsHW:bool, sanitaeter:bool }] (experienced gilt für B und W; F ignoriert. wantsHW nur für B: Wunsch auf ≥1 aktiven HW-Dienst bei BF-Überzahl. sanitaeter für W und B: wird auf San-Türmen bevorzugt eingesetzt (bei BF nur, wenn überzählig und damit für einen Turmplatz verfügbar). labels Komma-getrennt, enableLabels steuert Sichtbarkeit)
+let people   = [];   // [{ id, name, role:'F'|'B'|'W', experienced:bool, labels:'', enableLabels:true, wantsHW:bool, sanitaeter:bool, partnerWishIds:number[] }] (experienced gilt für B und W; F ignoriert. wantsHW nur für B: Wunsch auf ≥1 aktiven HW-Dienst bei BF-Überzahl. sanitaeter für W und B: wird auf San-Türmen bevorzugt eingesetzt (bei BF nur, wenn überzählig und damit für einen Turmplatz verfügbar). partnerWishIds: Liste gewünschter Turmpartner (ids); einseitig genügt, jeder Wunsch wird einmal/Woche erfüllt – Feature 48. labels Komma-getrennt, enableLabels steuert Sichtbarkeit)
 // Hochgeladene DLRG-Wachliste (Feature 31): Roh-Verfügbarkeiten aller zugesagten Personen.
 // [{ name, role:'F'|'B'|'W', from:'YYYY-MM-DD', to:'YYYY-MM-DD' }]. Aus dieser Liste leitet
 // applyRosterToWindow() die people[] + tageweisen Abwesenheiten dynamisch aus startDate + DAYS ab.

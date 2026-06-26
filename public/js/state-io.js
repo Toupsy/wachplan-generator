@@ -2,7 +2,7 @@
 // state-io.js – Planstatus-Import / Export (Feature 7) + Server-Sync
 // ============================================================
 
-const STATE_VERSION = 12;
+const STATE_VERSION = 13;
 
 /**
  * Friert die Schedule-Einträge der gesperrten Tage ein (Feature „Tag sperren").
@@ -35,7 +35,9 @@ function migratePerson(p){
   else if(role === 'B'){ experienced = (p.experienced !== undefined) ? p.experienced : (p.bfLevel !== 'U'); }
   else if(role === 'F'){ experienced = false; }       // bei Führung irrelevant
   else { role = 'W'; experienced = (p.experienced !== undefined) ? p.experienced : true; }
-  const { bfLevel, ...rest } = p;
+  // partnerWishId (alter Einzelwert) wird hier verworfen – importStateJSON migriert ihn
+  // gezielt auf das neue Array-Feld partnerWishIds.
+  const { bfLevel, partnerWishId, ...rest } = p;
   return { ...rest, role, experienced };
 }
 const STORAGE_KEY   = 'dlrg_wachplan_autosave';  // Fallback für offline
@@ -164,7 +166,12 @@ function importStateJSON(json, silent = false){
     labels: p.labels || '',
     enableLabels: p.enableLabels !== undefined ? p.enableLabels : ((p.labels||'').trim().length > 0),  // Fallback für alte Exporte
     wantsHW: !!p.wantsHW,   // BF-HW-Wunsch (Default false für Altpläne)
-    sanitaeter: !!p.sanitaeter   // Sanitäter (Default false für Altpläne)
+    sanitaeter: !!p.sanitaeter,   // Sanitäter (Default false für Altpläne)
+    // Turmpartner-Wünsche (Feature 48): Liste von ids. Migration: Altpläne mit Einzelwert
+    // partnerWishId → [id]; fehlt beides → leeres Array.
+    partnerWishIds: Array.isArray(p.partnerWishIds)
+      ? p.partnerWishIds.filter(x => typeof x === 'number')
+      : (p.partnerWishId != null ? [p.partnerWishId] : [])
   }));
   roster = Array.isArray(s.roster) ? s.roster.map(r => ({ ...r })) : [];   // hochgeladene Wachliste (Feature 31; Default [] für Altpläne)
   rosterOverrides = (s.rosterOverrides && typeof s.rosterOverrides === 'object') ? s.rosterOverrides : {};   // manuelle Korrekturen (Feature 31)

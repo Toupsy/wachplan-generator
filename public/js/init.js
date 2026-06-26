@@ -392,6 +392,16 @@ if(moveModal) moveModal.addEventListener('click', e => {
   if(e.target === e.currentTarget) closeMoveModal();  // Klick außerhalb schließt Modal
 });
 
+// ── Turmpartner-Wunsch-Modal (Feature 48) ─────────────────────────
+const partnerModalCloseBtn = document.getElementById('partner-modal-close-btn');
+if(partnerModalCloseBtn) partnerModalCloseBtn.onclick = closePartnerModal;
+const partnerModalConfirm = document.getElementById('partner-modal-confirm');
+if(partnerModalConfirm) partnerModalConfirm.onclick = _savePartnerModal;
+const partnerModal = document.getElementById('partner-modal');
+if(partnerModal) partnerModal.addEventListener('click', e => {
+  if(e.target === e.currentTarget) closePartnerModal();  // Klick außerhalb schließt Modal
+});
+
 // ── XLSX-Stationsspalten ──────────────────────────────────────────
 const autoExportColsBtn = document.getElementById('btn-auto-export-cols');
 if(autoExportColsBtn) autoExportColsBtn.onclick = () => {

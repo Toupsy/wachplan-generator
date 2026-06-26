@@ -196,6 +196,11 @@ function mergeRosterOverrides(derived, overrides){
       sanitaeter:   o.sanitaeter    !== undefined ? o.sanitaeter   : false,
       labels:       o.labels        !== undefined ? o.labels       : '',
       enableLabels: o.enableLabels  !== undefined ? o.enableLabels : true,
+      // Turmpartner-Wünsche (Feature 48): Roster-Ableitung vergibt frische ids → id-basierte
+      // Wünsche überleben das Neu-Ableiten nicht. Daher werden sie name-basiert als Override
+      // gehalten (`partnerWishNames`, Liste) und nach der id-Vergabe in applyRosterToWindow()
+      // auf die neuen ids aufgelöst. Nur über Overrides (keine Roster-Quelle) → Default [].
+      partnerWishNames: Array.isArray(o.partnerWishNames) ? o.partnerWishNames : [],
     };
   });
 }
@@ -377,6 +382,16 @@ function applyRosterToWindow(){
 
   // Neue people[] mit frischen IDs; manuelle Overrides (Rolle/Erfahrung/…) überschreiben die Ableitung
   people = mergeRosterOverrides(derived, rosterOverrides).map(p => ({ id: ++uid, ...p }));
+
+  // Turmpartner-Wünsche (Feature 48): name-basiert gespeichert → auf die frischen ids auflösen.
+  // Namen, die im aktuellen Fenster nicht vorkommen, werden übersprungen (kein toter Verweis).
+  const _idByName = new Map(people.map(p => [_rosterKey(p.name), p.id]));
+  people.forEach(p => {
+    p.partnerWishIds = (p.partnerWishNames || [])
+      .map(n => _idByName.get(_rosterKey(n)))
+      .filter(id => id != null);
+    delete p.partnerWishNames;
+  });
 
   // Zwangszuweisungen referenzieren alte IDs → zurücksetzen
   forcedPlacements = freshForcedPlacements();
