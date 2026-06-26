@@ -16,8 +16,11 @@ Eine Person kann sich eine andere als **Turmpartner** wünschen – der Wunsch w
 Woche **einmal** erfüllt, **ohne die Fairness zu beeinflussen**.
 - **Datenmodell:** neues Person-Feld `partnerWishId: number|null` (id des Wunschpartners).
   Serialisierung in `_buildStateObject` (via `{...p}`) + `importStateJSON` (Default `null` für
-  Altpläne), `STATE_VERSION` 12 → 13. Roster-abgeleitete Pläne setzen es auf `null`
-  (id-basierter Verweis überlebt das Neu-Ableiten mit frischen ids nicht).
+  Altpläne), `STATE_VERSION` 12 → 13.
+- **Roster-Workflow:** Wachliste hochladen → Wünsche setzen → Datum/Tage ändern bleibt erhalten.
+  Da `applyRosterToWindow()` `people[]` mit frischen ids neu ableitet, wird der Wunsch
+  **name-basiert** als Override `partnerWishName` gehalten (`mergeRosterOverrides`) und nach der
+  id-Vergabe wieder auf `partnerWishId` aufgelöst.
 - **UI** (`render-sidebar.js`): 🤝-Toggle pro Person blendet eine Auswahl-Zeile (Dropdown aller
   anderen Personen) ein. Beim Löschen einer Person werden Wünsche auf sie entfernt.
 - **Algorithmus** (`generate.js`, `partnerWishBonus()` im Turm-Zweig von `bestPair`):

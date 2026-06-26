@@ -101,7 +101,7 @@ Modals `#login-modal`/`#move-modal`/`#share-modal`/`#plans-modal` …) sind eind
 ```js
 people[]    // { id, name, role:'F'|'B'|'W', experienced:bool, wantsHW:bool, sanitaeter:bool, partnerWishId:number|null } (experienced gilt für B & W; wantsHW nur für B: ≥1 aktiver HW-Dienst bei BF-Überzahl; sanitaeter für W & B: wird auf San-Türmen bevorzugt eingesetzt – bei BF nur, wenn überzählig/im Guard-Pool – sonst normal – Feature 33/35; partnerWishId: Wunsch-Turmpartner, einseitig genügt, einmal/Woche erfüllt – Feature 48)
 roster[]    // hochgeladene Wachliste: { name, role:'F'|'B'|'W', from:'YYYY-MM-DD', to:'YYYY-MM-DD' } (Feature 31). applyRosterToWindow() leitet people[]+absent dynamisch aus startDate+DAYS ab (roster.js)
-rosterOverrides // { normName → { role?, experienced?, wantsHW?, sanitaeter?, labels?, enableLabels? } } – manuelle Korrekturen, die das Neu-Ableiten überleben (mergeRosterOverrides, Feature 31)
+rosterOverrides // { normName → { role?, experienced?, wantsHW?, sanitaeter?, labels?, enableLabels?, partnerWishName? } } – manuelle Korrekturen, die das Neu-Ableiten überleben (mergeRosterOverrides, Feature 31; partnerWishName: name-basierter Turmpartner-Wunsch, in applyRosterToWindow auf frische id aufgelöst – Feature 48)
 towers[]    // { id, name, prio, code, slotCount(1–10,Def2), mainBeach(bool,Def false), sanTower(bool,Def false), leaderTower(bool,Def false) } (sanTower: wenn möglich ≥1 Sanitäter – Feature 33; leaderTower: wenn möglich ≥1 Führungskraft auf regulärem Slot – Feature 34)
 boats[]     // { id, name, code, towerId:number|'HW'|null, prio, slotCount(1–3,Def1) }
 dayState[]      // Array[DAYS]: { sick:Set, absent:Set, closed:Set, closedBoats:Set }
@@ -189,7 +189,10 @@ ab (300→800, +150 gegenseitig). „Erfüllt" = das Paar saß diese Woche schon
 gleiche Quelle wie `pairRepeatWeight`) → Bonus aus (**einmal/Woche**). Bewusst **< `uuPenaltyTower`/
 `eePenaltyReserve`**: weiche Präferenz, die der E/U-Mischung und der harten Fairness weicht – wird
 nur erfüllt, wenn ohnehin fair/zulässig (Vorgabe „ohne Fairness zu beeinflussen"). Kein neues
-Stat-Feld nötig; Roster-Ableitung setzt `partnerWishId=null` (id-Verweis überlebt frische ids nicht).
+Stat-Feld nötig. **Roster-Workflow:** der Wunsch wird name-basiert als Override `partnerWishName`
+gehalten (id-Verweis überlebt das Neu-Ableiten mit frischen ids nicht) und in `applyRosterToWindow`
+nach der id-Vergabe auf die neue `partnerWishId` aufgelöst → Wachliste hochladen, dann Wünsche
+setzen, dann Datum/Tage ändern bleibt erhalten.
 
 **BF-an-HW-Pflicht (Feature 32, global `requireBfAtHw`):** Ist das Flag aktiv und gibt es echte
 BF-Überzahl (`poolSBF` nicht leer), wird im HW-Abschnitt VOR der regulären Befüllung ein

@@ -176,6 +176,20 @@ test('mergeRosterOverrides: ohne Override bleibt alles bei der Ableitung', () =>
   assert.strictEqual(merged[0].experienced, false);
   assert.strictEqual(merged[0].wantsHW, false);
   assert.strictEqual(merged[0].enableLabels, true);
+  assert.strictEqual(merged[0].partnerWishName, null);
+});
+
+test('mergeRosterOverrides: Turmpartner-Wunsch (name-basiert) übersteht das Neu-Ableiten', () => {
+  // Feature 48: Wunsch wird name-basiert gehalten und in applyRosterToWindow() wieder auf eine
+  // frische id aufgelöst → Wachliste hochladen, Wunsch setzen, Datum/Tage ändern bleibt erhalten.
+  const derived = [
+    { name: 'Max Mustermann', role: 'W', experienced: true,  absentDays: [] },
+    { name: 'Erika Beispiel', role: 'W', experienced: false, absentDays: [] },
+  ];
+  const overrides = { 'max mustermann': { partnerWishName: 'Erika Beispiel' } };
+  const merged = mergeRosterOverrides(derived, overrides);
+  assert.strictEqual(merged.find(p => p.name === 'Max Mustermann').partnerWishName, 'Erika Beispiel');
+  assert.strictEqual(merged.find(p => p.name === 'Erika Beispiel').partnerWishName, null);
 });
 
 // ── PDF-Parsing (inhaltsbasiert) ─────────────────────────────────────────────

@@ -196,10 +196,11 @@ function mergeRosterOverrides(derived, overrides){
       sanitaeter:   o.sanitaeter    !== undefined ? o.sanitaeter   : false,
       labels:       o.labels        !== undefined ? o.labels       : '',
       enableLabels: o.enableLabels  !== undefined ? o.enableLabels : true,
-      // Turmpartner-Wunsch referenziert eine Personen-id; Roster-Ableitung vergibt frische ids
-      // (deriveRosterPeople läuft neu) → ein id-basierter Wunsch kann ein Neu-Ableiten nicht
-      // sinnvoll überleben. Daher hier immer null; der Wunsch ist ein Feature manueller Pläne.
-      partnerWishId: null,
+      // Turmpartner-Wunsch (Feature 48): Roster-Ableitung vergibt frische ids → ein id-basierter
+      // Wunsch überlebt das Neu-Ableiten nicht. Daher wird er name-basiert als Override gehalten
+      // (`partnerWishName`) und nach der id-Vergabe in applyRosterToWindow() auf die neue id
+      // aufgelöst. Nur über Overrides möglich (keine Roster-Quelle) → Default null.
+      partnerWishName: o.partnerWishName !== undefined ? o.partnerWishName : null,
     };
   });
 }
@@ -381,6 +382,14 @@ function applyRosterToWindow(){
 
   // Neue people[] mit frischen IDs; manuelle Overrides (Rolle/Erfahrung/…) überschreiben die Ableitung
   people = mergeRosterOverrides(derived, rosterOverrides).map(p => ({ id: ++uid, ...p }));
+
+  // Turmpartner-Wünsche (Feature 48): name-basiert gespeichert → auf die frischen ids auflösen.
+  // Zeigt ein Wunsch auf eine im aktuellen Fenster nicht vorhandene Person, bleibt er null.
+  const _idByName = new Map(people.map(p => [_rosterKey(p.name), p.id]));
+  people.forEach(p => {
+    p.partnerWishId = p.partnerWishName ? (_idByName.get(_rosterKey(p.partnerWishName)) ?? null) : null;
+    delete p.partnerWishName;
+  });
 
   // Zwangszuweisungen referenzieren alte IDs → zurücksetzen
   forcedPlacements = freshForcedPlacements();

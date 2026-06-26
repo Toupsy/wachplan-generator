@@ -178,7 +178,12 @@ function renderPeople(){
         if(partnerRow) partnerRow.style.display = 'grid';
       } else {
         if(partnerRow) partnerRow.style.display = 'none';
-        if(p.partnerWishId != null){ p.partnerWishId = null; generate(); }
+        if(p.partnerWishId != null){
+          p.partnerWishId = null;
+          // Name-basiert speichern, damit der gelöschte Wunsch ein Roster-Neu-Ableiten übersteht.
+          if(typeof recordRosterOverride === 'function') recordRosterOverride(p, 'partnerWishName', null);
+          generate();
+        }
         const sel = partnerRow?.querySelector('.ppartner');
         if(sel) sel.value = '';
       }
@@ -188,6 +193,11 @@ function renderPeople(){
     sel.onchange = e => {
       const p = getP(+e.target.dataset.id);
       p.partnerWishId = e.target.value === '' ? null : +e.target.value;
+      // Wunsch name-basiert als Override merken (überlebt ein Roster-Neu-Ableiten mit frischen ids).
+      if(typeof recordRosterOverride === 'function'){
+        const partner = p.partnerWishId != null ? getP(p.partnerWishId) : null;
+        recordRosterOverride(p, 'partnerWishName', partner ? partner.name : null);
+      }
       generate(); scheduleAutoSave();
     });
   c.querySelectorAll('.del-p').forEach(b =>
