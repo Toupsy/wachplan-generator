@@ -44,29 +44,16 @@ function renderPeople(){
           <input type="checkbox" data-id="${p.id}" class="san-checkbox" ${p.sanitaeter?'checked':''}>
           <span>🚑</span>
         </label>` : ''}
-        ${(p.role==='W' || p.role==='B') ? `<label class="partner-toggle" title="Wunsch-Turmpartner – wird im Laufe der Woche einmal erfüllt, ohne die Fairness zu beeinflussen">
-          <input type="checkbox" data-id="${p.id}" class="partner-checkbox" ${p.partnerWishId!=null?'checked':''}>
-          <span>🤝</span>
-        </label>` : ''}
       </div>`}
-      <label class="label-toggle" title="Labels bearbeiten">
-        <input type="checkbox" data-id="${p.id}" class="labels-checkbox" ${hasLabels ? 'checked' : ''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0">
-        <span style="font-size:0.7rem;color:var(--text-dim)">🏷️</span>
-      </label>
+      <div class="row-actions">
+        ${(p.role==='W' || p.role==='B') ? `<button class="mini-btn partner-btn ${(p.partnerWishIds&&p.partnerWishIds.length)?'has-wish':''}" data-id="${p.id}" title="Wunsch-Turmpartner wählen – wird im Laufe der Woche erfüllt, ohne die Fairness zu beeinflussen">🤝${(p.partnerWishIds&&p.partnerWishIds.length)?`<span class="wish-badge">${p.partnerWishIds.length}</span>`:''}</button>` : ''}
+        <label class="label-toggle" title="Labels bearbeiten">
+          <input type="checkbox" data-id="${p.id}" class="labels-checkbox" ${hasLabels ? 'checked' : ''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0">
+          <span style="font-size:0.7rem;color:var(--text-dim)">🏷️</span>
+        </label>
+      </div>
       <button class="mini-btn del-p" data-id="${p.id}">×</button>`;
     c.appendChild(row);
-
-    // Wunsch-Turmpartner: eigene Zeile (wie Labels), nur sichtbar wenn 🤝 aktiv.
-    const partnerRow = document.createElement('div');
-    partnerRow.className = 'person-labels-row';
-    partnerRow.style.display = (p.partnerWishId != null) ? 'grid' : 'none';
-    partnerRow.setAttribute('data-partner-id', p.id);
-    const partnerOpts = ['<option value="">— Wunsch-Turmpartner wählen —</option>']
-      .concat(people
-        .filter(o => o.id !== p.id)
-        .map(o => `<option value="${o.id}" ${p.partnerWishId === o.id ? 'selected' : ''}>${o.name ? escapeHtml(o.name) : '(ohne Name)'}</option>`));
-    partnerRow.innerHTML = `<select data-id="${p.id}" class="ppartner" title="Diese beiden werden im Laufe der Woche einmal gemeinsam auf einen Turm gelegt – einseitiger Wunsch genügt">${partnerOpts.join('')}</select>`;
-    c.appendChild(partnerRow);
 
     // Labels in separate row, shown only when checkbox is checked
     const labelsRow = document.createElement('div');
@@ -168,44 +155,15 @@ function renderPeople(){
     cb.onchange = e => { const p = getP(+e.target.dataset.id); p.wantsHW = e.target.checked; if(typeof recordRosterOverride === 'function') recordRosterOverride(p, 'wantsHW', p.wantsHW); generate(); scheduleAutoSave(); });
   c.querySelectorAll('.san-checkbox').forEach(cb =>
     cb.onchange = e => { const p = getP(+e.target.dataset.id); p.sanitaeter = e.target.checked; if(typeof recordRosterOverride === 'function') recordRosterOverride(p, 'sanitaeter', p.sanitaeter); generate(); scheduleAutoSave(); });
-  // Turmpartner-Wunsch: 🤝-Checkbox blendet die Auswahl-Zeile ein/aus; Abwählen löscht den Wunsch.
-  c.querySelectorAll('.partner-checkbox').forEach(cb =>
-    cb.onchange = e => {
-      const p = getP(+e.target.dataset.id);
-      const partnerRow = Array.from(c.querySelectorAll('.person-labels-row[data-partner-id]'))
-        .find(r => +r.getAttribute('data-partner-id') === p.id);
-      if(e.target.checked){
-        if(partnerRow) partnerRow.style.display = 'grid';
-      } else {
-        if(partnerRow) partnerRow.style.display = 'none';
-        if(p.partnerWishId != null){
-          p.partnerWishId = null;
-          // Name-basiert speichern, damit der gelöschte Wunsch ein Roster-Neu-Ableiten übersteht.
-          if(typeof recordRosterOverride === 'function') recordRosterOverride(p, 'partnerWishName', null);
-          generate();
-        }
-        const sel = partnerRow?.querySelector('.ppartner');
-        if(sel) sel.value = '';
-      }
-      scheduleAutoSave();
-    });
-  c.querySelectorAll('.ppartner').forEach(sel =>
-    sel.onchange = e => {
-      const p = getP(+e.target.dataset.id);
-      p.partnerWishId = e.target.value === '' ? null : +e.target.value;
-      // Wunsch name-basiert als Override merken (überlebt ein Roster-Neu-Ableiten mit frischen ids).
-      if(typeof recordRosterOverride === 'function'){
-        const partner = p.partnerWishId != null ? getP(p.partnerWishId) : null;
-        recordRosterOverride(p, 'partnerWishName', partner ? partner.name : null);
-      }
-      generate(); scheduleAutoSave();
-    });
+  // Turmpartner-Wünsche: 🤝-Button öffnet das Auswahl-Modal (Mehrfachauswahl).
+  c.querySelectorAll('.partner-btn').forEach(b =>
+    b.onclick = e => openPartnerModal(+e.currentTarget.dataset.id));
   c.querySelectorAll('.del-p').forEach(b =>
     b.onclick = e => {
       const id = +e.target.dataset.id;
       people = people.filter(p => p.id !== id);
       // Dangling Turmpartner-Wünsche auf die gelöschte Person entfernen.
-      people.forEach(p => { if(p.partnerWishId === id) p.partnerWishId = null; });
+      people.forEach(p => { if(Array.isArray(p.partnerWishIds)) p.partnerWishIds = p.partnerWishIds.filter(x => x !== id); });
       dayState.forEach(d => { d.sick.delete(id); d.absent.delete(id); });
       forcedPlacements.forEach(fp => {
         const idx = fp.findIndex(f => f.personId === id);
@@ -214,6 +172,59 @@ function renderPeople(){
       renderPeople();
       scheduleAutoSave();
     });
+}
+
+// ── Turmpartner-Wunsch-Modal (Feature 48) ────────────────────────────
+// Mehrfachauswahl der gewünschten Turmpartner. Bewusst ausgelagert ins Modal, damit die ohnehin
+// dichte Personen-Zeile nur einen einzigen 🤝-Button trägt. Nur W/B sind wähl-/wünschbar – F
+// werden nie über bestPair auf Türme verteilt (eigener poolF) → ein F-Wunsch wäre nie erfüllbar.
+let _partnerModalPersonId = null;
+function openPartnerModal(personId){
+  const p = getP(personId);
+  if(!p) return;
+  _partnerModalPersonId = personId;
+  const overlay = document.getElementById('partner-modal');
+  const title   = document.getElementById('partner-modal-title');
+  const listEl  = document.getElementById('partner-modal-list');
+  title.textContent = `Wunschpartner für ${p.name || '(ohne Name)'}`;
+
+  const wished = new Set(p.partnerWishIds || []);
+  const candidates = people.filter(o => o.id !== personId && (o.role === 'W' || o.role === 'B'));
+  if(candidates.length === 0){
+    listEl.innerHTML = `<div class="partner-empty">Keine weiteren Wachgänger/Bootsführer vorhanden.</div>`;
+  } else {
+    listEl.innerHTML = candidates.map(o => `
+      <label class="partner-pick">
+        <input type="checkbox" value="${o.id}" ${wished.has(o.id) ? 'checked' : ''}>
+        <span class="role-dot ${roleDot(o)}"></span>
+        <span class="partner-pick-name">${o.name ? escapeHtml(o.name) : '(ohne Name)'}</span>
+      </label>`).join('');
+  }
+  overlay.style.display = 'flex';
+}
+
+function closePartnerModal(){
+  const overlay = document.getElementById('partner-modal');
+  if(overlay) overlay.style.display = 'none';
+  _partnerModalPersonId = null;
+}
+
+// Übernimmt die im Modal gewählten Wünsche auf die Person.
+function _savePartnerModal(){
+  const p = _partnerModalPersonId != null ? getP(_partnerModalPersonId) : null;
+  if(!p){ closePartnerModal(); return; }
+  const listEl = document.getElementById('partner-modal-list');
+  const ids = Array.from(listEl.querySelectorAll('input[type=checkbox]:checked')).map(cb => +cb.value);
+  p.partnerWishIds = ids;
+  // Name-basiert als Roster-Override merken (überlebt ein Neu-Ableiten mit frischen ids).
+  if(typeof recordRosterOverride === 'function'){
+    const names = ids.map(id => getP(id)?.name).filter(Boolean);
+    recordRosterOverride(p, 'partnerWishNames', names);
+  }
+  closePartnerModal();
+  generate();
+  renderPeople();   // Badge am 🤝-Button aktualisieren
+  scheduleAutoSave();
 }
 
 function renderTowerCfg(){

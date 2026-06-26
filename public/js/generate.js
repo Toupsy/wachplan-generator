@@ -380,10 +380,10 @@ function generate(startDay = 0){
     }
 
     /**
-     * Feature 48: Turmpartner-Wunsch. Eine Person kann sich eine andere als Turmpartner
-     * wünschen (`partnerWishId`). EINSEITIG genügt – wünscht nur A die Person B, greift der
-     * Wunsch trotzdem; ist er GEGENSEITIG, wird der Bonus verstärkt. ERFÜLLUNG: einmal pro
-     * Woche – sobald das Paar diese Woche schon zusammen saß (`pairCount > 0`, identisch zur
+     * Feature 48: Turmpartner-Wunsch. Eine Person kann sich eine oder MEHRERE andere als
+     * Turmpartner wünschen (`partnerWishIds`). EINSEITIG genügt – wünscht nur A die Person B,
+     * greift der Wunsch trotzdem; ist er GEGENSEITIG, wird der Bonus verstärkt. ERFÜLLUNG: je
+     * Paar einmal pro Woche – sobald das Paar diese Woche schon zusammen saß (`pairCount > 0`, identisch zur
      * Logik von `pairRepeatWeight`), fällt der Bonus auf 0. Wird im Turm-Zweig von `bestPair`
      * vom Score ABGEZOGEN; eskaliert leicht zum Wochenende.
      *
@@ -394,8 +394,8 @@ function generate(startDay = 0){
      * @returns {number} Bonus (0 = kein Wunsch / bereits erfüllt)
      */
     function partnerWishBonus(A, B){
-      const aWants = A.partnerWishId === B.id;
-      const bWants = B.partnerWishId === A.id;
+      const aWants = (A.partnerWishIds || []).includes(B.id);
+      const bWants = (B.partnerWishIds || []).includes(A.id);
       if(!aWants && !bWants) return 0;
       if((pairCount[pairKey(A.id, B.id)] || 0) > 0) return 0;  // diese Woche schon erfüllt
       const daysLeft = DAYS - d;  // inkl. heute

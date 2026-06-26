@@ -11,26 +11,31 @@
 
 ## Features
 
-### Feature 48: Turmpartner-Wunsch (`partnerWishId`)
-Eine Person kann sich eine andere als **Turmpartner** wünschen – der Wunsch wird im Laufe der
-Woche **einmal** erfüllt, **ohne die Fairness zu beeinflussen**.
-- **Datenmodell:** neues Person-Feld `partnerWishId: number|null` (id des Wunschpartners).
-  Serialisierung in `_buildStateObject` (via `{...p}`) + `importStateJSON` (Default `null` für
-  Altpläne), `STATE_VERSION` 12 → 13.
+### Feature 48: Turmpartner-Wunsch (`partnerWishIds`)
+Eine Person kann sich **eine oder mehrere** andere als **Turmpartner** wünschen – jeder Wunsch
+wird im Laufe der Woche **einmal** erfüllt, **ohne die Fairness zu beeinflussen**.
+- **Datenmodell:** Person-Feld `partnerWishIds: number[]` (Liste gewünschter Partner-ids).
+  Serialisierung in `_buildStateObject` (via `{...p}`) + `importStateJSON`; Migration: alter
+  Einzelwert `partnerWishId` → `[id]`, fehlt beides → `[]` (`migratePerson` verwirft das
+  Alt-Feld). `STATE_VERSION` 12 → 13.
+- **UI** (`render-sidebar.js`): statt überfrachteter Inline-Bedienelemente trägt die Personen-Zeile
+  nur **einen** 🤝-Button (mit Anzahl-Badge) neben dem 🏷️-Label-Toggle. Er öffnet ein **Modal**
+  (`#partner-modal`) mit Mehrfach-Checkliste aller anderen Wachgänger/Bootsführer. Nur W/B sind
+  wähl-/wünschbar (F laufen nie über `bestPair` → ein F-Wunsch wäre nie erfüllbar). Beim Löschen
+  einer Person werden Wünsche auf sie entfernt.
 - **Roster-Workflow:** Wachliste hochladen → Wünsche setzen → Datum/Tage ändern bleibt erhalten.
-  Da `applyRosterToWindow()` `people[]` mit frischen ids neu ableitet, wird der Wunsch
-  **name-basiert** als Override `partnerWishName` gehalten (`mergeRosterOverrides`) und nach der
-  id-Vergabe wieder auf `partnerWishId` aufgelöst.
-- **UI** (`render-sidebar.js`): 🤝-Toggle pro Person blendet eine Auswahl-Zeile (Dropdown aller
-  anderen Personen) ein. Beim Löschen einer Person werden Wünsche auf sie entfernt.
+  Da `applyRosterToWindow()` `people[]` mit frischen ids neu ableitet, werden die Wünsche
+  **name-basiert** als Override `partnerWishNames` (Liste) gehalten (`mergeRosterOverrides`) und
+  nach der id-Vergabe wieder auf `partnerWishIds` aufgelöst.
 - **Algorithmus** (`generate.js`, `partnerWishBonus()` im Turm-Zweig von `bestPair`):
   **einseitig** genügt (A→B greift), **gegenseitig** verstärkt (`partnerWishMutualExtra`).
   „Erfüllt" = Paar saß diese Woche schon zusammen (`pairCount>0`, identisch zu `pairRepeatWeight`)
-  → Bonus fällt auf 0. Bonus eskaliert leicht zum Wochenende (`partnerWishBonusEarly` 300 →
-  `partnerWishBonusNear` 800, +150 gegenseitig). **Bewusst klein** (< `uuPenaltyTower` 1000 /
-  `eePenaltyReserve` 1500): der Wunsch ist eine **weiche Präferenz**, die der E/U-Mischung und der
-  harten Fairness weicht – er wird nur erfüllt, wenn es ohnehin fair/zulässig ist.
-- Test: `test/partner-wish.test.js`.
+  → Bonus fällt für dieses Paar auf 0. Bonus eskaliert leicht zum Wochenende
+  (`partnerWishBonusEarly` 300 → `partnerWishBonusNear` 800, +150 gegenseitig). **Bewusst klein**
+  (< `uuPenaltyTower` 1000 / `eePenaltyReserve` 1500): der Wunsch ist eine **weiche Präferenz**,
+  die der E/U-Mischung und der harten Fairness weicht – er wird nur erfüllt, wenn es ohnehin
+  fair/zulässig ist.
+- Test: `test/partner-wish.test.js` (inkl. Mehrfach-Wunsch), `test/roster.test.js`.
 
 ### Feature 46: Audit-Log-Coalescing + Retention für `plan_update`
 Das Admin-Audit-Log wurde von „Wachplan-Änderungen" geflutet: `autoSave()` schreibt nach **jeder**

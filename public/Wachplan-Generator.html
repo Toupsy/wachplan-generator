@@ -74,15 +74,23 @@
   .person-edit .hw-wish-toggle input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0}
   .person-edit .san-toggle{display:flex;align-items:center;gap:3px;font-size:.7rem;color:var(--text-dim);cursor:pointer;user-select:none}
   .person-edit .san-toggle input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:var(--coral);flex-shrink:0}
-  .person-edit .partner-toggle{display:flex;align-items:center;gap:3px;font-size:.7rem;color:var(--text-dim);cursor:pointer;user-select:none}
-  .person-edit .partner-toggle input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0}
   .person-edit .exp-placeholder{grid-column:4}
-  .person-edit .label-toggle{grid-column:5;display:flex;align-items:center;gap:4px;justify-content:center}
+  .person-edit .row-actions{grid-column:5;display:flex;align-items:center;justify-content:center;gap:4px;min-width:0}
+  .person-edit .label-toggle{display:flex;align-items:center;gap:4px;justify-content:center}
+  .person-edit .partner-btn{position:relative;width:30px;font-size:.95rem;padding:0;flex-shrink:0}
+  .person-edit .partner-btn.has-wish{border-color:var(--sea-bright);color:var(--sea-bright)}
+  .person-edit .partner-btn .wish-badge{position:absolute;top:-5px;right:-5px;min-width:15px;height:15px;line-height:15px;padding:0 3px;border-radius:8px;background:var(--sea-bright);color:#fff;font-size:.6rem;font-weight:600;box-sizing:border-box}
   .person-edit .del-p{grid-column:6}
   .person-labels-row{display:grid;grid-template-columns:20px minmax(0,2fr) minmax(0,2.1fr) 140px minmax(0,0.6fr) 24px;gap:6px;align-items:center;margin-bottom:12px;padding-left:0}
   .person-labels-row .plabels{grid-column:2/6;font-size:.8rem}
-  .person-labels-row .ppartner{grid-column:2/6;font-size:.8rem;height:34px}
   .person-edit select:focus{outline:none;border-color:var(--sea-bright)}
+  /* Turmpartner-Wunsch-Modal (Feature 48) */
+  .partner-list{display:flex;flex-direction:column;gap:2px;max-height:46vh;overflow-y:auto;margin:14px 0 18px;padding-right:4px}
+  .partner-pick{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;user-select:none}
+  .partner-pick:hover{background:rgba(127,212,232,.08)}
+  .partner-pick input[type=checkbox]{width:17px;height:17px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0}
+  .partner-pick-name{font-size:.9rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .partner-empty{color:var(--text-dim);font-size:.85rem;padding:16px 4px}
   .mini-btn{background:transparent;border:1px solid var(--line-strong);color:var(--text-dim);border-radius:6px;width:28px;height:36px;cursor:pointer;font-size:1.1rem;line-height:1;transition:all .15s}
   .mini-btn:hover{border-color:var(--coral);color:var(--coral)}
   .add-btn{width:100%;background:transparent;border:1px dashed var(--line-strong);color:var(--foam);border-radius:9px;padding:11px 12px;cursor:pointer;font-family:'Spline Sans Mono',monospace;font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;transition:all .15s;margin-bottom:12px}
@@ -479,10 +487,11 @@
       grid-row: 2;
     }
 
-    /* Row 2: Label-Toggle */
-    .person-edit .label-toggle {
+    /* Row 2: Aktionen (Wunschpartner + Label-Toggle) links */
+    .person-edit .row-actions {
       grid-column: 1;
       grid-row: 2;
+      justify-content: flex-start;
     }
 
     /* Row 2: Delete-Button */
@@ -588,7 +597,7 @@
     /* Nur der Plan: alles andere ausblenden */
     .wrap>header,.sidebar,.export-row,.day-tabs,.stats-bar,.out-header,.out-extras,
     #autosave-indicator,#user-info-header,.modal-overlay,.modal,#login-modal,
-    #move-modal,#confirm-modal,#pw-modal,#share-modal,#plans-modal,
+    #move-modal,#confirm-modal,#pw-modal,#share-modal,#plans-modal,#partner-modal,
     #update-banner,.toast,
     .day-controls .dc-section,.move-btn,.mobile-switch{display:none !important}
     .notice:not(.bad):not(.warn-n){display:none !important}
@@ -774,6 +783,17 @@
       </label>
     </div>
     <button id="move-modal-confirm" class="modal-confirm" disabled>Verschieben &amp; neu berechnen</button>
+  </div>
+</div>
+
+<!-- ── Turmpartner-Wunsch-Modal (Feature 48) ───────────────────── -->
+<div id="partner-modal" class="modal-overlay modal panel panel-partner-modal" data-panel-name="Wunschpartner" style="display:none">
+  <div class="modal-box">
+    <button class="modal-close-btn" id="partner-modal-close-btn">×</button>
+    <div class="modal-title" id="partner-modal-title">Wunschpartner</div>
+    <div class="modal-sub">Mehrfachauswahl möglich. Jeder Wunsch wird im Laufe der Woche einmal erfüllt, ohne die Fairness zu beeinflussen – einseitiger Wunsch genügt.</div>
+    <div id="partner-modal-list" class="partner-list"></div>
+    <button id="partner-modal-confirm" class="modal-confirm">Übernehmen</button>
   </div>
 </div>
 

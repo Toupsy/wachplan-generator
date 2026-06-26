@@ -196,11 +196,11 @@ function mergeRosterOverrides(derived, overrides){
       sanitaeter:   o.sanitaeter    !== undefined ? o.sanitaeter   : false,
       labels:       o.labels        !== undefined ? o.labels       : '',
       enableLabels: o.enableLabels  !== undefined ? o.enableLabels : true,
-      // Turmpartner-Wunsch (Feature 48): Roster-Ableitung vergibt frische ids → ein id-basierter
-      // Wunsch überlebt das Neu-Ableiten nicht. Daher wird er name-basiert als Override gehalten
-      // (`partnerWishName`) und nach der id-Vergabe in applyRosterToWindow() auf die neue id
-      // aufgelöst. Nur über Overrides möglich (keine Roster-Quelle) → Default null.
-      partnerWishName: o.partnerWishName !== undefined ? o.partnerWishName : null,
+      // Turmpartner-Wünsche (Feature 48): Roster-Ableitung vergibt frische ids → id-basierte
+      // Wünsche überleben das Neu-Ableiten nicht. Daher werden sie name-basiert als Override
+      // gehalten (`partnerWishNames`, Liste) und nach der id-Vergabe in applyRosterToWindow()
+      // auf die neuen ids aufgelöst. Nur über Overrides (keine Roster-Quelle) → Default [].
+      partnerWishNames: Array.isArray(o.partnerWishNames) ? o.partnerWishNames : [],
     };
   });
 }
@@ -384,11 +384,13 @@ function applyRosterToWindow(){
   people = mergeRosterOverrides(derived, rosterOverrides).map(p => ({ id: ++uid, ...p }));
 
   // Turmpartner-Wünsche (Feature 48): name-basiert gespeichert → auf die frischen ids auflösen.
-  // Zeigt ein Wunsch auf eine im aktuellen Fenster nicht vorhandene Person, bleibt er null.
+  // Namen, die im aktuellen Fenster nicht vorkommen, werden übersprungen (kein toter Verweis).
   const _idByName = new Map(people.map(p => [_rosterKey(p.name), p.id]));
   people.forEach(p => {
-    p.partnerWishId = p.partnerWishName ? (_idByName.get(_rosterKey(p.partnerWishName)) ?? null) : null;
-    delete p.partnerWishName;
+    p.partnerWishIds = (p.partnerWishNames || [])
+      .map(n => _idByName.get(_rosterKey(n)))
+      .filter(id => id != null);
+    delete p.partnerWishNames;
   });
 
   // Zwangszuweisungen referenzieren alte IDs → zurücksetzen
