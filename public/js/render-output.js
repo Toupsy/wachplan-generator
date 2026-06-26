@@ -23,6 +23,24 @@ function dcSection(key, label, body, count){
     </details>`;
 }
 
+/**
+ * Baut ein toggle-grid für Personen/Türme/Boote mit Status-Chips.
+ * Konsolidiert die 5× redundante map()-Logik aus renderOutput().
+ * @param {Array} items       Array von {id, name, icon, suffix}
+ * @param {Set} activeSet     Set mit aktiven IDs
+ * @param {string} cssClass   CSS-Klasse für aktive Chips ('sick', 'absent', 'closed-t')
+ * @param {string} dataAttr   data-* Attribut name (data-sick, data-absent, etc.)
+ * @param {number} dayIdx      Tag-Index für data-day
+ */
+function buildChipGrid(items, activeSet, cssClass, dataAttr, dayIdx){
+  return `<div class="toggle-grid">
+    ${items.map(it => `<span class="toggle-chip ${activeSet.has(it.id)?cssClass:''}" data-${dataAttr}="${it.id}" data-day="${dayIdx}">
+      ${it.icon} <span class="nm">${escapeHtml(it.name)}</span>
+      ${activeSet.has(it.id)?`<span class="x">${it.suffix}</span>`:''}
+    </span>`).join('')}
+  </div>`;
+}
+
 /** Rendert den kompletten Ausgabe-Bereich neu. */
 function renderOutput(){
   // Sicherstelle dass dayState korrekt initialisiert ist
@@ -241,35 +259,19 @@ function renderOutput(){
       </div>
       ${dayLocked ? '' : `${dcSection('sick',
         '🚫 Außer Dienst melden <span style="text-transform:none;letter-spacing:0;color:var(--text-dim)">(wird an der Hauptwache geführt)</span>',
-        `<div class="toggle-grid">
-          ${people.map(p=>`<span class="toggle-chip ${dayState[di].sick.has(p.id)?'sick':''}" data-sick="${p.id}" data-day="${di}">
-            <i class="role-dot rd-${roleDot(p)}"></i><span class="nm">${escapeHtml(p.name)}</span>
-            ${dayState[di].sick.has(p.id)?'<span class="x">a. D.</span>':''}</span>`).join('')}
-        </div>`,
+        buildChipGrid(people.map(p=>({id:p.id,name:p.name,icon:`<i class="role-dot rd-${roleDot(p)}"></i>`,suffix:'a. D.'})), dayState[di].sick, 'sick', 'sick', di),
         dayState[di].sick.size)}
       ${dcSection('absent',
         '👋 Komplett abwesend <span style="text-transform:none;letter-spacing:0;color:var(--text-dim)">(nicht im Plan, Export & Druck)</span>',
-        `<div class="toggle-grid">
-          ${people.map(p=>`<span class="toggle-chip ${dayState[di].absent.has(p.id)?'absent':''}" data-absent="${p.id}" data-day="${di}">
-            <i class="role-dot rd-${roleDot(p)}"></i><span class="nm">${escapeHtml(p.name)}</span>
-            ${dayState[di].absent.has(p.id)?'<span class="x">abw.</span>':''}</span>`).join('')}
-        </div>`,
+        buildChipGrid(people.map(p=>({id:p.id,name:p.name,icon:`<i class="role-dot rd-${roleDot(p)}"></i>`,suffix:'abw.'})), dayState[di].absent, 'absent', 'absent', di),
         dayState[di].absent.size)}
       ${dcSection('closet',
         '⛔ Turm schließen',
-        `<div class="toggle-grid">
-          ${towers.map(t=>`<span class="toggle-chip ${dayState[di].closed.has(t.id)?'closed-t':''}" data-closet="${t.id}" data-day="${di}">
-            🗼 <span class="nm">${escapeHtml(t.name)}</span>
-            ${dayState[di].closed.has(t.id)?'<span class="x">ZU</span>':''}</span>`).join('')}
-        </div>`,
+        buildChipGrid(towers.map(t=>({id:t.id,name:t.name,icon:'🗼',suffix:'ZU'})), dayState[di].closed, 'closed-t', 'closet', di),
         dayState[di].closed.size)}
       ${boats.length ? dcSection('closeb',
         '🚤 Boot außer Dienst',
-        `<div class="toggle-grid">
-          ${boats.map(b=>`<span class="toggle-chip ${dayState[di].closedBoats.has(b.id)?'closed-t':''}" data-closeb="${b.id}" data-day="${di}">
-            🚤 <span class="nm">${escapeHtml(b.name)}</span>
-            ${dayState[di].closedBoats.has(b.id)?'<span class="x">ZU</span>':''}</span>`).join('')}
-        </div>`,
+        buildChipGrid(boats.map(b=>({id:b.id,name:b.name,icon:'🚤',suffix:'ZU'})), dayState[di].closedBoats, 'closed-t', 'closeb', di),
         dayState[di].closedBoats.size) : ''}
       ${dayForced.length ? dcSection('forced',
         '<span style="color:var(--warn)">🔒 Manuelle Zuweisungen aktiv</span>',
