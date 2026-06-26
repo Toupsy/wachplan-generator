@@ -27,6 +27,10 @@ function loadAlgoContext() {
     // Stub for DOM/UI functions that generate.js calls
     renderOutput: () => {},
     autoSave: () => {},
+    // Browser animation API — not available in Node.js vm contexts;
+    // synchronous passthrough is correct since renderOutput/autoSave are no-ops
+    // and lastResult is set before the RAF callback fires.
+    requestAnimationFrame: fn => fn(),
     document: {
       getElementById: () => null,
       createElement: () => null,
