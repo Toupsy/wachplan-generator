@@ -59,7 +59,7 @@
   .sidebar::-webkit-scrollbar-thumb:hover{background:rgba(24,168,216,.6);background-clip:padding-box}
   .section-label{font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--foam);margin-bottom:18px;margin-top:24px;display:flex;align-items:center;gap:10px}
   .section-label::before{content:'';width:18px;height:2px;background:var(--sea-bright)}
-  .person-edit{display:grid;grid-template-columns:20px minmax(0,2fr) minmax(0,2.1fr) 140px minmax(0,0.6fr) 24px;gap:6px;align-items:center;margin-bottom:10px}
+  .person-edit{display:grid;grid-template-columns:20px minmax(0,1.9fr) minmax(0,1.9fr) 140px 72px 30px;gap:6px;align-items:center;margin-bottom:10px}
   .person-edit .pnr{font-family:'Spline Sans Mono',monospace;font-size:.72rem;color:var(--foam);text-align:center;background:rgba(127,212,232,.08);border-radius:5px;padding:6px 0;cursor:default}
   .person-edit .exp-toggle{display:flex;align-items:center;justify-content:center;gap:4px;font-size:.7rem;color:var(--text-dim);cursor:pointer;user-select:none;height:36px}
   .person-edit .exp-toggle input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:var(--green);flex-shrink:0}
@@ -81,7 +81,7 @@
   .person-edit .partner-btn.has-wish{border-color:var(--sea-bright);color:var(--sea-bright)}
   .person-edit .partner-btn .wish-badge{position:absolute;top:-5px;right:-5px;min-width:15px;height:15px;line-height:15px;padding:0 3px;border-radius:8px;background:var(--sea-bright);color:#fff;font-size:.6rem;font-weight:600;box-sizing:border-box}
   .person-edit .del-p{grid-column:6}
-  .person-labels-row{display:grid;grid-template-columns:20px minmax(0,2fr) minmax(0,2.1fr) 140px minmax(0,0.6fr) 24px;gap:6px;align-items:center;margin-bottom:12px;padding-left:0}
+  .person-labels-row{display:grid;grid-template-columns:20px minmax(0,1.9fr) minmax(0,1.9fr) 140px 72px 30px;gap:6px;align-items:center;margin-bottom:12px;padding-left:0}
   .person-labels-row .plabels{grid-column:2/6;font-size:.8rem}
   .person-edit select:focus{outline:none;border-color:var(--sea-bright)}
   /* Turmpartner-Wunsch-Modal (Feature 48) */
@@ -326,7 +326,7 @@
   /* ── Main Panels: Side-by-side layout with independent scrolling ── */
   .main-panels {
     display: grid;
-    grid-template-columns: clamp(440px, 36vw, 600px) 1fr;
+    grid-template-columns: clamp(480px, 38vw, 620px) 1fr;
     gap: 28px;
     flex: 1;
     min-height: 0;
