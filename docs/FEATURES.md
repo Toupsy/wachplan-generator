@@ -11,6 +11,24 @@
 
 ## Features
 
+### Feature 48: Turmpartner-Wunsch (`partnerWishId`)
+Eine Person kann sich eine andere als **Turmpartner** wünschen – der Wunsch wird im Laufe der
+Woche **einmal** erfüllt, **ohne die Fairness zu beeinflussen**.
+- **Datenmodell:** neues Person-Feld `partnerWishId: number|null` (id des Wunschpartners).
+  Serialisierung in `_buildStateObject` (via `{...p}`) + `importStateJSON` (Default `null` für
+  Altpläne), `STATE_VERSION` 12 → 13. Roster-abgeleitete Pläne setzen es auf `null`
+  (id-basierter Verweis überlebt das Neu-Ableiten mit frischen ids nicht).
+- **UI** (`render-sidebar.js`): 🤝-Toggle pro Person blendet eine Auswahl-Zeile (Dropdown aller
+  anderen Personen) ein. Beim Löschen einer Person werden Wünsche auf sie entfernt.
+- **Algorithmus** (`generate.js`, `partnerWishBonus()` im Turm-Zweig von `bestPair`):
+  **einseitig** genügt (A→B greift), **gegenseitig** verstärkt (`partnerWishMutualExtra`).
+  „Erfüllt" = Paar saß diese Woche schon zusammen (`pairCount>0`, identisch zu `pairRepeatWeight`)
+  → Bonus fällt auf 0. Bonus eskaliert leicht zum Wochenende (`partnerWishBonusEarly` 300 →
+  `partnerWishBonusNear` 800, +150 gegenseitig). **Bewusst klein** (< `uuPenaltyTower` 1000 /
+  `eePenaltyReserve` 1500): der Wunsch ist eine **weiche Präferenz**, die der E/U-Mischung und der
+  harten Fairness weicht – er wird nur erfüllt, wenn es ohnehin fair/zulässig ist.
+- Test: `test/partner-wish.test.js`.
+
 ### Feature 46: Audit-Log-Coalescing + Retention für `plan_update`
 Das Admin-Audit-Log wurde von „Wachplan-Änderungen" geflutet: `autoSave()` schreibt nach **jeder**
 `generate()` ein `plan_update` (`PUT /api/plans/:id`) → pro Bearbeitungs-Session zig identische

@@ -2,7 +2,7 @@
 // state-io.js – Planstatus-Import / Export (Feature 7) + Server-Sync
 // ============================================================
 
-const STATE_VERSION = 12;
+const STATE_VERSION = 13;
 
 /**
  * Friert die Schedule-Einträge der gesperrten Tage ein (Feature „Tag sperren").
@@ -164,7 +164,8 @@ function importStateJSON(json, silent = false){
     labels: p.labels || '',
     enableLabels: p.enableLabels !== undefined ? p.enableLabels : ((p.labels||'').trim().length > 0),  // Fallback für alte Exporte
     wantsHW: !!p.wantsHW,   // BF-HW-Wunsch (Default false für Altpläne)
-    sanitaeter: !!p.sanitaeter   // Sanitäter (Default false für Altpläne)
+    sanitaeter: !!p.sanitaeter,   // Sanitäter (Default false für Altpläne)
+    partnerWishId: (p.partnerWishId ?? null)   // Turmpartner-Wunsch (Feature 48; Default null für Altpläne)
   }));
   roster = Array.isArray(s.roster) ? s.roster.map(r => ({ ...r })) : [];   // hochgeladene Wachliste (Feature 31; Default [] für Altpläne)
   rosterOverrides = (s.rosterOverrides && typeof s.rosterOverrides === 'object') ? s.rosterOverrides : {};   // manuelle Korrekturen (Feature 31)

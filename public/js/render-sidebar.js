@@ -44,6 +44,10 @@ function renderPeople(){
           <input type="checkbox" data-id="${p.id}" class="san-checkbox" ${p.sanitaeter?'checked':''}>
           <span>🚑</span>
         </label>` : ''}
+        ${(p.role==='W' || p.role==='B') ? `<label class="partner-toggle" title="Wunsch-Turmpartner – wird im Laufe der Woche einmal erfüllt, ohne die Fairness zu beeinflussen">
+          <input type="checkbox" data-id="${p.id}" class="partner-checkbox" ${p.partnerWishId!=null?'checked':''}>
+          <span>🤝</span>
+        </label>` : ''}
       </div>`}
       <label class="label-toggle" title="Labels bearbeiten">
         <input type="checkbox" data-id="${p.id}" class="labels-checkbox" ${hasLabels ? 'checked' : ''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--sea-bright);flex-shrink:0">
@@ -51,6 +55,18 @@ function renderPeople(){
       </label>
       <button class="mini-btn del-p" data-id="${p.id}">×</button>`;
     c.appendChild(row);
+
+    // Wunsch-Turmpartner: eigene Zeile (wie Labels), nur sichtbar wenn 🤝 aktiv.
+    const partnerRow = document.createElement('div');
+    partnerRow.className = 'person-labels-row';
+    partnerRow.style.display = (p.partnerWishId != null) ? 'grid' : 'none';
+    partnerRow.setAttribute('data-partner-id', p.id);
+    const partnerOpts = ['<option value="">— Wunsch-Turmpartner wählen —</option>']
+      .concat(people
+        .filter(o => o.id !== p.id)
+        .map(o => `<option value="${o.id}" ${p.partnerWishId === o.id ? 'selected' : ''}>${o.name ? escapeHtml(o.name) : '(ohne Name)'}</option>`));
+    partnerRow.innerHTML = `<select data-id="${p.id}" class="ppartner" title="Diese beiden werden im Laufe der Woche einmal gemeinsam auf einen Turm gelegt – einseitiger Wunsch genügt">${partnerOpts.join('')}</select>`;
+    c.appendChild(partnerRow);
 
     // Labels in separate row, shown only when checkbox is checked
     const labelsRow = document.createElement('div');
@@ -152,10 +168,34 @@ function renderPeople(){
     cb.onchange = e => { const p = getP(+e.target.dataset.id); p.wantsHW = e.target.checked; if(typeof recordRosterOverride === 'function') recordRosterOverride(p, 'wantsHW', p.wantsHW); generate(); scheduleAutoSave(); });
   c.querySelectorAll('.san-checkbox').forEach(cb =>
     cb.onchange = e => { const p = getP(+e.target.dataset.id); p.sanitaeter = e.target.checked; if(typeof recordRosterOverride === 'function') recordRosterOverride(p, 'sanitaeter', p.sanitaeter); generate(); scheduleAutoSave(); });
+  // Turmpartner-Wunsch: 🤝-Checkbox blendet die Auswahl-Zeile ein/aus; Abwählen löscht den Wunsch.
+  c.querySelectorAll('.partner-checkbox').forEach(cb =>
+    cb.onchange = e => {
+      const p = getP(+e.target.dataset.id);
+      const partnerRow = Array.from(c.querySelectorAll('.person-labels-row[data-partner-id]'))
+        .find(r => +r.getAttribute('data-partner-id') === p.id);
+      if(e.target.checked){
+        if(partnerRow) partnerRow.style.display = 'grid';
+      } else {
+        if(partnerRow) partnerRow.style.display = 'none';
+        if(p.partnerWishId != null){ p.partnerWishId = null; generate(); }
+        const sel = partnerRow?.querySelector('.ppartner');
+        if(sel) sel.value = '';
+      }
+      scheduleAutoSave();
+    });
+  c.querySelectorAll('.ppartner').forEach(sel =>
+    sel.onchange = e => {
+      const p = getP(+e.target.dataset.id);
+      p.partnerWishId = e.target.value === '' ? null : +e.target.value;
+      generate(); scheduleAutoSave();
+    });
   c.querySelectorAll('.del-p').forEach(b =>
     b.onclick = e => {
       const id = +e.target.dataset.id;
       people = people.filter(p => p.id !== id);
+      // Dangling Turmpartner-Wünsche auf die gelöschte Person entfernen.
+      people.forEach(p => { if(p.partnerWishId === id) p.partnerWishId = null; });
       dayState.forEach(d => { d.sick.delete(id); d.absent.delete(id); });
       forcedPlacements.forEach(fp => {
         const idx = fp.findIndex(f => f.personId === id);

@@ -380,6 +380,31 @@ function generate(startDay = 0){
     }
 
     /**
+     * Feature 48: Turmpartner-Wunsch. Eine Person kann sich eine andere als Turmpartner
+     * wünschen (`partnerWishId`). EINSEITIG genügt – wünscht nur A die Person B, greift der
+     * Wunsch trotzdem; ist er GEGENSEITIG, wird der Bonus verstärkt. ERFÜLLUNG: einmal pro
+     * Woche – sobald das Paar diese Woche schon zusammen saß (`pairCount > 0`, identisch zur
+     * Logik von `pairRepeatWeight`), fällt der Bonus auf 0. Wird im Turm-Zweig von `bestPair`
+     * vom Score ABGEZOGEN; eskaliert leicht zum Wochenende.
+     *
+     * Bewusst KLEIN gehalten (max < `uuPenaltyTower`/`eePenaltyReserve`): der Wunsch ist eine
+     * weiche Präferenz, die der E/U-Mischung und der harten Fairness weicht – er wird nur dann
+     * erfüllt, wenn es ohnehin fair/zulässig ist (sonst gar nicht). So bleibt die Fairness
+     * unangetastet (Vorgabe „ohne die Fairness zu beeinflussen").
+     * @returns {number} Bonus (0 = kein Wunsch / bereits erfüllt)
+     */
+    function partnerWishBonus(A, B){
+      const aWants = A.partnerWishId === B.id;
+      const bWants = B.partnerWishId === A.id;
+      if(!aWants && !bWants) return 0;
+      if((pairCount[pairKey(A.id, B.id)] || 0) > 0) return 0;  // diese Woche schon erfüllt
+      const daysLeft = DAYS - d;  // inkl. heute
+      let bonus = daysLeft <= 2 ? algoParams.partnerWishBonusNear : algoParams.partnerWishBonusEarly;
+      if(aWants && bWants) bonus += algoParams.partnerWishMutualExtra;  // gegenseitig verstärkt
+      return bonus;
+    }
+
+    /**
      * Boat rotation penalty: hält einen Bootsführer über das ganze Rotationsfenster
      * (boatRotationLookback Tage) von einem zuletzt gefahrenen Boot fern. Bei 3 Booten
      * sind das die letzten 2 Tage → derselbe BF kehrt frühestens nach 3 Tagen aufs
@@ -449,6 +474,7 @@ function generate(startDay = 0){
           score += surplusBFPenalty(A, t) + surplusBFPenalty(B, t);
           score += beachBalancePenalty(A, t) + beachBalancePenalty(B, t);  // Hauptstrand-Ausgleich
           if(!isMain){
+            score -= partnerWishBonus(A, B);  // Turmpartner-Wunsch (Feature 48; weiche Präferenz)
             score += (sA.total + sB.total) * algoParams.totalFairnessWeight;
             // Feature 8: Konsekutive Tage auf gleichem Turm bestrafen
             if(prevTowerSet){

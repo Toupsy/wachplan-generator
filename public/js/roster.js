@@ -196,6 +196,10 @@ function mergeRosterOverrides(derived, overrides){
       sanitaeter:   o.sanitaeter    !== undefined ? o.sanitaeter   : false,
       labels:       o.labels        !== undefined ? o.labels       : '',
       enableLabels: o.enableLabels  !== undefined ? o.enableLabels : true,
+      // Turmpartner-Wunsch referenziert eine Personen-id; Roster-Ableitung vergibt frische ids
+      // (deriveRosterPeople läuft neu) → ein id-basierter Wunsch kann ein Neu-Ableiten nicht
+      // sinnvoll überleben. Daher hier immer null; der Wunsch ist ein Feature manueller Pläne.
+      partnerWishId: null,
     };
   });
 }

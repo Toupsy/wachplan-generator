@@ -99,7 +99,7 @@ Modals `#login-modal`/`#move-modal`/`#share-modal`/`#plans-modal` …) sind eind
 
 ## Globaler Zustand (state.js)
 ```js
-people[]    // { id, name, role:'F'|'B'|'W', experienced:bool, wantsHW:bool, sanitaeter:bool } (experienced gilt für B & W; wantsHW nur für B: ≥1 aktiver HW-Dienst bei BF-Überzahl; sanitaeter für W & B: wird auf San-Türmen bevorzugt eingesetzt – bei BF nur, wenn überzählig/im Guard-Pool – sonst normal – Feature 33/35)
+people[]    // { id, name, role:'F'|'B'|'W', experienced:bool, wantsHW:bool, sanitaeter:bool, partnerWishId:number|null } (experienced gilt für B & W; wantsHW nur für B: ≥1 aktiver HW-Dienst bei BF-Überzahl; sanitaeter für W & B: wird auf San-Türmen bevorzugt eingesetzt – bei BF nur, wenn überzählig/im Guard-Pool – sonst normal – Feature 33/35; partnerWishId: Wunsch-Turmpartner, einseitig genügt, einmal/Woche erfüllt – Feature 48)
 roster[]    // hochgeladene Wachliste: { name, role:'F'|'B'|'W', from:'YYYY-MM-DD', to:'YYYY-MM-DD' } (Feature 31). applyRosterToWindow() leitet people[]+absent dynamisch aus startDate+DAYS ab (roster.js)
 rosterOverrides // { normName → { role?, experienced?, wantsHW?, sanitaeter?, labels?, enableLabels? } } – manuelle Korrekturen, die das Neu-Ableiten überleben (mergeRosterOverrides, Feature 31)
 towers[]    // { id, name, prio, code, slotCount(1–10,Def2), mainBeach(bool,Def false), sanTower(bool,Def false), leaderTower(bool,Def false) } (sanTower: wenn möglich ≥1 Sanitäter – Feature 33; leaderTower: wenn möglich ≥1 Führungskraft auf regulärem Slot – Feature 34)
@@ -182,6 +182,15 @@ Wochenende eskalierenden HW-Bonus (600→6000→100000), eingebaut in `bestPair`
 HW-Einzelbefüllung. Sicherheitsnetz im `availB`-Sort drückt unerfüllte Wunsch-BF bei echter
 Überzahl in den letzten 2 Tagen in die surplus-Hälfte. `hwGuardDays==0` = noch offen.
 
+**Turmpartner-Wunsch (Feature 48, Person-Feld `partnerWishId`):** Eine Person wünscht sich eine
+andere als Turmpartner; **einseitig** genügt, **gegenseitig** verstärkt. `partnerWishBonus()` zieht
+im **Turm-Zweig** von `bestPair` (nur `!isMain`) einen kleinen, zum Wochenende eskalierenden Bonus
+ab (300→800, +150 gegenseitig). „Erfüllt" = das Paar saß diese Woche schon zusammen (`pairCount>0`,
+gleiche Quelle wie `pairRepeatWeight`) → Bonus aus (**einmal/Woche**). Bewusst **< `uuPenaltyTower`/
+`eePenaltyReserve`**: weiche Präferenz, die der E/U-Mischung und der harten Fairness weicht – wird
+nur erfüllt, wenn ohnehin fair/zulässig (Vorgabe „ohne Fairness zu beeinflussen"). Kein neues
+Stat-Feld nötig; Roster-Ableitung setzt `partnerWishId=null` (id-Verweis überlebt frische ids nicht).
+
 **BF-an-HW-Pflicht (Feature 32, global `requireBfAtHw`):** Ist das Flag aktiv und gibt es echte
 BF-Überzahl (`poolSBF` nicht leer), wird im HW-Abschnitt VOR der regulären Befüllung ein
 überzähliger BF als fester `mainGuard` vorab platziert (fairste Rotation: wenigste `hwGuardDays`
@@ -250,7 +259,7 @@ sonst auf die `.tower-card` zurück – sonst landete eine direkt aufs Boot gezo
 
 **Autosave/State-IO (state-io.js):** `autoSave()` nach jeder `generate()` → `PUT /api/plans/:id`
 (localStorage-Fallback). `autoLoad()` beim Start. `_buildStateObject()` zentrale Serialisierung;
-Sets als Arrays. `STATE_VERSION = 12`; `migratePerson()` für Altpläne. Gesperrte Tage (Feature 47)
+Sets als Arrays. `STATE_VERSION = 13`; `migratePerson()` für Altpläne. Gesperrte Tage (Feature 47)
 sichern zusätzlich ihren eingefrorenen Schedule (`lockedSchedules`), den `importStateJSON()` in ein
 sparse `lastResult` hebt → der gesperrte Tag überlebt einen Reload bit-genau statt neu gerechnet zu werden.
 
