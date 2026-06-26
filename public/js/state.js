@@ -163,14 +163,20 @@ let isPublicView = false;
 
 // ── Konstruktoren ────────────────────────────────────────────────
 
+const _FRESHDAY_KEYS = new Set(['sick', 'absent', 'closed', 'closedBoats']);
+
 function freshDay(overrides = {}){
-  return {
-    sick:        new Set(),
-    absent:      new Set(),
-    closed:      new Set(),
-    closedBoats: new Set(),
-    ...overrides,
-  };
+  // Defensives Copy: nur gültige Set-Felder akzeptieren, sonst Ignorieren + Warnung.
+  // Verhindert versehentliche Überschreibung (z.B. overrides.sick = 'string' statt Set).
+  const result = { sick: new Set(), absent: new Set(), closed: new Set(), closedBoats: new Set() };
+  for(const key of _FRESHDAY_KEYS){
+    if(key in overrides && overrides[key] instanceof Set){
+      result[key] = overrides[key];
+    } else if(key in overrides){
+      console.warn(`freshDay(): Override "${key}" ist kein Set — ignoriert.`);
+    }
+  }
+  return result;
 }
 
 function freshDayState(){
