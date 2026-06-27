@@ -13,6 +13,24 @@
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: Tests grün, alle Server parsen (`node -c`).
 
+**Letzter Lauf (2026-06-27, Bugfix: XLSX-Export dupliziert HW-Personen – Branch `claude/kind-allen-unqizk`, Issue #377):**
+- **Bug (High, stille Korruption):** Der offizielle XLSX-Export schrieb HW-Personen ab Index 4
+  **doppelt** in zwei Spalten, sobald `'HW'` in `exportColumns` stand (= Standard-Config). Zwei
+  konkurrierende HW-Überlauf-Mechanismen in `_patchSheetXml` (`public/js/export.js`): die
+  exportColumns-Hauptschleife verteilt `A['HW']` (alle HW-Personen) inkl. Überlauf, ein dedizierter
+  Block schrieb `slice(4)` (Personen 5+) erneut. Latenter Zweitfehler: ohne `'HW'`-Spalte gingen
+  via `slice(4)` die ersten 4 HW-Personen verloren.
+- **Fix:** Dedizierter Block läuft nur noch als **Fallback**, wenn `'HW'` NICHT in `exportColumns`
+  steht, und schreibt dann die **komplette** HW-Belegung (`slice(0)`). Jede HW-Person erscheint
+  genau einmal; Fallback verliert keine Personen mehr.
+- **Tests:** neuer `test/export-hw-overflow.test.js` (2 Checks: Default + Fallback, lädt `export.js`
+  DOM-frei und prüft die Patch-Map). Volle Suite **124/124 grün** (vorher 122), `node -c` für
+  `export.js` OK. Vor dem Fix per Repro 8 Dubletten reproduziert, danach 0.
+- **Audit-Notiz:** Backend- + Frontend-Kern-Audit (Agenten) brachten sonst keine bestätigten Befunde
+  – eine gemeldete „Plan-Delete-Race" in `plans.js` ist tatsächlich der dokumentierte Schutz
+  (Reset von `marked_for_deletion` beim Speichern, kein Bug), `last_login`-Fire-and-forget in
+  `auth.js` ist bewusst gedrosselt/best-effort.
+
 **Letzter Lauf (2026-06-23, Bugfix Feature 47: Sperre überlebt Reload – Branch `claude/plan-lock-function-fuj6du`):**
 - **Bug:** Gesperrte Tage veränderten sich „im Nachhinein doch". Ursache: `lastResult` wird nicht
   mitserialisiert → nach einem Reload löst jeder Load (autoLoad/loadPlan/Realtime) ein `generate()`
