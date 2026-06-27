@@ -332,6 +332,7 @@ function _patchSheetXml(xml, dayIdx){
   const effectiveCols = [];   // { col:number, code:string, nums:[nr,...] }
   let tplIdx = 0;
   let truncated = false;      // true, sobald Stationen/Personen mangels Template-Spalten wegfallen
+  let hwInExportCols = false; // true, wenn 'HW' in exportColumns verarbeitet wurde
 
   for(const rawCode of exportColumns){
     const code = (rawCode || '').trim();
@@ -339,6 +340,7 @@ function _patchSheetXml(xml, dayIdx){
     if(tplIdx >= TEMPLATE_STATION_COLS.length){ truncated = true; break; }
 
     const nums = A[code] || [];
+    if(code === 'HW') hwInExportCols = true;
     effectiveCols.push({ col: TEMPLATE_STATION_COLS[tplIdx++], code, nums: nums.slice(0, 2) });
 
     // Overflow-Spalten direkt nebeneinander (Person 3, 4, 5 … in Paaren)
@@ -358,17 +360,18 @@ function _patchSheetXml(xml, dayIdx){
     });
   });
 
-  // HW-Überlauf: Personen 5+ (inkl. Kranke) → verbleibende Template-Spalten
+  // HW-Fallback: schreibt ALLE HW-Personen nur wenn 'HW' NICHT in exportColumns steht.
+  // Steht 'HW' in exportColumns, hat die Hauptschleife bereits alle HW-Personen inkl. Überlauf
+  // geschrieben → Fallback würde Personen 5+ duplizieren.
   const main = lastResult.schedule[dayIdx].assign.find(s => s.kind === 'main');
-  if(main){
+  if(main && !hwInExportCols){
     const allHWNrs = [...main.mainGuards, ...main.base, ...main.bootsfLeft, ...(main.sick||[])]
       .map(p => personNr(p.id)).filter(n => n != null);
-    const overflowHW = allHWNrs.slice(4);
-    for(let i = 0; i < overflowHW.length; i += 2){
+    for(let i = 0; i < allHWNrs.length; i += 2){
       if(tplIdx >= TEMPLATE_STATION_COLS.length){ truncated = true; break; }
       const col = TEMPLATE_STATION_COLS[tplIdx++];
       patches.set(colLetter(col)+'21', { type: 's', value: 'HW' });
-      const nr1 = overflowHW[i], nr2 = overflowHW[i+1];
+      const nr1 = allHWNrs[i], nr2 = allHWNrs[i+1];
       fillHours().forEach(hr => {
         const [rt, rb] = HOUR_ROWS_X[hr];
         if(nr1 != null) patches.set(colLetter(col)+rt, { type: 'n', value: nr1 });
