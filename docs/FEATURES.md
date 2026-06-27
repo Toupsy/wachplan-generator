@@ -11,6 +11,33 @@
 
 ## Features
 
+### Feature 49: Editierbare XLSX-Vorschau (eigener Tab)
+Der offizielle XLSX-Export lässt sich **vor dem Download als Vorschau** im Ausgabebereich anzeigen,
+**direkt in den Zellen bearbeiten**, von dort **herunterladen und drucken** – ohne den Umweg über Excel.
+- **Ansicht:** Im Ausgabe-Kopf schaltet ein Umschalter zwischen **📋 Plan** und **📄 XLSX-Vorschau**
+  (modul-lokales `outputView` in `render-output.js`, überlebt die `renderOutput()`-Rebuilds). Die
+  Vorschau zeigt den **aktiven Tag** (Tag-Wechsel über die vorhandenen Day-Tabs).
+- **Darstellung:** Es wird die **tatsächlich generierte XLSX** gerendert – `buildPatchedXlsxBytes()`
+  (extrahiert aus `exportOfficial`) erzeugt die Bytes, SheetJS (`XLSX.read`) parst sie, und
+  `_worksheetToTable()` (`xlsx-preview.js`) baut daraus eine HTML-Tabelle inkl. verbundener Zellen
+  (`!merges` → row-/colspan) und Spaltenbreiten (`!cols`). Deckungsgleich mit der Datei; Logo/Farben
+  des Templates entfallen bewusst (reines Raster).
+- **Editierbar (nur Datenzellen):** Namensblock (1–28), Stationscodes (Zeile 21),
+  Positionsbeschriftungen (C11/C13/C15/C17/C19), Datum (EE3) und die Stunden-Zahlzellen. Welche
+  Zellen das sind, liefert `getEditableCellRefs()` aus **derselben** Layout-Logik wie
+  `_patchSheetXml` (inkl. Overflow- und HW-Fallback-Spalten). Edits landen in
+  `xlsxPreviewOverrides[dayIdx][ref]` und werden in `_patchSheetXml(xml, dayIdx, overrides)` zuletzt
+  eingemischt → **identisch** in Vorschau, Download (`exportOfficial`) und Druck.
+- **Download/Druck:** „↓ XLSX herunterladen" ruft `exportOfficial` (inkl. der bestehenden
+  Truncation-/28-Personen-Warnungen); „🖨️ Drucken" setzt `body.print-xlsx` (eigener `@media print`-
+  Block, Querformat, nur das Raster).
+- **Sitzungslokal:** Overrides werden **nicht** in den State serialisiert (kein `STATE_VERSION`-Bump)
+  und in `generate()` via `clearXlsxPreviewOverrides()` verworfen, weil sich Personen-Nummern bei der
+  Neuberechnung verschieben können (Refs würden veralten). Beobachter-/View-Only-Modus zeigt keinen
+  Vorschau-Tab (wie schon bisher keinen Export).
+- **Module:** neu `public/js/xlsx-preview.js` (nach `export.js` geladen); kein Backend-Eingriff,
+  JSZip + SheetJS waren bereits eingebunden.
+
 ### Feature 48: Turmpartner-Wunsch (`partnerWishIds`)
 Eine Person kann sich **eine oder mehrere** andere als **Turmpartner** wünschen – jeder Wunsch
 wird im Laufe der Woche **einmal** erfüllt, **ohne die Fairness zu beeinflussen**.

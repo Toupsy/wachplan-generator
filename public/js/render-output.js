@@ -7,6 +7,10 @@
 // gerade geöffnete Sektion nach einem Klick nicht wieder zuklappt. Default: alles zu.
 const dcSectionOpen = {};
 
+// Aktive Ausgabe-Ansicht: 'plan' (Standard) oder 'xlsx' (editierbare XLSX-Vorschau).
+// Modul-lokal, damit der Zustand die innerHTML-Rebuilds von renderOutput() überlebt.
+let outputView = 'plan';
+
 /**
  * Rendert eine einklappbare Sektion der Tages-Steuerung als <details>/<summary>.
  * @param {string} key   eindeutiger Sektionstyp (z. B. 'sick') → Auf/Zu-Zustand wird gemerkt
@@ -207,6 +211,10 @@ function renderOutput(){
     <div class="out-header">
       <div>
         <div class="section-label" style="margin-bottom:8px;">Wachplan · ${DAYS} Tage · sukzessiv</div>
+        <div class="view-toggle">
+          <button class="view-tab ${outputView==='plan'?'active':''}" id="view-tab-plan">📋 Plan</button>
+          <button class="view-tab ${outputView==='xlsx'?'active':''}" id="view-tab-xlsx">📄 XLSX-Vorschau</button>
+        </div>
         <div class="day-tabs">${dayTabsHtml}</div>
       </div>
       <div class="export-row">
@@ -420,6 +428,17 @@ function renderOutput(){
   // Zusatz-Auswertungen (im Druck ausgeblendet via .out-extras; im Beobachter-Modus weggelassen)
   if(!viewOnly)
     html += `<div class="out-extras">${renderFairnessCharts()}${renderTowerStatsPerPerson()}${renderBoatStatsPerPerson()}${renderMatrix()}</div>`;
+
+  // Editierbare XLSX-Vorschau (eigene Ansicht; Sichtbarkeit unten via outputView gesteuert)
+  if(!viewOnly)
+    html += `<div id="xlsx-preview-view" style="display:none">
+      <div class="xlsx-toolbar">
+        <button class="ghost-btn" id="btn-xlsx-dl" style="border-color:var(--warn);color:var(--warn)">↓ XLSX herunterladen</button>
+        <button class="ghost-btn" id="btn-xlsx-print">🖨️ Drucken</button>
+        <span class="xlsx-toolbar-hint">Zellen direkt anklicken und bearbeiten – Änderungen gelten für Download &amp; Druck.</span>
+      </div>
+      <div id="xlsx-preview"></div>
+    </div>`;
   panel.innerHTML = html;
 
   // ── Event-Listener ─────────────────────────────────────────────
@@ -433,6 +452,34 @@ function renderOutput(){
     const vl = document.getElementById('vo-logout');
     if(vl) vl.onclick = () => { if(typeof logout === 'function') logout(); };
     return;
+  }
+
+  // ── Ausgabe-Ansicht umschalten (Plan ↔ XLSX-Vorschau) ──────────
+  // Plan-Inhalte (Stats, Tages-Panels, Auswertungen) vs. Vorschau-Container per display toggeln.
+  const showXlsx = outputView === 'xlsx';
+  panel.querySelectorAll('.stats-bar, .out-extras').forEach(el => {
+    el.style.display = showXlsx ? 'none' : '';
+  });
+  // Tages-Panels haben eine eigene per-Panel-Sichtbarkeit (nur aktiver Tag) – diese erhalten:
+  // in der XLSX-Ansicht alle aus, sonst wieder nur den aktiven Tag zeigen.
+  panel.querySelectorAll('.day-panel').forEach(el => {
+    el.style.display = showXlsx ? 'none' : (el.classList.contains('active') ? 'block' : 'none');
+  });
+  const previewView = document.getElementById('xlsx-preview-view');
+  if(previewView) previewView.style.display = showXlsx ? 'block' : 'none';
+
+  const tabPlan = document.getElementById('view-tab-plan');
+  const tabXlsx = document.getElementById('view-tab-xlsx');
+  if(tabPlan) tabPlan.onclick = () => { if(outputView !== 'plan'){ outputView = 'plan'; renderOutput(); } };
+  if(tabXlsx) tabXlsx.onclick = () => { if(outputView !== 'xlsx'){ outputView = 'xlsx'; renderOutput(); } };
+
+  if(showXlsx){
+    if(typeof renderXlsxPreview === 'function')
+      renderXlsxPreview(document.getElementById('xlsx-preview'), activeDay);
+    const dl = document.getElementById('btn-xlsx-dl');
+    if(dl) dl.onclick = () => downloadXlsxFromPreview(activeDay);
+    const pr = document.getElementById('btn-xlsx-print');
+    if(pr) pr.onclick = () => printXlsxPreview();
   }
 
   // Auf-/Zuklapp-Zustand der Tages-Steuerungs-Sektionen merken (überdauert Re-Renders)

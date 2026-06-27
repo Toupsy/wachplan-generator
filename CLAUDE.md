@@ -49,7 +49,8 @@ seed.js           Beispieldatensatz (Fallback ohne Autosave)
 render-sidebar.js Sidebar-UI: Personen, Türme, Boote, Export-Spalten, Positionen
 generate.js       *** KERN-ALGORITHMUS *** Scoring, Rotation, Fairness
 render-output.js  Ausgabe: Tageskarten, Stats-Bar, Pro-Person-/Matrix-Statistiken
-export.js         XLSX (XML-Patch via JSZip) + CSV-Export
+export.js         XLSX (XML-Patch via JSZip) + CSV-Export; _patchSheetXml/exportOfficial nehmen optionale Zell-Overrides; buildPatchedXlsxBytes()+getEditableCellRefs() (geteilt mit Vorschau)
+xlsx-preview.js   Editierbare XLSX-Vorschau (Feature 49): SheetJS-Render der generierten Datei (_worksheetToTable), Zell-Edits → xlsxPreviewOverrides, Download/Druck
 move.js           Modal „Person verschieben" (↕) + D&D-Logik
 state-io.js       Server-Sync (autoSave/autoLoad), Plan-Manager, State-Serialisierung
 roster.js         Wachlisten-Upload (CSV/PDF) → dynamische Namensliste aus startDate+DAYS (Feature 31)
@@ -63,8 +64,8 @@ layout-chrome.js  Top-Bar-Info-Kästchen (#header-info, localStorage `dlrg_heade
 init.js           Event-Listener + Startsequenz (autoLoad → seed fallback)
 ```
 **Ladereihenfolge:** state → utils → dates → autoCodes → config → seed → render-sidebar →
-generate → render-output → export → move → state-io → roster → user-info → share → realtime →
-plans-ui → login-modal → sidebar-layout → layout-chrome → init
+generate → render-output → export → xlsx-preview → move → state-io → roster → user-info → share →
+realtime → plans-ui → login-modal → sidebar-layout → layout-chrome → init
 
 **Backend `server/`:**
 ```
@@ -253,6 +254,10 @@ per Regex patchen → Styles/Bilder/Schutz bleiben. Konstanten: `SLOT_ROWS_X`, `
 `effectiveCols[]` regelt Overflow: >2 Personen/Station → nächste Template-Spalte rechts;
 Rest = HW-Overflow (Personen 5+, inkl. Kranke). Template auto-geladen via `fetch` +
 localStorage-Cache (`dlrg_wachplan_template_b64`).
+**Vorschau-Overrides (Feature 49):** `_patchSheetXml(xml, dayIdx, overrides)` mischt optionale
+Zell-Overrides (`{ref→value}`) **zuletzt** ein (numerisch → `n`, sonst `s`); `buildPatchedXlsxBytes()`
+kapselt Laden+Patch+Zip (für Download UND Vorschau), `getEditableCellRefs()` liefert die
+editierbaren Refs aus **derselben** Layout-Logik. Rendern/Editieren → `xlsx-preview.js`.
 
 **Manuelles Verschieben (move.js + render-output.js):** ↕-Button öffnet `openMoveModal()`;
 Checkbox „Folgetage neu berechnen" steuert `transparent`. D&D: `dragSrc` VOR

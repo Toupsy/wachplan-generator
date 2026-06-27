@@ -590,6 +590,24 @@
   .vo-date{font-family:'Spline Sans Mono',monospace;font-size:.8rem;color:var(--text-dim)}
   @media(max-width:900px){body.view-only .main-panel-1{display:block !important}}
 
+  /* ── Ausgabe-Umschalter (Plan ↔ XLSX-Vorschau) ──────────────── */
+  .view-toggle{display:inline-flex;gap:4px;margin-bottom:10px;background:var(--deep);border:1px solid var(--line);border-radius:8px;padding:3px}
+  .view-tab{font-size:.82rem;font-weight:600;color:var(--text-dim);background:none;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;transition:background .15s,color .15s}
+  .view-tab:hover{color:var(--text)}
+  .view-tab.active{background:var(--sea-bright);color:#04212e}
+
+  /* ── XLSX-Vorschau ──────────────────────────────────────────── */
+  .xlsx-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .xlsx-toolbar-hint{font-size:.78rem;color:var(--text-dim)}
+  .xlsx-hint{color:var(--text-dim);font-size:.88rem;padding:16px 4px}
+  .xlsx-hint-warn{color:var(--warn)}
+  .xlsx-table-wrap{overflow:auto;border:1px solid var(--line);border-radius:8px;background:#fff;max-width:100%}
+  .xlsx-preview-table{border-collapse:collapse;font-size:.74rem;color:#111;table-layout:fixed}
+  .xlsx-preview-table td{border:1px solid #c9c9c9;padding:2px 5px;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:18px;height:18px}
+  .xlsx-preview-table td.xlsx-cell-edit{background:#fffbe6;cursor:text}
+  .xlsx-preview-table td.xlsx-cell-edit:hover{background:#fff3bf}
+  .xlsx-preview-table td.xlsx-cell-edit:focus{outline:2px solid var(--sea-bright);outline-offset:-2px;background:#fff;white-space:normal}
+
   @media print{
     @page{size:A4 landscape;margin:8mm}
     *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -651,6 +669,13 @@
     body.print-single-day .towers-grid{display:grid !important}
     body.print-single-day .tower-card{display:block !important}
     body.print-single-day .out-extras{display:none !important}
+
+    /* XLSX-Vorschau drucken: nur das Raster, Plan-Inhalte aus, Querformat */
+    body.print-xlsx .day-panel{display:none !important}
+    body.print-xlsx #xlsx-preview-view{display:block !important}
+    body.print-xlsx .xlsx-toolbar{display:none !important}
+    body.print-xlsx .xlsx-preview-table{font-size:7pt;width:auto !important}
+    body.print-xlsx .xlsx-preview-table td{border:1px solid #999 !important;color:#000 !important;padding:1px 3px !important}
   }
 </style>
 </head>
@@ -1301,6 +1326,7 @@
 <script src="js/generate.js?v=__ASSET_V__"></script>
 <script src="js/render-output.js?v=__ASSET_V__"></script>
 <script src="js/export.js?v=__ASSET_V__"></script>
+<script src="js/xlsx-preview.js?v=__ASSET_V__"></script>
 <script src="js/move.js?v=__ASSET_V__"></script>
 <script src="js/state-io.js?v=__ASSET_V__"></script>
 <script src="js/roster.js?v=__ASSET_V__"></script>

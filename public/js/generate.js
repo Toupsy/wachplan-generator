@@ -1167,6 +1167,9 @@ function generate(startDay = 0){
     }
   };
   if(activeDay >= DAYS) activeDay = 0;
+  // Editierte XLSX-Vorschau-Zellen verwerfen: Personen-Nummern können sich durch die
+  // Neuberechnung verschieben → Zell-Overrides würden veralten (sitzungslokal, kein State).
+  if(typeof clearXlsxPreviewOverrides === 'function') clearXlsxPreviewOverrides();
   // Defer rendering to next animation frame so the main thread isn't blocked
   // during heavy DOM rebuilds (14-day plans with many people). autoSave is
   // fired after renderOutput so the snapshot reflects the rendered state.

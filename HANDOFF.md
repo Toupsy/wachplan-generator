@@ -13,6 +13,23 @@
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: Tests grün, alle Server parsen (`node -c`).
 
+**Letzter Lauf (2026-06-27, Feature 49: Editierbare XLSX-Vorschau – Branch `claude/xlsx-export-preview-xom4c8`):**
+- **Neues Feature (s. docs/FEATURES.md Feature 49):** Umschalter „📋 Plan / 📄 XLSX-Vorschau" im
+  Ausgabe-Kopf. Die Vorschau rendert die **tatsächlich generierte XLSX** des aktiven Tages (SheetJS
+  `XLSX.read` der `buildPatchedXlsxBytes`-Bytes → `_worksheetToTable`, inkl. Merges/Spaltenbreiten),
+  Datenzellen sind direkt editierbar (`xlsxPreviewOverrides`, in `_patchSheetXml` zuletzt eingemischt),
+  Download (`exportOfficial`) + Druck (`body.print-xlsx`) aus der Vorschau.
+- **Dateien:** neu `public/js/xlsx-preview.js` (nach `export.js`); `export.js` um Overrides-Param,
+  `buildPatchedXlsxBytes()`, `getEditableCellRefs()` erweitert; Umschalter/Container/Wiring in
+  `render-output.js` (`outputView`); `generate.js` leert Overrides; CSS+Print+Script-Tag in der HTML.
+  **Sitzungslokal** (kein State/`STATE_VERSION`-Bump). View-Only-Modus zeigt keinen Vorschau-Tab.
+- **Tests:** voller `npm test` **124/124 grün** (nach `npm install`). Export-/Override-/Render-Pipeline
+  zusätzlich gegen das **echte Template** verifiziert (vm-Harness mit jszip+xlsx: 14 + 15 Checks grün:
+  `getEditableCellRefs`-Layout = `_patchSheetXml`, SheetJS liest gepatchtes Workbook inkl. Merges,
+  numerische + Text-Overrides greifen, `_worksheetToTable` flaggt editierbare Zellen/Spans korrekt,
+  blur→Override + `clearXlsxPreviewOverrides`). **Nicht im echten Browser** (Auth/Backend + CDN nötig)
+  – DOM-Wiring per Code-Review + DOM-Shim-Test abgesichert.
+
 **Letzter Lauf (2026-06-23, Bugfix Feature 47: Sperre überlebt Reload – Branch `claude/plan-lock-function-fuj6du`):**
 - **Bug:** Gesperrte Tage veränderten sich „im Nachhinein doch". Ursache: `lastResult` wird nicht
   mitserialisiert → nach einem Reload löst jeder Load (autoLoad/loadPlan/Realtime) ein `generate()`

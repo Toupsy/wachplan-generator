@@ -303,8 +303,13 @@ function _colToNum(col){
 
 /**
  * Hauptfunktion: Sammelt alle Patches und wendet sie mit einem Durchlauf an.
+ * @param {string} xml        – worksheet XML
+ * @param {number} dayIdx     – Tag-Index
+ * @param {Object} [overrides] – optionale Zell-Overrides der editierbaren Vorschau
+ *                               ({ cellRef → string }); werden ZULETZT eingemischt und
+ *                               überschreiben die berechneten Werte (Feature: XLSX-Vorschau).
  */
-function _patchSheetXml(xml, dayIdx){
+function _patchSheetXml(xml, dayIdx, overrides){
   const patches = _createPatchMap();
 
   // ── Datum ────────────────────────────────────────────────────
@@ -380,7 +385,97 @@ function _patchSheetXml(xml, dayIdx){
     }
   }
 
+  // ── Vorschau-Overrides zuletzt einmischen ────────────────────────
+  // Editierte Zellen aus der XLSX-Vorschau überschreiben die berechneten Werte.
+  // Numerisch aussehende Strings werden als Zahl ('n') geschrieben, sonst als Text ('s').
+  if(overrides){
+    for(const ref of Object.keys(overrides)){
+      const raw = overrides[ref];
+      const val = raw == null ? '' : String(raw);
+      if(val !== '' && /^-?\d+(\.\d+)?$/.test(val.trim()))
+        patches.set(ref, { type: 'n', value: val.trim() });
+      else
+        patches.set(ref, { type: 's', value: val });
+    }
+  }
+
   return { xml: _applyPatches(xml, patches), truncated };
+}
+
+/**
+ * Liefert die Menge der editierbaren Zell-Refs der Vorschau für einen Tag.
+ * Teilt die Layout-Logik mit _patchSheetXml: Namensblock (1–28), Stationscodes (Zeile 21),
+ * Positionsbeschriftungen (C11/C13/C15/C17/C19), Datum (EE3) und die Stunden-Zahlzellen
+ * der effektiven Spalten (inkl. Overflow + HW-Fallback).
+ * @returns {Set<string>}
+ */
+function getEditableCellRefs(dayIdx){
+  const refs = new Set();
+  refs.add('EE3');                                  // Datum
+  for(let n = 1; n <= 28; n++) refs.add(slotNameRef(n)); // Namensblock
+  [11,13,15,17,19].forEach(row => refs.add('C'+row));    // Positionsbeschriftungen
+
+  if(!lastResult?.schedule?.[dayIdx]) return refs;
+
+  const hours = fillHours();
+  const addStationCol = (col) => {
+    refs.add(colLetter(col)+'21');
+    hours.forEach(hr => {
+      const [rt, rb] = HOUR_ROWS_X[hr];
+      refs.add(colLetter(col)+rt);
+      refs.add(colLetter(col)+rb);
+    });
+  };
+
+  // Effektives Spalten-Layout exakt wie in _patchSheetXml nachbilden.
+  const A = buildAssignments(dayIdx);
+  let tplIdx = 0;
+  let hwInExportCols = false;
+  for(const rawCode of exportColumns){
+    const code = (rawCode || '').trim();
+    if(!code) continue;
+    if(tplIdx >= TEMPLATE_STATION_COLS.length) break;
+    if(code === 'HW') hwInExportCols = true;
+    const nums = A[code] || [];
+    addStationCol(TEMPLATE_STATION_COLS[tplIdx++]);
+    for(let i = 2; i < nums.length; i += 2){
+      if(tplIdx >= TEMPLATE_STATION_COLS.length) break;
+      addStationCol(TEMPLATE_STATION_COLS[tplIdx++]);
+    }
+  }
+  const main = lastResult.schedule[dayIdx].assign.find(s => s.kind === 'main');
+  if(main && !hwInExportCols){
+    const allHWNrs = [...main.mainGuards, ...main.base, ...main.bootsfLeft, ...(main.sick||[])]
+      .map(p => personNr(p.id)).filter(n => n != null);
+    for(let i = 0; i < allHWNrs.length; i += 2){
+      if(tplIdx >= TEMPLATE_STATION_COLS.length) break;
+      addStationCol(TEMPLATE_STATION_COLS[tplIdx++]);
+    }
+  }
+  return refs;
+}
+
+/**
+ * Gemeinsamer Helfer: lädt das Template, patcht das Worksheet (inkl. optionaler Overrides)
+ * und liefert die fertigen XLSX-Bytes. Wird von exportOfficial() (Download) und von der
+ * XLSX-Vorschau (Rendern via SheetJS) genutzt.
+ * @returns {Promise<{ bytes: Uint8Array, truncated: boolean }>}
+ */
+async function buildPatchedXlsxBytes(dayIdx, overrides){
+  await ensureJSZip();
+  const arr = await _loadTemplate();
+  const zip = await JSZip.loadAsync(arr);
+
+  const sheetPath = Object.keys(zip.files)
+    .filter(f => f.match(/xl\/worksheets\/sheet\d+\.xml$/))
+    .sort()[0] || 'xl/worksheets/sheet1.xml';
+
+  const origXml = await zip.file(sheetPath).async('string');
+  const { xml: patchedXml, truncated } = _patchSheetXml(origXml, dayIdx, overrides);
+  zip.file(sheetPath, patchedXml);
+
+  const bytes = await zip.generateAsync({ type:'uint8array', compression:'DEFLATE' });
+  return { bytes, truncated };
 }
 
 // ── Offizieller XLSX-Export ───────────────────────────────────────
@@ -398,18 +493,9 @@ async function exportOfficial(dayIdx){
   }
 
   try {
-    await ensureJSZip();
-    const arr = await _loadTemplate();
-    const zip  = await JSZip.loadAsync(arr);
-
-    // Sheet-Pfad ermitteln (i.d.R. sheet1.xml)
-    const sheetPath = Object.keys(zip.files)
-      .filter(f => f.match(/xl\/worksheets\/sheet\d+\.xml$/))
-      .sort()[0] || 'xl/worksheets/sheet1.xml';
-
-    const origXml    = await zip.file(sheetPath).async('string');
-    const { xml: patchedXml, truncated } = _patchSheetXml(origXml, dayIdx);
-    zip.file(sheetPath, patchedXml);
+    // Editierbare Vorschau: ggf. vorhandene Zell-Overrides dieses Tages mitgeben.
+    const overrides = (typeof xlsxPreviewOverrides !== 'undefined') ? xlsxPreviewOverrides[dayIdx] : null;
+    const { bytes: out, truncated } = await buildPatchedXlsxBytes(dayIdx, overrides);
 
     if(truncated){
       const ok = confirm(
@@ -421,7 +507,6 @@ async function exportOfficial(dayIdx){
       if(!ok) return;
     }
 
-    const out  = await zip.generateAsync({ type:'uint8array', compression:'DEFLATE' });
     const iso  = computeDayDates()[dayIdx];
     const fn   = (iso || ('Tag'+(dayIdx+1))) + '_Wachplan.xlsx';
     const blob = new Blob([out], { type:'application/octet-stream' });
