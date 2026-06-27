@@ -17,11 +17,15 @@ Der offizielle XLSX-Export lässt sich **vor dem Download als Vorschau** im Ausg
 - **Ansicht:** Im Ausgabe-Kopf schaltet ein Umschalter zwischen **📋 Plan** und **📄 XLSX-Vorschau**
   (modul-lokales `outputView` in `render-output.js`, überlebt die `renderOutput()`-Rebuilds). Die
   Vorschau zeigt den **aktiven Tag** (Tag-Wechsel über die vorhandenen Day-Tabs).
-- **Darstellung:** Es wird die **tatsächlich generierte XLSX** gerendert – `buildPatchedXlsxBytes()`
-  (extrahiert aus `exportOfficial`) erzeugt die Bytes, SheetJS (`XLSX.read`) parst sie, und
-  `_worksheetToTable()` (`xlsx-preview.js`) baut daraus eine HTML-Tabelle inkl. verbundener Zellen
-  (`!merges` → row-/colspan) und Spaltenbreiten (`!cols`). Deckungsgleich mit der Datei; Logo/Farben
-  des Templates entfallen bewusst (reines Raster).
+- **Darstellung (originalgetreu):** Es wird die **tatsächlich generierte XLSX** gerendert –
+  `buildPatchedXlsxBytes()` (extrahiert aus `exportOfficial`) erzeugt die Bytes, **ExcelJS** (lazy
+  von cdnjs, nur beim ersten Öffnen) parst sie inkl. **Zellstilen**, und `_worksheetToStyledSheet()`
+  (`xlsx-preview.js`) überträgt Rahmen, Füllungen, Schrift/Ausrichtung, Spaltenbreiten, Zeilenhöhen,
+  verbundene Zellen (row-/colspan) sowie das **Logo** (eingebettete Bilder als positionierte
+  `data:`-Overlays) auf eine HTML-Tabelle → sieht aus wie das DLRG-Formular. Theme-Farben werden aus
+  `xl/theme/theme1.xml` aufgelöst; Datumszellen werden lokal (DD.MM.YYYY) formatiert. (Die
+  Wetter-Symbol-Spalte nutzt eine Template-Spezialschrift – ohne installierte Schrift erscheinen dort
+  Buchstaben, wie in jeder HTML-Ansicht.)
 - **Editierbar (nur Datenzellen):** Namensblock (1–28), Stationscodes (Zeile 21),
   Positionsbeschriftungen (C11/C13/C15/C17/C19), Datum (EE3) und die Stunden-Zahlzellen. Welche
   Zellen das sind, liefert `getEditableCellRefs()` aus **derselben** Layout-Logik wie
@@ -35,8 +39,13 @@ Der offizielle XLSX-Export lässt sich **vor dem Download als Vorschau** im Ausg
   und in `generate()` via `clearXlsxPreviewOverrides()` verworfen, weil sich Personen-Nummern bei der
   Neuberechnung verschieben können (Refs würden veralten). Beobachter-/View-Only-Modus zeigt keinen
   Vorschau-Tab (wie schon bisher keinen Export).
-- **Module:** neu `public/js/xlsx-preview.js` (nach `export.js` geladen); kein Backend-Eingriff,
-  JSZip + SheetJS waren bereits eingebunden.
+- **Formel-Recalc-Fix:** Das Template hat Formelzellen (Datum, `SUM`, `COUNT`) mit **gecachten**
+  Werten und kein `fullCalcOnLoad` → Excel/LibreOffice zeigten die alten Werte bis zum manuellen
+  Neuberechnen. `buildPatchedXlsxBytes()` setzt nun `fullCalcOnLoad="1"` in `xl/workbook.xml`
+  (`_ensureFullCalcOnLoad`, idempotent) → Recalc beim Öffnen. Gilt für jeden XLSX-Download.
+- **Module:** neu `public/js/xlsx-preview.js` (nach `export.js` geladen); kein Backend-Eingriff.
+  JSZip war bereits eingebunden; **ExcelJS** kommt lazy von cdnjs (CSP erlaubt cdnjs +
+  `img-src data:` bereits – keine CSP-Änderung nötig).
 
 ### Feature 48: Turmpartner-Wunsch (`partnerWishIds`)
 Eine Person kann sich **eine oder mehrere** andere als **Turmpartner** wünschen – jeder Wunsch

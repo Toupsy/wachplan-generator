@@ -601,12 +601,15 @@
   .xlsx-toolbar-hint{font-size:.78rem;color:var(--text-dim)}
   .xlsx-hint{color:var(--text-dim);font-size:.88rem;padding:16px 4px}
   .xlsx-hint-warn{color:var(--warn)}
-  .xlsx-table-wrap{overflow:auto;border:1px solid var(--line);border-radius:8px;background:#fff;max-width:100%}
-  .xlsx-preview-table{border-collapse:collapse;font-size:.74rem;color:#111;table-layout:fixed}
-  .xlsx-preview-table td{border:1px solid #c9c9c9;padding:2px 5px;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:18px;height:18px}
-  .xlsx-preview-table td.xlsx-cell-edit{background:#fffbe6;cursor:text}
-  .xlsx-preview-table td.xlsx-cell-edit:hover{background:#fff3bf}
-  .xlsx-preview-table td.xlsx-cell-edit:focus{outline:2px solid var(--sea-bright);outline-offset:-2px;background:#fff;white-space:normal}
+  .xlsx-table-wrap{overflow:auto;border:1px solid var(--line);border-radius:8px;background:#e9edf2;max-width:100%;padding:14px}
+  .xlsx-sheet{position:relative;display:inline-block;background:#fff;box-shadow:0 1px 8px rgba(0,0,0,.15)}
+  .xlsx-sheet-img{position:absolute;pointer-events:none}
+  /* Rahmen/Füllungen/Schrift kommen als Inline-Stile direkt aus den Zellen (originalgetreu). */
+  .xlsx-preview-table{border-collapse:collapse;table-layout:fixed;background:#fff;color:#000;font-family:Arial,sans-serif}
+  .xlsx-preview-table td{padding:0 3px;box-sizing:border-box;line-height:1.05;overflow:hidden}
+  .xlsx-preview-table td.xlsx-cell-edit{cursor:text;box-shadow:inset 0 0 0 1px rgba(43,170,210,.4)}
+  .xlsx-preview-table td.xlsx-cell-edit:hover{box-shadow:inset 0 0 0 1px var(--sea-bright)}
+  .xlsx-preview-table td.xlsx-cell-edit:focus{outline:2px solid var(--sea-bright);outline-offset:-2px;white-space:normal}
 
   @media print{
     @page{size:A4 landscape;margin:8mm}
@@ -674,8 +677,10 @@
     body.print-xlsx .day-panel{display:none !important}
     body.print-xlsx #xlsx-preview-view{display:block !important}
     body.print-xlsx .xlsx-toolbar{display:none !important}
-    body.print-xlsx .xlsx-preview-table{font-size:7pt;width:auto !important}
-    body.print-xlsx .xlsx-preview-table td{border:1px solid #999 !important;color:#000 !important;padding:1px 3px !important}
+    body.print-xlsx .xlsx-table-wrap{border:none !important;background:#fff !important;padding:0 !important;overflow:visible !important}
+    body.print-xlsx .xlsx-sheet{box-shadow:none !important}
+    /* Originalrahmen/-farben der Zellen drucken (Inline-Stile), kein erzwungener Rahmen. */
+    body.print-xlsx .xlsx-preview-table td.xlsx-cell-edit{box-shadow:none !important}
   }
 </style>
 </head>

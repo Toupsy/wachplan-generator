@@ -13,22 +13,28 @@
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: Tests grün, alle Server parsen (`node -c`).
 
-**Letzter Lauf (2026-06-27, Feature 49: Editierbare XLSX-Vorschau – Branch `claude/xlsx-export-preview-xom4c8`):**
+**Letzter Lauf (2026-06-27, Feature 49: Editierbare XLSX-Vorschau – Branch `claude/xlsx-export-preview-xom4c8`, PR #380):**
 - **Neues Feature (s. docs/FEATURES.md Feature 49):** Umschalter „📋 Plan / 📄 XLSX-Vorschau" im
-  Ausgabe-Kopf. Die Vorschau rendert die **tatsächlich generierte XLSX** des aktiven Tages (SheetJS
-  `XLSX.read` der `buildPatchedXlsxBytes`-Bytes → `_worksheetToTable`, inkl. Merges/Spaltenbreiten),
-  Datenzellen sind direkt editierbar (`xlsxPreviewOverrides`, in `_patchSheetXml` zuletzt eingemischt),
-  Download (`exportOfficial`) + Druck (`body.print-xlsx`) aus der Vorschau.
+  Ausgabe-Kopf. Die Vorschau rendert die **tatsächlich generierte XLSX** des aktiven Tages
+  **originalgetreu** (ExcelJS lazy von cdnjs → `_worksheetToStyledSheet`: Rahmen, Füllungen, Schrift,
+  Merges, Spaltenbreiten/Zeilenhöhen, **Logo** als `data:`-Overlay, Theme-Farben aus theme1.xml,
+  Datum DD.MM.YYYY). Datenzellen direkt editierbar (`xlsxPreviewOverrides`, in `_patchSheetXml`
+  zuletzt eingemischt), Download (`exportOfficial`) + Druck (`body.print-xlsx`) aus der Vorschau.
+- **Formel-Recalc-Fix (wichtig):** Template-Formeln (Datum/SUM/COUNT) waren gecacht + `calcPr` ohne
+  `fullCalcOnLoad` → Werte aktualisierten sich erst nach manuellem Neuberechnen. `buildPatchedXlsxBytes()`
+  setzt jetzt `fullCalcOnLoad="1"` (`_ensureFullCalcOnLoad`) → Recalc beim Öffnen (gilt für JEDEN Download).
 - **Dateien:** neu `public/js/xlsx-preview.js` (nach `export.js`); `export.js` um Overrides-Param,
-  `buildPatchedXlsxBytes()`, `getEditableCellRefs()` erweitert; Umschalter/Container/Wiring in
-  `render-output.js` (`outputView`); `generate.js` leert Overrides; CSS+Print+Script-Tag in der HTML.
-  **Sitzungslokal** (kein State/`STATE_VERSION`-Bump). View-Only-Modus zeigt keinen Vorschau-Tab.
-- **Tests:** voller `npm test` **124/124 grün** (nach `npm install`). Export-/Override-/Render-Pipeline
-  zusätzlich gegen das **echte Template** verifiziert (vm-Harness mit jszip+xlsx: 14 + 15 Checks grün:
-  `getEditableCellRefs`-Layout = `_patchSheetXml`, SheetJS liest gepatchtes Workbook inkl. Merges,
-  numerische + Text-Overrides greifen, `_worksheetToTable` flaggt editierbare Zellen/Spans korrekt,
-  blur→Override + `clearXlsxPreviewOverrides`). **Nicht im echten Browser** (Auth/Backend + CDN nötig)
-  – DOM-Wiring per Code-Review + DOM-Shim-Test abgesichert.
+  `buildPatchedXlsxBytes()`, `getEditableCellRefs()`, `_ensureFullCalcOnLoad()` erweitert;
+  Umschalter/Container/Wiring in `render-output.js` (`outputView`); `generate.js` leert Overrides;
+  CSS+Print+Script-Tag in der HTML. **Sitzungslokal** (kein State/`STATE_VERSION`-Bump). View-Only ohne Tab.
+  **CSP unverändert** (cdnjs + `img-src data:` schon erlaubt).
+- **Verifiziert:** `npm test` **124/124 grün**. Render-Pipeline gegen das **echte Template** geprüft:
+  (a) Node-vm-Checks (`getEditableCellRefs`=`_patchSheetXml`-Layout, Overrides numerisch/Text,
+  `_ensureFullCalcOnLoad` idempotent inkl. self-closing calcPr); (b) **echter Browser-Screenshot der
+  ausgelieferten `xlsx-preview.js`** (Chromium headless, lokal gehostete ExcelJS/JSZip + Template) →
+  Logo, Rahmen, Merges, Datum, editierbare Zellen korrekt. Variante-Vergleich (aktuell/V1/V2) als
+  Screenshots an den Owner geschickt; gewählt: **V1 (stilgetreuer Eigen-Renderer)**.
+  (LibreOffice-Headless-Konvertierung im Container defekt → für Referenz nicht nutzbar.)
 
 **Letzter Lauf (2026-06-23, Bugfix Feature 47: Sperre überlebt Reload – Branch `claude/plan-lock-function-fuj6du`):**
 - **Bug:** Gesperrte Tage veränderten sich „im Nachhinein doch". Ursache: `lastResult` wird nicht

@@ -50,7 +50,7 @@ render-sidebar.js Sidebar-UI: Personen, Türme, Boote, Export-Spalten, Positione
 generate.js       *** KERN-ALGORITHMUS *** Scoring, Rotation, Fairness
 render-output.js  Ausgabe: Tageskarten, Stats-Bar, Pro-Person-/Matrix-Statistiken
 export.js         XLSX (XML-Patch via JSZip) + CSV-Export; _patchSheetXml/exportOfficial nehmen optionale Zell-Overrides; buildPatchedXlsxBytes()+getEditableCellRefs() (geteilt mit Vorschau)
-xlsx-preview.js   Editierbare XLSX-Vorschau (Feature 49): SheetJS-Render der generierten Datei (_worksheetToTable), Zell-Edits → xlsxPreviewOverrides, Download/Druck
+xlsx-preview.js   Editierbare XLSX-Vorschau (Feature 49): originalgetreuer Render der generierten Datei via ExcelJS (lazy cdnjs) – Stile/Merges/Logo (_worksheetToStyledSheet), Zell-Edits → xlsxPreviewOverrides, Download/Druck
 move.js           Modal „Person verschieben" (↕) + D&D-Logik
 state-io.js       Server-Sync (autoSave/autoLoad), Plan-Manager, State-Serialisierung
 roster.js         Wachlisten-Upload (CSV/PDF) → dynamische Namensliste aus startDate+DAYS (Feature 31)
@@ -257,7 +257,10 @@ localStorage-Cache (`dlrg_wachplan_template_b64`).
 **Vorschau-Overrides (Feature 49):** `_patchSheetXml(xml, dayIdx, overrides)` mischt optionale
 Zell-Overrides (`{ref→value}`) **zuletzt** ein (numerisch → `n`, sonst `s`); `buildPatchedXlsxBytes()`
 kapselt Laden+Patch+Zip (für Download UND Vorschau), `getEditableCellRefs()` liefert die
-editierbaren Refs aus **derselben** Layout-Logik. Rendern/Editieren → `xlsx-preview.js`.
+editierbaren Refs aus **derselben** Layout-Logik. Rendern/Editieren → `xlsx-preview.js` (ExcelJS).
+**Formel-Recalc (Falle):** Template-Formeln (Datum/SUM/COUNT) sind gecacht + `calcPr` ohne
+`fullCalcOnLoad` → ohne Eingriff zeigen Excel/LibreOffice alte Werte. `buildPatchedXlsxBytes()` setzt
+daher `fullCalcOnLoad="1"` (`_ensureFullCalcOnLoad`) – beim Patchen NICHT wieder entfernen.
 
 **Manuelles Verschieben (move.js + render-output.js):** ↕-Button öffnet `openMoveModal()`;
 Checkbox „Folgetage neu berechnen" steuert `transparent`. D&D: `dragSrc` VOR
