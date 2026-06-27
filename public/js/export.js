@@ -474,8 +474,33 @@ async function buildPatchedXlsxBytes(dayIdx, overrides){
   const { xml: patchedXml, truncated } = _patchSheetXml(origXml, dayIdx, overrides);
   zip.file(sheetPath, patchedXml);
 
+  // Formeln (SUM/COUNT/Datum) bei jedem Öffnen neu berechnen lassen. Ohne diese Anweisung
+  // zeigen Excel/LibreOffice die im Template GECACHTEN Formelwerte, bis der Nutzer manuell neu
+  // rechnet → die patchten Zahlen werden „nicht erkannt". fullCalcOnLoad erzwingt den Recalc.
+  const wbFile = zip.file('xl/workbook.xml');
+  if(wbFile){
+    const wbXml = await wbFile.async('string');
+    zip.file('xl/workbook.xml', _ensureFullCalcOnLoad(wbXml));
+  }
+
   const bytes = await zip.generateAsync({ type:'uint8array', compression:'DEFLATE' });
   return { bytes, truncated };
+}
+
+/**
+ * Setzt fullCalcOnLoad="1" im <calcPr> der workbook.xml (idempotent).
+ * Ergänzt das Attribut, falls calcPr existiert, sonst fügt es ein calcPr ein.
+ */
+function _ensureFullCalcOnLoad(wbXml){
+  if(/<calcPr\b[^>]*\bfullCalcOnLoad=/.test(wbXml)) return wbXml; // schon gesetzt
+  if(/<calcPr\b/.test(wbXml)){
+    return wbXml.replace(/<calcPr\b([^>]*?)\s*(\/?)>/, (m, attrs, slash) =>
+      `<calcPr${attrs} fullCalcOnLoad="1"${slash ? '/' : ''}>`);
+  }
+  // Kein calcPr vorhanden → nach </sheets> (sonst vor </workbook>) einfügen.
+  if(/<\/sheets>/.test(wbXml))
+    return wbXml.replace('</sheets>', '</sheets><calcPr fullCalcOnLoad="1"/>');
+  return wbXml.replace('</workbook>', '<calcPr fullCalcOnLoad="1"/></workbook>');
 }
 
 // ── Offizieller XLSX-Export ───────────────────────────────────────
