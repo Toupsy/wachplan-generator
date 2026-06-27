@@ -332,6 +332,7 @@ function _patchSheetXml(xml, dayIdx){
   const effectiveCols = [];   // { col:number, code:string, nums:[nr,...] }
   let tplIdx = 0;
   let truncated = false;      // true, sobald Stationen/Personen mangels Template-Spalten wegfallen
+  let hwInExportCols = false; // true, wenn 'HW' in exportColumns verarbeitet wurde
 
   for(const rawCode of exportColumns){
     const code = (rawCode || '').trim();
@@ -339,6 +340,7 @@ function _patchSheetXml(xml, dayIdx){
     if(tplIdx >= TEMPLATE_STATION_COLS.length){ truncated = true; break; }
 
     const nums = A[code] || [];
+    if(code === 'HW') hwInExportCols = true;
     effectiveCols.push({ col: TEMPLATE_STATION_COLS[tplIdx++], code, nums: nums.slice(0, 2) });
 
     // Overflow-Spalten direkt nebeneinander (Person 3, 4, 5 … in Paaren)
@@ -358,15 +360,11 @@ function _patchSheetXml(xml, dayIdx){
     });
   });
 
-  // HW-Fallback: Nur wenn 'HW' NICHT als Export-Spalte gesetzt ist. Steht 'HW' in
-  // exportColumns (Standard), hat die Haupt-Schleife oben über A['HW'] bereits ALLE
-  // HW-Personen inkl. Überlauf geschrieben – ein zweiter Durchlauf würde die ab Index 4
-  // doppelt in weitere Spalten schreiben (stille XLSX-Korruption). Ohne HW-Spalte schreibt
-  // dieser Block die KOMPLETTE HW-Belegung (inkl. Kranke) in die verbleibenden Spalten,
-  // damit die HW überhaupt erscheint.
-  const hwInCols = exportColumns.some(c => (c || '').trim() === 'HW');
+  // HW-Fallback: schreibt ALLE HW-Personen nur wenn 'HW' NICHT in exportColumns steht.
+  // Steht 'HW' in exportColumns, hat die Hauptschleife bereits alle HW-Personen inkl. Überlauf
+  // geschrieben → Fallback würde Personen 5+ duplizieren.
   const main = lastResult.schedule[dayIdx].assign.find(s => s.kind === 'main');
-  if(main && !hwInCols){
+  if(main && !hwInExportCols){
     const allHWNrs = [...main.mainGuards, ...main.base, ...main.bootsfLeft, ...(main.sick||[])]
       .map(p => personNr(p.id)).filter(n => n != null);
     for(let i = 0; i < allHWNrs.length; i += 2){

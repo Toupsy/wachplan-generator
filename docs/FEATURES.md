@@ -347,21 +347,14 @@ Nachgereicht zu Feature 45, damit die echte IP ohne Reverse-Proxy-Umbau erschein
 ## Bugfixes
 
 ### XLSX-Export duplizierte HW-Personen ab Index 4 (#377)
-Der offizielle XLSX-Export (`_patchSheetXml` in `public/js/export.js`) schrieb Personen der
-**Hauptwache** ab der 5. Person (Listenindex 4) **doppelt** in zwei verschiedene Template-Spalten,
-sobald `'HW'` in `exportColumns` stand – also in der **Standard-Konfiguration** (`seed.js`/`config.json`).
-**Ursache:** zwei konkurrierende HW-Überlauf-Mechanismen. Die exportColumns-Hauptschleife verteilt
-`A['HW']` (= *alle* HW-Personen aus `buildAssignments`) inkl. Überlauf paarweise über
-aufeinanderfolgende Spalten; ein dedizierter HW-Block schrieb zusätzlich `slice(4)` (Personen 5+)
-erneut in weitere Spalten → stille Korruption des offiziellen DLRG-Formulars, sobald die HW ≥5
-Personen führte (aktive Wachen + Überlauf + Kranke). **Latenter Zweitfehler:** Ohne `'HW'` in
-`exportColumns` schrieb nur der dedizierte Block – wegen `slice(4)` gingen dann die ersten 4
-HW-Personen verloren. **Fix:** Der dedizierte Block läuft jetzt nur noch als **Fallback**, wenn
-`'HW'` NICHT in `exportColumns` steht (sonst hat die Hauptschleife bereits alle HW-Personen
-geschrieben), und schreibt dann die **komplette** HW-Belegung (`slice(0)`). Ergebnis: jede HW-Person
-erscheint genau einmal; der Fallback verliert keine Personen mehr. Regressionstest
-`test/export-hw-overflow.test.js` (2 Checks: Default-Pfad + Fallback-Pfad) lädt `export.js` DOM-frei
-in den Algorithmus-Kontext und greift die Patch-Map ab.
+In `_patchSheetXml` (export.js) gab es zwei konkurrierende Schreibpfade für die Hauptwache:
+1. Die **exportColumns-Hauptschleife** schrieb bei `'HW'` alle HW-Personen inkl. Überlauf paarweise.
+2. Ein **dedizierter HW-Block** schrieb danach nochmals `allHWNrs.slice(4)` → Personen 5+
+   doppelt in zwei Template-Spalten. Latent: ohne `'HW'` in exportColumns lief nur der Block,
+   aber `slice(4)` ließ die ersten 4 HW-Personen komplett fehlen.
+**Fix:** `hwInExportCols`-Flag trackt ob die Hauptschleife `'HW'` verarbeitet hat → dedizierter
+Block läuft nur als Fallback (`!hwInExportCols`). Fallback nutzt `slice(0)` statt `slice(4)`.
+**Test:** `test/hw-export-dedup.test.js` (beide Pfade).
 
 ### CI-Tests („Push Test") schlugen sporadisch durch `node:test`-Runner-Crash fehl (#361/#365-Folge)
 Der GitHub-Actions-„Tests"-Lauf wurde regelmäßig **zufällig rot**, obwohl alle Tests bestanden:
