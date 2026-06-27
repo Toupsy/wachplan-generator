@@ -358,17 +358,22 @@ function _patchSheetXml(xml, dayIdx){
     });
   });
 
-  // HW-Überlauf: Personen 5+ (inkl. Kranke) → verbleibende Template-Spalten
+  // HW-Fallback: Nur wenn 'HW' NICHT als Export-Spalte gesetzt ist. Steht 'HW' in
+  // exportColumns (Standard), hat die Haupt-Schleife oben über A['HW'] bereits ALLE
+  // HW-Personen inkl. Überlauf geschrieben – ein zweiter Durchlauf würde die ab Index 4
+  // doppelt in weitere Spalten schreiben (stille XLSX-Korruption). Ohne HW-Spalte schreibt
+  // dieser Block die KOMPLETTE HW-Belegung (inkl. Kranke) in die verbleibenden Spalten,
+  // damit die HW überhaupt erscheint.
+  const hwInCols = exportColumns.some(c => (c || '').trim() === 'HW');
   const main = lastResult.schedule[dayIdx].assign.find(s => s.kind === 'main');
-  if(main){
+  if(main && !hwInCols){
     const allHWNrs = [...main.mainGuards, ...main.base, ...main.bootsfLeft, ...(main.sick||[])]
       .map(p => personNr(p.id)).filter(n => n != null);
-    const overflowHW = allHWNrs.slice(4);
-    for(let i = 0; i < overflowHW.length; i += 2){
+    for(let i = 0; i < allHWNrs.length; i += 2){
       if(tplIdx >= TEMPLATE_STATION_COLS.length){ truncated = true; break; }
       const col = TEMPLATE_STATION_COLS[tplIdx++];
       patches.set(colLetter(col)+'21', { type: 's', value: 'HW' });
-      const nr1 = overflowHW[i], nr2 = overflowHW[i+1];
+      const nr1 = allHWNrs[i], nr2 = allHWNrs[i+1];
       fillHours().forEach(hr => {
         const [rt, rb] = HOUR_ROWS_X[hr];
         if(nr1 != null) patches.set(colLetter(col)+rt, { type: 'n', value: nr1 });
