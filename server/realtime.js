@@ -114,6 +114,11 @@ function setupRealtime(server, sessionMiddleware) {
         try {
           const planId = await resolvePublicToken(msg.token);
           if (planId) {
+            // Als Beobachter beitreten → IMMER Updates erhalten. ws.userId leeren,
+            // falls der Socket ein Session-Cookie mitführte (z.B. der eingeloggte
+            // Eigentümer öffnet den Link im selben Browser): sonst gälte er beim
+            // Speichern als „der Speichernde" (exceptUserId) und würde übersprungen.
+            ws.userId = null;
             joinRoom(planId, ws);
             if (ws.readyState === ws.OPEN) {
               ws.send(JSON.stringify({ type: 'joined-public' }));
