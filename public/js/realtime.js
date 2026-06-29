@@ -11,6 +11,7 @@
 let _ws = null;
 let _wsReconnectTimer = null;
 let _joinedPlanId = null;
+let _publicViewToken = null;   // Beobachter-Link (?view=TOKEN): Live-Update ohne Login
 
 // Detect preview environments (Cloudflare Workers, etc.) where WebSocket is not available
 function _isPreviewEnvironment(){
@@ -31,13 +32,20 @@ function realtimeConnect(){
   catch(e){ _scheduleReconnect(); return; }
 
   _ws.onopen = () => {
+    // Beobachter-Link: ohne Login dem Plan-Raum per Token beitreten.
+    if(_publicViewToken){ _sendJoinPublic(); return; }
     // Aktuell offenen Plan (sofern vorhanden) beitreten
     if(typeof currentPlanId !== 'undefined' && currentPlanId != null) realtimeJoin(currentPlanId);
   };
   _ws.onmessage = (ev) => {
     let msg; try { msg = JSON.parse(ev.data); } catch(e){ return; }
-    if(msg.type === 'plan-updated' && msg.planId === currentPlanId){
-      if(typeof applyRemotePlanState === 'function') applyRemotePlanState();
+    if(msg.type === 'plan-updated'){
+      if(_publicViewToken){
+        // Beobachter: über den auth-freien Endpoint neu laden (kein currentPlanId).
+        if(typeof applyRemotePublicState === 'function') applyRemotePublicState(_publicViewToken);
+      } else if(msg.planId === currentPlanId){
+        if(typeof applyRemotePlanState === 'function') applyRemotePlanState();
+      }
     }
   };
   _ws.onclose = () => { _ws = null; _joinedPlanId = null; _scheduleReconnect(); };
@@ -59,6 +67,24 @@ function realtimeJoin(planId){
     _ws.send(JSON.stringify({ type:'join', planId }));
   } else {
     realtimeConnect();   // verbindet und tritt in onopen bei
+  }
+}
+
+/** Beobachter-Link (?view=TOKEN): Live-Update-Raum per Token beitreten – ohne Login. */
+function realtimeJoinPublic(token){
+  if(_wsDisabled) return;
+  if(!token) return;
+  _publicViewToken = token;
+  if(_ws && _ws.readyState === WebSocket.OPEN){
+    _sendJoinPublic();
+  } else {
+    realtimeConnect();   // verbindet und tritt in onopen bei
+  }
+}
+
+function _sendJoinPublic(){
+  if(_ws && _ws.readyState === WebSocket.OPEN && _publicViewToken){
+    _ws.send(JSON.stringify({ type:'join-public', token:_publicViewToken }));
   }
 }
 

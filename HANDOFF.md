@@ -13,6 +13,17 @@
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: Tests grün, alle Server parsen (`node -c`).
 
+**Letzter Lauf (2026-06-29, Feature 49: Live-Updates für Beobachter-Links – Branch `claude/view-only-live-updates-89ri68`):**
+- **Wunsch:** Änderungen am Live-Wachplan sollen auch in einem geteilten **Nur-Ansicht-Link**
+  (`?view=TOKEN`, Feature 38) live ankommen – bisher nur nach manuellem Neuladen.
+- **Umsetzung:** WS-Server (`server/realtime.js`) akzeptiert anonyme Verbindungen + neuer Typ
+  `join-public` (Token-Auth via `resolvePublicToken`, gleiche Prüfung wie der HTTP-Endpoint).
+  Client: `initPublicView` → `realtimeJoinPublic(token)`; `plan-updated` → `applyRemotePublicState(token)`
+  (`state-io.js`) lädt über `/api/public/plan/:token` neu (Nur-Lese bleibt). Anonyme Sockets dürfen
+  nur `join-public`, `join` verlangt weiter eine Session. Details: docs/FEATURES.md Feature 49.
+- **Tests:** volle Suite **126/126 grün** (nach `npm install` für sqlite3), `node -c` aller geänderten
+  Server-/Client-Dateien OK.
+
 **Letzter Lauf (2026-06-27, Bugfix: XLSX-Export dupliziert HW-Personen – Branch `claude/kind-allen-unqizk`, Issue #377):**
 - **Bug (High, stille Korruption):** Der offizielle XLSX-Export schrieb HW-Personen ab Index 4
   **doppelt** in zwei Spalten, sobald `'HW'` in `exportColumns` stand (= Standard-Config). Zwei
