@@ -11,6 +11,23 @@
 
 ## Features
 
+### Feature 49: Live-Updates für öffentliche Beobachter-Links (?view=TOKEN)
+Bisher bekamen Beobachter eines **Nur-Ansicht-Links** (Feature 38) Änderungen des Bearbeiters
+erst nach manuellem Neuladen zu sehen – die Realtime-Kollaboration (WebSocket) griff nur für
+eingeloggte Mitbearbeiter. Jetzt aktualisiert sich auch der Beobachter-Link **live**.
+- **Server** (`server/realtime.js`): Der `/ws`-Upgrade akzeptiert nun **anonyme** Verbindungen
+  (ohne Session; `ws.userId=null`). Neuer Nachrichtentyp `{type:'join-public', token}` verifiziert
+  das Token über `resolvePublicToken()` (gleiche Prüfung wie `/api/public/plan/:token`: 64-Hex-Format,
+  `plan_public_links` nicht widerrufen/abgelaufen) und tritt dem Plan-Raum bei. `broadcastPlanUpdate`
+  erreicht so auch Beobachter (der Speichernde wird wie gehabt per `exceptUserId` ausgenommen).
+  **Sicherheit:** Anonyme Sockets dürfen ausschließlich `join-public`; das reguläre `{type:'join',
+  planId}` verlangt weiter eine Session (`getPlanAccess(planId, null)` → false). Der Token-Hash
+  wird inline gebildet, um den Require-Zyklus `realtime.js ↔ api/plans.js` zu vermeiden.
+- **Client:** `initPublicView()` (`login-modal.js`) ruft nach dem Laden `realtimeJoinPublic(token)`
+  (`realtime.js`). Bei `plan-updated` lädt `applyRemotePublicState(token)` (`state-io.js`) den Plan
+  über den auth-freien Endpoint neu (kein `currentPlanId`, Nur-Lese bleibt erzwungen). In Preview-
+  Umgebungen (`*.workers.dev`) bleibt WS deaktiviert (Fallback: manuelles Neuladen).
+
 ### Feature 48: Turmpartner-Wunsch (`partnerWishIds`)
 Eine Person kann sich **eine oder mehrere** andere als **Turmpartner** wünschen – jeder Wunsch
 wird im Laufe der Woche **einmal** erfüllt, **ohne die Fairness zu beeinflussen**.

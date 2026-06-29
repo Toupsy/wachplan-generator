@@ -111,8 +111,9 @@ async function initPublicView(token) {
 
     if (loginModal) loginModal.style.display = 'none';
 
-    // Nur-Lese erzwingen, BEVOR State importiert wird → kein Autosave-Echo,
-    // kein Realtime-Join (currentPlanId bleibt null).
+    // Nur-Lese erzwingen, BEVOR State importiert wird → kein Autosave-Echo.
+    // Realtime erfolgt nicht über currentPlanId (bleibt null), sondern per
+    // Token-basiertem Beobachter-Join (realtimeJoinPublic, s.u.).
     if (typeof resetGlobalState === 'function') resetGlobalState();
     isPublicView = true;           // anonymer Beobachter: keine Konto-/Plan-Bedienelemente
     currentPlanCanEdit = false;
@@ -128,6 +129,10 @@ async function initPublicView(token) {
       _suppressAutoSave = false;
     }
     _updateSaveIndicator();   // setzt body.view-only
+
+    // Live-Updates: dem Beobachter-Raum dieses Plans per Token beitreten, damit
+    // Änderungen des Bearbeiters auch in der Nur-Ansicht ankommen (kein Login).
+    if (typeof realtimeJoinPublic === 'function') realtimeJoinPublic(token);
 
     // Auf Mobil direkt die Wachplan-Ansicht zeigen
     const btns = document.querySelectorAll('.ms-btn');

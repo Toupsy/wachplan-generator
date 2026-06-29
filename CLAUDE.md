@@ -358,7 +358,13 @@ Google-Hosts erweitert). Plan-Key hängt NICHT am Passwort → Reset zerstört k
   **Öffentliche Beobachter-Links (Feature 38):** `?view=TOKEN` triggert in `login-modal.js`
   `initPublicView()` denselben `body.view-only`-Modus, aber **ohne Login** (lädt via `/api/public/plan/:token`).
   Token (256 Bit, 7 Tage gültig) liegt in `plan_public_links` nur als SHA-256-Hash. `initPublicView`
-  setzt `currentPlanCanEdit=false` VOR `importStateJSON` → kein Autosave-Echo, kein Realtime-Join.
+  setzt `currentPlanCanEdit=false` VOR `importStateJSON` → kein Autosave-Echo.
+  **Live-Updates für Beobachter (Feature 49):** Der WS-Server (`server/realtime.js`) akzeptiert
+  **anonyme** Verbindungen; ein Beobachter tritt per `{type:'join-public', token}` dem Plan-Raum bei
+  (Token-Auth via `resolvePublicToken`, gleiche Prüfung wie der HTTP-Endpoint). `initPublicView` ruft
+  `realtimeJoinPublic(token)`; bei `plan-updated` lädt `applyRemotePublicState(token)` neu über
+  `/api/public/plan/:token` (kein `currentPlanId`). Reguläres `{type:'join', planId}` verlangt weiter
+  eine Session (anonyme Sockets dürfen nur `join-public`; `getPlanAccess(planId, null)` → false).
 
 ---
 

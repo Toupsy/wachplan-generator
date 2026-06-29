@@ -572,3 +572,27 @@ async function applyRemotePlanState(){
     showToast('🔄 Aktualisiert von Mitbearbeiter');
   } catch(e){ console.error('applyRemotePlanState', e); }
 }
+
+/**
+ * Von realtime.js bei { type:'plan-updated' } im Beobachter-Modus (?view=TOKEN)
+ * aufgerufen: Plan über den auth-freien Endpoint /api/public/plan/:token neu
+ * laden (kein currentPlanId, kein Login). Nur-Lese bleibt erzwungen.
+ */
+async function applyRemotePublicState(token){
+  if(!token) return;
+  try {
+    const res = await fetch('/api/public/plan/' + encodeURIComponent(token));
+    if(!res.ok) return;
+    const data = await res.json().catch(()=>({}));
+    if(!data || !data.state) return;
+    _suppressAutoSave = true;
+    try {
+      currentPlanCanEdit = false;
+      currentPlanName = data.name || currentPlanName;
+      importStateJSON(data.state, true);
+      generate();
+    } finally { _suppressAutoSave = false; }
+    _updateSaveIndicator();
+    showToast('🔄 Aktualisiert');
+  } catch(e){ console.error('applyRemotePublicState', e); }
+}
