@@ -19,6 +19,11 @@
  * wiederherzustellen, bevor Folgetage neu generiert werden.
  */
 function _reAccumulateDayStats(daySchedule, dayIdx, stats, pairCount, ensure, pairKey){
+  // Use preSwapAssign when available: transparent forced placements mutate `assign` for visual
+  // display AFTER stats are committed (natural positions). Without this, re-accumulation on a
+  // retained day reads post-swap occupancies and diverges from the original stats (Issue #385).
+  const assignToUse = daySchedule.preSwapAssign || daySchedule.assign;
+
   // Welche Türme hatten an diesem Tag ein AKTIVES (zugewiesenes, nicht geschlossenes) Boot?
   // Wichtig: Der Voll-Lauf zählt towerWithBoatDays bereits dann, wenn dem Turm ein nicht
   // geschlossenes Boot zugeordnet ist – UNABHÄNGIG davon, ob ein BF zur Besetzung verfügbar
@@ -28,7 +33,7 @@ function _reAccumulateDayStats(daySchedule, dayIdx, stats, pairCount, ensure, pa
   const activeBoatTowers = new Set();
   // Tatsächlich besetzte Boote je Turm (für boatCaptainPairings – braucht den realen Kapitän).
   const staffedTowerBoats = {};
-  daySchedule.assign.forEach(slot => {
+  assignToUse.forEach(slot => {
     if(slot.kind === 'boat' && slot.towerId && slot.towerId !== 'HW' && slot.occupants?.length > 0){
       staffedTowerBoats[slot.towerId] = slot.boatId;
       activeBoatTowers.add(slot.towerId);
@@ -38,7 +43,7 @@ function _reAccumulateDayStats(daySchedule, dayIdx, stats, pairCount, ensure, pa
     if(b && b.towerId && b.towerId !== 'HW') activeBoatTowers.add(b.towerId);
   });
 
-  daySchedule.assign.forEach(slot => {
+  assignToUse.forEach(slot => {
     if(slot.kind === 'tower'){
       const tId = slot.towerId;
       const hasBoat = activeBoatTowers.has(tId);
@@ -1024,6 +1029,27 @@ function generate(startDay = 0){
     // ── 5) TRANSPARENTE Zuweisungen: visueller Tausch NACH dem Algorithmus ──
     // Person bleibt im Pool → Statistik identisch zum Originalplan.
     // Nur die Anzeige für diesen Tag wird überschrieben.
+
+    // Snapshot the pre-swap slot occupancies so _reAccumulateDayStats can reproduce the correct
+    // stats when this day is retained (locked or prefix). After the swap loop, dayAssign carries
+    // post-swap positions that diverge from the stats committed above (Issue #385).
+    let preSwapAssign = null;
+    if(transparentDayForced.length > 0){
+      preSwapAssign = dayAssign.map(slot => {
+        if(slot.kind === 'tower') return {kind:'tower', towerId:slot.towerId, occupants:[...slot.occupants]};
+        if(slot.kind === 'boat')  return {kind:'boat', boatId:slot.boatId, towerId:slot.towerId, occupants:[...slot.occupants]};
+        if(slot.kind === 'main')  return {
+          kind:'main',
+          mainGuards: [...slot.mainGuards],
+          fuehrung:   [...slot.fuehrung],
+          base:       [...slot.base],
+          bootsfLeft: [...slot.bootsfLeft],
+          mainPairs:  slot.mainPairs ? [...slot.mainPairs] : [],
+        };
+        return {...slot};
+      });
+    }
+
     transparentDayForced.forEach(f => {
       const person = people.find(x => x.id === f.personId);
       if(!person) return;
@@ -1060,7 +1086,8 @@ function generate(startDay = 0){
     });
 
     schedule.push({
-      day:d, assign:dayAssign, openTowers, personnelClosed, manualClosed,
+      day:d, assign:dayAssign, preSwapAssign,
+      openTowers, personnelClosed, manualClosed,
       boatsNoBootsf, boatsClosedTower, boatsManualClosed,
       availB, sickCount:sickToday.length,
       absentCount: people.filter(p => isAbsent(p.id)).length,
