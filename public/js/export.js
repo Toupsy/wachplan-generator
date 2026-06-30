@@ -432,6 +432,15 @@ async function exportOfficial(dayIdx){
   }
 }
 
+// ── CSV-Hilfsfunktion ────────────────────────────────────────────
+
+function csvCell(c){
+  let v = String(c == null ? '' : c);
+  // Formel-Injection-Schutz: führendes = + - @ \t \r wird mit ' neutralisiert
+  if (/^[=+\-@\t\r]/.test(v)) v = "'" + v;
+  return `"${v.replace(/"/g, '""')}"`;
+}
+
 // ── CSV-Export ───────────────────────────────────────────────────
 
 function exportCSV(){
@@ -457,7 +466,7 @@ function exportCSV(){
     [...d.manualClosed,...d.personnelClosed].forEach(t=>rows.push([dn,t.name,t.code||'','Turm','GESCHLOSSEN','','','']));
     [...d.boatsManualClosed,...d.boatsClosedTower,...d.boatsNoBootsf].forEach(b=>rows.push([dn,b.name,b.code||'','Boot','GESCHLOSSEN','','','']));
   });
-  const csv =rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const csv =rows.map(r=>r.map(csvCell).join(',')).join('\n');
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
   downloadBlob(blob, 'wachplan.csv');
 }
@@ -482,7 +491,7 @@ function exportStatsCSV(){
       boatDays, s.towerWithBoatDays || 0
     ]);
   });
-  const csv  = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const csv  = rows.map(r => r.map(csvCell).join(',')).join('\n');
   const blob = new Blob(['﻿'+csv], { type:'text/csv;charset=utf-8' });
   downloadBlob(blob, 'wachplan-statistik.csv');
 }
