@@ -8,6 +8,20 @@
 // CSV-Export und für buildAssignments verwendet.
 // ============================================================
 
+// ── CSV-Zelle: Quote-Escaping + Schutz gegen Formel-Injection ────
+// Tabellenkalkulationen (Excel/LibreOffice) werten beim Öffnen einer CSV
+// jede Zelle als Formel, die mit = + - @ (oder Tab/CR) beginnt. Da Namen,
+// Turm-/Boot-Bezeichnungen und Labels frei (und in einer Sharing-App auch
+// von fremden Bearbeitern) befüllbar sind, würde ein Name wie
+// =HYPERLINK("http://evil") beim Öffnen ausgeführt. Wir stellen solchen
+// Werten ein ' voran (neutralisiert die Formel, bleibt für den Leser lesbar)
+// und maskieren anschließend " wie üblich.
+function csvCell(c){
+  let v = String(c == null ? '' : c);
+  if(/^[=+\-@\t\r]/.test(v)) v = "'" + v;
+  return `"${v.replace(/"/g,'""')}"`;
+}
+
 // ── Mapping-Konstanten ───────────────────────────────────────────
 const SLOT_ROWS_X  = [7,9,11,13,15,17,19];
 const SLOT_NAMECOL = [43,76,109,142];
@@ -457,7 +471,7 @@ function exportCSV(){
     [...d.manualClosed,...d.personnelClosed].forEach(t=>rows.push([dn,t.name,t.code||'','Turm','GESCHLOSSEN','','','']));
     [...d.boatsManualClosed,...d.boatsClosedTower,...d.boatsNoBootsf].forEach(b=>rows.push([dn,b.name,b.code||'','Boot','GESCHLOSSEN','','','']));
   });
-  const csv =rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const csv =rows.map(r=>r.map(csvCell).join(',')).join('\n');
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
   downloadBlob(blob, 'wachplan.csv');
 }
@@ -482,7 +496,7 @@ function exportStatsCSV(){
       boatDays, s.towerWithBoatDays || 0
     ]);
   });
-  const csv  = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const csv  = rows.map(r => r.map(csvCell).join(',')).join('\n');
   const blob = new Blob(['﻿'+csv], { type:'text/csv;charset=utf-8' });
   downloadBlob(blob, 'wachplan-statistik.csv');
 }

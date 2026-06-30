@@ -62,13 +62,19 @@ async function createAuthToken(userId, type) {
 
 async function consumeAuthToken(token, type) {
   if (!token || typeof token !== 'string' || token.length !== 64) return null;
-  const row = await dbGet(
-    'SELECT id, user_id FROM auth_tokens WHERE token_hash = ? AND type = ? AND used_at IS NULL AND expires_at > ?',
-    [_hashToken(token), type, Date.now()]
+  const hash = _hashToken(token);
+  // Atomar einlösen: das UPDATE selbst ist der Wächter (used_at IS NULL in der
+  // WHERE-Klausel). Nur der Aufruf, der die Zeile tatsächlich von NULL auf einen
+  // Zeitstempel kippt (this.changes === 1), „besitzt" das Token. Ein vorheriges
+  // SELECT-dann-UPDATE war eine TOCTOU-Lücke: zwei gleichzeitige Anfragen mit
+  // demselben Token (Doppelklick auf den Reset-Link / Replay) konnten beide das
+  // SELECT bestehen, bevor eine das UPDATE ausführte → Token doppelt eingelöst.
+  const res = await dbRun(
+    'UPDATE auth_tokens SET used_at = CURRENT_TIMESTAMP WHERE token_hash = ? AND type = ? AND used_at IS NULL AND expires_at > ?',
+    [hash, type, Date.now()]
   );
-  if (!row) return null;
-  await dbRun('UPDATE auth_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ?', [row.id]);
-  return row;
+  if (!res || res.changes !== 1) return null;
+  return dbGet('SELECT id, user_id FROM auth_tokens WHERE token_hash = ? AND type = ?', [hash, type]);
 }
 
 // ───────────────────────────────────────────────────────────
@@ -697,5 +703,10 @@ router.put('/password', express.json(), async (req, res) => {
     res.status(500).json({ error: 'Failed to change password' });
   }
 });
+
+// Interne Token-Helfer für Tests am Router-Objekt anhängen (Default-Export
+// bleibt der Express-Router – nicht-brechend für app.use(...)).
+router._createAuthToken = createAuthToken;
+router._consumeAuthToken = consumeAuthToken;
 
 module.exports = router;

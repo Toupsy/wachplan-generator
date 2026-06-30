@@ -13,6 +13,31 @@
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: Tests grün, alle Server parsen (`node -c`).
 
+**Letzter Lauf (2026-06-30, Audit + 2 Security-Fixes – Branch `claude/kind-allen-t7urbk`):**
+- **Audit** (3 Agenten: Kern-Algorithmus, Backend, Frontend) → 6 GitHub-Issues angelegt (Label `Claude`):
+  - **#382 (High, behoben)** CSV-Formel-Injection im Export.
+  - **#383 (High, behoben)** Auth-Einmal-Token TOCTOU (doppelte Einlösung).
+  - **#384 (High, offen)** Boot-Min-Cost-Matching: B&B-Prune bei negativen Kantenkosten ungültig
+    → suboptimale BF-Zuordnung. Fix-Vorschlag im Issue (zulässige untere Schranke / Prune entfernen).
+    *Algorithmus-sensibel → vor Merge mit Optimalitäts-Test absichern.*
+  - **#385 (Medium, offen)** Transparente Forced-Placements verfälschen Stats gesperrter/behaltener
+    Tage bei Re-Akkumulation (`_reAccumulateDayStats` liest Post-Swap-Belegung).
+  - **#386 (Medium, offen)** GDPR-Userlöschung nicht transaktional + redundantes `DELETE FROM plans`
+    (Cascade deckt es bereits ab).
+  - **#387 (Medium, offen)** Roster-PDF-Datumserkennung greift falsche Daten + keine Range-Validierung
+    in `rosterDateToISO` (lexikalischer Vergleich mit out-of-range Daten).
+- **Behoben in diesem Branch (→ PR gegen `main`):**
+  - **CSV-Injection (#382):** neuer Helfer `csvCell()` in `export.js` stellt Werten mit führendem
+    `= + - @`/Tab/CR ein `'` voran; beide CSV-Exporte nutzen ihn. `test/csv-injection.test.js`.
+  - **Token-TOCTOU (#383):** `consumeAuthToken` (auth.js) löst jetzt **atomar** via
+    `UPDATE … WHERE used_at IS NULL …` ein (nur `changes===1` gewinnt). Token-Helfer am Router
+    exportiert (`_createAuthToken`/`_consumeAuthToken`) für den Test. `test/auth-token-race.test.js`
+    (8 parallele Einlösungen → genau 1 Erfolg; gegen die alte Logik als Regressionswächter verifiziert).
+- **Tests:** volle Suite **135/135 grün** (vorher 130; +5 aus den 2 neuen Test-Dateien), `node -c`
+  für `export.js`/`auth.js` OK. Doku: docs/FEATURES.md (Bugfixes) ergänzt.
+- **Empfohlene nächste Schritte:** #384 (höchste verbleibende Priorität, Kern-Fairness) mit
+  gezieltem Optimalitäts-Test angehen; danach #386 (kleiner, klar) und #387.
+
 **Letzter Lauf (2026-06-29, Feature 49: Live-Updates für Beobachter-Links – Branch `claude/view-only-live-updates-89ri68`):**
 - **Wunsch:** Änderungen am Live-Wachplan sollen auch in einem geteilten **Nur-Ansicht-Link**
   (`?view=TOKEN`, Feature 38) live ankommen – bisher nur nach manuellem Neuladen.

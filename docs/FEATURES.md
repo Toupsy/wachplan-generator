@@ -363,6 +363,25 @@ Nachgereicht zu Feature 45, damit die echte IP ohne Reverse-Proxy-Umbau erschein
 
 ## Bugfixes
 
+### CSV-Export: Schutz gegen Formel-Injection
+`exportCSV`/`exportStatsCSV` (export.js) maskierten nur `"` und schrieben Namen/Turm-/Boot-/
+Label-Werte sonst unverändert. Werte, die mit `=`/`+`/`-`/`@`/Tab/CR beginnen (z.B. ein Name
+`=HYPERLINK("http://evil")`), werden von Excel/LibreOffice beim Öffnen als **Formel** ausgewertet
+(CSV-Injection) – in einer Sharing-App mit fremd-editierbaren Plänen ein konkreter Cross-User-Vektor.
+**Fix:** neuer Helfer `csvCell()` stellt solchen Werten ein `'` voran (neutralisiert die Formel,
+bleibt lesbar) und übernimmt das Quote-Escaping; beide CSV-Exporte nutzen ihn. Der XLSX-Pfad war
+nie betroffen (numerische Datenzellen + `_escXml`). **Test:** `test/csv-injection.test.js`.
+
+### Auth-Einmal-Token konnte doppelt eingelöst werden (TOCTOU)
+`consumeAuthToken` (server/api/auth.js) prüfte das Token per `SELECT … used_at IS NULL` und setzte
+`used_at` in einem **separaten** `UPDATE` – ohne Transaktion/atomaren Wächter. Zwei gleichzeitige
+Anfragen mit demselben `password_reset`/`verify_email`-Token (Doppelklick auf den Link / Replay)
+bestanden beide das SELECT, bevor eine das UPDATE ausführte → Token doppelt gültig (zwei Resets,
+doppelte Session-Invalidierung). **Fix:** das `UPDATE … WHERE token_hash=? AND type=? AND
+used_at IS NULL AND expires_at>?` ist jetzt selbst der Wächter; nur der Aufruf mit `changes===1`
+„besitzt" das Token und liest die Zeile nach. **Test:** `test/auth-token-race.test.js` (8 parallele
+Einlösungen → genau 1 Erfolg; verifiziert gegen die alte Logik als echter Regressionswächter).
+
 ### XLSX-Export duplizierte HW-Personen ab Index 4 (#377)
 In `_patchSheetXml` (export.js) gab es zwei konkurrierende Schreibpfade für die Hauptwache:
 1. Die **exportColumns-Hauptschleife** schrieb bei `'HW'` alle HW-Personen inkl. Überlauf paarweise.
