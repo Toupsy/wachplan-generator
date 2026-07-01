@@ -278,6 +278,9 @@ if(startDateInput) startDateInput.onchange = e => {
   if(typeof invalidateDayDatesCache === 'function') invalidateDayDatesCache();
   // Dynamische Namensliste: bei hochgeladener Wachliste neu ableiten
   if(typeof roster !== 'undefined' && roster.length && typeof applyRosterToWindow === 'function') applyRosterToWindow();
+  // Ohne Wachliste ändert sich der Plan nicht, aber die Datumsanzeigen (Tabs, Tages-Panels)
+  // hängen am Startdatum → sofort neu rendern statt bis zum nächsten generate() zu warten.
+  else if(lastResult) renderOutput();
 };
 const generateBtn = document.getElementById('generate');
 if(generateBtn) generateBtn.onclick = async () => {
@@ -369,6 +372,11 @@ if(numDaysInput) numDaysInput.oninput = e => {
   const v = Math.min(14, Math.max(1, +e.target.value || 6));
   if(v === DAYS) return;
   DAYS = v;
+  // Sperren auf weggefallenen Tagen aufheben: der eingefrorene Schedule dieser Tage geht mit
+  // der Verkürzung verloren – bliebe der Index in lockedDays, würde der Tag nach erneutem
+  // Verlängern fälschlich als „gesperrt" gerendert, obwohl er frisch berechnet wurde.
+  if(typeof lockedDays !== 'undefined' && lockedDays)
+    lockedDays.forEach(d => { if(d >= DAYS) lockedDays.delete(d); });
   // Dynamische Namensliste: bei hochgeladener Wachliste komplett neu ableiten
   if(typeof roster !== 'undefined' && roster.length && typeof applyRosterToWindow === 'function'){
     if(activeDay >= DAYS) activeDay = 0;
