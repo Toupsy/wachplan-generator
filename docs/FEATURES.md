@@ -363,6 +363,25 @@ Nachgereicht zu Feature 45, damit die echte IP ohne Reverse-Proxy-Umbau erschein
 
 ## Bugfixes
 
+### Code-Review 2026-07: Boot-Prio im Greedy-Fallback + 3 UI-Fixes
+Vier Befunde aus einem Codebase-Review (ein PR, getrennte Commits):
+1. **Boot-Vergabe (generate.js, funktional):** Der Greedy-Fallback der Boot-Zuweisung
+   (aktiv bei Zwangsbooten, >8 Booten oder `slotCount > 1`) sortierte `boatCandidates`
+   nach **prio DESC** – bei BF-Mangel bekamen die UNWICHTIGSTEN Boote den Bootsführer und
+   das prio-1-Boot blieb leer. Widersprach dem Min-Cost-Matching-Pfad (prio ASC, „bei
+   BF-Mangel gehen die unwichtigsten leer aus") und der Turm-Semantik (Prio 1 = wichtigster).
+   Fix: prio ASC. **Test:** `test/boat-prio.test.js` (rot vor dem Fix, grün danach).
+2. **Fehler-Toasts (utils.js):** 12 Aufrufer übergaben `showToast(msg, true)` als
+   Fehler-Flag, das ignoriert wurde – Fehler sahen aus wie Erfolgsmeldungen. Fix:
+   `isError`-Param + `.toast.error`-CSS (rote Optik).
+3. **Startdatum-Änderung (init.js):** Ohne geladene Wachliste wurde nach einer
+   Startdatum-Änderung nicht neu gerendert – Day-Tabs/Datumsfelder zeigten bis zum
+   nächsten generate() die alten Daten. Fix: `renderOutput()` direkt im onchange.
+4. **Tag-Sperren (init.js, Feature 47):** Beim Verkürzen der Tagesanzahl blieben
+   `lockedDays`-Indizes ≥ DAYS stehen; nach erneutem Verlängern galt der Tag fälschlich
+   als „gesperrt", obwohl sein eingefrorener Schedule weg war und er frisch berechnet
+   wurde. Fix: Indizes ≥ DAYS beim Verkürzen entfernen.
+
 ### XLSX-Export duplizierte HW-Personen ab Index 4 (#377)
 In `_patchSheetXml` (export.js) gab es zwei konkurrierende Schreibpfade für die Hauptwache:
 1. Die **exportColumns-Hauptschleife** schrieb bei `'HW'` alle HW-Personen inkl. Überlauf paarweise.

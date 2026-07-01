@@ -13,7 +13,23 @@
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: Tests grün, alle Server parsen (`node -c`).
 
-**Letzter Lauf (2026-06-29, Feature 49: Live-Updates für Beobachter-Links – Branch `claude/view-only-live-updates-89ri68`):**
+**Letzter Lauf (2026-07-01, Code-Review + 4 Fixes – Branch `claude/code-review-optimization-v2aez8`):**
+- **Review-Umfang:** Backend komplett (plans/public/auth/import/realtime/server/db), Frontend-Kern
+  (generate, state-io, export, move, roster, init, render-output, utils, realtime). Auth/Crypto/
+  AuthZ/öffentliche Token-Endpoints ohne Befund (Vor-Audits 2026-06 bestätigt).
+- **Fix 1 (funktional, generate.js):** Greedy-Fallback der Boot-Vergabe sortierte prio **DESC** –
+  bei BF-Mangel blieb das wichtigste Boot leer (Matching-Pfad war korrekt ASC). → prio ASC,
+  neuer Regressionstest `test/boat-prio.test.js`.
+- **Fix 2–4 (UI):** `showToast(msg,true)`-Fehler-Flag wird jetzt rot dargestellt (`.toast.error`);
+  Startdatum-Änderung rendert Datumsanzeigen sofort neu; `lockedDays` werden beim Verkürzen der
+  Tagesanzahl bereinigt. Details: docs/FEATURES.md „Bugfixes → Code-Review 2026-07".
+- **Tests: 131/131 grün** (130 Bestand + 1 neu), `node -c` aller geänderten Dateien OK.
+- **Geprüft, bewusst NICHT geändert:** Case-2-Move legt Person via forcedPlacement `kind:'main'`
+  bei Re-Generates in `mainGuards`, `_applyMoveToSchedule` aber in `base` (Anzeige-Nuance, kein
+  Datenfehler); `clearRoster()` behält `rosterOverrides` (gewollt, überlebt Re-Upload);
+  `compareVersions`/getP-Null-Derefs wie in Vor-Audits als unkritisch bestätigt.
+
+**Vorheriger Lauf (2026-06-29, Feature 49: Live-Updates für Beobachter-Links – Branch `claude/view-only-live-updates-89ri68`):**
 - **Wunsch:** Änderungen am Live-Wachplan sollen auch in einem geteilten **Nur-Ansicht-Link**
   (`?view=TOKEN`, Feature 38) live ankommen – bisher nur nach manuellem Neuladen.
 - **Umsetzung:** WS-Server (`server/realtime.js`) akzeptiert anonyme Verbindungen + neuer Typ
