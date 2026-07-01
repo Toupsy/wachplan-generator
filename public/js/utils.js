@@ -22,10 +22,11 @@ function downloadBlob(blob, filename){
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-/** Kurze Toast-Benachrichtigung am unteren Bildschirmrand. */
-function showToast(msg){
+/** Kurze Toast-Benachrichtigung am unteren Bildschirmrand.
+ * @param {boolean} isError  true → rote Fehler-Optik (.toast.error) */
+function showToast(msg, isError){
   const t = document.createElement('div');
-  t.className = 'toast';
+  t.className = 'toast' + (isError ? ' error' : '');
   t.textContent = msg;
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 3500);
