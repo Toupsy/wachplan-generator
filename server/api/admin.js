@@ -150,14 +150,24 @@ router.delete('/users/:id', async (req, res) => {
       }
     }
 
-    // Delete in cascading order (GDPR Art. 17 – Recht auf Löschung)
-    // Foreign keys are enabled in connection.js for plans/plan_shares cascade
-    // Sessions über die eigene Connection des Session-Stores löschen (sessions.db).
+    // GDPR Art. 17 – atomare Löschung in der Haupt-DB.
+    // ON DELETE CASCADE löscht plans → plan_shares, auth_tokens, plan_public_links.
+    // destroyUserSessions arbeitet auf sessions.db (eigene Connection) und kann
+    // nicht derselben Transaktion beitreten → nach erfolgreichem Commit ausführen.
+    const db = getDb();
+    await new Promise((resolve, reject) =>
+      db.run('BEGIN IMMEDIATE', err => (err ? reject(err) : resolve()))
+    );
+    try {
+      await dbRun('DELETE FROM users WHERE id = ?', [userId]);
+      await new Promise((resolve, reject) =>
+        db.run('COMMIT', err => (err ? reject(err) : resolve()))
+      );
+    } catch (txErr) {
+      await new Promise(resolve => db.run('ROLLBACK', () => resolve()));
+      throw txErr;
+    }
     await destroyUserSessions(userId);
-    // plan_shares cascade via foreign key
-    // plans cascade via foreign key (will trigger plan_shares cascade)
-    await dbRun('DELETE FROM plans WHERE user_id = ?', [userId]);
-    await dbRun('DELETE FROM users WHERE id = ?', [userId]);
 
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
