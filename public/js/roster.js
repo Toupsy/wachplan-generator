@@ -18,13 +18,17 @@
 
 // ── Reine Parser/Ableitungs-Funktionen (DOM-frei, testbar) ───────────────────
 
-/** "07.08.2026" → "2026-08-07". Liefert '' bei ungültigem Format. */
+/** "07.08.2026" → "2026-08-07". Liefert '' bei ungültigem Format oder Wertebereich. */
 function rosterDateToISO(s){
   if(!s) return '';
   const m = String(s).trim().match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
   if(!m) return '';
-  const d = m[1].padStart(2,'0'), mo = m[2].padStart(2,'0'), y = m[3];
-  return `${y}-${mo}-${d}`;
+  const day = Number(m[1]), mo = Number(m[2]), y = Number(m[3]);
+  if(mo < 1 || mo > 12 || day < 1 || day > 31) return '';
+  // Round-trip-Check fängt ungültige Tage wie 30.02. oder 32.01. ab
+  const dt = new Date(y, mo - 1, day);
+  if(dt.getFullYear() !== y || dt.getMonth() + 1 !== mo || dt.getDate() !== day) return '';
+  return `${String(y).padStart(4,'0')}-${String(mo).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
 }
 
 /** Job-Kürzel der Wachliste → interne Rolle. WF=Wachführer→F, BF=Bootsführer→B, RS→W. */
@@ -288,14 +292,16 @@ function _pdfParseLine(text){
   if(!text) return null;
   const statusM = text.match(/\b(zugesagt|abgesagt)\b/i);
   if(!statusM) return null;
-  const dates = text.match(/\d{1,2}\.\d{1,2}\.\d{4}/g);
-  if(!dates || dates.length < 2) return null;            // von + bis nötig
-  const von = dates[0], bis = dates[1];
+  // Aufeinanderfolgendes Paar matchen – verhindert, dass datumähnliche Tokens aus anderen
+  // Spalten (Qualifikations-Ablauf, Geburtsdatum) als von/bis gebunden werden.
+  const datePairM = text.match(/(\d{1,2}\.\d{1,2}\.\d{4})\s+(\d{1,2}\.\d{1,2}\.\d{4})/);
+  if(!datePairM) return null;                            // von + bis als benachbarte Tokens nötig
+  const von = datePairM[1], bis = datePairM[2];
 
-  // Job = erstes alleinstehendes RS/BF/WF; Name = alles davor (sonst alles vor dem ersten Datum)
+  // Job = erstes alleinstehendes RS/BF/WF; Name = alles davor (sonst alles vor dem Datumspaar)
   const jobM = text.match(/\b(RS|BF|WF)\b/);
   const job = jobM ? jobM[1] : '';
-  let namePart = (jobM ? text.slice(0, jobM.index) : text.slice(0, text.indexOf(von)));
+  let namePart = (jobM ? text.slice(0, jobM.index) : text.slice(0, datePairM.index));
   namePart = namePart.replace(/\s+/g, ' ').trim();
   if(!namePart) return null;
   const toks = namePart.split(' ').filter(Boolean);
