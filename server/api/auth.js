@@ -62,13 +62,17 @@ async function createAuthToken(userId, type) {
 
 async function consumeAuthToken(token, type) {
   if (!token || typeof token !== 'string' || token.length !== 64) return null;
-  const row = await dbGet(
-    'SELECT id, user_id FROM auth_tokens WHERE token_hash = ? AND type = ? AND used_at IS NULL AND expires_at > ?',
-    [_hashToken(token), type, Date.now()]
+  const hash = _hashToken(token);
+  const now = Date.now();
+  // Atomic guard: only the request that flips used_at from NULL wins (changes === 1).
+  // A separate SELECT + UPDATE would be vulnerable to a TOCTOU race where two
+  // concurrent requests both pass the SELECT before either runs the UPDATE.
+  const result = await dbRun(
+    'UPDATE auth_tokens SET used_at = CURRENT_TIMESTAMP WHERE token_hash = ? AND type = ? AND used_at IS NULL AND expires_at > ?',
+    [hash, type, now]
   );
-  if (!row) return null;
-  await dbRun('UPDATE auth_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ?', [row.id]);
-  return row;
+  if (result.changes !== 1) return null;
+  return dbGet('SELECT id, user_id FROM auth_tokens WHERE token_hash = ? AND type = ?', [hash, type]);
 }
 
 // ───────────────────────────────────────────────────────────
