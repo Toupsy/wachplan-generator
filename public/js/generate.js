@@ -808,10 +808,13 @@ function generate(startDay = 0){
     }
 
     // ── 3) BOOTE (je 1 Bootsführer) ───────────────────────────────
+    // Prio ASC (1 = wichtigstes Boot, wie bei Türmen): der Greedy-Fallback unten vergibt
+    // BF in dieser Reihenfolge → bei BF-Mangel bleiben die UNWICHTIGSTEN Boote leer
+    // (konsistent zum Min-Cost-Matching, das ebenfalls prio asc priorisiert).
     const boatCandidates = boats.slice()
       .filter(b => !ds.closedBoats.has(b.id))
       .filter(b => b.towerId && openTowers.some(t => t.id === b.towerId))
-      .sort((a,b) => (b.prio-a.prio)||(a.id-b.id));
+      .sort((a,b) => (a.prio-b.prio)||(a.id-b.id));
 
     const boatsNoBootsf     = [];
     const boatsClosedTower  = [];
