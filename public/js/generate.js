@@ -870,10 +870,21 @@ function generate(startDay = 0){
       const ordered = [...boatsProcessed].sort((a,b) => (a.prio - b.prio) || (a.id - b.id));
       const bfs = [...poolB];
       const usedBf = new Array(bfs.length).fill(false);
+      // Kostenmatrix vorberechnen: boatCost kann durch boatHwBonus negativ werden.
+      // Der naive acc>=best-Prune ist dann ungültig (acc ist keine echte untere Schranke).
+      const costMatrix = ordered.map(bo => bfs.map(bf => boatCost(bo, bf)));
+      // Suffix-Minimum: zulässige untere Schranke für Boote[i..end].
+      // Relaxation ohne Zuweisungskonflikt: jedes Boot darf unabhängig den günstigsten BF wählen.
+      // min(0, ...) weil ein Boot auch leer bleiben kann (Kosten 0), falls alle BF belegt sind.
+      const suffixMin = new Array(ordered.length + 1).fill(0);
+      for(let i = ordered.length - 1; i >= 0; i--){
+        const minEdge = bfs.length > 0 ? Math.min(...costMatrix[i]) : 0;
+        suffixMin[i] = suffixMin[i + 1] + Math.min(0, minEdge);
+      }
       let best = { total: Infinity, map: null };
       const cur = {};
       const dfs = (i, acc) => {
-        if(acc >= best.total) return;  // Branch-and-Bound
+        if(acc + suffixMin[i] >= best.total) return;  // Zulässige B&B-Schranke (korrekt bei negativen Kosten)
         if(i === ordered.length){ best = { total: acc, map: { ...cur } }; return; }
         const bo = ordered[i];
         let anyFree = false;
@@ -881,7 +892,7 @@ function generate(startDay = 0){
           if(usedBf[j]) continue;
           anyFree = true;
           usedBf[j] = true; cur[bo.id] = bfs[j];
-          dfs(i + 1, acc + boatCost(bo, bfs[j]));
+          dfs(i + 1, acc + costMatrix[i][j]);
           usedBf[j] = false; delete cur[bo.id];
         }
         if(!anyFree) dfs(i + 1, acc);  // mehr Boote als BF → dieses Boot bleibt leer
