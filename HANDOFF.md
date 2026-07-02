@@ -13,6 +13,22 @@
 **Stand:** Version automatisch via Semantic Release (`package.json` Source of Truth).
 `main` ist sauber: Tests grün, alle Server parsen (`node -c`).
 
+**Letzter Lauf (2026-07-02, Audit + High-Fix – Branch `claude/kind-allen-k0kec7`, PR #398, Issue #397):**
+- **Umfang:** 3-Agenten-Audit (Kern-Algorithmus, Backend/DB, Frontend export/roster/state-io/move/
+  render-output). Backend weiterhin sehr sauber (keine IDOR/SQLi/Crypto-Befunde).
+- **Fix (High, generate.js, #397/PR #398):** Effektive (`transparent:false`) Zwangszuweisung auf ein
+  **volles** Turm-/Boot-Ziel oder ein **geschlossenes** Boot ließ die Person bei Voll-Neulauf spurlos
+  verschwinden (Plan/XLSX/Statistik) – sie war aus den Pools entfernt, aber nie platziert. Jetzt:
+  nicht platzierbare in `unplacedForced` sammeln → an der HW auffangen (analog #308); geschlossene
+  forcierte Boote bleiben unbesetzt. Neuer Test `test/forced-overflow.test.js`. Volle Suite 156/156 grün.
+- **Nur als Issue erfasst (nicht gefixt):**
+  - **#399 (Medium):** `move.js` – Verschieben eines BF auf ein „kein BF"-Boot (kein gerenderter Slot)
+    lässt Person verschwinden; verwandt: Boot per D&D auf geschlossenen Turm verschwindet (render-output).
+    D&D/DOM-nah → im Container kein Browser, daher bewusst nicht autonom gefixt.
+  - **#400 (Medium):** `admin.js` – unnötige manuelle Transaktion auf der geteilten Connection kann
+    fremde Nebenläufer-Writes zurückrollen; + 2 Low-Härtungen (Login-Timing, `auth_tokens`-GC).
+- **Bewusst NICHT geändert:** Backend-Härtungen (Low) und die UI-Drop-Bugs (Browser-Verifikation nötig).
+
 **Letzter Lauf (2026-07-01, Code-Review + 4 Fixes – Branch `claude/code-review-optimization-v2aez8`):**
 - **Review-Umfang:** Backend komplett (plans/public/auth/import/realtime/server/db), Frontend-Kern
   (generate, state-io, export, move, roster, init, render-output, utils, realtime). Auth/Crypto/

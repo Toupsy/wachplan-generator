@@ -237,6 +237,10 @@ mit gedeckter F nicht als „braucht Erfahrenen". Migration alter Pläne (`state
 **Zwangszuweisungen (forcedPlacements):** `transparent:false` → Person aus Pool, fest
 vorab platziert, zählt in Statistik (Folgetage berücksichtigen Wechsel). `transparent:true`
 → bleibt im Pool, Algorithmus normal, danach **nur visuell** in Zielslot verschoben.
+**Auffang bei nicht platzierbarem Ziel (`unplacedForced`, #397/#308):** Kann ein `transparent:false`
+Ziel die Person nicht aufnehmen (Turm/Boot voll, Boot außer Dienst, geschlossener Turm), wird sie an
+der HW als aktive Wache aufgefangen (`commitPerson`→`mainGuards`) statt still zu verschwinden – sie
+ist zu dem Zeitpunkt schon aus allen Pools entfernt.
 
 **BF-Schutz:** surplusBF +800 auf Turm mit aktivem Boot, -350 wenn Boot außer Dienst
 (1150 Swing). **Vorab-Schätzung** `tempOpen` über `(slotCount||2)` Plätze.

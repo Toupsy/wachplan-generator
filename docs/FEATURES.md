@@ -363,6 +363,22 @@ Nachgereicht zu Feature 45, damit die echte IP ohne Reverse-Proxy-Umbau erschein
 
 ## Bugfixes
 
+### Zwangszuweisung: Überzählige/geschlossene Ziele verloren Personen (#397)
+Eine **effektive** (`transparent:false`) Zwangszuweisung, deren Zielslot sie nicht aufnehmen
+konnte, ließ die Person bei einem Voll-Neulauf von `generate()` **spurlos verschwinden** (Plan,
+XLSX-Export, Statistik) – sie war bereits aus allen Pools entfernt (`effectiveForcedIds`), wurde
+aber nie platziert. Drei Auslöser:
+1. **Turm-Überzahl:** Mehr forcierte Personen auf einen Turm als `slotCount` (Gruppierung capte bei
+   `maxSlots` und verwarf den Rest).
+2. **Boot-Überzahl:** Mehr forcierte Personen als `boat.slotCount` (`Math.min(...)`-Cap).
+3. **Geschlossenes Boot:** Ein forciertes, an dem Tag außer Dienst gestelltes Boot wurde trotzdem
+   belegt (Invariante „kein geschlossenes Boot belegt" verletzt).
+Reproduzierbar über `move.js` (zwei Personen nacheinander auf dasselbe 1-Platz-Boot / 3 auf einen
+2-Slot-Turm). **Fix (generate.js):** nicht platzierbare Personen in `unplacedForced` sammeln und –
+analog zur Behandlung geschlossener Türme (Bug #308) – an der HW als aktive Wache auffangen
+(`commitPerson` → `mainGuards`); geschlossene forcierte Boote gar nicht erst belegen.
+**Test:** `test/forced-overflow.test.js` (Turm-/Boot-Überzahl + geschlossenes Boot).
+
 ### Code-Review 2026-07: Boot-Prio im Greedy-Fallback + 3 UI-Fixes
 Vier Befunde aus einem Codebase-Review (ein PR, getrennte Commits):
 1. **Boot-Vergabe (generate.js, funktional):** Der Greedy-Fallback der Boot-Zuweisung

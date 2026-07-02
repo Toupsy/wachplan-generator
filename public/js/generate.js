@@ -215,6 +215,11 @@ function generate(startDay = 0){
     const forcedByTower = {};
     const forcedByBoat  = {};
     const forcedForMain = [];
+    // Effektiv-forcierte Personen, deren Zielslot sie NICHT aufnehmen kann (Turm/Boot bereits
+    // voll oder Boot außer Dienst). Sie wurden bereits aus allen Pools entfernt (effectiveForcedIds)
+    // → ohne Auffangen verschwänden sie komplett aus Plan/Export/Statistik. Werden unten an der HW
+    // als aktive Wache aufgefangen (analog zur Behandlung geschlossener Türme, Bug #308 / #397).
+    const unplacedForced = [];
 
     effectiveDayForced.forEach(f => {
       const p = people.find(x => x.id === f.personId);
@@ -224,9 +229,14 @@ function generate(startDay = 0){
         const tower = towers.find(t => t.id === f.slotId);
         const maxSlots = tower ? (tower.slotCount || 2) : 2;
         if(forcedByTower[f.slotId].length < maxSlots) forcedByTower[f.slotId].push(p);
+        else unplacedForced.push(p);       // Turm voll → HW-Auffang statt stiller Verlust
       } else if(f.kind === 'boat'){
-        if(!forcedByBoat[f.slotId]) forcedByBoat[f.slotId] = [];
-        forcedByBoat[f.slotId].push(p);  // Boot kann auch mehrere Plätze haben (slotCount)
+        if(ds.closedBoats.has(f.slotId)){
+          unplacedForced.push(p);          // Boot außer Dienst → HW-Auffang statt geschlossenes Boot belegen
+        } else {
+          if(!forcedByBoat[f.slotId]) forcedByBoat[f.slotId] = [];
+          forcedByBoat[f.slotId].push(p);  // Boot kann auch mehrere Plätze haben (slotCount)
+        }
       } else if(f.kind === 'main'){
         forcedForMain.push(p);
       }
@@ -910,9 +920,12 @@ function generate(startDay = 0){
       // Zwangszuweisung für dieses Boot?
       const forcedArray = forcedByBoat[bo.id];
       if(forcedArray && forcedArray.length > 0){
-        // Alle erzwungenen Personen hinzufügen (bis slotCount)
-        for(let i = 0; i < Math.min(forcedArray.length, bo.slotCount||1); i++){
+        const cap = bo.slotCount || 1;
+        // Alle erzwungenen Personen hinzufügen (bis slotCount); Überzählige an die HW auffangen
+        // (sonst gingen sie verloren – sie sind bereits aus den Pools entfernt, Bug #397).
+        for(let i = 0; i < forcedArray.length; i++){
           const person = forcedArray[i];
+          if(i >= cap){ unplacedForced.push(person); continue; }
           slot.occupants.push(person);
           if(i === 0) slot.bootsf = person;  // Erste Person als Bootsführer für Anzeige
           const s = ensure(person.id);
@@ -1020,6 +1033,23 @@ function generate(startDay = 0){
         mainGuards.push(p);
       });
     });
+
+    // Effektiv-forcierte Personen ohne aufnahmefähigen Zielslot (Turm/Boot voll oder Boot
+    // geschlossen, s. unplacedForced) ebenfalls an der HW auffangen – sonst verschwänden sie
+    // ganz (bereits aus allen Pools entfernt, Bug #397). Bereits platzierte Personen überspringen
+    // (Sicherheitsnetz: pro Person gibt es zwar nur eine forcierte Zuweisung, D&D/Altpläne könnten
+    // aber abweichen).
+    if(unplacedForced.length){
+      const placedIds = new Set();
+      dayAssign.forEach(s => {
+        if(s.kind === 'tower' || s.kind === 'boat') s.occupants.forEach(o => placedIds.add(o.id));
+      });
+      unplacedForced.forEach(p => {
+        if(placedIds.has(p.id) || mainGuards.some(g => g.id === p.id)) return;
+        commitPerson(p, mainPseudo);
+        mainGuards.push(p);
+      });
+    }
 
     const leftovers = [...poolE, ...poolU, ...poolSBF];
     dayAssign.push({
