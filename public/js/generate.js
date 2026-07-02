@@ -212,9 +212,12 @@ function generate(startDay = 0){
     // Kein manuelles removeFromPools() mehr nötig — O(n) statt O(n×m).
 
     // Effektive Zwangszuweisungen nach Ziel gruppieren
-    const forcedByTower = {};
-    const forcedByBoat  = {};
-    const forcedForMain = [];
+    const forcedByTower  = {};
+    const forcedByBoat   = {};
+    const forcedForMain  = [];
+    // Fix #397: Personen, die nicht platziert werden konnten (Turm-Slot voll, Boot geschlossen,
+    // Boot-Slot-Überzahl) → werden in HW-finalize als aktive HW-Wache aufgefangen (analog Bug #308).
+    const unplacedForced = [];
 
     effectiveDayForced.forEach(f => {
       const p = people.find(x => x.id === f.personId);
@@ -224,9 +227,14 @@ function generate(startDay = 0){
         const tower = towers.find(t => t.id === f.slotId);
         const maxSlots = tower ? (tower.slotCount || 2) : 2;
         if(forcedByTower[f.slotId].length < maxSlots) forcedByTower[f.slotId].push(p);
+        else unplacedForced.push(p); // Turm-Slot voll → HW-Auffang
       } else if(f.kind === 'boat'){
-        if(!forcedByBoat[f.slotId]) forcedByBoat[f.slotId] = [];
-        forcedByBoat[f.slotId].push(p);  // Boot kann auch mehrere Plätze haben (slotCount)
+        if(ds.closedBoats.has(f.slotId)){
+          unplacedForced.push(p); // Boot geschlossen → HW-Auffang (Invariante: kein geschl. Boot belegt)
+        } else {
+          if(!forcedByBoat[f.slotId]) forcedByBoat[f.slotId] = [];
+          forcedByBoat[f.slotId].push(p);  // Boot kann auch mehrere Plätze haben (slotCount)
+        }
       } else if(f.kind === 'main'){
         forcedForMain.push(p);
       }
@@ -911,13 +919,16 @@ function generate(startDay = 0){
       const forcedArray = forcedByBoat[bo.id];
       if(forcedArray && forcedArray.length > 0){
         // Alle erzwungenen Personen hinzufügen (bis slotCount)
-        for(let i = 0; i < Math.min(forcedArray.length, bo.slotCount||1); i++){
+        const maxBoatSlots = bo.slotCount || 1;
+        for(let i = 0; i < Math.min(forcedArray.length, maxBoatSlots); i++){
           const person = forcedArray[i];
           slot.occupants.push(person);
           if(i === 0) slot.bootsf = person;  // Erste Person als Bootsführer für Anzeige
           const s = ensure(person.id);
           s.total++; s.boatVisits[bo.id] = (s.boatVisits[bo.id]||0)+1;
         }
+        // Fix #397: Überzählige forcierte Personen → HW-Auffang statt stillschweigendes Verwerfen
+        for(let i = maxBoatSlots; i < forcedArray.length; i++) unplacedForced.push(forcedArray[i]);
         dayAssign.push(slot);
         continue;
       }
@@ -1019,6 +1030,14 @@ function generate(startDay = 0){
         commitPerson(p, mainPseudo);
         mainGuards.push(p);
       });
+    });
+    // Fix #397: Nicht platzierbare Zwangszuweisungen (Turm-Slot voll, Boot geschlossen/überfüllt)
+    // → als aktive HW-Wache auffangen (analog Bug #308-Behandlung für geschlossene Türme).
+    // commitPerson an MAIN_ID zählt total++/hwVisits++/hwGuardDays++ → Person erscheint im Plan.
+    unplacedForced.forEach(p => {
+      if(mainGuards.some(g => g.id === p.id)) return;
+      commitPerson(p, mainPseudo);
+      mainGuards.push(p);
     });
 
     const leftovers = [...poolE, ...poolU, ...poolSBF];
