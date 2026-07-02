@@ -150,23 +150,13 @@ router.delete('/users/:id', async (req, res) => {
       }
     }
 
-    // GDPR Art. 17 – atomare Löschung in der Haupt-DB.
-    // ON DELETE CASCADE löscht plans → plan_shares, auth_tokens, plan_public_links.
-    // destroyUserSessions arbeitet auf sessions.db (eigene Connection) und kann
-    // nicht derselben Transaktion beitreten → nach erfolgreichem Commit ausführen.
-    const db = getDb();
-    await new Promise((resolve, reject) =>
-      db.run('BEGIN IMMEDIATE', err => (err ? reject(err) : resolve()))
-    );
-    try {
-      await dbRun('DELETE FROM users WHERE id = ?', [userId]);
-      await new Promise((resolve, reject) =>
-        db.run('COMMIT', err => (err ? reject(err) : resolve()))
-      );
-    } catch (txErr) {
-      await new Promise(resolve => db.run('ROLLBACK', () => resolve()));
-      throw txErr;
-    }
+    // GDPR Art. 17 – ein einzelnes DELETE ist in SQLite atomar; ON DELETE CASCADE
+    // löscht plans → plan_shares, auth_tokens, plan_public_links automatisch mit.
+    // Eine manuelle Transaktion um ein einzelnes Statement würde auf der geteilten
+    // Singleton-Connection fremde gleichzeitige Writes einfangen und bei ROLLBACK
+    // stillschweigend verwerfen (Datenverlust-Race). destroyUserSessions läuft danach
+    // auf einer eigenen Connection und kann nicht Teil derselben atomaren Operation sein.
+    await dbRun('DELETE FROM users WHERE id = ?', [userId]);
     await destroyUserSessions(userId);
 
     res.json({ message: 'User deleted successfully' });
