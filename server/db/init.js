@@ -607,7 +607,40 @@ function startAuditLogCleanup(db, retentionDays = AUDIT_PLAN_UPDATE_RETENTION_DA
   setInterval(runCleanup, 24 * 60 * 60 * 1000);
 }
 
-module.exports = { initDatabase, validateEnv, auditLog, auditLogCoalesced, startPlanRetentionCleanup, startAuditLogCleanup, checkIntegrity, isTransientIntegrityError, isSessionsOnlyCorruption, healSessionCorruption };
+// auth_tokens-Cleanup – löscht verbrauchte (used_at IS NOT NULL) und abgelaufene Tokens.
+// createAuthToken räumt beim Neuausstellen nur den eigenen User/Typ auf; ohne diesen
+// Scheduler akkumulieren Tokens aller Nutzer dauerhaft. Läuft beim Start + alle 24h.
+function startAuthTokensCleanup(db) {
+  let running = false;
+  const runCleanup = async () => {
+    if (running) return;
+    running = true;
+    try {
+      const deleted = await new Promise((resolve, reject) => {
+        db.run(
+          'DELETE FROM auth_tokens WHERE used_at IS NOT NULL OR expires_at < ?',
+          [Date.now()],
+          function(err) {
+            if (err) reject(err);
+            else resolve(this.changes);
+          }
+        );
+      });
+      if (deleted > 0) console.log(`✓ Auth-Token-Cleanup: ${deleted} verbrauchte/abgelaufene Tokens gelöscht`);
+    } catch (error) {
+      console.error('❌ Auth-Token-Cleanup-Fehler:', error.message);
+    } finally {
+      running = false;
+    }
+  };
+
+  // Einmal beim Start (bereinigt Altbestand sofort), danach täglich.
+  runCleanup();
+  const timer = setInterval(runCleanup, 24 * 60 * 60 * 1000);
+  if (typeof timer.unref === 'function') timer.unref();
+}
+
+module.exports = { initDatabase, validateEnv, auditLog, auditLogCoalesced, startPlanRetentionCleanup, startAuditLogCleanup, startAuthTokensCleanup, checkIntegrity, isTransientIntegrityError, isSessionsOnlyCorruption, healSessionCorruption };
 
 // Run if called directly
 if (require.main === module) {

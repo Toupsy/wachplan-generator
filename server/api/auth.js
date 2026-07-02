@@ -26,6 +26,11 @@ const { isCaptchaEnabled, verifyCaptcha } = require('../captcha');
 // Security Constants
 // ───────────────────────────────────────────────────────────
 const MIN_PASSWORD_LENGTH = 10;
+
+// Vorgefertigter bcrypt-Hash (Cost 10) als Timing-Equalizer: Wird verwendet, wenn der
+// Benutzername nicht existiert, damit kein messbarer Zeitunterschied zwischen
+// „unbekannter Benutzer" und „falsches Passwort" entsteht (Seitenkanal-Schutz).
+const _DUMMY_HASH = '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
 const REGISTRATION_MODE = process.env.REGISTRATION_MODE || 'disabled'; // disabled | open | code
 
 // E-Mail-Format: bewusst simpel (kein RFC-Parser), Länge nach RFC 5321
@@ -223,7 +228,10 @@ router.post('/login', express.json(), async (req, res) => {
     );
 
     // Generische Fehlermeldung (keine User-Enumeration). Fehlversuch zählt.
+    // Dummy-Compare stellt sicher, dass unbekannte Benutzernamen dieselbe Antwortzeit
+    // haben wie falsche Passwörter (kein Timing-Seitenkanal zur Benutzer-Enumeration).
     if (!user) {
+      await bcryptjs.compare(password, _DUMMY_HASH);
       _recordFail(ip, username);
       return res.status(401).json({ error: 'Invalid credentials' });
     }

@@ -11,7 +11,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const { createSessionMiddleware } = require('./db/session');
-const { initDatabase, validateEnv, startPlanRetentionCleanup, startAuditLogCleanup } = require('./db/init');
+const { initDatabase, validateEnv, startPlanRetentionCleanup, startAuditLogCleanup, startAuthTokensCleanup } = require('./db/init');
 const authApi = require('./api/auth');
 const plansApi = require('./api/plans');
 const adminApi = require('./api/admin');
@@ -126,6 +126,8 @@ async function start() {
     // Audit-Log-Cleanup: hält die plan_update-Historie schlank (Default 30 Tage,
     // konfigurierbar via AUDIT_PLAN_UPDATE_RETENTION_DAYS). Unabhängig von der Plan-Retention.
     startAuditLogCleanup(getDb());
+    // auth_tokens-Cleanup: verbrauchte/abgelaufene Einmal-Tokens täglich bereinigen.
+    startAuthTokensCleanup(getDb());
 
     // Pragma-Queue der Haupt-Connection (foreign_keys, journal_mode=DELETE,
     // busy_timeout) abwarten, BEVOR der Session-Store seine eigene Connection auf
