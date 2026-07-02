@@ -812,3 +812,135 @@ test('Scenario 11: Partial recalculation (generate(startDay=3)) preserves earlie
     'Should have people assigned in days 0-2'
   );
 });
+
+// ============================================================
+// Regression tests for Issue #397: Zwangszuweisung Slot-Überlauf
+// ============================================================
+
+/**
+ * Collects every person ID that appears anywhere in the day's schedule
+ * (tower occupants, boat occupants, HW mainGuards + base + bootsfLeft + fuehrung + sick).
+ */
+function collectAllPersonIdsOnDay(schedule, dayIdx) {
+  const ids = new Set();
+  schedule[dayIdx].assign.forEach(slot => {
+    (slot.occupants || []).forEach(p => ids.add(p.id));
+    (slot.mainGuards || []).forEach(p => ids.add(p.id));
+    (slot.fuehrung || []).forEach(p => ids.add(p.id));
+    (slot.base || []).forEach(p => ids.add(p.id));
+    (slot.bootsfLeft || []).forEach(p => ids.add(p.id));
+    (slot.sick || []).forEach(p => ids.add(p.id));
+    if (slot.bootsf) ids.add(slot.bootsf.id);
+  });
+  return ids;
+}
+
+test('Regression #397a: Forced person on full tower slot still appears in plan (at HW)', (t) => {
+  // Build a scenario: 1 tower with slotCount=1, force 2 persons onto it.
+  // The 2nd forced person must not disappear; she must appear at HW.
+  const setup = `
+    resetGlobalState();
+    uid = 0; people = []; towers = []; boats = [];
+    towers.push({ id:++uid, name:'T1', prio:1, code:'T1', slotCount:1, leaderCount:0 });
+    towers.push({ id:++uid, name:'T2', prio:2, code:'T2', slotCount:2, leaderCount:0 });
+    people.push({ id:++uid, name:'F1', role:'F', experienced:true });
+    people.push({ id:++uid, name:'P1', role:'W', experienced:true  });
+    people.push({ id:++uid, name:'P2', role:'W', experienced:false });
+    people.push({ id:++uid, name:'P3', role:'W', experienced:true  });
+    people.push({ id:++uid, name:'P4', role:'W', experienced:false });
+    DAYS = 1; mainK = 1; randomSeed = 0;
+    dayState = freshDayState();
+    forcedPlacements = freshForcedPlacements();
+    exportColumns = Array(16).fill('');
+    var fullTowerId = towers[0].id;
+    var forced1Id = people[1].id; // P1
+    var forced2Id = people[2].id; // P2
+    // Force both P1 and P2 onto the 1-slot tower → P2 overflows
+    forcedPlacements[0].push({ personId: forced1Id, kind:'tower', slotId: fullTowerId, transparent:false });
+    forcedPlacements[0].push({ personId: forced2Id, kind:'tower', slotId: fullTowerId, transparent:false });
+    generate();
+    lastResult;
+  `;
+  const res = vm.runInContext(setup, ctx);
+  const schedule = res.schedule;
+  const dayState = vm.runInContext('dayState', ctx);
+  const towers = vm.runInContext('towers', ctx);
+  const boats = vm.runInContext('boats', ctx);
+  const people = vm.runInContext('people', ctx);
+
+  // Core invariants must hold
+  const failures = [];
+  failures.push(...checkNoDuplicates(schedule, 0));
+  failures.push(...checkNoClosedAssigned(schedule, dayState, 0, towers, boats));
+  failures.push(...checkSlotCounts(schedule, 0, towers));
+  assert.equal(failures.length, 0, `Invariants violated:\n${failures.join('\n')}`);
+
+  // Both P1 and P2 must appear somewhere in the plan (P2 should land at HW)
+  const allIds = collectAllPersonIdsOnDay(schedule, 0);
+  const p1id = people[1].id, p2id = people[2].id;
+  assert.ok(allIds.has(p1id), `P1 (id=${p1id}) should appear in plan`);
+  assert.ok(allIds.has(p2id), `P2 (id=${p2id}) must not disappear when tower is full – should land at HW`);
+
+  // P2 must NOT be on the 1-slot tower (that would violate slotCount)
+  const towerSlot = schedule[0].assign.find(s => s.kind === 'tower' && s.towerId === towers[0].id);
+  if (towerSlot) {
+    const onTower = towerSlot.occupants.map(p => p.id);
+    assert.equal(onTower.filter(id => id === p2id).length, 0, `P2 must not be on the full tower`);
+  }
+
+  // P2 must be in HW mainGuards (active HW duty, not overflow/base)
+  const mainSlot = schedule[0].assign.find(s => s.kind === 'main');
+  assert.ok(mainSlot, 'main slot must exist');
+  const inMainGuards = (mainSlot.mainGuards || []).some(p => p.id === p2id);
+  assert.ok(inMainGuards, `P2 (id=${p2id}) should be an active HW guard when tower overflow`);
+});
+
+test('Regression #397b: Forced person on closed boat still appears in plan (at HW)', (t) => {
+  // Force P1 onto a boat, then close that boat.
+  // P1 must not disappear; she must appear at HW.
+  const setup = `
+    resetGlobalState();
+    uid = 0; people = []; towers = []; boats = [];
+    towers.push({ id:++uid, name:'T1', prio:1, code:'T1', slotCount:2, leaderCount:0 });
+    boats.push({ id:++uid, name:'B1', code:'B1', towerId: towers[0].id, prio:1, slotCount:1 });
+    people.push({ id:++uid, name:'F1', role:'F', experienced:true });
+    people.push({ id:++uid, name:'BF1', role:'B', experienced:true });
+    people.push({ id:++uid, name:'P1', role:'W', experienced:true  });
+    people.push({ id:++uid, name:'P2', role:'W', experienced:false });
+    people.push({ id:++uid, name:'P3', role:'W', experienced:true  });
+    DAYS = 1; mainK = 1; randomSeed = 0;
+    dayState = freshDayState();
+    forcedPlacements = freshForcedPlacements();
+    exportColumns = Array(16).fill('');
+    var closedBoatId = boats[0].id;
+    var forcedPersonId = people[2].id; // P1 (W, experienced)
+    // Force P1 onto the boat
+    forcedPlacements[0].push({ personId: forcedPersonId, kind:'boat', slotId: closedBoatId, transparent:false });
+    // Close the boat
+    dayState[0].closedBoats.add(closedBoatId);
+    generate();
+    lastResult;
+  `;
+  const res = vm.runInContext(setup, ctx);
+  const schedule = res.schedule;
+  const dayState = vm.runInContext('dayState', ctx);
+  const towers = vm.runInContext('towers', ctx);
+  const boats = vm.runInContext('boats', ctx);
+  const people = vm.runInContext('people', ctx);
+
+  const failures = [];
+  failures.push(...checkNoDuplicates(schedule, 0));
+  failures.push(...checkNoClosedAssigned(schedule, dayState, 0, towers, boats));
+  failures.push(...checkSlotCounts(schedule, 0, towers));
+  assert.equal(failures.length, 0, `Invariants violated:\n${failures.join('\n')}`);
+
+  // Closed boat must have no occupants
+  const closedBoatId = boats[0].id;
+  const boatSlot = schedule[0].assign.find(s => s.kind === 'boat' && s.boatId === closedBoatId);
+  assert.ok(!boatSlot, 'Closed boat must not appear as an assigned slot');
+
+  // P1 must appear somewhere (should land at HW, not disappear)
+  const forcedPersonId = people[2].id;
+  const allIds397b = collectAllPersonIdsOnDay(schedule, 0);
+  assert.ok(allIds397b.has(forcedPersonId), `P1 (id=${forcedPersonId}) must not disappear when forced boat is closed – should land at HW`);
+});
