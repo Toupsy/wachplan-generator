@@ -97,7 +97,23 @@ function renderOutput(){
         const s = dayClone.assign.find(s => s.kind === 'tower' && s.towerId === f.slotId);
         if(s) s.occupants.push(person);
       } else if(f.kind === 'boat'){
-        const s = dayClone.assign.find(s => s.kind === 'boat' && s.boatId === f.slotId);
+        let s = dayClone.assign.find(s => s.kind === 'boat' && s.boatId === f.slotId);
+        if(!s){
+          // Boot war in boatsNoBootsf (kein BF) → Slot anlegen, analog zur Turm-Logik
+          const boatObj = boats.find(b => b.id === f.slotId);
+          if(boatObj){
+            s = {
+              kind: 'boat', boatId: f.slotId,
+              name: boatObj.name, code: boatObj.code || '?',
+              prio: boatObj.prio ?? 0,
+              towerId: boatObj.towerId ?? null,
+              towerName: boatObj.towerId === 'HW' ? 'Hauptwache' : (getT(boatObj.towerId)?.name || '?'),
+              occupants: [], bootsf: null
+            };
+            dayClone.assign.push(s);
+            dayClone.boatsNoBootsf = (dayClone.boatsNoBootsf || []).filter(b => b.id !== f.slotId);
+          }
+        }
         if(s){
           s.occupants.push(person);
           s.bootsf = s.occupants[0];
@@ -678,8 +694,8 @@ function renderOutput(){
       const targetKind = card.dataset.dropKind;
       const targetSlot = +card.dataset.dropSlot;
 
-      // Validierung
-      if(!['tower', 'main', 'hwboat'].includes(targetKind)) {
+      // Validierung (geschlossene Türme ablehnen – dragover hebt sie ohnehin nicht hervor)
+      if(!['tower', 'main', 'hwboat'].includes(targetKind) || card.classList.contains('closed')) {
         clearCard();
         dragSrc = null;
         return;
