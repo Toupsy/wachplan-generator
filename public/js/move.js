@@ -129,7 +129,23 @@ function _applyMoveToSchedule(personId, dayIdx, kind, slotId){
     const s = dayData.assign.find(s => s.kind === 'tower' && s.towerId === slotId);
     if(s) s.occupants.push(person);
   } else if(kind === 'boat'){
-    const s = dayData.assign.find(s => s.kind === 'boat' && s.boatId === slotId);
+    let s = dayData.assign.find(s => s.kind === 'boat' && s.boatId === slotId);
+    if(!s){
+      // Boot war in boatsNoBootsf (kein BF) → Slot anlegen, analog zur Turm-Logik
+      const boatObj = boats.find(b => b.id === slotId);
+      if(boatObj){
+        s = {
+          kind: 'boat', boatId: slotId,
+          name: boatObj.name, code: boatObj.code || '?',
+          prio: boatObj.prio ?? 0,
+          towerId: boatObj.towerId ?? null,
+          towerName: boatObj.towerId === 'HW' ? 'Hauptwache' : (getT(boatObj.towerId)?.name || '?'),
+          occupants: [], bootsf: null
+        };
+        dayData.assign.push(s);
+        dayData.boatsNoBootsf = (dayData.boatsNoBootsf || []).filter(b => b.id !== slotId);
+      }
+    }
     if(s){ s.occupants.push(person); if(!s.bootsf) s.bootsf = person; }
   } else if(kind === 'main'){
     const m = dayData.assign.find(s => s.kind === 'main');
